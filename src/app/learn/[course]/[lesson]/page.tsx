@@ -201,7 +201,7 @@ export default function LessonPage({ params }: { params: Promise<{ course: strin
     });
 
     if (res.ok) {
-      setCompletedLessons(prev => new Set([...prev, params.lesson]));
+      setCompletedLessons(prev => new Set([...prev, lessonId]));
       if (nextLesson) router.push(`/learn/${course}/${nextLesson.id}`);
     }
     setMarking(false);
@@ -226,7 +226,7 @@ export default function LessonPage({ params }: { params: Promise<{ course: strin
             </div>
             {module.lessons.map((l) => {
               const done = completedLessons.has(l.id);
-              const active = l.id === params.lesson;
+              const active = l.id === lessonId;
               return (
                 <Link
                   key={l.id}
