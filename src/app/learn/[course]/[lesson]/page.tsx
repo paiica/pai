@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -145,18 +145,19 @@ function QuizPlayer({ questions, onComplete }: { questions: QuizQuestion[]; onCo
   );
 }
 
-export default function LessonPage({ params }: { params: { course: string; lesson: string } }) {
+export default function LessonPage({ params }: { params: Promise<{ course: string; lesson: string }> }) {
+  const { course, lesson: lessonId } = use(params);
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [marking, setMarking] = useState(false);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
 
-  const cert = getCertificationBySlug(params.course);
+  const cert = getCertificationBySlug(course);
   if (!cert) return null;
 
   const allLessons = cert.curriculum.flatMap(m => m.lessons);
-  const currentIndex = allLessons.findIndex(l => l.id === params.lesson);
+  const currentIndex = allLessons.findIndex(l => l.id === lessonId);
   const lesson: Lesson | undefined = allLessons[currentIndex];
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
   const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
@@ -167,7 +168,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.push(`/login?redirect=/learn/${params.course}/${params.lesson}`); return; }
+      if (!user) { router.push(`/login?redirect=/learn/${course}/${lessonId}`); return; }
 
       const { data: enroll } = await supabase
         .from("enrollments")
@@ -176,7 +177,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
         .eq("certification_id", cert.id)
         .single();
 
-      if (!enroll) { router.push(`/certifications/${params.course}`); return; }
+      if (!enroll) { router.push(`/certifications/${course}`); return; }
       setEnrollmentId(enroll.id);
 
       const { data: progress } = await supabase
@@ -187,7 +188,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
 
       setCompletedLessons(new Set((progress || []).map((r: any) => r.lesson_id)));
     });
-  }, [params.course, params.lesson]);
+  }, [course, lessonId]);
 
   async function markComplete() {
     if (!enrollmentId || marking) return;
@@ -196,24 +197,24 @@ export default function LessonPage({ params }: { params: { course: string; lesso
     const res = await fetch("/api/lms/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lessonId: params.lesson, certificationId: cert.id, enrollmentId }),
+      body: JSON.stringify({ lessonId, certificationId: cert.id, enrollmentId }),
     });
 
     if (res.ok) {
       setCompletedLessons(prev => new Set([...prev, params.lesson]));
-      if (nextLesson) router.push(`/learn/${params.course}/${nextLesson.id}`);
+      if (nextLesson) router.push(`/learn/${course}/${nextLesson.id}`);
     }
     setMarking(false);
   }
 
   if (!lesson) return <div className="min-h-screen flex items-center justify-center text-slate-400">Lesson not found.</div>;
 
-  const isDone = completedLessons.has(lesson.id);
+  const isDone = completedLessons.has(lessonId);
 
   const Sidebar = () => (
     <div className="h-full overflow-y-auto">
       <div className="p-4 border-b border-slate-100">
-        <Link href={`/learn/${params.course}`} className="flex items-center gap-2 text-sm font-semibold text-navy-800 hover:text-navy-600">
+        <Link href={`/learn/${course}`} className="flex items-center gap-2 text-sm font-semibold text-navy-800 hover:text-navy-600">
           <ChevronLeft size={16} /> {cert.acronym} Overview
         </Link>
       </div>
@@ -229,7 +230,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
               return (
                 <Link
                   key={l.id}
-                  href={`/learn/${params.course}/${l.id}`}
+                  href={`/learn/${course}/${l.id}`}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
@@ -354,7 +355,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
             {/* Navigation */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
               {prevLesson ? (
-                <Link href={`/learn/${params.course}/${prevLesson.id}`}
+                <Link href={`/learn/${course}/${prevLesson.id}`}
                   className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-navy-900 transition-colors">
                   <ChevronLeft size={16} /> Previous
                 </Link>
@@ -377,7 +378,7 @@ export default function LessonPage({ params }: { params: { course: string; lesso
               )}
 
               {nextLesson ? (
-                <Link href={`/learn/${params.course}/${nextLesson.id}`}
+                <Link href={`/learn/${course}/${nextLesson.id}`}
                   className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-navy-900 transition-colors">
                   Next <ChevronRight size={16} />
                 </Link>
