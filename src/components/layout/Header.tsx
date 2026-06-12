@@ -150,7 +150,7 @@ export default function Header() {
                   My Dashboard
                 </Link>
                 <Link
-                  href="/learn"
+                  href="/lms"
                   className="flex items-center gap-1.5 bg-gold-500 hover:bg-gold-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all duration-200 shadow-gold hover:shadow-lg hover:-translate-y-0.5"
                 >
                   <GraduationCap size={15} />
@@ -239,7 +239,7 @@ export default function Header() {
                     My Dashboard
                   </Link>
                   <Link
-                    href="/learn"
+                    href="/lms"
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold-500 text-white font-bold text-sm hover:bg-gold-400 transition-colors"
                   >
                     <GraduationCap size={15} />

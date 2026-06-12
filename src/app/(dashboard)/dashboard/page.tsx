@@ -64,7 +64,7 @@ export default async function DashboardPage() {
 
           {/* LMS Banner */}
           <Link
-            href="/learn"
+            href="/lms"
             className="flex items-center justify-between gap-4 bg-gradient-to-r from-navy-800 to-navy-700 rounded-2xl p-5 mb-6 border border-navy-600 hover:from-navy-700 hover:to-navy-600 transition-all group"
           >
             <div className="flex items-center gap-4">
@@ -195,7 +195,7 @@ export default async function DashboardPage() {
                 <h3 className="font-display font-bold text-base mb-4">Quick Actions</h3>
                 <div className="space-y-2">
                   <Link
-                    href="/learn"
+                    href="/lms"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 transition-colors text-sm text-white/80 hover:text-white"
                   >
                     <GraduationCap size={14} className="text-gold-400" />

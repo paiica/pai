@@ -13,7 +13,7 @@ const FOOTER_LINKS = {
   "Resources & Learning": [
     { label: "AI Foundations (Free)", href: "/ai-foundations" },
     { label: "Learning Path", href: "/learning-path" },
-    { label: "My Learning", href: "/learn" },
+    { label: "My Learning (LMS)", href: "/lms" },
     { label: "Corporate Training", href: "/corporate" },
     { label: "Verify a Certificate", href: "/verify" },
   ],
