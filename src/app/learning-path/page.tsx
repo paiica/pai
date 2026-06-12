@@ -32,7 +32,7 @@ const LEVELS = [
       "Key AI terminology for professionals",
       "How to evaluate AI tools",
     ],
-    href: "/certifications",
+    href: "/ai-foundations",
     cta: "Start Free",
   },
   {
