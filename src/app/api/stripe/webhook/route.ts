@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/server";
 import { generateCertificateId, calculateExpiryDate } from "@/lib/utils";
 import { getCertificationBySlug } from "@/lib/certifications-data";
@@ -15,8 +14,12 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
 
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  const stripeClient = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
+
   try {
-    event = stripe.webhooks.constructEvent(
+    event = stripeClient.webhooks.constructEvent(
       body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
