@@ -26,7 +26,7 @@ function RegisterForm() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
@@ -37,7 +37,13 @@ function RegisterForm() {
 
       if (error) {
         toast.error(error.message);
+      } else if (data.session) {
+        // Email confirmation disabled — user is logged in immediately
+        const redirectTo = certification ? `/certifications/${certification}` : "/dashboard";
+        router.push(redirectTo);
+        router.refresh();
       } else {
+        // Email confirmation enabled — show check email screen
         setSuccess(true);
       }
     } catch {
