@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import Header from "@/components/layout/Header";
 import {
   Users, Award, BookOpen, BarChart3, Shield, DollarSign,
-  TrendingUp, Plus, Search, Filter, CheckCircle2, Clock, XCircle
+  TrendingUp, Plus, CheckCircle2, Clock, XCircle, FileText,
+  AlertCircle,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import ApplicationActions from "./ApplicationActions";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -14,7 +16,6 @@ export default async function AdminPage() {
 
   if (!user) redirect("/login?redirect=/admin");
 
-  // Check admin role
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -23,56 +24,55 @@ export default async function AdminPage() {
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  // Fetch analytics data
   const [
     { count: totalStudents },
     { count: totalEnrollments },
     { count: totalCertificates },
+    { count: pendingCount },
+    { data: pendingApplications },
     { data: recentEnrollments },
-    { data: recentCertificates },
   ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("enrollments").select("*", { count: "exact", head: true }),
     supabase.from("certificates").select("*", { count: "exact", head: true }),
+    supabase.from("applications").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
+    supabase
+      .from("applications")
+      .select("*")
+      .eq("status", "pending_review")
+      .order("created_at", { ascending: false })
+      .limit(20),
     supabase
       .from("enrollments")
-      .select("*, profiles(full_name, email), certifications(title, acronym)")
+      .select("*, profiles(full_name, email)")
       .order("enrolled_at", { ascending: false })
-      .limit(10),
-    supabase
-      .from("certificates")
-      .select("*")
-      .order("issue_date", { ascending: false })
-      .limit(10),
+      .limit(8),
   ]);
 
   const STATS = [
-    { label: "Total Students", value: totalStudents || 0, icon: Users, change: "+12%", color: "bg-blue-50 text-blue-600" },
-    { label: "Active Enrollments", value: totalEnrollments || 0, icon: BookOpen, change: "+8%", color: "bg-gold-50 text-gold-600" },
-    { label: "Certificates Issued", value: totalCertificates || 0, icon: Award, change: "+15%", color: "bg-emerald-50 text-emerald-600" },
-    { label: "Est. Revenue", value: formatCurrency((totalEnrollments || 0) * 495), icon: DollarSign, change: "+8%", color: "bg-purple-50 text-purple-600" },
+    { label: "Total Students", value: totalStudents || 0, icon: Users, color: "bg-blue-50 text-blue-600" },
+    { label: "Active Enrollments", value: totalEnrollments || 0, icon: BookOpen, color: "bg-gold-50 text-gold-600" },
+    { label: "Certificates Issued", value: totalCertificates || 0, icon: Award, color: "bg-emerald-50 text-emerald-600" },
+    { label: "Pending Review", value: pendingCount || 0, icon: Clock, color: "bg-amber-50 text-amber-600" },
   ];
+
+  const CERT_NAMES: Record<string, string> = {
+    "caip-001": "CAIP",
+    "caim-001": "CAIM",
+    "caie-001": "CAIE",
+    "caida-001": "CAIDA",
+  };
 
   return (
     <>
       <Header />
       <main className="min-h-screen bg-slate-50 pt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          {/* Header */}
+
           <div className="flex items-center justify-between mb-8">
             <div>
               <div className="badge-gold mb-2">Admin Panel</div>
               <h1 className="text-3xl font-display font-black text-navy-900">PAI Admin Dashboard</h1>
-            </div>
-            <div className="flex gap-3">
-              <button className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2.5 rounded-xl hover:border-slate-300 transition-colors shadow-sm">
-                <BarChart3 size={15} />
-                Reports
-              </button>
-              <button className="inline-flex items-center gap-2 bg-navy-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-navy-700 transition-colors">
-                <Plus size={15} />
-                Issue Certificate
-              </button>
             </div>
           </div>
 
@@ -84,9 +84,11 @@ export default async function AdminPage() {
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.color}`}>
                     <stat.icon size={18} />
                   </div>
-                  <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {stat.change}
-                  </span>
+                  {stat.label === "Pending Review" && (stat.value as number) > 0 && (
+                    <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full animate-pulse">
+                      Action needed
+                    </span>
+                  )}
                 </div>
                 <div className="text-3xl font-display font-black text-navy-900 mb-0.5">{stat.value}</div>
                 <div className="text-slate-500 text-xs font-medium">{stat.label}</div>
@@ -94,43 +96,105 @@ export default async function AdminPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Enrollments */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="font-display font-bold text-navy-900 text-base">Recent Enrollments</h2>
-                <div className="flex gap-2">
-                  <button className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-600">
-                    <Search size={14} />
-                  </button>
-                  <button className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-600">
-                    <Filter size={14} />
-                  </button>
-                </div>
+          {/* ── Pending Applications (primary action area) ── */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-card mb-6">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="font-display font-bold text-navy-900 text-base">Pending Applications</h2>
+                {(pendingCount || 0) > 0 && (
+                  <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                    {pendingCount} awaiting review
+                  </span>
+                )}
               </div>
-              <div className="divide-y divide-slate-50 max-h-80 overflow-y-auto">
+              <div className="text-xs text-slate-400">Review each application and approve or reject</div>
+            </div>
+
+            {pendingApplications && pendingApplications.length > 0 ? (
+              <div className="divide-y divide-slate-50">
+                {pendingApplications.map((app: any) => (
+                  <div key={app.id} className="p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                      {/* Applicant info */}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-navy-800 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0">
+                          {(app.full_name || "?").slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-navy-900 text-sm">{app.full_name}</div>
+                          <div className="text-slate-400 text-xs truncate">{app.email}</div>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="bg-navy-50 text-navy-700 px-2 py-1 rounded-lg font-semibold">
+                          {CERT_NAMES[app.certification_id] || app.certification_id}
+                        </span>
+                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg capitalize">
+                          {app.career_status}
+                        </span>
+                        {app.job_title && (
+                          <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg">
+                            {app.job_title}{app.company ? ` @ ${app.company}` : ""}
+                          </span>
+                        )}
+                        {app.university && (
+                          <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg">
+                            {app.university}
+                          </span>
+                        )}
+                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-lg">
+                          {app.country}
+                        </span>
+                        <span className="text-slate-400 px-2 py-1">
+                          Applied {formatDate(app.created_at)}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <ApplicationActions applicationId={app.id} />
+                    </div>
+
+                    {/* Motivation */}
+                    {app.motivation && (
+                      <div className="mt-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Motivation</p>
+                        <p className="text-sm text-slate-600 leading-relaxed line-clamp-3">{app.motivation}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center">
+                <CheckCircle2 size={36} className="text-emerald-300 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">No pending applications. All caught up!</p>
+              </div>
+            )}
+          </div>
+
+          {/* Recent Enrollments */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
+              <div className="p-5 border-b border-slate-100">
+                <h2 className="font-display font-bold text-navy-900 text-base">Recent Enrollments</h2>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
                 {recentEnrollments && recentEnrollments.length > 0 ? (
-                  recentEnrollments.map((enrollment: any) => (
-                    <div key={enrollment.id} className="flex items-center gap-3 p-4">
+                  recentEnrollments.map((e: any) => (
+                    <div key={e.id} className="flex items-center gap-3 p-4">
                       <div className="w-8 h-8 bg-navy-800 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {(enrollment.profiles?.full_name || "U").slice(0, 1).toUpperCase()}
+                        {(e.profiles?.full_name || "U").slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-navy-900 truncate">
-                          {enrollment.profiles?.full_name || enrollment.profiles?.email}
+                          {e.profiles?.full_name || e.profiles?.email}
                         </div>
-                        <div className="text-xs text-slate-400">
-                          {enrollment.certifications?.acronym} · {formatDate(enrollment.enrolled_at)}
-                        </div>
+                        <div className="text-xs text-slate-400">{formatDate(e.enrolled_at)}</div>
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize flex-shrink-0 ${
-                        enrollment.status === "completed"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : enrollment.status === "in_progress"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}>
-                        {enrollment.status.replace("_", " ")}
+                      <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                        Enrolled
                       </span>
                     </div>
                   ))
@@ -140,65 +204,25 @@ export default async function AdminPage() {
               </div>
             </div>
 
-            {/* Recent Certificates */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="font-display font-bold text-navy-900 text-base">Certificates Issued</h2>
-                <button className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gold-50 text-gold-700 px-3 py-1.5 rounded-lg hover:bg-gold-100 transition-colors">
-                  <Plus size={12} />
-                  Issue New
-                </button>
-              </div>
-              <div className="divide-y divide-slate-50 max-h-80 overflow-y-auto">
-                {recentCertificates && recentCertificates.length > 0 ? (
-                  recentCertificates.map((cert: any) => (
-                    <div key={cert.id} className="flex items-center gap-3 p-4">
-                      <div className="w-8 h-8 bg-gold-50 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Award size={14} className="text-gold-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-navy-900 truncate">{cert.student_name}</div>
-                        <div className="text-xs text-slate-400 font-mono">{cert.certificate_id}</div>
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          cert.status === "active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-red-50 text-red-700"
-                        }`}>
-                          {cert.status}
-                        </span>
-                        <div className="text-xs text-slate-400 mt-0.5">{formatDate(cert.issue_date)}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-8 text-center text-slate-400 text-sm">No certificates issued yet</div>
-                )}
-              </div>
-            </div>
-
             {/* Admin Quick Actions */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
               <h2 className="font-display font-bold text-navy-900 text-base mb-5">Admin Actions</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: "Manage Students", icon: Users, color: "bg-blue-50 text-blue-700", href: "/admin/students" },
                   { label: "Issue Certificate", icon: Award, color: "bg-gold-50 text-gold-700", href: "/admin/certificates/new" },
                   { label: "View Analytics", icon: BarChart3, color: "bg-purple-50 text-purple-700", href: "/admin/analytics" },
-                  { label: "Verification Logs", icon: Shield, color: "bg-emerald-50 text-emerald-700", href: "/admin/verifications" },
-                  { label: "Manage Certifications", icon: BookOpen, color: "bg-navy-50 text-navy-700", href: "/admin/certifications" },
-                  { label: "Testimonials", icon: CheckCircle2, color: "bg-teal-50 text-teal-700", href: "/admin/testimonials" },
+                  { label: "Verify Certificates", icon: Shield, color: "bg-emerald-50 text-emerald-700", href: "/verify" },
                   { label: "Payments", icon: DollarSign, color: "bg-rose-50 text-rose-700", href: "/admin/payments" },
-                  { label: "Export Data", icon: TrendingUp, color: "bg-amber-50 text-amber-700", href: "/admin/export" },
+                  { label: "All Applications", icon: FileText, color: "bg-amber-50 text-amber-700", href: "/admin/applications" },
                 ].map(({ label, icon: Icon, color, href }) => (
                   <Link
                     key={label}
                     href={href}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all text-center group"
+                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group"
                   >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} group-hover:scale-105 transition-transform`}>
-                      <Icon size={18} />
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+                      <Icon size={15} />
                     </div>
                     <span className="text-xs font-semibold text-slate-700">{label}</span>
                   </Link>

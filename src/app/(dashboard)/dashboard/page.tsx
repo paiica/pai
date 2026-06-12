@@ -13,8 +13,8 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login?redirect=/dashboard");
 
-  // Fetch enrollments + certificates
-  const [{ data: enrollments }, { data: certificates }] = await Promise.all([
+  // Fetch enrollments + certificates + pending applications
+  const [{ data: enrollments }, { data: certificates }, { data: pendingApps }] = await Promise.all([
     supabase
       .from("enrollments")
       .select("*, certifications(title, acronym, badge_icon, level)")
@@ -25,6 +25,11 @@ export default async function DashboardPage() {
       .select("*")
       .eq("user_id", user.id)
       .order("issue_date", { ascending: false }),
+    supabase
+      .from("applications")
+      .select("id, certification_id, status, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "pending_review"),
   ]);
 
   const firstName = user.user_metadata?.full_name?.split(" ")[0] || "Professional";
@@ -61,6 +66,23 @@ export default async function DashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Pending Application Banner */}
+          {pendingApps && pendingApps.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 flex items-start gap-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Clock size={20} className="text-amber-600" />
+              </div>
+              <div>
+                <div className="font-display font-bold text-amber-900 text-base">
+                  Application Under Review
+                </div>
+                <div className="text-amber-700 text-sm mt-0.5">
+                  Your application{pendingApps.length > 1 ? "s are" : " is"} being reviewed by the PAI team. You&apos;ll receive an email once a decision has been made (typically 3–5 business days).
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* LMS Banner */}
           <Link

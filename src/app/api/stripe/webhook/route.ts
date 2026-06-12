@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createAdminClient } from "@/lib/supabase/server";
-import { generateCertificateId, calculateExpiryDate } from "@/lib/utils";
-import { getCertificationBySlug } from "@/lib/certifications-data";
+import { createClient } from "@supabase/supabase-js";
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -12,12 +18,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
-  let event: Stripe.Event;
-
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  if (!stripeKey) {
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  }
+
   const stripeClient = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
 
+  let event: Stripe.Event;
   try {
     event = stripeClient.webhooks.constructEvent(
       body,
@@ -29,39 +37,53 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const supabase = await createAdminClient();
+  const admin = getAdminClient();
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const { userId, certificationId, certificationTitle } = session.metadata || {};
+    const { application_id, user_id, userId, certificationId } = session.metadata || {};
 
-    if (!userId || !certificationId) {
-      return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
+    if (application_id) {
+      // New flow: application-based enrollment
+      await admin
+        .from("applications")
+        .update({
+          status: "pending_review",
+          stripe_payment_intent_id: session.payment_intent as string,
+        })
+        .eq("id", application_id);
+
+      // Record payment
+      if (user_id) {
+        await admin.from("payments").upsert({
+          user_id,
+          stripe_payment_intent_id: session.payment_intent as string,
+          amount: (session.amount_total || 0) / 100,
+          currency: session.currency || "usd",
+          status: "succeeded",
+          application_id,
+        }, { onConflict: "stripe_payment_intent_id", ignoreDuplicates: true });
+      }
+    } else if (userId && certificationId) {
+      // Legacy direct-enrollment flow (kept for backwards compatibility)
+      await admin.from("enrollments").upsert({
+        user_id: userId,
+        certification_id: certificationId,
+        status: "enrolled",
+        progress_percentage: 0,
+        enrolled_at: new Date().toISOString(),
+        payment_id: session.payment_intent as string,
+      }, { onConflict: "user_id,certification_id", ignoreDuplicates: true });
+
+      await admin.from("payments").upsert({
+        user_id: userId,
+        certification_id: certificationId,
+        stripe_payment_intent_id: session.payment_intent as string,
+        amount: (session.amount_total || 0) / 100,
+        currency: session.currency || "usd",
+        status: "succeeded",
+      }, { onConflict: "stripe_payment_intent_id", ignoreDuplicates: true });
     }
-
-    // Create enrollment
-    await supabase.from("enrollments").insert({
-      user_id: userId,
-      certification_id: certificationId,
-      status: "enrolled",
-      progress_percentage: 0,
-      enrolled_at: new Date().toISOString(),
-      payment_id: session.payment_intent as string,
-    });
-
-    // Record payment
-    await supabase.from("payments").insert({
-      user_id: userId,
-      certification_id: certificationId,
-      stripe_payment_intent_id: session.payment_intent as string,
-      amount: (session.amount_total || 0) / 100,
-      currency: session.currency || "usd",
-      status: "succeeded",
-    });
-  }
-
-  if (event.type === "payment_intent.succeeded") {
-    // Additional payment tracking if needed
   }
 
   return NextResponse.json({ received: true });

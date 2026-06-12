@@ -26,16 +26,15 @@ export default async function LMSDashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirect=/lms");
 
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("*")
-    .eq("user_id", user.id);
-
-  const { data: progressRows } = await supabase
-    .from("lesson_progress")
-    .select("lesson_id, completed")
-    .eq("user_id", user.id)
-    .eq("completed", true);
+  const [
+    { data: enrollments },
+    { data: progressRows },
+    { data: pendingApps },
+  ] = await Promise.all([
+    supabase.from("enrollments").select("*").eq("user_id", user.id),
+    supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).eq("completed", true),
+    supabase.from("applications").select("certification_id, status, created_at").eq("user_id", user.id).eq("status", "pending_review"),
+  ]);
 
   const completedLessons = new Set((progressRows || []).map((r: any) => r.lesson_id));
 
@@ -84,6 +83,21 @@ export default async function LMSDashboard() {
           <h1 className="text-2xl font-display font-black text-navy-900">Welcome back, {userName}</h1>
           <p className="text-slate-400 text-sm mt-1">Continue your professional AI certification journey.</p>
         </div>
+
+        {/* Pending applications banner */}
+        {pendingApps && pendingApps.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 flex items-start gap-4">
+            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <BookOpen size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <div className="font-display font-bold text-amber-900">Application Under Review</div>
+              <p className="text-amber-700 text-sm mt-0.5">
+                You have {pendingApps.length === 1 ? "an application" : `${pendingApps.length} applications`} currently being reviewed by PAI. You&apos;ll receive an email with your access within 3–5 business days.
+              </p>
+            </div>
+          </div>
+        )}
 
         {enrolledCerts.length > 0 ? (
           <>

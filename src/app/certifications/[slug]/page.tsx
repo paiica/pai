@@ -117,11 +117,11 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                 </div>
 
                 <Link
-                  href={`/register?certification=${cert.slug}`}
+                  href={`/apply/${cert.slug}`}
                   className="w-full flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 text-white font-bold py-4 rounded-xl text-base transition-all duration-200 shadow-gold hover:shadow-lg hover:-translate-y-0.5 mb-3"
                 >
                   <Award size={18} />
-                  Enroll Now
+                  Apply Now
                 </Link>
                 <Link
                   href="/corporate"
@@ -213,11 +213,11 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                   </h2>
                   <div className="space-y-4">
                     {[
-                      { step: "01", title: "Enroll", desc: "Complete secure enrollment and gain immediate access to all course materials." },
-                      { step: "02", title: "Complete the Program", desc: `Work through all ${cert.curriculum.length} modules at your own pace over ${cert.duration_weeks} weeks.` },
-                      { step: "03", title: "Practice & Prepare", desc: "Use practice exams and study guides to prepare for the certification exam." },
-                      { step: "04", title: "Schedule & Take the Exam", desc: `Take the ${cert.exam_duration_minutes}-minute online proctored exam when you're ready. Score ${cert.passing_score}%+ to pass.` },
-                      { step: "05", title: "Receive Your Credential", desc: "Get your digital certificate, badge, and LinkedIn integration within 24 hours of passing." },
+                      { step: "01", title: "Submit Your Application", desc: "Complete the application form with your professional background and motivation. Takes about 5 minutes." },
+                      { step: "02", title: "Pay the Enrollment Fee", desc: `Secure payment of ${formatCurrency(cert.price)} via Stripe. Full refund if your application is not approved.` },
+                      { step: "03", title: "Application Review", desc: "PAI reviews your application within 3–5 business days. You'll receive an email with the decision." },
+                      { step: "04", title: "Complete the Program", desc: `Work through all ${cert.curriculum.length} modules at your own pace over ${cert.duration_weeks} weeks on our LMS.` },
+                      { step: "05", title: "Take the Exam & Get Certified", desc: `Pass the ${cert.exam_duration_minutes}-minute online exam (${cert.passing_score}%+) to earn your digital certificate and badge.` },
                     ].map((item) => (
                       <div key={item.step} className="flex items-start gap-5">
                         <div className="w-10 h-10 rounded-xl bg-gold-500 text-white flex items-center justify-center font-display font-black text-sm flex-shrink-0">
@@ -298,10 +298,10 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                   <h3 className="font-display font-bold text-lg mb-2">Ready to Get Certified?</h3>
                   <p className="text-white/60 text-sm mb-4">Join 3,200+ certified professionals</p>
                   <Link
-                    href={`/register?certification=${cert.slug}`}
+                    href={`/apply/${cert.slug}`}
                     className="w-full flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 text-white font-bold py-3 rounded-xl transition-all"
                   >
-                    Enroll for {formatCurrency(cert.price)}
+                    Apply for {formatCurrency(cert.price)}
                     <ArrowRight size={15} />
                   </Link>
                 </div>
