@@ -30,11 +30,22 @@ export interface CurriculumModule {
   lessons: Lesson[];
 }
 
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+  explanation?: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   type: "video" | "reading" | "quiz" | "assignment";
   duration_minutes: number;
+  is_preview?: boolean;
+  video_url?: string;
+  content?: string;
+  quiz_questions?: QuizQuestion[];
 }
 
 export interface Certificate {

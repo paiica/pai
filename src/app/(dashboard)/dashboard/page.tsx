@@ -63,8 +63,8 @@ export default async function DashboardPage() {
           </div>
 
           {/* LMS Banner */}
-          <a
-            href="/api/auth/lms-sso"
+          <Link
+            href="/learn"
             className="flex items-center justify-between gap-4 bg-gradient-to-r from-navy-800 to-navy-700 rounded-2xl p-5 mb-6 border border-navy-600 hover:from-navy-700 hover:to-navy-600 transition-all group"
           >
             <div className="flex items-center gap-4">
@@ -77,7 +77,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <ArrowRight size={20} className="text-white/40 group-hover:text-white group-hover:translate-x-1 transition-all flex-shrink-0" />
-          </a>
+          </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Enrollments */}
@@ -194,13 +194,13 @@ export default async function DashboardPage() {
               <div className="bg-navy-800 rounded-2xl p-5 text-white">
                 <h3 className="font-display font-bold text-base mb-4">Quick Actions</h3>
                 <div className="space-y-2">
-                  <a
-                    href="/api/auth/lms-sso"
+                  <Link
+                    href="/learn"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 transition-colors text-sm text-white/80 hover:text-white"
                   >
                     <GraduationCap size={14} className="text-gold-400" />
-                    My Learning (LMS)
-                  </a>
+                    My Learning
+                  </Link>
                   {[
                     { label: "Browse Certifications", href: "/certifications", icon: BookOpen },
                     { label: "Verify a Certificate", href: "/verify", icon: Shield },

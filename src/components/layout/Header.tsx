@@ -148,13 +148,13 @@ export default function Header() {
                   <LayoutDashboard size={15} />
                   My Dashboard
                 </Link>
-                <a
-                  href="/api/auth/lms-sso"
+                <Link
+                  href="/learn"
                   className="flex items-center gap-1.5 bg-gold-500 hover:bg-gold-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all duration-200 shadow-gold hover:shadow-lg hover:-translate-y-0.5"
                 >
                   <GraduationCap size={15} />
                   My Learning
-                </a>
+                </Link>
               </>
             ) : (
               <>
@@ -237,13 +237,13 @@ export default function Header() {
                     <LayoutDashboard size={15} />
                     My Dashboard
                   </Link>
-                  <a
-                    href="/api/auth/lms-sso"
+                  <Link
+                    href="/learn"
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold-500 text-white font-bold text-sm hover:bg-gold-400 transition-colors"
                   >
                     <GraduationCap size={15} />
                     My Learning
-                  </a>
+                  </Link>
                 </>
               ) : (
                 <>
