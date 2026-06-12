@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-plus-jakarta: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.75rem;
+
+  /* PAI Brand */
+  --pai-navy: #071326;
+  --pai-navy-light: #163A73;
+  --pai-gold: #4F46E5;
+  --pai-gold-light: #6366F1;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-inter);
+  color: #0F172A;
+  background: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-plus-jakarta);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #163A73;
+  border-radius: 3px;
+}
+
+/* Accent gradient text */
+.gold-text {
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Navy gradient text */
+.navy-text {
+  background: linear-gradient(135deg, #163A73 0%, #2960B6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Section spacing */
+.section-padding {
+  @apply py-20 md:py-28;
+}
+
+/* Container */
+.container-lg {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Card styles */
+.card-base {
+  @apply bg-white rounded-2xl shadow-card border border-slate-100 transition-all duration-300;
+}
+
+.card-base:hover {
+  @apply shadow-card-hover -translate-y-1;
+}
+
+/* Button base */
+.btn-primary {
+  @apply bg-navy-800 hover:bg-navy-700 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 inline-flex items-center gap-2;
+}
+
+.btn-gold {
+  @apply bg-gold-500 hover:bg-gold-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 inline-flex items-center gap-2;
+}
+
+.btn-outline {
+  @apply border-2 border-navy-800 text-navy-800 hover:bg-navy-800 hover:text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 inline-flex items-center gap-2;
+}
+
+/* Badge */
+.badge-gold {
+  @apply inline-flex items-center gap-1 bg-gold-500/10 text-gold-700 border border-gold-400/30 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide;
+}
+
+.badge-navy {
+  @apply inline-flex items-center gap-1 bg-navy-800/10 text-navy-700 border border-navy-400/30 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide;
+}
+
+/* Section header */
+.section-label {
+  @apply text-gold-600 font-semibold text-sm uppercase tracking-widest mb-3;
+}
+
+.section-title {
+  @apply text-3xl md:text-4xl lg:text-5xl font-display font-bold text-navy-900 leading-tight;
+}
+
+.section-subtitle {
+  @apply text-lg text-slate-600 leading-relaxed max-w-3xl;
+}
+
+/* Hero shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, #818CF8 25%, #C7D2FE 50%, #818CF8 75%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Certification card badge glow */
+.cert-badge-glow {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+}
+
+/* Divider */
+.divider-gold {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #6366F1, #4F46E5);
+  border-radius: 2px;
+}
