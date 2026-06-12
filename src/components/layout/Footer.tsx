@@ -11,11 +11,11 @@ const FOOTER_LINKS = {
     { label: "All Certifications", href: "/certifications" },
   ],
   "Resources & Learning": [
+    { label: "AI Foundations (Free)", href: "/ai-foundations" },
     { label: "Learning Path", href: "/learning-path" },
+    { label: "My Learning", href: "/learn" },
     { label: "Corporate Training", href: "/corporate" },
     { label: "Verify a Certificate", href: "/verify" },
-    { label: "Student Dashboard", href: "/dashboard" },
-    { label: "Exam Preparation", href: "/certifications/certified-ai-professional" },
   ],
   Organization: [
     { label: "About PAI", href: "/about" },

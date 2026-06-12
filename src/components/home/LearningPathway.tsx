@@ -14,7 +14,7 @@ const PATHWAY = [
     badge: "🌱",
     color: "bg-emerald-50 border-emerald-200 text-emerald-800",
     levelColor: "bg-emerald-500",
-    href: "/certifications",
+    href: "/ai-foundations",
     cta: "Start Free",
     available: true,
   },

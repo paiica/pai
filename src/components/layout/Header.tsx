@@ -17,6 +17,7 @@ const NAV_LINKS = [
     children: [
       { label: "All Certifications", href: "/certifications", desc: "Browse all PAI credentials" },
       { label: "Certified AI Professional (CAIP)", href: "/certifications/certified-ai-professional", desc: "Our flagship credential" },
+      { label: "AI Foundations (Free)", href: "/ai-foundations", desc: "Start here — free intro course" },
       { label: "Learning Path", href: "/learning-path", desc: "Structured progression" },
     ],
   },
