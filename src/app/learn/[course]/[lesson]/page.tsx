@@ -191,7 +191,7 @@ export default function LessonPage({ params }: { params: Promise<{ course: strin
   }, [course, lessonId]);
 
   async function markComplete() {
-    if (!enrollmentId || marking) return;
+    if (!enrollmentId || marking || !cert) return;
     setMarking(true);
 
     const res = await fetch("/api/lms/progress", {
