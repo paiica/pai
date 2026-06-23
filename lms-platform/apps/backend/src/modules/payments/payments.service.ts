@@ -15,9 +15,12 @@ export class PaymentsService {
     private config: ConfigService,
     private promoCodes: PromoCodesService,
   ) {
-    this.stripe = new Stripe(config.get<string>("stripe.secretKey") || "", {
-      apiVersion: "2025-02-24.acacia",
-    });
+    const stripeKey = config.get<string>("stripe.secretKey");
+    if (stripeKey) {
+      this.stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
+    } else {
+      this.logger.warn("STRIPE_SECRET_KEY not set — payments disabled");
+    }
   }
 
   // ─── Existing certification checkout (via application) ──────────────────────
