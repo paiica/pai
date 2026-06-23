@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, X, Search, GraduationCap } from "lucide-react";
+import { ChevronDown, Menu, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TopBar from "@/components/layout/TopBar";
 
@@ -75,19 +75,12 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 mr-6">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" style={{ height: `${logoHeight}px` }} className="w-auto object-contain" />
-            ) : (
-              <>
-                <div className="w-8 h-8 bg-ink-900 rounded-lg flex items-center justify-center">
-                  <GraduationCap size={17} className="text-white" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-display font-extrabold text-ink-900 leading-tight">Professional AI</div>
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-ink-900 leading-none">Institute</div>
-                </div>
-              </>
-            )}
+            <img
+              src={logoUrl || "/paii.logo.png"}
+              alt="Professional AI Institute"
+              style={{ height: `${logoHeight}px` }}
+              className="w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop nav */}
