@@ -32,7 +32,8 @@ function useCountdown(target: string | null) {
 
   useEffect(() => {
     if (!target) { setDiff(null); return; }
-    function tick() { setDiff(new Date(target).getTime() - Date.now()); }
+    const targetMs = new Date(target).getTime();
+    function tick() { setDiff(targetMs - Date.now()); }
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
