@@ -26,6 +26,7 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>("API_PREFIX", "api/v1");
   const nodeEnv = configService.get<string>("NODE_ENV", "development");
   const frontendUrl = configService.get<string>("FRONTEND_URL", "http://localhost:3001");
+  const allowedOrigins = frontendUrl.split(",").map((u) => u.trim()).filter(Boolean);
 
   // Security headers
   app.use(helmet({
@@ -34,7 +35,7 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: nodeEnv === "production" ? [frontendUrl] : true,
+    origin: nodeEnv === "production" ? allowedOrigins : true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Refresh-Token"],
