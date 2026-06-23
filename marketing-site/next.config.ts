@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, ".."),
   async rewrites() {
     const lmsOrigin = process.env.LMS_INTERNAL_URL || "http://localhost:3001";
     return [
