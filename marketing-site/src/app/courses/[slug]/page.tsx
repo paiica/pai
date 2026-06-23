@@ -5,7 +5,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import {
   CheckCircle2, Clock, BookOpen, ArrowRight, ChevronRight,
-  BarChart2, Lock,
+  BarChart2, Lock, ShoppingCart,
 } from "lucide-react";
 import EnrollButton from "@/components/EnrollButton";
 
