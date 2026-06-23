@@ -22,8 +22,9 @@ export default function VerifyPage() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.paii.ca/api/v1";
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/certificates/verify/${id.trim()}`,
+        `${apiUrl}/certificates/verify/${id.trim()}`,
         { signal: controller.signal }
       );
       clearTimeout(timeout);
