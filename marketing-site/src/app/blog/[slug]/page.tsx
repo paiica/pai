@@ -28,8 +28,9 @@ async function getPost(slug: string): Promise<Post | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await getPost(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPost(slug);
   if (!post) return { title: "Not Found" };
   return {
     title: post.title,
@@ -47,8 +48,9 @@ function formatDate(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
   if (!post) notFound();
 
   const postUrl = `${SITE_URL}/blog/${post.slug}`;
