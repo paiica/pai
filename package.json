@@ -1,0 +1,10 @@
+{
+  "name": "paii-root",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"marketing,portal,admin,backend,professors,exams,exam-admin\" -c \"blue,green,yellow,red,magenta,cyan,white\" \"npm --prefix marketing-site run dev\" \"npm --prefix lms-platform/apps/frontend run dev\" \"npm --prefix admin run dev\" \"npm --prefix lms-platform/apps/backend run dev\" \"npm --prefix professors run dev\" \"npm --prefix lms-platform/apps/paiiexams run dev\" \"npm --prefix lms-platform/apps/exam-admin run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

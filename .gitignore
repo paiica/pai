@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env.staging
+*.env
+
+# Logs
+*.log
+*.log.*
+logs/
+backend-stdout.txt
+backend-stderr.txt
+
+# Runtime / cache
+.turbo/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# User-uploaded content — never commit
+**/uploads/
+**/students-photos/
+**/public/uploads/
+
+# Prisma generated binary
+**/src/generated/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.vercel
+.netlify
