@@ -19,10 +19,14 @@ export default function VerifyPage() {
   async function verify(id: string) {
     if (!id.trim()) return;
     setStatus("loading");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://api.paii.ca"}/certificates/verify/${id.trim()}`
+        `${process.env.NEXT_PUBLIC_API_URL}/certificates/verify/${id.trim()}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeout);
       if (res.ok) {
         const json = await res.json();
         setResult(json.data ?? json);
@@ -32,6 +36,7 @@ export default function VerifyPage() {
         setResult(null);
       }
     } catch {
+      clearTimeout(timeout);
       setStatus("not_found");
     }
   }
@@ -93,7 +98,7 @@ export default function VerifyPage() {
                 />
                 <button
                   type="submit"
-                  disabled={status === "loading" || !certId.trim()}
+                  disabled={!certId.trim()}
                   className="w-full btn-dark !py-3 !text-sm justify-center disabled:opacity-50"
                 >
                   {status === "loading"
