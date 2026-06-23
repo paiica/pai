@@ -1,6 +1,17 @@
 {
   "name": "paii-root",
   "private": true,
+  "packageManager": "npm@10.0.0",
+  "workspaces": [
+    "marketing-site",
+    "admin",
+    "professors",
+    "lms-platform/apps/frontend",
+    "lms-platform/apps/backend",
+    "lms-platform/apps/paiiexams",
+    "lms-platform/apps/exam-admin",
+    "lms-platform/shared"
+  ],
   "scripts": {
     "dev": "concurrently -n \"marketing,portal,admin,backend,professors,exams,exam-admin\" -c \"blue,green,yellow,red,magenta,cyan,white\" \"npm --prefix marketing-site run dev\" \"npm --prefix lms-platform/apps/frontend run dev\" \"npm --prefix admin run dev\" \"npm --prefix lms-platform/apps/backend run dev\" \"npm --prefix professors run dev\" \"npm --prefix lms-platform/apps/paiiexams run dev\" \"npm --prefix lms-platform/apps/exam-admin run dev\""
   },
