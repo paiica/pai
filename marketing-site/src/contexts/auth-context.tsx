@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-const LMS = process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3000/lms";
+const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
 const AUTH_KEY = "pai-auth";
 
 type UserProfile = {
