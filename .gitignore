@@ -41,9 +41,10 @@ Thumbs.db
 *.swo
 
 # User-uploaded content — never commit
-**/uploads/
-**/students-photos/
 **/public/uploads/
+**/static/uploads/
+**/students-photos/
+lms-platform/apps/backend/uploads/
 
 # Prisma generated binary
 **/src/generated/
