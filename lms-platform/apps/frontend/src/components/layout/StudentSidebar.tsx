@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
-  GraduationCap, LayoutDashboard, BookOpen, Award,
+  LayoutDashboard, BookOpen, Award,
   User, LogOut, FileText, BarChart2, ChevronLeft, ChevronRight, ExternalLink, Shield,
   Wrench, ChevronDown, Lock, Bell, CreditCard,
 } from "lucide-react";
@@ -220,14 +220,10 @@ export default function StudentSidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-slate-100 flex-shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <GraduationCap size={18} className="text-white" />
-          </div>
-          {!collapsed && (
-            <div className="leading-tight overflow-hidden">
-              <div className="text-xs font-display font-black text-ink-900 leading-none truncate">PAI Portal</div>
-              <div className="text-[9px] text-teal-600 uppercase tracking-widest">Learning</div>
-            </div>
+          {collapsed ? (
+            <img src="/paii.logo.png" alt="PAI" className="w-8 h-8 object-contain flex-shrink-0" />
+          ) : (
+            <img src="/paii.logo.png" alt="Professional AI Institute" className="h-8 w-auto object-contain" />
           )}
         </Link>
         <button
