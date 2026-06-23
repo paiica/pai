@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GraduationCap, Linkedin, Instagram, Mail, MapPin, Shield } from "lucide-react";
+import { Linkedin, Instagram, Mail, MapPin, Shield } from "lucide-react";
 
 function XIcon({ size = 15 }: { size?: number }) {
   return (
@@ -131,19 +131,12 @@ export default async function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/10">
           <div className="lg:col-span-1">
             <Link href="/" className="inline-flex items-center mb-5">
-              {logoUrl ? (
-                <img src={logoUrl} alt="Logo" style={{ height: `${logoHeight}px` }} className="w-auto object-contain" />
-              ) : (
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 bg-ink-700 rounded-xl flex items-center justify-center">
-                    <GraduationCap size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-display font-black text-white leading-tight">Professional AI</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-white leading-none">Institute</div>
-                  </div>
-                </div>
-              )}
+              <img
+                src={logoUrl || "/paii.logo.png"}
+                alt="Professional AI Institute"
+                style={{ height: `${logoHeight}px` }}
+                className="w-auto object-contain"
+              />
             </Link>
             <p className="text-white text-sm leading-relaxed mb-6">
               {tagline}
