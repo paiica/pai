@@ -3,7 +3,6 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../../.."),
-  basePath: "/lms",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.paii.ca" },
