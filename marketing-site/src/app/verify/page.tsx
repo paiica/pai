@@ -19,15 +19,9 @@ export default function VerifyPage() {
   async function verify(id: string) {
     if (!id.trim()) return;
     setStatus("loading");
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 35000);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.paii.ca/api/v1";
-      const res = await fetch(
-        `${apiUrl}/certificates/verify/${id.trim()}`,
-        { signal: controller.signal }
-      );
-      clearTimeout(timeout);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://pai-sav1.onrender.com/api/v1";
+      const res = await fetch(`${apiUrl}/certificates/verify/${id.trim()}`);
       if (res.ok) {
         const json = await res.json();
         setResult(json.data ?? json);
@@ -37,7 +31,6 @@ export default function VerifyPage() {
         setResult(null);
       }
     } catch {
-      clearTimeout(timeout);
       setStatus("not_found");
     }
   }
@@ -103,7 +96,7 @@ export default function VerifyPage() {
                   className="w-full btn-dark !py-3 !text-sm justify-center disabled:opacity-50"
                 >
                   {status === "loading"
-                    ? <><Loader2 size={16} className="animate-spin" /> Verifying&hellip;</>
+                    ? <><Loader2 size={16} className="animate-spin" /> Verifying&hellip; (may take 30s)</>
                     : <><Search size={16} /> Verify Certificate</>
                   }
                 </button>
