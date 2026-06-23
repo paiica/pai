@@ -24,8 +24,8 @@ export default function VerifyPage() {
         `${process.env.NEXT_PUBLIC_API_URL || "https://api.paii.ca"}/certificates/verify/${id.trim()}`
       );
       if (res.ok) {
-        const data = await res.json();
-        setResult(data);
+        const json = await res.json();
+        setResult(json.data ?? json);
         setStatus("found");
       } else {
         setStatus("not_found");
