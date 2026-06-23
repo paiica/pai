@@ -29,9 +29,12 @@ export default function LoginModal({
         onSuccess();
         onClose();
       } else {
-        // Login wrote to localStorage at localhost:3000 — the student portal (proxied at
-        // /lms/*) shares this origin, so navigating there is sufficient; no SSO needed.
-        window.location.href = `${LMS}/dashboard`;
+        const params = new URLSearchParams({
+          t: result.accessToken,
+          r: result.refreshToken,
+          u: encodeURIComponent(JSON.stringify(result.user)),
+        });
+        window.location.href = `${LMS}/auth/sso?${params.toString()}`;
       }
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
