@@ -19,7 +19,7 @@ export class CoursesService {
 
   async findAll(status?: CertificationStatus) {
     return this.prisma.certification.findMany({
-      where: status ? { status } : { status: CertificationStatus.active },
+      where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       include: {
         modules: {
           orderBy: { sort_order: "asc" },

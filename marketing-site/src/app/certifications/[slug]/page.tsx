@@ -117,11 +117,12 @@ export default async function CertificationDetailPage({ params }: { params: Prom
 
   const certPreviewUrl = cert.certificate_preview_url || "";
   const relatedCerts   = await getRelatedCerts(relatedSlugsRaw);
+  const isComingSoon   = cert.status === "coming_soon";
 
   return (
     <>
       <Navbar />
-      <StickyEnrollBar title={cert.title} acronym={cert.acronym} price={Number(cert.price)} applyUrl={applyUrl} />
+      {!isComingSoon && <StickyEnrollBar title={cert.title} acronym={cert.acronym} price={Number(cert.price)} applyUrl={applyUrl} />}
 
       <main>
         {/* ── HERO ── */}
@@ -179,36 +180,66 @@ export default async function CertificationDetailPage({ params }: { params: Prom
               </div>
 
               {/* Enrollment card */}
-              <div className="bg-white rounded-2xl p-7 shadow-xl border border-sand-200">
-                <div className="text-4xl font-display font-black text-ink-900 mb-0.5">${Number(cert.price).toLocaleString()}</div>
-                <div className="text-ink-900 text-sm mb-5">One-time fee · Lifetime access</div>
-                <div className="space-y-2.5 mb-6">
-                  {[
-                    cert.total_hours > 0 ? `${cert.total_hours}+ hours of content` : null,
-                    cert.total_lessons > 0 && curriculum.length > 0 ? `${cert.total_lessons} lessons across ${curriculum.length} modules` : cert.total_lessons > 0 ? `${cert.total_lessons} lessons` : null,
-                    cert.exam_duration_minutes > 0 ? `${cert.exam_duration_minutes}-min online proctored exam` : null,
-                    cert.validity_years > 0 ? `${cert.validity_years}-year credential validity` : null,
-                    ...enrollmentIncludes,
-                  ].filter(Boolean).map((item) => (
-                    <div key={item!} className="flex items-center gap-2.5 text-sm text-ink-900">
-                      <CheckCircle2 size={15} className="text-ink-900 flex-shrink-0" />
-                      {item}
-                    </div>
-                  ))}
+              {isComingSoon ? (
+                <div className="bg-white rounded-2xl p-7 shadow-xl border border-amber-200">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-2xl">🕐</span>
+                    <span className="text-lg font-display font-black text-amber-700">Coming Soon</span>
+                  </div>
+                  <p className="text-sm text-ink-900 leading-relaxed mb-6">
+                    This certification is currently in development. Registration will open soon — check back or follow us to be notified when enrollment launches.
+                  </p>
+                  <div className="space-y-2.5 mb-6">
+                    {[
+                      cert.total_hours > 0 ? `${cert.total_hours}+ hours of content` : null,
+                      cert.exam_duration_minutes > 0 ? `${cert.exam_duration_minutes}-min online exam` : null,
+                      cert.validity_years > 0 ? `${cert.validity_years}-year credential validity` : null,
+                    ].filter(Boolean).map((item) => (
+                      <div key={item!} className="flex items-center gap-2.5 text-sm text-ink-900">
+                        <CheckCircle2 size={15} className="text-amber-500 flex-shrink-0" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="w-full flex items-center justify-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-800 font-bold py-3 rounded-xl text-sm cursor-default">
+                    🕐 Enrollment Opening Soon
+                  </div>
+                  <div className="mt-5 pt-4 border-t border-sand-200 text-center text-xs text-ink-900">
+                    Price and availability subject to change
+                  </div>
                 </div>
-                <CertCTAButton
-                  certId={cert.id}
-                  certSlug={cert.slug}
-                  title={cert.title}
-                  price={Number(cert.price)}
-                />
-                <Link href="/corporate" className="w-full flex items-center justify-center gap-2 border-2 border-ink-800 text-ink-900 font-semibold py-3 rounded-xl text-sm transition-all hover:bg-ink-800 hover:text-white">
-                  Corporate Group Pricing →
-                </Link>
-                <div className="mt-5 pt-4 border-t border-sand-200 text-center text-xs text-ink-900">
-                  🔒 Secure checkout · 30-day money-back guarantee
+              ) : (
+                <div className="bg-white rounded-2xl p-7 shadow-xl border border-sand-200">
+                  <div className="text-4xl font-display font-black text-ink-900 mb-0.5">${Number(cert.price).toLocaleString()}</div>
+                  <div className="text-ink-900 text-sm mb-5">One-time fee · Lifetime access</div>
+                  <div className="space-y-2.5 mb-6">
+                    {[
+                      cert.total_hours > 0 ? `${cert.total_hours}+ hours of content` : null,
+                      cert.total_lessons > 0 && curriculum.length > 0 ? `${cert.total_lessons} lessons across ${curriculum.length} modules` : cert.total_lessons > 0 ? `${cert.total_lessons} lessons` : null,
+                      cert.exam_duration_minutes > 0 ? `${cert.exam_duration_minutes}-min online proctored exam` : null,
+                      cert.validity_years > 0 ? `${cert.validity_years}-year credential validity` : null,
+                      ...enrollmentIncludes,
+                    ].filter(Boolean).map((item) => (
+                      <div key={item!} className="flex items-center gap-2.5 text-sm text-ink-900">
+                        <CheckCircle2 size={15} className="text-ink-900 flex-shrink-0" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <CertCTAButton
+                    certId={cert.id}
+                    certSlug={cert.slug}
+                    title={cert.title}
+                    price={Number(cert.price)}
+                  />
+                  <Link href="/corporate" className="w-full flex items-center justify-center gap-2 border-2 border-ink-800 text-ink-900 font-semibold py-3 rounded-xl text-sm transition-all hover:bg-ink-800 hover:text-white">
+                    Corporate Group Pricing →
+                  </Link>
+                  <div className="mt-5 pt-4 border-t border-sand-200 text-center text-xs text-ink-900">
+                    🔒 Secure checkout · 30-day money-back guarantee
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0">

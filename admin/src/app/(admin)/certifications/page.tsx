@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2 } from "lucide-react";
+import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2, Timer } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -101,6 +101,14 @@ export default function CertificationsPage() {
     } finally {
       setTogglingFeatured(null);
     }
+  }
+
+  async function toggleComingSoon(cert: Cert) {
+    const next = cert.status === "coming_soon" ? "active" : "coming_soon";
+    await toast.promise(
+      api.patch(`/admin/certifications/${cert.id}`, { status: next }, accessToken!).then(() => mutate()),
+      { loading: "Updating…", success: "Updated", error: "Failed" }
+    );
   }
 
   async function deleteCert(cert: Cert) {
@@ -258,6 +266,11 @@ export default function CertificationsPage() {
                               {cert.status === "active" ? <Globe size={9} /> : <EyeOff size={9} />}
                               {cert.status.replace("_", " ")}
                             </span>
+                            {cert.status === "coming_soon" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 text-amber-700 bg-amber-50 border-amber-200">
+                                <Timer size={9} /> Coming Soon
+                              </span>
+                            )}
                             {cert.is_featured && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 text-emerald-700 bg-emerald-50 border-emerald-200">
                                 Featured
@@ -277,6 +290,15 @@ export default function CertificationsPage() {
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
+                            onClick={() => toggleComingSoon(cert)}
+                            disabled={cert.status === "archived"}
+                            title={cert.status === "archived" ? "Cannot mark archived cert as coming soon" : cert.status === "coming_soon" ? "Mark as active" : "Mark as coming soon"}
+                            className={`btn-outline !py-1.5 !px-3 !text-xs transition-colors disabled:opacity-50 ${cert.status === "coming_soon" ? "text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100" : "text-slate-500 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50"}`}
+                          >
+                            <Timer size={11} />
+                            {cert.status === "coming_soon" ? "Coming Soon" : "Coming Soon"}
+                          </button>
+                          <button
                             onClick={() => toggleFeatured(cert)}
                             disabled={togglingFeatured === cert.id || cert.status !== "active"}
                             title={cert.status !== "active" ? "Only active certs can be featured" : cert.is_featured ? "Remove from homepage" : "Feature on homepage"}
@@ -285,7 +307,7 @@ export default function CertificationsPage() {
                             {togglingFeatured === cert.id ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
                             {cert.is_featured ? "Featured" : "Feature"}
                           </button>
-                          <a
+                          <
                             href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/certifications/${cert.slug ?? cert.id}`}
                             target="_blank"
                             rel="noreferrer"

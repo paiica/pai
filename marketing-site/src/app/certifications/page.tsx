@@ -183,23 +183,38 @@ export default async function CertificationsListPage() {
                         {cert.description}
                       </p>
 
-                      <div className="flex items-center justify-between mt-auto pt-3" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
-                        <div className="flex items-center gap-1" style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}>
-                          <Award size={12} />
-                          <span className="text-[12px] font-bold">
-                            {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+                      {cert.status === "coming_soon" ? (
+                        <div className="mt-auto pt-3 flex items-center justify-between" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            🕐 Coming Soon
                           </span>
+                          <Link
+                            href={`/certifications/${cert.slug}`}
+                            className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors opacity-70"
+                            style={theme.dark ? { background: "rgba(255,255,255,0.15)", color: "#fff" } : { background: "rgba(26,26,46,0.15)", color: "#1a1a2e" }}
+                          >
+                            Learn More <ArrowRight size={11} />
+                          </Link>
                         </div>
-                        <Link
-                          href={`/certifications/${cert.slug}`}
-                          className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
-                          style={theme.dark
-                            ? { background: "#fff", color: "#1a1a2e" }
-                            : { background: "#1a1a2e", color: "#fff" }}
-                        >
-                          Learn More <ArrowRight size={11} />
-                        </Link>
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-between mt-auto pt-3" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
+                          <div className="flex items-center gap-1" style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}>
+                            <Award size={12} />
+                            <span className="text-[12px] font-bold">
+                              {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+                            </span>
+                          </div>
+                          <Link
+                            href={`/certifications/${cert.slug}`}
+                            className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
+                            style={theme.dark
+                              ? { background: "#fff", color: "#1a1a2e" }
+                              : { background: "#1a1a2e", color: "#fff" }}
+                          >
+                            Learn More <ArrowRight size={11} />
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
