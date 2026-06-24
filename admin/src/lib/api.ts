@@ -62,6 +62,6 @@ export const api = {
   patch: <T>(endpoint: string, body: unknown, token?: string) =>
     request<T>(endpoint, { method: "PATCH", body: JSON.stringify(body) }, token),
 
-  delete: <T>(endpoint: string, token?: string) =>
-    request<T>(endpoint, { method: "DELETE" }, token),
+  delete: <T>(endpoint: string, token?: string, body?: unknown) =>
+    request<T>(endpoint, { method: "DELETE", ...(body ? { body: JSON.stringify(body) } : {}) }, token),
 };

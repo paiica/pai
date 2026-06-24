@@ -169,4 +169,20 @@ export class ApplicationsController {
   ) {
     return this.applicationsService.deleteDocument(docId, userId);
   }
+
+  @Delete("bulk")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Bulk delete applications by IDs (admin)" })
+  bulkDelete(@Body("ids") ids: string[]) {
+    return this.applicationsService.adminBulkDelete(ids ?? []);
+  }
+
+  @Delete(":id")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Delete a single application (admin)" })
+  adminDelete(@Param("id", ParseUUIDPipe) id: string) {
+    return this.applicationsService.adminDelete(id);
+  }
 }

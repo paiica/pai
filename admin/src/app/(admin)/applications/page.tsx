@@ -378,6 +378,8 @@ export default function ApplicationsPage() {
   const [filter,        setFilter]        = useState<string>("");
   const [selected,      setSelected]      = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [checkedIds,    setCheckedIds]    = useState<Set<string>>(new Set());
+  const [bulkDeleting,  setBulkDeleting]  = useState(false);
 
   const { data, mutate } = useSWR(
     accessToken ? `/applications?limit=100${filter ? `&status=${filter}` : ""}` : null,
@@ -385,6 +387,55 @@ export default function ApplicationsPage() {
   );
 
   const applications: any[] = data?.data?.data ?? [];
+
+  const allChecked = applications.length > 0 && checkedIds.size === applications.length;
+  const someChecked = checkedIds.size > 0;
+
+  function toggleAll() {
+    if (allChecked) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(applications.map((a: any) => a.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleDeleteOne(app: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Delete application from ${app.full_name}? This cannot be undone.`)) return;
+    setActionLoading("delete-" + app.id);
+    try {
+      await api.delete(`/applications/${app.id}`, accessToken!);
+      toast.success("Application deleted");
+      setCheckedIds((prev) => { const n = new Set(prev); n.delete(app.id); return n; });
+      mutate();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete");
+    }
+    setActionLoading(null);
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(checkedIds);
+    if (!confirm(`Permanently delete ${ids.length} application${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await api.delete(`/applications/bulk`, accessToken!, { ids });
+      toast.success(`${ids.length} application${ids.length !== 1 ? "s" : ""} deleted`);
+      setCheckedIds(new Set());
+      mutate();
+    } catch (err: any) {
+      toast.error(err.message || "Bulk delete failed");
+    }
+    setBulkDeleting(false);
+  }
 
   async function handleAction(id: string, action: "approve" | "reject" | "set-pending" | "verify-payment" | "reject-payment" | "unverify-payment", reason?: string) {
     setActionLoading(id + action);
@@ -417,7 +468,6 @@ export default function ApplicationsPage() {
       }
       const fresh = await api.get<any>(`/applications?limit=100${filter ? `&status=${filter}` : ""}`, accessToken!);
       mutate(fresh, false);
-      // Update the selected app to reflect the change
       const updatedApp = (fresh?.data?.data ?? []).find((a: any) => a.id === id);
       if (updatedApp) setSelected(updatedApp);
     } catch (err: any) {
@@ -433,7 +483,7 @@ export default function ApplicationsPage() {
           {FILTERS.map((s) => (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              onClick={() => { setFilter(s); setCheckedIds(new Set()); }}
               className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors border ${
                 filter === s
                   ? "bg-navy-800 text-white border-navy-800"
@@ -446,48 +496,115 @@ export default function ApplicationsPage() {
         </div>
       </div>
 
-      <div className="card">
+      {/* Bulk action toolbar */}
+      {someChecked && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl">
+          <span className="text-sm font-semibold text-navy-800">{checkedIds.size} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="flex items-center gap-1.5 ml-auto bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+          >
+            {bulkDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            Delete {checkedIds.size} application{checkedIds.size !== 1 ? "s" : ""}
+          </button>
+          <button
+            onClick={() => setCheckedIds(new Set())}
+            className="text-xs text-slate-500 hover:text-slate-700"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        {/* Select-all header */}
+        {applications.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              onChange={toggleAll}
+              className="w-4 h-4 rounded accent-navy-700 cursor-pointer"
+            />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {allChecked ? "Deselect all" : `Select all ${applications.length}`}
+            </span>
+          </div>
+        )}
+
         <div className="divide-y divide-slate-50">
           {applications.length === 0 ? (
             <div className="p-10 text-center">
               <ClipboardList size={28} className="text-slate-200 mx-auto mb-3" />
               <p className="text-slate-400 text-sm">No applications found.</p>
             </div>
-          ) : applications.map((app: any) => (
-            <div
-              key={app.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-slate-50/50 transition-colors cursor-pointer"
-              onClick={() => setSelected(app)}
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-9 h-9 bg-navy-800 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                  {(app.full_name || "?").charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-navy-900 text-sm">{app.full_name}</div>
-                  <div className="text-xs text-slate-400 truncate">{app.email}</div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs items-center">
-                <span className="badge bg-navy-50 text-navy-700">{app.certification?.acronym}</span>
-                <span className={`badge ${STATUS_COLORS[app.status] || "bg-slate-100 text-slate-600"}`}>
-                  {STATUS_LABELS[app.status] || app.status}
-                </span>
-                {app.documents_requested && (
-                  <span className="badge bg-orange-50 text-orange-700 flex items-center gap-1">
-                    <Paperclip size={9} /> Docs Requested
-                  </span>
+          ) : applications.map((app: any) => {
+            const isChecked = checkedIds.has(app.id);
+            const isDeleting = actionLoading === "delete-" + app.id;
+            return (
+              <div
+                key={app.id}
+                className={cn(
+                  "p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors",
+                  isChecked ? "bg-navy-50/50" : "hover:bg-slate-50/50"
                 )}
-                {app.documents?.length > 0 && (
-                  <span className="badge bg-purple-50 text-purple-700 flex items-center gap-1">
-                    <FileText size={9} /> {app.documents.length} doc{app.documents.length !== 1 ? "s" : ""}
-                  </span>
-                )}
-                <span className="text-slate-400">{formatDate(app.created_at)}</span>
+              >
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggleOne(app.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded accent-navy-700 cursor-pointer flex-shrink-0"
+                />
+
+                {/* Row content — clicking opens drawer */}
+                <div
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                  onClick={() => setSelected(app)}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-9 h-9 bg-navy-800 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0">
+                      {(app.full_name || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-navy-900 text-sm">{app.full_name}</div>
+                      <div className="text-xs text-slate-400 truncate">{app.email}</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs items-center">
+                    <span className="badge bg-navy-50 text-navy-700">{app.certification?.acronym}</span>
+                    <span className={`badge ${STATUS_COLORS[app.status] || "bg-slate-100 text-slate-600"}`}>
+                      {STATUS_LABELS[app.status] || app.status}
+                    </span>
+                    {app.documents_requested && (
+                      <span className="badge bg-orange-50 text-orange-700 flex items-center gap-1">
+                        <Paperclip size={9} /> Docs Requested
+                      </span>
+                    )}
+                    {app.documents?.length > 0 && (
+                      <span className="badge bg-purple-50 text-purple-700 flex items-center gap-1">
+                        <FileText size={9} /> {app.documents.length} doc{app.documents.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    <span className="text-slate-400">{formatDate(app.created_at)}</span>
+                  </div>
+                  <Eye size={14} className="text-slate-300 flex-shrink-0 hidden sm:block" />
+                </div>
+
+                {/* Delete button */}
+                <button
+                  disabled={isDeleting}
+                  onClick={(e) => handleDeleteOne(app, e)}
+                  className="flex-shrink-0 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                  title="Delete application"
+                >
+                  {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                </button>
               </div>
-              <Eye size={14} className="text-slate-300 flex-shrink-0 hidden sm:block" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

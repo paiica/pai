@@ -431,4 +431,34 @@ export class ApplicationsService {
     await (this.prisma as any).applicationDocument.delete({ where: { id: documentId } });
     return { message: "Document removed" };
   }
+
+  async adminDelete(applicationId: string) {
+    const app = await this.prisma.application.findUnique({ where: { id: applicationId } });
+    if (!app) throw new NotFoundException("Application not found");
+
+    // Enrollment.application_id has no onDelete cascade — null it out so the
+    // enrollment record is preserved but the application can be deleted cleanly.
+    await this.prisma.enrollment.updateMany({
+      where: { application_id: applicationId },
+      data: { application_id: null },
+    });
+
+    // ApplicationDocument cascades automatically from Application
+    await this.prisma.application.delete({ where: { id: applicationId } });
+    return { message: "Application deleted" };
+  }
+
+  async adminBulkDelete(ids: string[]) {
+    if (!ids.length) return { deleted: 0 };
+
+    await this.prisma.enrollment.updateMany({
+      where: { application_id: { in: ids } },
+      data: { application_id: null },
+    });
+
+    const { count } = await this.prisma.application.deleteMany({
+      where: { id: { in: ids } },
+    });
+    return { deleted: count };
+  }
 }
