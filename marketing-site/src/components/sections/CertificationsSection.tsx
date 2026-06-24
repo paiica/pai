@@ -111,21 +111,19 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
       .then((r) => r.json())
       .then((r) => {
         const items: any[] = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
-        if (items.length > 0) {
-          setApiCerts(items.map((c: any) => {
-            const meta = typeof c.marketing_meta === "object" && c.marketing_meta !== null
-              ? c.marketing_meta
-              : {};
-            return {
-              acronym:     c.acronym ?? "",
-              title:       c.title ?? "",
-              slug:        c.slug ?? "",
-              level:       meta.audience_label || c.level || "",
-              description: c.description ?? "",
-              popular:     meta.is_most_popular ? "true" : "false",
-            };
-          }));
-        }
+        setApiCerts(items.map((c: any) => {
+          const meta = typeof c.marketing_meta === "object" && c.marketing_meta !== null
+            ? c.marketing_meta
+            : {};
+          return {
+            acronym:     c.acronym ?? "",
+            title:       c.title ?? "",
+            slug:        c.slug ?? "",
+            level:       meta.audience_label || c.level || "",
+            description: c.description ?? "",
+            popular:     meta.is_most_popular ? "true" : "false",
+          };
+        }));
       })
       .catch(() => {});
   }, []);
@@ -138,9 +136,12 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
   const ctaCardDesc    = cmsContent.cta_card_desc   || "87% of PAI professionals begin with CAIP — the foundation of all credentials.";
   const ctaCardLabel   = cmsContent.cta_card_label  || "Start with CAIP";
   const ctaCardHref    = cmsContent.cta_card_href   || "/certifications/certified-ai-professional";
-  const certs: CertCard[] = apiCerts ?? ((cmsContent.certs as CertCard[])?.length
-    ? (cmsContent.certs as CertCard[])
-    : DEFAULT_CERTS);
+  // apiCerts is null before the fetch resolves, then an array (possibly empty).
+  // Once the API has responded, use its result exclusively — no fallback to
+  // hardcoded defaults, so archived/non-featured certs are never shown.
+  const certs: CertCard[] = apiCerts !== null
+    ? apiCerts
+    : ((cmsContent.certs as CertCard[])?.length ? (cmsContent.certs as CertCard[]) : DEFAULT_CERTS);
 
   function scroll(dir: "left" | "right") {
     scrollRef.current?.scrollBy({ left: dir === "left" ? -300 : 300, behavior: "smooth" });
