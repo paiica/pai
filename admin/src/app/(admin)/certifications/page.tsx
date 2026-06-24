@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore } from "lucide-react";
+import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -19,7 +19,7 @@ const GROUPS = [
 ];
 
 type Cert = {
-  id: string; acronym: string; title: string; level: string;
+  id: string; slug: string; acronym: string; title: string; level: string;
   status: string; badge_icon: string; price: number;
   duration_weeks: number; passing_score: number;
   is_featured: boolean;
@@ -101,6 +101,14 @@ export default function CertificationsPage() {
     } finally {
       setTogglingFeatured(null);
     }
+  }
+
+  async function deleteCert(cert: Cert) {
+    if (!confirm(`Delete "${cert.title}"? This will permanently remove all enrollments, applications, and exam data. This cannot be undone.`)) return;
+    await toast.promise(
+      api.delete(`/admin/certifications/${cert.id}`, accessToken!).then(() => mutate()),
+      { loading: "Deleting…", success: "Certification deleted", error: "Failed to delete" }
+    );
   }
 
   const statusColors: Record<string, string> = {
@@ -269,34 +277,35 @@ export default function CertificationsPage() {
                             title={cert.status !== "active" ? "Only active certs can be featured" : cert.is_featured ? "Remove from homepage" : "Feature on homepage"}
                             className={`btn-outline !py-1.5 !px-3 !text-xs transition-colors disabled:opacity-50 ${cert.is_featured ? "text-teal-700 border-teal-300 bg-teal-50 hover:bg-teal-100" : "text-slate-500 hover:text-teal-600 hover:border-teal-200 hover:bg-teal-50"}`}
                           >
-                            {togglingFeatured === cert.id
-                              ? <Loader2 size={11} className="animate-spin" />
-                              : <Globe size={11} />}
+                            {togglingFeatured === cert.id ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
                             {cert.is_featured ? "Featured" : "Feature"}
                           </button>
-                          {cert.status === "archived" ? (
-                            <button
-                              onClick={() => setStatus(cert.id, "active")}
-                              className="btn-outline !py-1.5 !px-3 !text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                              title="Restore"
-                            >
-                              <ArchiveRestore size={11} /> Restore
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setStatus(cert.id, "archived")}
-                              className="btn-outline !py-1.5 !px-3 !text-xs text-slate-500 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50"
-                              title="Archive (disable)"
-                            >
-                              <Archive size={11} /> Archive
-                            </button>
-                          )}
-                          <Link
-                            href={`/certifications/${cert.id}`}
-                            className="btn-outline !py-1.5 !px-3 !text-xs"
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/certifications/${cert.slug ?? cert.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-outline !py-1.5 !px-2.5 !text-xs"
+                            title="View on site"
                           >
-                            <Pencil size={11} /> Edit
+                            <ExternalLink size={12} />
+                          </a>
+                          <Link href={`/certifications/${cert.id}`} className="btn-outline !py-1.5 !px-2.5 !text-xs" title="Edit">
+                            <Pencil size={12} />
                           </Link>
+                          <button
+                            onClick={() => setStatus(cert.id, cert.status === "archived" ? "active" : "archived")}
+                            className={`btn-outline !py-1.5 !px-2.5 !text-xs ${cert.status === "archived" ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" : "text-slate-500 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50"}`}
+                            title={cert.status === "archived" ? "Restore" : "Archive"}
+                          >
+                            {cert.status === "archived" ? <ArchiveRestore size={12} /> : <Archive size={12} />}
+                          </button>
+                          <button
+                            onClick={() => deleteCert(cert)}
+                            className="btn-outline !py-1.5 !px-2.5 !text-xs text-red-500 border-red-200 hover:bg-red-50"
+                            title="Delete permanently"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </div>
                     ))}
