@@ -97,17 +97,15 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
       .then((r) => r.json())
       .then((r) => {
         const items: any[] = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
-        if (items.length > 0) {
-          setApiCourses(items.map((c: any) => ({
-            title: c.title,
-            slug: c.slug,
-            level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : "All Levels",
-            description: c.subtitle || c.description || "",
-            price: c.price != null ? String(Math.round(Number(c.price))) : "0",
-            badge_icon: c.cert_acronym ? "📚" : "🤖",
-            featured: "true",
-          })));
-        }
+        setApiCourses(items.map((c: any) => ({
+          title: c.title,
+          slug: c.slug,
+          level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : "All Levels",
+          description: c.subtitle || c.description || "",
+          price: c.price != null ? String(Math.round(Number(c.price))) : "0",
+          badge_icon: c.cert_acronym ? "📚" : "🤖",
+          featured: "true",
+        })));
       })
       .catch(() => {});
   }, []);
@@ -120,7 +118,9 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
   const ctaCardDesc = cmsContent.cta_card_desc ?? "Browse all courses and find the right path for your goals.";
   const ctaCardLabel = cmsContent.cta_card_label ?? "Browse All Courses";
   const ctaCardHref = cmsContent.cta_card_href ?? "/courses";
-  const courses: CourseCard[] = apicourses ?? ((cmsContent.courses as CourseCard[])?.length ? (cmsContent.courses as CourseCard[]) : DEFAULT_COURSES);
+  const courses: CourseCard[] = apicourses !== null
+    ? apicourses
+    : ((cmsContent.courses as CourseCard[])?.length ? (cmsContent.courses as CourseCard[]) : DEFAULT_COURSES);
 
   function scroll(dir: "left" | "right") {
     scrollRef.current?.scrollBy({ left: dir === "left" ? -320 : 320, behavior: "smooth" });
