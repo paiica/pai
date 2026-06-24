@@ -163,7 +163,7 @@ export default function StudentDashboard() {
   const allCerts: any[] = certificates?.data ?? certificates ?? [];
 
   const certByEnrollmentId = allCerts.reduce((acc: Record<string, any>, c: any) => {
-    acc[c.enrollment_id] = c;
+    if (c.status !== "revoked") acc[c.enrollment_id] = c;
     return acc;
   }, {});
 
@@ -265,7 +265,7 @@ export default function StudentDashboard() {
             { label: "Enrolled",    value: allEnrollments.length },
             { label: "In Progress", value: allEnrollments.filter((e: any) => e.status === "active").length },
             { label: "Completed",   value: allEnrollments.filter((e: any) => e.status === "completed").length },
-            { label: "Certificates",value: allCerts.length },
+            { label: "Certificates",value: allCerts.filter((c: any) => c.status !== "revoked").length },
           ].map(({ label, value }) => (
             <div key={label}>
               <div className="text-white font-black text-2xl">{value}</div>
