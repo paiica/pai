@@ -335,16 +335,33 @@ export default function AdminCoursesPage() {
 }
 
 function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }) {
-  const { data: enrollmentsRaw, isLoading, error } = useSWR(
+  const { data: enrollmentsRaw, isLoading, error, mutate } = useSWR(
     token ? ["/admin/courses/enrollments", token] : null,
     ([url, t]) => api.get<any>(url, t),
     { shouldRetryOnError: true, errorRetryInterval: 3000 }
   );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const enrollments: any[] = (() => {
     const d = (enrollmentsRaw as any)?.data ?? enrollmentsRaw;
     return Array.isArray(d) ? d : [];
   })();
+
+  async function handleDelete(enrollment: any) {
+    const courseName = courses.find((c) => c.id === enrollment.course_id)?.title ?? "this course";
+    const studentName = `${enrollment.first_name ?? ""} ${enrollment.last_name ?? ""}`.trim() || enrollment.email;
+    if (!confirm(`Delete ${studentName}'s enrollment in "${courseName}"? This cannot be undone.`)) return;
+    setDeletingId(enrollment.id);
+    try {
+      await api.delete(`/admin/courses/enrollments/${enrollment.id}`, token);
+      toast.success("Enrollment deleted");
+      mutate();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to delete enrollment");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -376,6 +393,7 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Progress</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700">Enrolled</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -389,8 +407,8 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
                     <tr key={enrollment.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-semibold text-slate-900">{enrollment.user?.profile?.first_name} {enrollment.user?.profile?.last_name}</p>
-                          <p className="text-xs text-slate-500">{enrollment.user?.email}</p>
+                          <p className="font-semibold text-slate-900">{enrollment.first_name} {enrollment.last_name}</p>
+                          <p className="text-xs text-slate-500">{enrollment.email}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -410,6 +428,18 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{enrolledDate}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          disabled={deletingId === enrollment.id}
+                          onClick={() => handleDelete(enrollment)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                          title="Delete enrollment"
+                        >
+                          {deletingId === enrollment.id
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <Trash2 size={14} />}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

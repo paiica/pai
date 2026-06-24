@@ -317,6 +317,14 @@ export class PrepCoursesService {
     return this.adminGetOne(id);
   }
 
+  async adminDeleteEnrollment(enrollmentId: string) {
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM lms.course_enrollments WHERE id = $1`,
+      enrollmentId,
+    );
+    return { message: "Enrollment deleted" };
+  }
+
   async adminDelete(id: string) {
     // CourseEnrollment has no onDelete: Cascade in schema, so delete manually first.
     // CourseTeacher and Module (→ Lesson etc.) do have Cascade and are handled by the DB.

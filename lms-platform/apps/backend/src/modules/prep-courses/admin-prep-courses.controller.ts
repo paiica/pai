@@ -28,6 +28,12 @@ export class AdminPrepCoursesController {
     return this.service.adminGetEnrollments();
   }
 
+  @Delete("enrollments/:enrollmentId")
+  @ApiOperation({ summary: "Delete a course enrollment (admin)" })
+  deleteEnrollment(@Param("enrollmentId", ParseUUIDPipe) enrollmentId: string) {
+    return this.service.adminDeleteEnrollment(enrollmentId);
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Get course with full detail" })
   getOne(@Param("id", ParseUUIDPipe) id: string) {
