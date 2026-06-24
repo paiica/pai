@@ -266,11 +266,6 @@ export default function CertificationsPage() {
                               {cert.status === "active" ? <Globe size={9} /> : <EyeOff size={9} />}
                               {cert.status.replace("_", " ")}
                             </span>
-                            {cert.status === "coming_soon" && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 text-amber-700 bg-amber-50 border-amber-200">
-                                <Timer size={9} /> Coming Soon
-                              </span>
-                            )}
                             {cert.is_featured && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 text-emerald-700 bg-emerald-50 border-emerald-200">
                                 Featured

@@ -21,6 +21,7 @@ type CertCard = {
   level: string;
   description: string;
   popular: string;
+  status?: string;
 };
 
 const DEFAULT_CERTS: CertCard[] = [
@@ -67,7 +68,11 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
           )}>
             Certification
           </span>
-          {cert.popular === "true" && (
+          {cert.status === "coming_soon" ? (
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+              Coming Soon
+            </span>
+          ) : cert.popular === "true" && (
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
               Most Popular
             </span>
@@ -122,6 +127,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
             level:       meta.audience_label || c.level || "",
             description: c.description ?? "",
             popular:     meta.is_most_popular ? "true" : "false",
+            status:      c.status ?? "active",
           };
         }));
       })

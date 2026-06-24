@@ -458,7 +458,7 @@ export class CoursesService {
              c.badge_icon, c.price, c.description, c.sort_order,
              c.marketing_meta
       FROM lms.certifications c
-      WHERE c.status = 'active' AND c.is_featured = true
+      WHERE c.status IN ('active', 'coming_soon') AND c.is_featured = true
       ORDER BY c.sort_order ASC
     `);
   }
