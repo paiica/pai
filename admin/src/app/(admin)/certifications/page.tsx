@@ -307,7 +307,7 @@ export default function CertificationsPage() {
                             {togglingFeatured === cert.id ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
                             {cert.is_featured ? "Featured" : "Feature"}
                           </button>
-                          <
+                          <a
                             href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/certifications/${cert.slug ?? cert.id}`}
                             target="_blank"
                             rel="noreferrer"
