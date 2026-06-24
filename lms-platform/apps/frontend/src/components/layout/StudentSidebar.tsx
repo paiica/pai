@@ -69,18 +69,18 @@ function AccountNavItems({ collapsed, accountOpen }: { collapsed: boolean; accou
   ) : null;
 }
 
-function CertificationsSection({ collapsed, token }: { collapsed: boolean; token: string }) {
+function CertificationsSection({ collapsed, token }: { collapsed: boolean; token: string | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
 
   const { data: enrollmentData } = useSWR(
-    ["/enrollments/my", token],
+    token ? ["/enrollments/my", token] : null,
     ([url, t]) => api.get<any>(url, t),
     { revalidateOnFocus: false },
   );
 
   const { data: appsData } = useSWR(
-    ["/applications/my", token],
+    token ? ["/applications/my", token] : null,
     ([url, t]) => api.get<any>(url, t),
     { revalidateOnFocus: false },
   );
@@ -254,7 +254,7 @@ export default function StudentSidebar() {
 
         {/* Certifications (dynamic, from enrollments) */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
-        {token && <CertificationsSection collapsed={collapsed} token={token} />}
+        <CertificationsSection collapsed={collapsed} token={token} />
 
         {/* Learning group */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
