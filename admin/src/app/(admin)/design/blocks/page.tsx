@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import toast from "react-hot-toast";
@@ -468,18 +468,7 @@ function CTAEditor({ block, token, onSave }: { block: Block; token: string; onSa
 
 // ─── Certifications editor ───────────────────────────────────────────────────
 
-type CertCard = {
-  acronym: string;
-  title: string;
-  slug: string;
-  level: string;
-  description: string;
-  popular: string;
-};
-
-const DEFAULT_CERT: CertCard = { acronym: "", title: "", slug: "", level: "", description: "", popular: "false" };
-
-const CERT_THEME_LABELS = ["Gold / Light", "Navy / Dark", "Purple / Dark", "Green / Light"];
+const CERT_THEME_COLORS = ["#c9913a", "#38bdf8", "#a78bfa", "#059669"];
 
 function CertificationsEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   const c = block.content;
@@ -491,48 +480,34 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
   const [ctaCardDesc,    setCtaCardDesc]    = useState(c?.cta_card_desc   ?? "");
   const [ctaCardLabel,   setCtaCardLabel]   = useState(c?.cta_card_label  ?? "Start with CAIP");
   const [ctaCardHref,    setCtaCardHref]    = useState(c?.cta_card_href   ?? "/certifications/certified-ai-professional");
-  const [certs,          setCerts]          = useState<CertCard[]>(
-    (c?.certs as CertCard[])?.length
-      ? (c.certs as CertCard[])
-      : [
-          { acronym: "CAIP",  title: "Certified AI Professional",  slug: "certified-ai-professional",  level: "No experience required",   description: "Master AI fundamentals, tools, workflows, ethics, and practical applications across industries.", popular: "true"  },
-          { acronym: "CAIM",  title: "Certified AI Manager",       slug: "certified-ai-manager",       level: "2+ years experience",      description: "Lead AI transformation initiatives, manage AI-powered teams, and build data-driven cultures.",     popular: "false" },
-          { acronym: "CAIE",  title: "Certified AI Educator",      slug: "certified-ai-educator",      level: "Educators & trainers",     description: "Design and deliver AI-powered learning experiences for educators and L&D professionals.",          popular: "false" },
-          { acronym: "CAIDA", title: "Certified AI Data Analyst",  slug: "certified-ai-data-analyst",  level: "1+ years data experience", description: "Advanced AI-powered data analysis, machine learning interpretation, and insight-driven decisions.", popular: "false" },
-        ]
-  );
-  const [activeCert, setActiveCert] = useState(0);
-  const [saving,     setSaving]     = useState(false);
+  const [saving,         setSaving]         = useState(false);
 
-  function updCert(idx: number, key: keyof CertCard, val: string) {
-    setCerts((prev) => prev.map((cert, i) => i === idx ? { ...cert, [key]: val } : cert));
-  }
+  const [featuredCerts, setFeaturedCerts] = useState<any[] | null>(null);
+  const [loadingCerts,  setLoadingCerts]  = useState(true);
 
-  function addCert() {
-    setCerts((prev) => [...prev, { ...DEFAULT_CERT }]);
-    setActiveCert(certs.length);
-  }
-
-  function removeCert(idx: number) {
-    if (certs.length <= 1) { toast.error("Need at least 1 card"); return; }
-    setCerts((prev) => prev.filter((_, i) => i !== idx));
-    setActiveCert(Math.max(0, idx - 1));
-  }
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+    fetch(`${API}/courses/featured`)
+      .then((r) => r.json())
+      .then((json) => {
+        const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+        setFeaturedCerts(items);
+      })
+      .catch(() => setFeaturedCerts([]))
+      .finally(() => setLoadingCerts(false));
+  }, []);
 
   async function save() {
     setSaving(true);
     try {
       await api.patch(`/page-blocks/${block.key}`, {
-        content: { badge, title, title_highlight: titleHighlight, description, cta_card_title: ctaCardTitle, cta_card_desc: ctaCardDesc, cta_card_label: ctaCardLabel, cta_card_href: ctaCardHref, certs },
+        content: { badge, title, title_highlight: titleHighlight, description, cta_card_title: ctaCardTitle, cta_card_desc: ctaCardDesc, cta_card_label: ctaCardLabel, cta_card_href: ctaCardHref },
       }, token);
       toast.success("Saved");
       onSave();
     } catch { toast.error("Failed to save"); }
     setSaving(false);
   }
-
-  const cert = certs[activeCert];
-  const themeColors = ["#c9913a", "#38bdf8", "#a78bfa", "#059669"];
 
   return (
     <div className="space-y-4">
@@ -557,58 +532,53 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
         </div>
       </div>
 
-      {/* Certification cards */}
+      {/* Live featured certs — read-only preview */}
       <div className="border-t border-slate-100 pt-3 space-y-3">
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Certification cards ({certs.length})</p>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {certs.map((cert, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveCert(i)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeCert === i ? "bg-navy-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-            >
-              {cert.acronym || `Card ${i + 1}`}
-            </button>
-          ))}
-          <button onClick={addCert} className="p-1.5 text-slate-400 hover:text-navy-700 hover:bg-slate-100 rounded-lg">
-            <Plus size={13} />
-          </button>
-          {certs.length > 1 && (
-            <button onClick={() => removeCert(activeCert)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg ml-auto">
-              <Trash2 size={13} />
-            </button>
-          )}
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Featured certifications
+          </p>
+          <Link href="/certifications" className="text-xs font-semibold text-navy-600 hover:text-navy-800 flex items-center gap-1 transition-colors">
+            Manage <ExternalLink size={10} />
+          </Link>
         </div>
 
-        {/* Theme indicator */}
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: themeColors[activeCert % 4] }} />
-          Visual theme: {CERT_THEME_LABELS[activeCert % 4]} (auto-assigned by position)
-        </div>
-
-        {/* Card fields */}
-        {cert && (
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Acronym" value={cert.acronym} onChange={(v) => updCert(activeCert, "acronym", v)} placeholder="CAIP" />
-              <Field label="URL slug" value={cert.slug} onChange={(v) => updCert(activeCert, "slug", v)} placeholder="certified-ai-professional" />
-            </div>
-            <Field label="Full title" value={cert.title} onChange={(v) => updCert(activeCert, "title", v)} />
-            <Field label="Level / audience" value={cert.level} onChange={(v) => updCert(activeCert, "level", v)} placeholder="No experience required" />
-            <Field label="Description" value={cert.description} onChange={(v) => updCert(activeCert, "description", v)} textarea />
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <div
-                onClick={() => updCert(activeCert, "popular", cert.popular === "true" ? "false" : "true")}
-                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${cert.popular === "true" ? "bg-emerald-500" : "bg-slate-200"}`}
-              >
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${cert.popular === "true" ? "translate-x-4" : "translate-x-0.5"}`} />
-              </div>
-              <span className="text-xs font-semibold text-slate-600">Show "Most Popular" badge</span>
-            </label>
+        {loadingCerts ? (
+          <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+            <Loader2 size={12} className="animate-spin" /> Loading…
+          </div>
+        ) : featuredCerts && featuredCerts.length > 0 ? (
+          <div className="space-y-2">
+            {featuredCerts.map((cert: any, i: number) => {
+              const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null ? cert.marketing_meta : {};
+              return (
+                <div key={cert.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: CERT_THEME_COLORS[i % 4] }} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-navy-900">{cert.acronym}</span>
+                    <span className="text-xs text-slate-500 ml-2 truncate">{cert.title}</span>
+                    {meta.is_most_popular && (
+                      <span className="ml-2 text-[10px] font-semibold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">Most Popular</span>
+                    )}
+                  </div>
+                  <Link href={`/certifications/${cert.id}`} className="p-1.5 text-slate-400 hover:text-navy-600 hover:bg-white rounded-lg transition-colors flex-shrink-0" title="Edit this certification">
+                    <Edit2 size={12} />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+            <p className="text-xs font-semibold text-amber-800">No featured certifications</p>
+            <p className="text-xs text-amber-700">Enable the "Featured on homepage" toggle on one or more active certifications to have them appear here.</p>
+            <Link href="/certifications" className="text-xs font-bold text-amber-800 underline mt-1 inline-block">Go to Manage Certifications →</Link>
           </div>
         )}
+
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Card content (title, description, level) is pulled live from each certification. Archive a cert or turn off "Featured" to remove it from this block.
+        </p>
       </div>
 
       <SaveBtn saving={saving} onClick={save} />
@@ -618,19 +588,11 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
 
 // ─── Courses editor ──────────────────────────────────────────────────────────
 
-type CourseCard = {
-  title: string;
-  slug: string;
-  level: string;
-  description: string;
-  price: string;
-  badge_icon: string;
-  featured: string;
+const COURSE_LEVEL_COLORS: Record<string, string> = {
+  beginner:     "bg-blue-500",
+  intermediate: "bg-amber-500",
+  advanced:     "bg-purple-500",
 };
-
-const DEFAULT_COURSE: CourseCard = { title: "", slug: "", level: "", description: "", price: "", badge_icon: "📚", featured: "false" };
-
-const COURSE_LEVEL_COLORS = ["bg-blue-500", "bg-amber-500", "bg-purple-500", "bg-emerald-500"];
 
 function CoursesEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   const c = block.content;
@@ -642,46 +604,34 @@ function CoursesEditor({ block, token, onSave }: { block: Block; token: string; 
   const [ctaCardDesc,    setCtaCardDesc]    = useState(c?.cta_card_desc   ?? "");
   const [ctaCardLabel,   setCtaCardLabel]   = useState(c?.cta_card_label  ?? "Browse All Courses");
   const [ctaCardHref,    setCtaCardHref]    = useState(c?.cta_card_href   ?? "/courses");
-  const [courses,        setCourses]        = useState<CourseCard[]>(
-    (c?.courses as CourseCard[])?.length
-      ? (c.courses as CourseCard[])
-      : [
-          { title: "AI Fundamentals", slug: "ai-fundamentals", level: "Beginner", description: "Master the core concepts of artificial intelligence, machine learning, and practical AI tools used across industries.", price: "99", badge_icon: "🤖", featured: "true" },
-          { title: "AI for Managers", slug: "ai-for-managers", level: "Intermediate", description: "Learn how to lead AI-driven teams, evaluate AI projects, and build data-informed decision-making frameworks.", price: "149", badge_icon: "📊", featured: "false" },
-          { title: "Prompt Engineering", slug: "prompt-engineering", level: "Beginner", description: "Go from basic prompts to advanced techniques for ChatGPT, Claude, and enterprise LLM workflows.", price: "79", badge_icon: "✍️", featured: "false" },
-        ]
-  );
-  const [activeCourse, setActiveCourse] = useState(0);
-  const [saving,       setSaving]       = useState(false);
+  const [saving,         setSaving]         = useState(false);
 
-  function updCourse(idx: number, key: keyof CourseCard, val: string) {
-    setCourses((prev) => prev.map((course, i) => i === idx ? { ...course, [key]: val } : course));
-  }
+  const [featuredCourses, setFeaturedCourses] = useState<any[] | null>(null);
+  const [loadingCourses,  setLoadingCourses]  = useState(true);
 
-  function addCourse() {
-    setCourses((prev) => [...prev, { ...DEFAULT_COURSE }]);
-    setActiveCourse(courses.length);
-  }
-
-  function removeCourse(idx: number) {
-    if (courses.length <= 1) { toast.error("Need at least 1 card"); return; }
-    setCourses((prev) => prev.filter((_, i) => i !== idx));
-    setActiveCourse(Math.max(0, idx - 1));
-  }
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+    fetch(`${API}/prep-courses/featured`)
+      .then((r) => r.json())
+      .then((json) => {
+        const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+        setFeaturedCourses(items);
+      })
+      .catch(() => setFeaturedCourses([]))
+      .finally(() => setLoadingCourses(false));
+  }, []);
 
   async function save() {
     setSaving(true);
     try {
       await api.patch(`/page-blocks/${block.key}`, {
-        content: { badge, title, title_highlight: titleHighlight, description, cta_card_title: ctaCardTitle, cta_card_desc: ctaCardDesc, cta_card_label: ctaCardLabel, cta_card_href: ctaCardHref, courses },
+        content: { badge, title, title_highlight: titleHighlight, description, cta_card_title: ctaCardTitle, cta_card_desc: ctaCardDesc, cta_card_label: ctaCardLabel, cta_card_href: ctaCardHref },
       }, token);
       toast.success("Saved");
       onSave();
     } catch { toast.error("Failed to save"); }
     setSaving(false);
   }
-
-  const course = courses[activeCourse];
 
   return (
     <div className="space-y-4">
@@ -706,61 +656,50 @@ function CoursesEditor({ block, token, onSave }: { block: Block; token: string; 
         </div>
       </div>
 
-      {/* Course cards */}
+      {/* Live featured courses — read-only preview */}
       <div className="border-t border-slate-100 pt-3 space-y-3">
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Course cards ({courses.length})</p>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {courses.map((cr, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveCourse(i)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeCourse === i ? "bg-navy-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-            >
-              {cr.badge_icon} {cr.title || `Course ${i + 1}`}
-            </button>
-          ))}
-          <button onClick={addCourse} className="p-1.5 text-slate-400 hover:text-navy-700 hover:bg-slate-100 rounded-lg">
-            <Plus size={13} />
-          </button>
-          {courses.length > 1 && (
-            <button onClick={() => removeCourse(activeCourse)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg ml-auto">
-              <Trash2 size={13} />
-            </button>
-          )}
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Featured courses
+          </p>
+          <Link href="/courses?tab=manage" className="text-xs font-semibold text-navy-600 hover:text-navy-800 flex items-center gap-1 transition-colors">
+            Manage <ExternalLink size={10} />
+          </Link>
         </div>
 
-        {/* Level color indicator */}
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className={`w-3 h-3 rounded-full flex-shrink-0 ${COURSE_LEVEL_COLORS[activeCourse % 4]}`} />
-          Accent color auto-assigned by position
-        </div>
-
-        {/* Card fields */}
-        {course && (
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Badge icon (emoji)" value={course.badge_icon} onChange={(v) => updCourse(activeCourse, "badge_icon", v)} placeholder="📚" />
-              <Field label="URL slug" value={course.slug} onChange={(v) => updCourse(activeCourse, "slug", v)} placeholder="ai-fundamentals" />
-            </div>
-            <Field label="Title" value={course.title} onChange={(v) => updCourse(activeCourse, "title", v)} />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Level / audience" value={course.level} onChange={(v) => updCourse(activeCourse, "level", v)} placeholder="Beginner" />
-              <Field label="Price (USD, e.g. 99)" value={course.price} onChange={(v) => updCourse(activeCourse, "price", v)} placeholder="99" />
-            </div>
-            <Field label="Description" value={course.description} onChange={(v) => updCourse(activeCourse, "description", v)} textarea />
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <div
-                onClick={() => updCourse(activeCourse, "featured", course.featured === "true" ? "false" : "true")}
-                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${course.featured === "true" ? "bg-emerald-500" : "bg-slate-200"}`}
-              >
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${course.featured === "true" ? "translate-x-4" : "translate-x-0.5"}`} />
+        {loadingCourses ? (
+          <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+            <Loader2 size={12} className="animate-spin" /> Loading…
+          </div>
+        ) : featuredCourses && featuredCourses.length > 0 ? (
+          <div className="space-y-2">
+            {featuredCourses.map((course: any) => (
+              <div key={course.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${COURSE_LEVEL_COLORS[course.level] ?? "bg-slate-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-bold text-navy-900 truncate">{course.title}</span>
+                  <span className="text-xs text-slate-400 ml-2">{course.level}</span>
+                  {course.price != null && (
+                    <span className="text-xs text-slate-400 ml-2">${Number(course.price).toFixed(0)}</span>
+                  )}
+                </div>
+                <Link href={`/courses/${course.id}`} className="p-1.5 text-slate-400 hover:text-navy-600 hover:bg-white rounded-lg transition-colors flex-shrink-0" title="Edit this course">
+                  <Edit2 size={12} />
+                </Link>
               </div>
-              <span className="text-xs font-semibold text-slate-600">Show "Featured" badge</span>
-            </label>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+            <p className="text-xs font-semibold text-amber-800">No featured courses</p>
+            <p className="text-xs text-amber-700">Click "Feature" on one or more active courses to have them appear in this section.</p>
+            <Link href="/courses?tab=manage" className="text-xs font-bold text-amber-800 underline mt-1 inline-block">Go to Manage Courses →</Link>
           </div>
         )}
+
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Card content (title, description, price) is pulled live from each course. Toggle "Feature" on a course to add it here, archive it to remove it.
+        </p>
       </div>
 
       <SaveBtn saving={saving} onClick={save} />

@@ -30,11 +30,12 @@ const FALLBACK = [
 
 async function getCertifications(): Promise<any[]> {
   try {
-    const res = await fetch(`${API}/courses`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/courses`, { cache: "no-store" });
     if (!res.ok) return FALLBACK;
     const json = await res.json();
     const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
-    return items.length > 0 ? items : FALLBACK;
+    const active = items.filter((c: any) => c.status !== "archived");
+    return active.length > 0 ? active : FALLBACK;
   } catch {
     return FALLBACK;
   }

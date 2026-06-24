@@ -33,6 +33,7 @@ type Course = {
   description?: string; price: number; status: string; level: string;
   duration_hours: number; module_count: number; enrollment_count: number;
   certification_id?: string; cert_acronym?: string; cert_title?: string;
+  is_featured: boolean;
   instructors?: { user_id: string; is_lead: boolean; first_name: string; last_name: string }[];
 };
 
@@ -137,6 +138,21 @@ export default function AdminCoursesPage() {
       api.patch(`/admin/courses/${course.id}`, { status: next }, token).then(mutate),
       { loading: "Updating…", success: "Updated", error: "Failed" }
     );
+  }
+
+  const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
+
+  async function toggleFeatured(course: Course) {
+    setTogglingFeatured(course.id);
+    try {
+      await api.patch(`/admin/courses/${course.id}`, { is_featured: !course.is_featured }, token);
+      mutate();
+      toast.success(course.is_featured ? "Removed from homepage" : "Added to homepage");
+    } catch {
+      toast.error("Failed to update");
+    } finally {
+      setTogglingFeatured(null);
+    }
   }
 
   async function deleteCourse(course: Course) {
@@ -319,6 +335,8 @@ export default function AdminCoursesPage() {
               professors={professors}
               token={token}
               onToggleStatus={() => toggleStatus(course)}
+              onToggleFeatured={() => toggleFeatured(course)}
+              togglingFeatured={togglingFeatured === course.id}
               onDelete={() => deleteCourse(course)}
               onMutate={mutate}
             />
@@ -454,13 +472,15 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
 
 function CourseCard({
   course, certs, professors, token,
-  onToggleStatus, onDelete, onMutate,
+  onToggleStatus, onToggleFeatured, togglingFeatured, onDelete, onMutate,
 }: {
   course: Course;
   certs: any[];
   professors: any[];
   token: string;
   onToggleStatus: () => void;
+  onToggleFeatured: () => void;
+  togglingFeatured: boolean;
   onDelete: () => void;
   onMutate: () => void;
 }) {
@@ -509,6 +529,22 @@ function CourseCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={onToggleFeatured}
+            disabled={togglingFeatured || course.status !== "active"}
+            title={course.status !== "active" ? "Only active courses can be featured" : course.is_featured ? "Remove from homepage" : "Feature on homepage"}
+            className={cn(
+              "btn-outline !py-1.5 !px-3 !text-xs transition-colors disabled:opacity-50",
+              course.is_featured
+                ? "text-teal-700 border-teal-300 bg-teal-50 hover:bg-teal-100"
+                : "text-slate-500 hover:text-teal-600 hover:border-teal-200 hover:bg-teal-50"
+            )}
+          >
+            {togglingFeatured
+              ? <Loader2 size={11} className="animate-spin" />
+              : <Globe size={11} />}
+            {course.is_featured ? "Featured" : "Feature"}
+          </button>
           <a
             href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/courses/${course.slug}`}
             target="_blank"

@@ -22,6 +22,7 @@ type Cert = {
   id: string; acronym: string; title: string; level: string;
   status: string; badge_icon: string; price: number;
   duration_weeks: number; passing_score: number;
+  is_featured: boolean;
   _count?: { enrollments: number };
 };
 
@@ -85,6 +86,21 @@ export default function CertificationsPage() {
       api.patch(`/admin/certifications/${certId}`, { status }, accessToken!).then(() => mutate()),
       { loading: "Updating…", success: "Updated", error: "Failed" }
     );
+  }
+
+  const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
+
+  async function toggleFeatured(cert: Cert) {
+    setTogglingFeatured(cert.id);
+    try {
+      await api.patch(`/admin/certifications/${cert.id}`, { is_featured: !cert.is_featured }, accessToken!);
+      mutate();
+      toast.success(cert.is_featured ? "Removed from homepage" : "Added to homepage");
+    } catch {
+      toast.error("Failed to update");
+    } finally {
+      setTogglingFeatured(null);
+    }
   }
 
   const statusColors: Record<string, string> = {
@@ -247,6 +263,17 @@ export default function CertificationsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => toggleFeatured(cert)}
+                            disabled={togglingFeatured === cert.id || cert.status !== "active"}
+                            title={cert.status !== "active" ? "Only active certs can be featured" : cert.is_featured ? "Remove from homepage" : "Feature on homepage"}
+                            className={`btn-outline !py-1.5 !px-3 !text-xs transition-colors disabled:opacity-50 ${cert.is_featured ? "text-teal-700 border-teal-300 bg-teal-50 hover:bg-teal-100" : "text-slate-500 hover:text-teal-600 hover:border-teal-200 hover:bg-teal-50"}`}
+                          >
+                            {togglingFeatured === cert.id
+                              ? <Loader2 size={11} className="animate-spin" />
+                              : <Globe size={11} />}
+                            {cert.is_featured ? "Featured" : "Feature"}
+                          </button>
                           {cert.status === "archived" ? (
                             <button
                               onClick={() => setStatus(cert.id, "active")}
