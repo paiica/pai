@@ -402,7 +402,7 @@ export class CoursesService {
   }
 
   async adminGetAllCertifications() {
-    const [certs, examCounts] = await Promise.all([
+    const [certs, examCounts, featuredRows] = await Promise.all([
       this.prisma.certification.findMany({
         include: {
           _count: { select: { modules: true, enrollments: true, applications: true } },
@@ -417,9 +417,17 @@ export class CoursesService {
         _count: { id: true },
         where: { status: "published" },
       }),
+      this.prisma.$queryRawUnsafe<{ id: string; is_featured: boolean }[]>(
+        `SELECT id, is_featured FROM lms.certifications`,
+      ),
     ]);
-    const examMap = new Map(examCounts.map((r) => [r.certification_id, r._count.id]));
-    return certs.map((c) => ({ ...c, published_exam_count: examMap.get(c.id) ?? 0 }));
+    const examMap     = new Map(examCounts.map((r) => [r.certification_id, r._count.id]));
+    const featuredMap = new Map(featuredRows.map((r) => [r.id, r.is_featured]));
+    return certs.map((c) => ({
+      ...c,
+      published_exam_count: examMap.get(c.id) ?? 0,
+      is_featured: featuredMap.get(c.id) ?? false,
+    }));
   }
 
   async adminCreateCertification(dto: any) {
