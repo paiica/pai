@@ -397,12 +397,20 @@ export default async function CertificationDetailPage({ params }: { params: Prom
           <div className="container-lg text-center">
             <div className="max-w-2xl mx-auto">
               <div className="text-5xl mb-4">{cert.badge_icon || "🎓"}</div>
-              <h2 className="text-3xl font-display font-black text-white mb-3">Ready to Earn Your {cert.acronym}?</h2>
-              <p className="text-white/70 text-base mb-8">{socialProof}</p>
+              <h2 className="text-3xl font-display font-black text-white mb-3">
+                {isComingSoon ? `${cert.acronym} — Coming Soon` : `Ready to Earn Your ${cert.acronym}?`}
+              </h2>
+              <p className="text-white/70 text-base mb-8">{isComingSoon ? "This certification is in development. Registration will open soon — stay tuned." : socialProof}</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href={applyUrl} className="btn-primary !py-4 !px-8 !text-base justify-center">
-                  <Award size={18} /> Apply Now — ${Number(cert.price).toLocaleString()}
-                </a>
+                {isComingSoon ? (
+                  <span className="btn-primary !py-4 !px-8 !text-base justify-center opacity-60 cursor-default">
+                    🕐 Enrollment Opening Soon
+                  </span>
+                ) : (
+                  <a href={applyUrl} className="btn-primary !py-4 !px-8 !text-base justify-center">
+                    <Award size={18} /> Apply Now — ${Number(cert.price).toLocaleString()}
+                  </a>
+                )}
                 <Link href="/certifications" className="btn-outline-light !py-4 !px-8 !text-base justify-center">
                   View All Certifications
                 </Link>
