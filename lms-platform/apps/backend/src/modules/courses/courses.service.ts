@@ -478,7 +478,35 @@ export class CoursesService {
   }
 
   async adminDeleteCertification(certId: string) {
-    await this.prisma.certification.delete({ where: { id: certId } });
+    await this.prisma.$transaction(async (tx) => {
+      // Collect enrollment IDs so we can delete child records manually
+      // (Enrollment and Application don't have onDelete: Cascade from Certification in schema)
+      const enrollments = await tx.enrollment.findMany({
+        where: { certification_id: certId },
+        select: { id: true },
+      });
+      const enrollmentIds = enrollments.map((e) => e.id);
+
+      if (enrollmentIds.length > 0) {
+        await tx.certificate.deleteMany({ where: { enrollment_id: { in: enrollmentIds } } });
+        await tx.examBooking.deleteMany({ where: { enrollment_id: { in: enrollmentIds } } });
+        await tx.examAttempt.deleteMany({ where: { enrollment_id: { in: enrollmentIds } } });
+        await tx.lessonProgress.deleteMany({ where: { enrollment_id: { in: enrollmentIds } } });
+        await tx.assignmentSubmission.deleteMany({ where: { enrollment_id: { in: enrollmentIds } } });
+        await tx.enrollment.deleteMany({ where: { certification_id: certId } });
+      }
+
+      // Delete applications (ApplicationDocument cascades from Application)
+      await tx.application.deleteMany({ where: { certification_id: certId } });
+
+      // Delete course instructors (no cascade from Certification in schema)
+      await tx.courseInstructor.deleteMany({ where: { certification_id: certId } });
+
+      // Delete the certification — remaining relations (Module, ExamBank, ExamSession,
+      // CourseFAQ, StructuredExam) all have onDelete: Cascade in the schema
+      await tx.certification.delete({ where: { id: certId } });
+    });
+
     return { message: "Certification deleted" };
   }
 
