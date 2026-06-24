@@ -504,6 +504,11 @@ function CourseCard({
             <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", STATUS_COLORS[course.status] ?? "bg-slate-100 text-slate-500")}>
               {course.status}
             </span>
+            {course.is_featured && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200">
+                Featured
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
             <span className="font-mono text-[10px]">/{course.slug}</span>

@@ -258,6 +258,11 @@ export default function CertificationsPage() {
                               {cert.status === "active" ? <Globe size={9} /> : <EyeOff size={9} />}
                               {cert.status.replace("_", " ")}
                             </span>
+                            {cert.is_featured && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 text-emerald-700 bg-emerald-50 border-emerald-200">
+                                Featured
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
                             {cert.duration_weeks > 0 && (
