@@ -95,6 +95,23 @@ export class EnrollmentsService {
     });
   }
 
+  async adminDelete(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: { certificate: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+
+    // Certificate.enrollment has no onDelete:Cascade, so delete it first
+    if (enrollment.certificate) {
+      await this.prisma.certificate.delete({ where: { id: enrollment.certificate.id } });
+    }
+
+    // LessonProgress, ExamAttempt, ExamBooking, AssignmentSubmission all cascade from Enrollment
+    await this.prisma.enrollment.delete({ where: { id: enrollmentId } });
+    return { message: "Enrollment deleted" };
+  }
+
   async adminGetAll({ page = 1, limit = 20 }: { page: number; limit: number }) {
     const skip = (page - 1) * limit;
     const [enrollments, total] = await this.prisma.$transaction([

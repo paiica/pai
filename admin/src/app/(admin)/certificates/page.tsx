@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   Award, CheckCircle2, XCircle, Loader2, AlertCircle,
-  RefreshCw, ChevronDown, ChevronUp, Search, RotateCcw, AlertTriangle,
+  RefreshCw, ChevronDown, ChevronUp, Search, RotateCcw, AlertTriangle, Trash2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -22,7 +22,7 @@ const STATUS_COLORS: Record<string, string> = {
 function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onRefresh: () => void }) {
   const [expanded, setExpanded]   = useState(false);
   const [score, setScore]         = useState("");
-  const [loading, setLoading]     = useState<"grant" | "fail" | "revoke" | "reactivate" | "reset" | `step${1|2|3|4}` | null>(null);
+  const [loading, setLoading]     = useState<"grant" | "fail" | "revoke" | "reactivate" | "reset" | "delete" | `step${1|2|3|4}` | null>(null);
 
   const cert    = row.certificate;
   const attempt = row.exam_attempts?.[0];
@@ -140,6 +140,21 @@ function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onR
       onRefresh();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to update enrollment");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleDelete() {
+    const name2 = name;
+    if (!confirm(`Permanently delete ${name2}'s enrollment in ${row.certification?.acronym}?\n\nThis will also delete all lesson progress, exam attempts, and any issued certificate. This cannot be undone.`)) return;
+    setLoading("delete");
+    try {
+      await api.delete(`/enrollments/${row.id}`, token);
+      toast.success("Enrollment deleted");
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to delete enrollment");
     } finally {
       setLoading(null);
     }
@@ -352,6 +367,18 @@ function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onR
               This enrollment has been marked as failed.
             </div>
           )}
+
+          {/* Delete enrollment */}
+          <div className="pt-2 border-t border-red-100 flex justify-end">
+            <button
+              disabled={loading === "delete"}
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              className="flex items-center gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+            >
+              {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              Delete Enrollment
+            </button>
+          </div>
         </div>
       )}
     </div>

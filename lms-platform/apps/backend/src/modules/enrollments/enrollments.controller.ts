@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, ParseUUIDPipe, Query } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, ParseUUIDPipe, Query } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { EnrollmentsService } from "./enrollments.service";
@@ -43,5 +43,13 @@ export class EnrollmentsController {
   @ApiOperation({ summary: "List all enrollments (admin)" })
   adminGetAll(@Query("page") page = 1, @Query("limit") limit = 20) {
     return this.enrollmentsService.adminGetAll({ page: +page, limit: +limit });
+  }
+
+  @Delete(":id")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Delete an enrollment and all its data (admin)" })
+  adminDelete(@Param("id", ParseUUIDPipe) id: string) {
+    return this.enrollmentsService.adminDelete(id);
   }
 }
