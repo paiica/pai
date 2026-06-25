@@ -401,6 +401,23 @@ export class CoursesService {
     return { ...cert, is_featured: raw?.is_featured ?? false };
   }
 
+  async adminGetCertificationEnrollments(certId: string) {
+    return this.prisma.enrollment.findMany({
+      where: { certification_id: certId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: { select: { first_name: true, last_name: true } },
+          },
+        },
+        certificate: { select: { id: true, issued_at: true, certificate_number: true } },
+      },
+      orderBy: { enrolled_at: "desc" },
+    });
+  }
+
   async adminGetAllCertifications() {
     const [certs, examCounts, featuredRows] = await Promise.all([
       this.prisma.certification.findMany({

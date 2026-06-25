@@ -22,6 +22,7 @@ interface CartState {
   removeItem: (id: string) => void;
   clearCart: () => void;
   hasItem: (id: string) => boolean;
+  updateItemPrice: (id: string, price: number) => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -35,6 +36,8 @@ export const useCartStore = create<CartState>()(
       removeItem: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
       clearCart: () => set({ items: [] }),
       hasItem: (id) => get().items.some((i) => i.id === id),
+      updateItemPrice: (id, price) =>
+        set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, price } : i)) })),
     }),
     {
       name: "pai-cart",

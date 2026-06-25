@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, Injectable } from "@nestjs/common";
+import { BadRequestException, HttpException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
@@ -11,6 +11,8 @@ const PROVIDER_DEFAULTS: Record<string, { baseURL?: string; model: string }> = {
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly settings: SiteSettingsService,
@@ -287,6 +289,232 @@ All option objects must have sort_order (0-indexed integer) and is_correct (bool
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
       throw new BadRequestException(err?.message ?? "Failed to generate questions.");
+    }
+  }
+
+  async generateCourseContent(params: {
+    lesson_title: string;
+    lesson_type: string;
+    topic?: string;
+    course_title?: string;
+    module_title?: string;
+    num_questions?: number;
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+
+    const useJsonMode = provider === "openai" || provider === "groq";
+
+    if (params.lesson_type === "quiz") {
+      const n = params.num_questions || 5;
+      const userPrompt = `Return ONLY a JSON object. Generate ${n} multiple-choice quiz questions.
+
+Course: ${params.course_title || "(unspecified)"}
+Module: ${params.module_title || "(unspecified)"}
+Lesson: ${params.lesson_title}
+Topic: ${params.topic || params.lesson_title}
+
+Required format: {"questions":[{"question_text":"...","question_type":"multiple_choice","options":["A","B","C","D"],"correct_index":0,"explanation":"..."}]}
+
+Rules: exactly 4 string options, correct_index is 0-based, no HTML in question text.`;
+
+      let raw = "";
+      try {
+        const createParams: any = {
+          model,
+          messages: [{ role: "user", content: userPrompt }],
+          temperature: 0.7,
+        };
+        if (useJsonMode) createParams.response_format = { type: "json_object" };
+        const res = await client.chat.completions.create(createParams);
+        raw = res.choices[0]?.message?.content ?? "";
+      } catch (err: any) {
+        throw new BadRequestException(`AI error: ${err?.message ?? "Failed"}`);
+      }
+      try {
+        const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+        const parsed = JSON.parse(cleaned);
+        const questions = this.extractArray(parsed, "questions");
+        return { questions };
+      } catch {
+        this.logger.error("generateCourseContent quiz raw:", raw);
+        throw new BadRequestException("AI returned unexpected format. Please try again.");
+      }
+    }
+
+    const typeGuide: Record<string, string> = {
+      reading:      "a comprehensive reading lesson with headings, explanatory paragraphs, key concepts, and a summary. Use <h2>, <h3>, <p>, <ul>, <li> HTML tags.",
+      assignment:   "clear assignment instructions with an overview, numbered requirements, submission guidelines, and grading criteria in HTML.",
+      video:        "supplementary notes for a video lesson: learning objectives, key terms, summary, and reflection questions in HTML.",
+      live_session: "a session guide with learning objectives, agenda, discussion questions, and key takeaways in HTML.",
+      html:         "well-formatted HTML page content with headings, paragraphs, and lists covering the topic.",
+      download:     "a description and usage guide for the downloadable resource in HTML.",
+    };
+    const guide = typeGuide[params.lesson_type] ?? typeGuide.reading;
+
+    const userPrompt = `Return ONLY a JSON object. Create ${guide}
+
+Course: ${params.course_title || "(unspecified)"}
+Module: ${params.module_title || "(unspecified)"}
+Lesson: ${params.lesson_title}
+Topic/Focus: ${params.topic || params.lesson_title}
+
+Requirements: professional tone, 350–600 words, well-structured, HTML formatted.
+
+Required format: {"content":"<h2>...</h2><p>...</p>"}`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [{ role: "user", content: userPrompt }],
+        temperature: 0.7,
+      };
+      if (useJsonMode) createParams.response_format = { type: "json_object" };
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      throw new BadRequestException(`AI error: ${err?.message ?? "Failed"}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const content = parsed.content ?? parsed.lesson_content ?? parsed.html ?? "";
+      return { content };
+    } catch {
+      this.logger.error("generateCourseContent raw:", raw);
+      throw new BadRequestException("AI returned unexpected format. Please try again.");
+    }
+  }
+
+  private extractArray(parsed: any, key: string): any[] {
+    // parsed IS the array
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    // Direct key on object
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed[key]) && parsed[key].length > 0) return parsed[key];
+    // One level deep
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      for (const val of Object.values(parsed)) {
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          const nested = (val as any)[key];
+          if (Array.isArray(nested) && nested.length > 0) return nested;
+        }
+      }
+      // First top-level array value (fallback)
+      for (const val of Object.values(parsed)) {
+        if (Array.isArray(val) && val.length > 0) return val as any[];
+      }
+    }
+    return [];
+  }
+
+  async generateModuleStructure(params: {
+    course_title?: string;
+    module_title: string;
+    topic: string;
+    num_lessons: number;
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const num = Math.min(12, Math.max(1, params.num_lessons));
+
+    const userPrompt = `You are an instructional design expert. Return ONLY a JSON object with no extra text.
+
+Task: Design ${num} lessons for a course module.
+
+Course: ${params.course_title || "(unspecified)"}
+Module: ${params.module_title}
+Topic / Goals: ${params.topic}
+
+Required JSON format:
+{"lessons":[{"title":"Lesson title","type":"reading","topic":"What this lesson covers"}]}
+
+Rules:
+- Exactly ${num} objects in the lessons array
+- type must be one of: reading, video, quiz, assignment, download, live_session
+- Mix types: start with reading/intro, end with quiz when num >= 3
+- Each title and topic must be specific and unique`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [{ role: "user", content: userPrompt }],
+        temperature: 0.5,
+        max_tokens: 2048,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      throw new BadRequestException(`AI error: ${err?.message ?? "Failed"}`);
+    }
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const lessons = this.extractArray(parsed, "lessons");
+      if (!lessons.length) throw new Error("empty");
+      return { lessons };
+    } catch {
+      this.logger.error("generateModuleStructure raw response:", raw);
+      throw new BadRequestException(`AI returned unexpected format. Raw: ${raw.substring(0, 400)}`);
+    }
+  }
+
+  async generateCourseStructure(params: {
+    course_title: string;
+    topic: string;
+    num_modules: number;
+    lessons_per_module: number;
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const mods = Math.min(10, Math.max(1, params.num_modules));
+    const lpm  = Math.min(10, Math.max(1, params.lessons_per_module));
+
+    const userPrompt = `You are an instructional design expert. Return ONLY a JSON object with no extra text.
+
+Task: Design a complete course with ${mods} modules, each containing ${lpm} lessons.
+
+Course: ${params.course_title}
+Topic / Goals: ${params.topic}
+
+Required JSON format:
+{"modules":[{"title":"Module title","description":"One sentence summary","lessons":[{"title":"Lesson title","type":"reading","topic":"What this lesson covers"}]}]}
+
+Rules:
+- Exactly ${mods} module objects in the modules array
+- Each module must have exactly ${lpm} lesson objects in its lessons array
+- Lesson types: reading, video, quiz, assignment, download, live_session — vary per module
+- Modules progress logically: foundations → intermediate → advanced → application
+- End each module with quiz when lpm >= 3
+- All titles must be specific and unique`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [{ role: "user", content: userPrompt }],
+        temperature: 0.5,
+        max_tokens: 4096,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      throw new BadRequestException(`AI error: ${err?.message ?? "Failed"}`);
+    }
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const modules = this.extractArray(parsed, "modules");
+      if (!modules.length) throw new Error("empty");
+      return { modules };
+    } catch {
+      this.logger.error("generateCourseStructure raw response:", raw);
+      throw new BadRequestException(`AI returned unexpected format. Raw: ${raw.substring(0, 400)}`);
     }
   }
 

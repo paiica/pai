@@ -56,6 +56,13 @@ export class PrepCoursesController {
   }
 
   @Public()
+  @Get("recommended-by-cert/:certificationId")
+  @ApiOperation({ summary: "Get courses recommended for a certification" })
+  getRecommendedByCert(@Param("certificationId") certificationId: string) {
+    return this.service.getRecommendedCoursesByCert(certificationId);
+  }
+
+  @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get prep course by slug" })
   findOne(@Param("slug") slug: string) {

@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs";
 import * as path from "path";
 import { PrismaService } from "../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { JwtPayload } from "./strategies/jwt.strategy";
@@ -28,6 +29,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   async register(dto: RegisterDto, ipAddress?: string) {
@@ -63,7 +65,7 @@ export class AuthService {
 
     this.logger.log(`New user registered: ${user.email}`);
 
-    // TODO: send verification email
+    await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken);
 
     return {
       user: this.sanitizeUser(user),
@@ -170,6 +172,7 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
+      include: { profile: true },
     });
 
     // Always return success to prevent user enumeration
@@ -183,7 +186,7 @@ export class AuthService {
       data: { user_id: user.id, token_hash: tokenHash, expires_at: expiresAt },
     });
 
-    // TODO: send reset email with token
+    await this.mail.sendPasswordResetEmail(user.email, user.profile?.first_name ?? "there", token);
 
     return { message: "If that email is registered, you will receive a reset link." };
   }

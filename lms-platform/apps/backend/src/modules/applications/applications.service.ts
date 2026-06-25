@@ -4,12 +4,13 @@ import {
 } from "@nestjs/common";
 import { ApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private mail: MailService) {}
 
   async create(userId: string, dto: any) {
     const cert = await this.prisma.certification.findUnique({ where: { slug: dto.certification_slug } });
@@ -165,7 +166,7 @@ export class ApplicationsService {
   async approve(applicationId: string, adminId: string) {
     const app = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { certification: true },
+      include: { certification: true, user: { include: { profile: true } } },
     });
     if (!app) throw new NotFoundException("Application not found");
     if (app.status === ApplicationStatus.withdrawn || app.status === ApplicationStatus.pending_payment) {
@@ -195,12 +196,21 @@ export class ApplicationsService {
     });
 
     this.logger.log(`Application ${applicationId} approved by ${adminId}`);
-    // TODO: send approval email
+    const user = (app as any).user;
+    this.mail.sendApplicationApproved({
+      to: user.email,
+      firstName: user.profile?.first_name ?? "there",
+      certTitle: app!.certification.title,
+      certAcronym: app!.certification.acronym,
+    }).catch(() => {});
     return { message: "Application approved and enrollment created" };
   }
 
   async reject(applicationId: string, adminId: string, reason?: string) {
-    const app = await this.prisma.application.findUnique({ where: { id: applicationId } });
+    const app = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { certification: true, user: { include: { profile: true } } },
+    });
     if (!app) throw new NotFoundException("Application not found");
     if (app.status === ApplicationStatus.withdrawn) {
       throw new BadRequestException("Cannot reject a withdrawn application");
@@ -226,7 +236,17 @@ export class ApplicationsService {
     });
 
     this.logger.log(`Application ${applicationId} rejected by ${adminId}`);
-    // TODO: send rejection email + issue Stripe refund
+    const user = (app as any).user;
+    const cert = (app as any).certification;
+    if (user && cert) {
+      this.mail.sendApplicationRejected({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        certTitle: cert.title,
+        certAcronym: cert.acronym,
+        reason: reason ?? null,
+      }).catch(() => {});
+    }
     return { message: "Application rejected" };
   }
 

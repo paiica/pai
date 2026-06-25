@@ -84,6 +84,7 @@ const TABS = [
   { id: "content",      label: "Content",           icon: BookOpen },
   { id: "audience",     label: "Audience",          icon: Users },
   { id: "exam",         label: "Exam & Pricing",    icon: Settings },
+  { id: "enrollments",  label: "Enrollments",       icon: Users },
   { id: "faqs",         label: "FAQs",              icon: HelpCircle },
   { id: "marketing",    label: "Marketing",         icon: Megaphone },
   { id: "testimonials", label: "Testimonials",      icon: Quote },
@@ -528,6 +529,131 @@ ${elsHtml}
           <Check size={14} /> Use This Design
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Cert Enrollments Tab ─────────────────────────────────────────────────────
+
+function CertEnrollmentsTab({ certId, token }: { certId: string; token: string }) {
+  const { data: raw, isLoading, error, mutate } = useSWR(
+    ["/admin/certifications", certId, "enrollments", token],
+    ([,id,,t]) => api.get<any>(`/admin/certifications/${id}/enrollments`, t),
+  );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const enrollments: any[] = (() => {
+    const d = (raw as any)?.data ?? raw;
+    return Array.isArray(d) ? d : [];
+  })();
+
+  async function handleDelete(enrollment: any) {
+    const name = `${enrollment.user?.profile?.first_name ?? ""} ${enrollment.user?.profile?.last_name ?? ""}`.trim() || enrollment.user?.email;
+    if (!confirm(`Remove ${name}'s enrollment? This will delete all their progress and exam attempts for this certification.`)) return;
+    setDeletingId(enrollment.id);
+    try {
+      await api.delete(`/enrollments/${enrollment.id}`, token);
+      toast.success("Enrollment removed");
+      mutate();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to remove enrollment");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (isLoading) return (
+    <div className="card p-10 text-center">
+      <Loader2 size={24} className="animate-spin text-slate-300 mx-auto" />
+      <p className="text-slate-400 text-xs mt-3">Loading enrollments…</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="card p-12 text-center">
+      <AlertCircle size={32} className="text-red-300 mx-auto mb-3" />
+      <p className="text-slate-600 text-sm font-semibold">Could not load enrollments</p>
+    </div>
+  );
+
+  if (enrollments.length === 0) return (
+    <div className="card p-12 text-center">
+      <Users size={36} className="text-slate-200 mx-auto mb-3" />
+      <p className="text-slate-600 text-sm font-semibold">No enrollments yet</p>
+      <p className="text-slate-400 text-xs mt-1">Students will appear here once they enroll in this certification.</p>
+    </div>
+  );
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700">Student</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700">Progress</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700">Certificate</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700">Enrolled</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {enrollments.map((enrollment) => {
+              const profile = enrollment.user?.profile;
+              const name = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || enrollment.user?.email;
+              const statusColor = enrollment.completed_at
+                ? "bg-emerald-50 text-emerald-700"
+                : enrollment.status === "active"
+                  ? "bg-blue-50 text-blue-700"
+                  : "bg-slate-100 text-slate-600";
+              const statusLabel = enrollment.completed_at ? "Completed" : (enrollment.status ?? "Active");
+              const enrolledDate = new Date(enrollment.enrolled_at).toLocaleDateString();
+
+              return (
+                <tr key={enrollment.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-900">{name}</p>
+                    <p className="text-xs text-slate-500">{enrollment.user?.email}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full capitalize", statusColor)}>
+                      {statusLabel}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-slate-200 rounded-full max-w-xs">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${enrollment.progress_percentage ?? 0}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-500 w-10 text-right">{enrollment.progress_percentage ?? 0}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {enrollment.certificate
+                      ? <span className="text-emerald-700 font-semibold">Issued {new Date(enrollment.certificate.issued_at).toLocaleDateString()}</span>
+                      : <span className="text-slate-400">—</span>
+                    }
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{enrolledDate}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      disabled={deletingId === enrollment.id}
+                      onClick={() => handleDelete(enrollment)}
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                      title="Remove enrollment"
+                    >
+                      {deletingId === enrollment.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1005,6 +1131,10 @@ export default function CertEditorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {tab === "enrollments" && (
+        <CertEnrollmentsTab certId={id} token={accessToken!} />
       )}
 
       {tab === "faqs" && <FaqEditor items={faqs} onChange={setFaqs} />}

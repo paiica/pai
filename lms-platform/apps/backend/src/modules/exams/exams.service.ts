@@ -2,10 +2,11 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import { ExamAttemptStatus } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class ExamsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private mail: MailService) {}
 
   async startExam(userId: string, enrollmentId: string) {
     const enrollment = await this.prisma.enrollment.findFirst({
@@ -102,7 +103,31 @@ export class ExamsService {
       },
     });
 
+    // Send exam result email (fire-and-forget)
+    this.sendExamResultEmail(userId, attempt.enrollment_id, scorePercentage, passed).catch(() => {});
+
     return { passed, score: scorePercentage, correct_answers: correct, total_questions: questions.length };
+  }
+
+  private async sendExamResultEmail(userId: string, enrollmentId: string, score: number, passed: boolean) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        user: { select: { email: true, profile: { select: { first_name: true } } } },
+        certification: { select: { title: true, max_retakes_included: true } },
+      },
+    });
+    if (!enrollment) return;
+    const { user, certification } = enrollment;
+    const firstName = user.profile?.first_name ?? "there";
+    if (passed) {
+      await this.mail.sendExamPassed({ to: user.email, firstName, certTitle: certification.title, score });
+    } else {
+      const totalAttempts = await this.prisma.examAttempt.count({ where: { enrollment_id: enrollmentId } });
+      const maxAttempts = certification.max_retakes_included + 1;
+      const attemptsLeft = Math.max(0, maxAttempts - totalAttempts);
+      await this.mail.sendExamFailed({ to: user.email, firstName, certTitle: certification.title, score, attemptsLeft });
+    }
   }
 
   async getMyAttempts(userId: string, enrollmentId: string) {

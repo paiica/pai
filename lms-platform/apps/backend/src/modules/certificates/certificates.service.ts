@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { ApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class CertificatesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private mail: MailService) {}
 
   async getMyCertificates(userId: string) {
     return this.prisma.certificate.findMany({
@@ -80,6 +81,16 @@ export class CertificatesService {
       }),
     ]);
 
+    await this.mail.sendCertificateIssued({
+      to: enrollment.user.email,
+      firstName: enrollment.user.profile?.first_name ?? "there",
+      certTitle: enrollment.certification.title,
+      certAcronym: enrollment.certification.acronym,
+      certNumber: certificate.certificate_number,
+      expiresAt: certificate.expires_at,
+      verificationUrl: certificate.verification_url,
+    });
+
     return certificate;
   }
 
@@ -132,14 +143,27 @@ export class CertificatesService {
   }
 
   async revoke(certificateId: string) {
-    const cert = await this.prisma.certificate.findUnique({ where: { id: certificateId } });
+    const cert = await this.prisma.certificate.findUnique({
+      where: { id: certificateId },
+      include: { user: { select: { email: true, profile: { select: { first_name: true } } } } },
+    });
     if (!cert) throw new NotFoundException("Certificate not found");
     if (cert.status === "revoked") throw new BadRequestException("Certificate is already revoked");
 
-    return this.prisma.certificate.update({
+    const updated = await this.prisma.certificate.update({
       where: { id: certificateId },
       data: { status: "revoked" },
     });
+
+    this.mail.sendCertificateRevoked({
+      to: (cert as any).user.email,
+      firstName: (cert as any).user.profile?.first_name ?? "there",
+      certTitle: cert.certification_title,
+      certAcronym: cert.certification_acronym,
+      certNumber: cert.certificate_number,
+    }).catch(() => {});
+
+    return updated;
   }
 
   async resetToEnrolled(enrollmentId: string) {

@@ -5,12 +5,55 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
-  ArrowRight, Play, ChevronRight, Award,
-  BookOpen, Clock, CheckCircle2, GraduationCap,
+  ArrowRight, Play, ChevronRight,
+  Clock, CheckCircle2, GraduationCap, LayoutDashboard, FileText,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const CERT_ACCENTS = [
+  { badge: "from-amber-400 via-orange-400 to-rose-400",    ring: "ring-amber-300/50"   },
+  { badge: "from-blue-500 via-indigo-500 to-violet-500",   ring: "ring-blue-300/50"    },
+  { badge: "from-violet-500 via-purple-500 to-fuchsia-500",ring: "ring-violet-300/50"  },
+  { badge: "from-emerald-400 via-teal-500 to-cyan-500",    ring: "ring-emerald-300/50" },
+  { badge: "from-rose-500 via-pink-500 to-fuchsia-400",    ring: "ring-rose-300/50"    },
+];
+
+function accentForAcronym(acronym: string) {
+  const idx = (acronym ?? "").split("").reduce((s, c) => s + c.charCodeAt(0), 0) % CERT_ACCENTS.length;
+  return CERT_ACCENTS[idx];
+}
+
+function AcronymBadge({ acronym, dark = false }: { acronym: string; dark?: boolean }) {
+  const accent = accentForAcronym(acronym);
+  const words = (acronym ?? "—").split(/\s+/);
+  const charCount = (acronym ?? "").replace(/\s/g, "").length;
+  const textSize = charCount <= 4 ? "text-[11px]" : "text-[9px]";
+
+  if (dark) {
+    return (
+      <div className="flex-shrink-0 border-2 border-white/30 rounded-lg px-3 py-1.5">
+        <span className="text-white font-display font-black text-sm tracking-wide">{acronym}®</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(
+      "w-14 h-14 rounded-xl flex-shrink-0 flex flex-col items-center justify-center ring-[3px] gap-0.5 relative overflow-hidden shadow-md",
+      `bg-gradient-to-br ${accent.badge}`, accent.ring
+    )}>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/5 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 inset-x-0 h-1/3 bg-black/10 pointer-events-none" />
+      {words.map((w, i) => (
+        <span key={i} className={cn("relative font-black text-white tracking-widest leading-none uppercase drop-shadow", textSize)}>
+          {w}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
@@ -57,15 +100,12 @@ function CertCard({ enrollment, certificate }: { enrollment: any; certificate: a
   return (
     <div className="rounded-2xl bg-navy-900 p-5 flex items-center justify-between gap-4 group hover:bg-navy-800 transition-colors">
       <div className="flex items-center gap-4 flex-1 min-w-0">
-        {/* Badge */}
-        <div className="flex-shrink-0 border-2 border-white/30 rounded-lg px-3 py-1.5">
-          <span className="text-white font-display font-black text-sm tracking-wide">{cert?.acronym}®</span>
-        </div>
+        <AcronymBadge acronym={cert?.acronym ?? "—"} dark />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className={cn("text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1", statusColor)}>
-              {hasCert ? <Award size={10} /> : isCompleted ? <CheckCircle2 size={10} /> : <Clock size={10} />}
+              {hasCert || isCompleted ? <CheckCircle2 size={10} /> : <Clock size={10} />}
               {statusLabel}
             </span>
           </div>
@@ -103,10 +143,7 @@ function LearningCard({ enrollment }: { enrollment: any }) {
       href={`/learn/${enrollment.id}`}
       className="card p-5 flex gap-4 hover:shadow-md transition-shadow group"
     >
-      {/* Icon */}
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-navy-700 to-navy-900 flex items-center justify-center text-2xl flex-shrink-0">
-        {cert?.badge_icon || "🎓"}
-      </div>
+      <AcronymBadge acronym={cert?.acronym ?? "—"} />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
@@ -196,7 +233,7 @@ export default function StudentDashboard() {
   const ringOffset = ringCircumference - (profilePct / 100) * ringCircumference;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f7f8fa]">
 
       {/* ── Hero banner ─────────────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-navy-900 via-navy-800 to-[#2d1b69] px-6 lg:px-12 pt-10 pb-0">
@@ -335,9 +372,9 @@ export default function StudentDashboard() {
             <h2 className="font-display font-black text-navy-900 text-lg mb-4">Quick Access</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { href: "/student/assignments", label: "Assignments", icon: BookOpen, desc: "Submit & track work" },
+                { href: "/student/assignments", label: "Assignments", icon: FileText, desc: "Submit & track work" },
                 { href: "/student/grades", label: "Grades", icon: CheckCircle2, desc: "Quiz & assignment scores" },
-                { href: "/certificates", label: "Certificates", icon: Award, desc: "Your earned credentials" },
+                { href: "/certificates", label: "Certificates", icon: LayoutDashboard, desc: "Your earned credentials" },
                 { href: "/profile", label: "My Profile", icon: GraduationCap, desc: "Account settings" },
               ].map(({ href, label, icon: Icon, desc }) => (
                 <Link

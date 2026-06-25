@@ -28,7 +28,8 @@ export default function StudentGradesPage() {
   );
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#f7f8fa]">
+    <div className="max-w-3xl mx-auto px-6 py-10">
       <div className="mb-6">
         <h1 className="text-2xl font-display font-black text-navy-900">My Grades</h1>
         <p className="text-slate-500 mt-1">Quiz scores and assignment grades.</p>
@@ -140,6 +141,7 @@ export default function StudentGradesPage() {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

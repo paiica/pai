@@ -88,7 +88,60 @@ export class PrepCoursesService {
       WHERE l.id = $1 AND m.course_id = $2 AND l.is_published = true
     `, lessonId, enrollRows[0].course_id);
     if (!lessonRows.length) throw new NotFoundException('Lesson not found');
-    return lessonRows[0];
+    const lesson = lessonRows[0];
+
+    if (lesson.type === 'quiz') {
+      lesson.questions = await this.prisma.$queryRawUnsafe<any[]>(`
+        SELECT id, question_text, question_type::text, options,
+               correct_index::int, explanation, points::int, sort_order::int
+        FROM lms.quiz_questions
+        WHERE lesson_id = $1
+        ORDER BY sort_order ASC
+      `, lessonId);
+    }
+
+    return lesson;
+  }
+
+  // ─── Recommendations (course ↔ cert, many-to-many) ───────────────────
+
+  async adminGetRecommendations(courseId: string) {
+    return this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT r.certification_id, cert.title, cert.acronym, cert.slug
+      FROM lms.course_cert_recommendations r
+      JOIN lms.certifications cert ON cert.id = r.certification_id
+      WHERE r.course_id = $1
+      ORDER BY cert.title
+    `, courseId);
+  }
+
+  async adminSetRecommendations(courseId: string, certificationIds: string[]) {
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM lms.course_cert_recommendations WHERE course_id = $1`, courseId
+    );
+    for (const certId of certificationIds) {
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id)
+         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        courseId, certId
+      );
+    }
+    return this.adminGetRecommendations(courseId);
+  }
+
+  async getRecommendedCoursesByCert(certificationId: string) {
+    return this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT c.id, c.title, c.slug, c.subtitle, c.description, c.price::text, c.level,
+             c.duration_hours::text, c.thumbnail_url, c.status,
+             cert.acronym AS cert_acronym, cert.title AS cert_title,
+             (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count
+      FROM lms.course_cert_recommendations r
+      JOIN lms.courses c ON c.id = r.course_id AND c.status = 'active'
+      LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
+      WHERE r.certification_id = $1
+        AND c.certification_id IS DISTINCT FROM $1
+      ORDER BY c.title
+    `, certificationId);
   }
 
   // ─── Public ──────────────────────────────────────────────────────────
@@ -141,6 +194,8 @@ export class PrepCoursesService {
   async findBySlug(slug: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
+        c.price::float AS price,
+        c.duration_hours::float AS duration_hours,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
         (
           SELECT json_agg(json_build_object(
@@ -186,7 +241,7 @@ export class PrepCoursesService {
       FROM lms.course_enrollments ce
       JOIN lms.courses c ON c.id = ce.course_id
       JOIN lms.users u ON u.id = ce.user_id
-      JOIN lms.profiles p ON p.user_id = u.id
+      LEFT JOIN lms.profiles p ON p.user_id = u.id
       ORDER BY ce.enrolled_at DESC
     `);
   }
@@ -194,6 +249,8 @@ export class PrepCoursesService {
   async adminGetAll() {
     return this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
+        c.price::float AS price,
+        c.duration_hours::float AS duration_hours,
         cert.acronym AS cert_acronym, cert.title AS cert_title,
         (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
         (SELECT COUNT(*) FROM lms.course_enrollments e WHERE e.course_id = c.id)::int AS enrollment_count,
@@ -214,6 +271,9 @@ export class PrepCoursesService {
   async adminGetOne(id: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
+        c.price::float AS price,
+        c.duration_hours::float AS duration_hours,
+        (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
         (
           SELECT json_agg(json_build_object(
@@ -246,7 +306,11 @@ export class PrepCoursesService {
       WHERE c.id = $1
     `, id);
     if (!rows.length) throw new NotFoundException("Course not found");
-    return rows[0];
+    const course = rows[0];
+    course.recommended_cert_ids = (await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT certification_id FROM lms.course_cert_recommendations WHERE course_id = $1`, id
+    )).map((r) => r.certification_id);
+    return course;
   }
 
   async adminCreate(dto: Record<string, any>) {
@@ -451,7 +515,7 @@ export class PrepCoursesService {
 
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       INSERT INTO lms.modules (id, course_id, title, description, sort_order, is_published, created_at, updated_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, false, now(), now()) RETURNING *
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, true, now(), now()) RETURNING *
     `, courseId, title, description || null, order_index ?? 0);
     return rows[0];
   }
@@ -472,6 +536,25 @@ export class PrepCoursesService {
       WHERE id = $4 RETURNING *
     `, title ?? null, description ?? null, is_published ?? null, moduleId);
     return updated[0];
+  }
+
+  async adminPublishAll(courseId: string) {
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE lms.modules SET is_published = true, updated_at = now() WHERE course_id = $1`,
+      courseId,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE lms.lessons SET is_published = true, updated_at = now()
+       WHERE module_id IN (SELECT id FROM lms.modules WHERE course_id = $1)`,
+      courseId,
+    );
+    const [mods] = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*)::int AS count FROM lms.modules WHERE course_id = $1`, courseId,
+    );
+    const [lessons] = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*)::int AS count FROM lms.lessons WHERE module_id IN (SELECT id FROM lms.modules WHERE course_id = $1)`, courseId,
+    );
+    return { modules: mods.count, lessons: lessons.count };
   }
 
   async adminDeleteModule(courseId: string, moduleId: string) {
@@ -497,7 +580,7 @@ export class PrepCoursesService {
     const lessonType = type || 'reading';
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       INSERT INTO lms.lessons (id, module_id, title, content_body, type, duration_minutes, sort_order, is_published, is_free_preview, created_at, updated_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4::lms."LessonType", $5, $6, false, false, now(), now()) RETURNING *
+      VALUES (gen_random_uuid(), $1, $2, $3, $4::lms."LessonType", $5, $6, true, false, now(), now()) RETURNING *
     `, moduleId, title, content || null, lessonType, duration_minutes ?? 0, order_index ?? 0);
     return rows[0];
   }

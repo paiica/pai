@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutTemplate, Navigation, PlusCircle } from "lucide-react";
+import { LayoutTemplate, Navigation, PlusCircle, Mail } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -22,6 +22,13 @@ const SECTIONS = [
     color: "bg-emerald-50 text-emerald-600",
     title: "New Certification",
     desc: "Create a new certification program and add it to the catalog.",
+  },
+  {
+    href: "/design/email-templates",
+    icon: Mail,
+    color: "bg-rose-50 text-rose-600",
+    title: "Email Templates",
+    desc: "Customise subject lines and enable or disable each transactional email.",
   },
 ];
 

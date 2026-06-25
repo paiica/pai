@@ -11,6 +11,7 @@ import {
   ChevronDown, ChevronRight, Save, Upload, GripVertical,
   BookOpen, Clock, Search, AlertCircle, Loader2, Settings,
   ArrowLeft, ArrowRight, CheckCircle, FileQuestion, Paperclip,
+  Sparkles,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -168,7 +169,7 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson:
   const [content, setContent] = useState(lesson.content ?? "");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setContent(lesson.content ?? ""); }, [lesson.id]);
+  useEffect(() => { setContent(lesson.content ?? ""); }, [lesson.id, lesson.content]);
 
   async function save() {
     setSaving(true);
@@ -212,7 +213,7 @@ function VideoEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: L
     setUrl(lesson.video_url ?? "");
     setContent(lesson.content ?? "");
     setContentMode((lesson.content ?? "").trim().startsWith("<") ? "html" : "text");
-  }, [lesson.id]);
+  }, [lesson.id, lesson.content]);
 
   async function save() {
     setSaving(true);
@@ -607,7 +608,7 @@ function AssignmentEditor({ lesson, courseId, moduleId, token, onSaved }: { less
     setDueDate(lesson.due_date ? lesson.due_date.split("T")[0] : "");
     setAllowText(lesson.allow_text_response ?? true);
     setWordLimit(lesson.text_word_limit ?? "");
-  }, [lesson.id]);
+  }, [lesson.id, lesson.content]);
 
   async function save() {
     setSaving(true);
@@ -1040,6 +1041,517 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
   );
 }
 
+// ─── AI Assistant Panel ───────────────────────────────────────────────────────
+
+type AiTab = "lesson" | "module" | "course";
+
+type AiProgress = { label: string; done: number; total: number };
+
+function ProgressBar({ p }: { p: AiProgress }) {
+  return (
+    <div className="p-3 bg-violet-50 rounded-xl border border-violet-100">
+      <div className="flex items-center justify-between text-xs text-violet-700 mb-1.5">
+        <span className="font-medium truncate">{p.label}</span>
+        <span className="flex-shrink-0 ml-2">{p.done} / {p.total}</span>
+      </div>
+      <div className="h-1.5 bg-violet-200 rounded-full overflow-hidden">
+        <div className="h-full bg-violet-600 rounded-full transition-all duration-300"
+          style={{ width: `${p.total > 0 ? (p.done / p.total) * 100 : 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function AiAssistantPanel({
+  courseId, course, modules, token, selectedLesson, onRefresh, onClose,
+}: {
+  courseId: string;
+  course: any;
+  modules: Module[];
+  token: string;
+  selectedLesson: { lesson: Lesson; module: Module } | null;
+  onRefresh: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<AiTab>("lesson");
+
+  // ── Lesson tab ────────────────────────────────────────────────────────────
+  const [lessonTopic, setLessonTopic] = useState("");
+  const [numQ, setNumQ] = useState(5);
+  const [lessonBusy, setLessonBusy] = useState(false);
+
+  // ── Module tab ────────────────────────────────────────────────────────────
+  const [modTarget,       setModTarget]       = useState<string>("");        // module id or "new"
+  const [modNewTitle,     setModNewTitle]      = useState("");
+  const [modTopic,        setModTopic]         = useState("");
+  const [modNumLessons,   setModNumLessons]    = useState(5);
+  const [modGenContent,   setModGenContent]    = useState(true);
+  const [modBusy,         setModBusy]          = useState(false);
+  const [modProgress,     setModProgress]      = useState<AiProgress | null>(null);
+
+  // ── Course tab ────────────────────────────────────────────────────────────
+  const [courseTopic,     setCourseTopic]      = useState("");
+  const [courseNumMods,   setCourseNumMods]    = useState(4);
+  const [courseLPM,       setCourseLPM]        = useState(4);
+  const [courseGenContent,setCourseGenContent] = useState(true);
+  const [courseBusy,      setCourseBusy]       = useState(false);
+  const [courseProgress,  setCourseProgress]   = useState<AiProgress | null>(null);
+
+  useEffect(() => {
+    if (selectedLesson) setTab("lesson");
+  }, [selectedLesson?.lesson.id]);
+
+  useEffect(() => {
+    if (modules.length > 0 && !modTarget) setModTarget(modules[0].id);
+  }, [modules.length]);
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  async function generateLessonContent(lessonId: string, moduleId: string, lesson: Lesson, topicStr: string) {
+    const modTitle = modules.find(m => m.id === moduleId)?.title ?? "";
+    if (lesson.type === "quiz") {
+      const res = await api.post<any>("/ai/generate-course-content", {
+        lesson_title: lesson.title, lesson_type: "quiz",
+        topic: topicStr || lesson.title, course_title: course.title,
+        module_title: modTitle, num_questions: numQ,
+      }, token) as any;
+      const questions: any[] = res?.data?.questions ?? res?.questions ?? [];
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        await api.post(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}/questions`, {
+          question_text: q.question_text, question_type: "multiple_choice",
+          options: q.options, correct_index: q.correct_index,
+          explanation: q.explanation ?? "", points: 1, sort_order: i,
+        }, token);
+      }
+    } else {
+      const res = await api.post<any>("/ai/generate-course-content", {
+        lesson_title: lesson.title, lesson_type: lesson.type,
+        topic: topicStr || lesson.title, course_title: course.title,
+        module_title: modTitle,
+      }, token) as any;
+      await api.patch(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`, {
+        content_body: res?.data?.content ?? res?.content ?? "",
+      }, token);
+    }
+  }
+
+  // ── Lesson tab handler ─────────────────────────────────────────────────────
+
+  async function handleGenerateLesson() {
+    if (!selectedLesson) return;
+    setLessonBusy(true);
+    try {
+      await generateLessonContent(
+        selectedLesson.lesson.id, selectedLesson.module.id, selectedLesson.lesson, lessonTopic
+      );
+      toast.success("Content generated and saved!");
+      setLessonTopic("");
+      await onRefresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Generation failed");
+    } finally {
+      setLessonBusy(false);
+    }
+  }
+
+  // ── Module tab handler ─────────────────────────────────────────────────────
+
+  async function handleGenerateModule() {
+    const isNew = modTarget === "new";
+    if (isNew && !modNewTitle.trim()) { toast.error("Enter a module title"); return; }
+    if (!modTopic.trim()) { toast.error("Describe what this module should cover"); return; }
+    setModBusy(true);
+    setModProgress(null);
+    try {
+      // 1. Determine module title
+      const moduleTitle = isNew ? modNewTitle.trim() : (modules.find(m => m.id === modTarget)?.title ?? "");
+
+      // 2. AI generates lesson structure
+      setModProgress({ label: "Designing lesson structure…", done: 0, total: 1 });
+      const structRes = await api.post<any>("/ai/generate-module-structure", {
+        course_title: course.title,
+        module_title: moduleTitle,
+        topic: modTopic,
+        num_lessons: modNumLessons,
+      }, token) as any;
+      const aiLessons: Array<{ title: string; type: string; topic: string }> = structRes?.data?.lessons ?? structRes?.lessons ?? [];
+      if (!aiLessons.length) throw new Error("AI returned no lessons");
+
+      // 3. Create module if new
+      let targetModuleId = modTarget;
+      if (isNew) {
+        const modRes = await api.post<any>(`/admin/courses/${courseId}/modules`, {
+          title: moduleTitle, order_index: modules.length,
+        }, token) as any;
+        targetModuleId = (modRes?.data ?? modRes)?.id ?? (modRes?.id);
+        if (!targetModuleId) throw new Error("Failed to create module");
+        setModNewTitle("");
+      }
+
+      // 4. Create lessons
+      setModProgress({ label: "Creating lessons…", done: 0, total: aiLessons.length });
+      const createdLessons: Array<{ id: string; type: string; title: string; topic: string }> = [];
+      for (let i = 0; i < aiLessons.length; i++) {
+        const l = aiLessons[i];
+        const r = await api.post<any>(`/admin/courses/${courseId}/modules/${targetModuleId}/lessons`, {
+          title: l.title, type: l.type || "reading", order_index: i,
+        }, token) as any;
+        const created = r?.data ?? r;
+        createdLessons.push({ id: created.id, type: l.type || "reading", title: l.title, topic: l.topic });
+        setModProgress({ label: "Creating lessons…", done: i + 1, total: aiLessons.length });
+      }
+
+      await onRefresh();
+
+      // 5. Optionally generate content
+      if (modGenContent) {
+        let failed = 0;
+        for (let i = 0; i < createdLessons.length; i++) {
+          const l = createdLessons[i];
+          setModProgress({ label: `Generating content: ${l.title}`, done: i, total: createdLessons.length });
+          try {
+            const fakeLesson: Lesson = {
+              id: l.id, module_id: targetModuleId, title: l.title, type: l.type,
+              is_published: false, duration_minutes: 0, order_index: i,
+            };
+            await generateLessonContent(l.id, targetModuleId, fakeLesson, l.topic);
+          } catch {
+            failed++;
+            toast.error(`Content failed: ${l.title}`);
+          }
+          setModProgress({ label: `Generating content…`, done: i + 1, total: createdLessons.length });
+        }
+        await onRefresh();
+        toast.success(`Module built! ${createdLessons.length - failed} lessons generated${failed ? `, ${failed} failed` : ""}`);
+      } else {
+        toast.success(`Module created with ${createdLessons.length} lessons!`);
+      }
+
+      setModTopic("");
+      setModProgress(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Module generation failed");
+      setModProgress(null);
+    } finally {
+      setModBusy(false);
+    }
+  }
+
+  // ── Course tab handler ─────────────────────────────────────────────────────
+
+  async function handleGenerateCourse() {
+    if (!courseTopic.trim()) { toast.error("Describe what this course should teach"); return; }
+    setCourseBusy(true);
+    setCourseProgress(null);
+    try {
+      // 1. Generate full course structure
+      setCourseProgress({ label: "Designing course structure…", done: 0, total: 1 });
+      const structRes = await api.post<any>("/ai/generate-course-structure", {
+        course_title: course.title || "Course",
+        topic: courseTopic,
+        num_modules: courseNumMods,
+        lessons_per_module: courseLPM,
+      }, token) as any;
+      const aiModules: Array<{ title: string; description: string; lessons: Array<{ title: string; type: string; topic: string }> }> =
+        structRes?.data?.modules ?? structRes?.modules ?? [];
+      if (!aiModules.length) throw new Error("AI returned no modules");
+
+      const totalLessons = aiModules.reduce((s, m) => s + m.lessons.length, 0);
+      let lessonsCreated = 0;
+
+      // 2. Create each module + its lessons
+      const createdData: Array<{ moduleId: string; lessons: Array<{ id: string; type: string; title: string; topic: string }> }> = [];
+      for (let mi = 0; mi < aiModules.length; mi++) {
+        const am = aiModules[mi];
+        setCourseProgress({ label: `Creating module ${mi + 1}/${aiModules.length}: ${am.title}`, done: lessonsCreated, total: totalLessons });
+
+        const modRes = await api.post<any>(`/admin/courses/${courseId}/modules`, {
+          title: am.title, order_index: modules.length + mi,
+          description: am.description,
+        }, token) as any;
+        const moduleId = (modRes?.data ?? modRes)?.id ?? modRes?.id;
+        if (!moduleId) throw new Error(`Failed to create module: ${am.title}`);
+
+        const createdLessons: Array<{ id: string; type: string; title: string; topic: string }> = [];
+        for (let li = 0; li < am.lessons.length; li++) {
+          const al = am.lessons[li];
+          const lr = await api.post<any>(`/admin/courses/${courseId}/modules/${moduleId}/lessons`, {
+            title: al.title, type: al.type || "reading", order_index: li,
+          }, token) as any;
+          const created = lr?.data ?? lr;
+          createdLessons.push({ id: created.id, type: al.type || "reading", title: al.title, topic: al.topic });
+          lessonsCreated++;
+          setCourseProgress({ label: `Creating lessons for "${am.title}"…`, done: lessonsCreated, total: totalLessons });
+        }
+        createdData.push({ moduleId, lessons: createdLessons });
+      }
+
+      await onRefresh();
+
+      // 3. Optionally generate content for all lessons
+      if (courseGenContent) {
+        let done = 0;
+        let failed = 0;
+        for (const { moduleId, lessons } of createdData) {
+          for (const l of lessons) {
+            setCourseProgress({ label: `Generating: ${l.title}`, done, total: totalLessons });
+            try {
+              const fakeLesson: Lesson = {
+                id: l.id, module_id: moduleId, title: l.title, type: l.type,
+                is_published: false, duration_minutes: 0, order_index: 0,
+              };
+              await generateLessonContent(l.id, moduleId, fakeLesson, l.topic);
+            } catch {
+              failed++;
+              toast.error(`Content failed: ${l.title}`);
+            }
+            done++;
+            setCourseProgress({ label: `Generating content…`, done, total: totalLessons });
+          }
+        }
+        await onRefresh();
+        toast.success(`Course built! ${aiModules.length} modules, ${totalLessons - failed} lessons${failed ? ` (${failed} failed)` : ""}`);
+      } else {
+        toast.success(`Course structure created! ${aiModules.length} modules, ${totalLessons} lessons`);
+      }
+
+      setCourseTopic("");
+      setCourseProgress(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Course generation failed");
+      setCourseProgress(null);
+    } finally {
+      setCourseBusy(false);
+    }
+  }
+
+  const anyBusy = lessonBusy || modBusy || courseBusy;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/20 z-30" onClick={anyBusy ? undefined : onClose} />
+      <div className="fixed right-0 top-0 h-full w-[400px] bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-white" />
+            <span className="text-white font-bold text-sm">AI Course Assistant</span>
+          </div>
+          <button onClick={onClose} disabled={anyBusy} className="text-white/70 hover:text-white transition-colors disabled:opacity-40"><X size={16} /></button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 flex-shrink-0">
+          {([
+            { id: "lesson", label: "Lesson" },
+            { id: "module", label: "Module" },
+            { id: "course", label: "Full Course" },
+          ] as { id: AiTab; label: string }[]).map(({ id, label }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={cn("flex-1 py-2.5 text-xs font-semibold transition-colors",
+                tab === id
+                  ? "text-violet-700 border-b-2 border-violet-600 bg-violet-50/40"
+                  : "text-slate-500 hover:text-slate-700"
+              )}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── Lesson Tab ── */}
+          {tab === "lesson" && (
+            <div className="p-4 space-y-4">
+              {selectedLesson ? (
+                <>
+                  <div className="p-3 bg-violet-50 rounded-xl border border-violet-100">
+                    <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">
+                      {LESSON_TYPE_LABEL[selectedLesson.lesson.type] ?? selectedLesson.lesson.type}
+                    </p>
+                    <p className="text-sm font-semibold text-violet-900 mt-0.5">{selectedLesson.lesson.title}</p>
+                    <p className="text-xs text-violet-500 mt-0.5">{selectedLesson.module.title}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Topic / Focus</label>
+                    <textarea
+                      value={lessonTopic}
+                      onChange={e => setLessonTopic(e.target.value)}
+                      placeholder={`What should this ${selectedLesson.lesson.type} lesson cover? Be specific for better results.`}
+                      className="w-full h-28 input-base text-sm resize-none"
+                    />
+                  </div>
+
+                  {selectedLesson.lesson.type === "quiz" && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Questions to Generate</label>
+                      <input type="number" min={1} max={20} value={numQ}
+                        onChange={e => setNumQ(Math.max(1, Math.min(20, +e.target.value)))}
+                        className="input-base w-24 text-sm" />
+                    </div>
+                  )}
+
+                  <button onClick={handleGenerateLesson} disabled={lessonBusy}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-60 shadow-sm">
+                    {lessonBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {lessonBusy ? "Generating…"
+                      : selectedLesson.lesson.type === "quiz" ? `Generate ${numQ} Questions`
+                      : "Generate Content"}
+                  </button>
+                  <p className="text-xs text-slate-400 text-center">
+                    {selectedLesson.lesson.type === "quiz"
+                      ? "Questions will be added to this quiz."
+                      : "Content is saved and loaded in the editor."}
+                  </p>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mb-4">
+                    <Sparkles size={24} className="text-violet-300" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600">No lesson selected</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-[220px]">Select a lesson from the sidebar to generate its content.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Module Tab ── */}
+          {tab === "module" && (
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Describe a module and AI will create all lessons and optionally fill in the content.
+              </p>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Target Module</label>
+                <select value={modTarget} onChange={e => setModTarget(e.target.value)} className="input-base text-sm">
+                  {modules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                  <option value="new">+ Create new module</option>
+                </select>
+              </div>
+
+              {modTarget === "new" && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">New Module Title</label>
+                  <input value={modNewTitle} onChange={e => setModNewTitle(e.target.value)}
+                    placeholder="e.g. Module 3: Advanced AI Applications"
+                    className="input-base text-sm" />
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">What should this module cover?</label>
+                <textarea
+                  value={modTopic}
+                  onChange={e => setModTopic(e.target.value)}
+                  placeholder="Describe the topics, learning goals, and what students should know by the end of this module…"
+                  className="w-full h-28 input-base text-sm resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Number of Lessons</label>
+                  <input type="number" min={1} max={12} value={modNumLessons}
+                    onChange={e => setModNumLessons(Math.max(1, Math.min(12, +e.target.value)))}
+                    className="input-base text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Questions/Quiz</label>
+                  <input type="number" min={1} max={20} value={numQ}
+                    onChange={e => setNumQ(Math.max(1, Math.min(20, +e.target.value)))}
+                    className="input-base text-sm" />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={modGenContent} onChange={e => setModGenContent(e.target.checked)} className="rounded" />
+                <span className="text-sm text-slate-700">Also generate lesson content</span>
+              </label>
+
+              {modProgress && <ProgressBar p={modProgress} />}
+
+              <button onClick={handleGenerateModule} disabled={modBusy}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-60 shadow-sm">
+                {modBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {modBusy ? "Building Module…" : "Build Module"}
+              </button>
+            </div>
+          )}
+
+          {/* ── Course Tab ── */}
+          {tab === "course" && (
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Describe your course goals and AI will generate the full module and lesson structure, then fill in all the content.
+              </p>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Course Topic & Goals</label>
+                <textarea
+                  value={courseTopic}
+                  onChange={e => setCourseTopic(e.target.value)}
+                  placeholder="What is this course about? Who is the audience? What will students be able to do after completing it?"
+                  className="w-full h-32 input-base text-sm resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Modules</label>
+                  <input type="number" min={1} max={10} value={courseNumMods}
+                    onChange={e => setCourseNumMods(Math.max(1, Math.min(10, +e.target.value)))}
+                    className="input-base text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Lessons / Module</label>
+                  <input type="number" min={1} max={10} value={courseLPM}
+                    onChange={e => setCourseLPM(Math.max(1, Math.min(10, +e.target.value)))}
+                    className="input-base text-sm" />
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+                <span>Total lessons to create</span>
+                <span className="font-bold text-slate-700">{courseNumMods * courseLPM}</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Questions per Quiz</label>
+                <input type="number" min={1} max={20} value={numQ}
+                  onChange={e => setNumQ(Math.max(1, Math.min(20, +e.target.value)))}
+                  className="input-base w-24 text-sm" />
+              </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={courseGenContent} onChange={e => setCourseGenContent(e.target.checked)} className="rounded" />
+                <span className="text-sm text-slate-700">Also generate all lesson content</span>
+              </label>
+
+              {courseProgress && <ProgressBar p={courseProgress} />}
+
+              <button onClick={handleGenerateCourse} disabled={courseBusy}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-60 shadow-sm">
+                {courseBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {courseBusy ? "Building Course…" : "Build Full Course"}
+              </button>
+
+              <p className="text-xs text-slate-400 text-center leading-relaxed">
+                This will add {courseNumMods} modules with {courseNumMods * courseLPM} lessons to the existing course.
+              </p>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CourseBuilderPage() {
@@ -1050,6 +1562,23 @@ export default function CourseBuilderPage() {
   const [showStudentView, setShowStudentView] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<{ lesson: Lesson; module: Module } | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "settings">("content");
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  async function handlePublishAll() {
+    if (!confirm("Publish all modules and lessons in this course? Students will immediately have access.")) return;
+    setPublishing(true);
+    try {
+      const res = await api.post<any>(`/admin/courses/${courseId}/publish-all`, {}, token) as any;
+      const { modules: m, lessons: l } = res?.data ?? res;
+      toast.success(`Published ${m} modules and ${l} lessons`);
+      mutate();
+    } catch (err: any) {
+      toast.error(err?.message || "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   // Add module
   const [addingModule, setAddingModule] = useState(false);
@@ -1155,6 +1684,25 @@ export default function CourseBuilderPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-navy-400">{modules.length} modules · {modules.reduce((s, m) => s + m.lessons.length, 0)} lessons</span>
+          {!showStudentView && modules.length > 0 && (
+            <button
+              onClick={handlePublishAll}
+              disabled={publishing}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border bg-emerald-700 text-emerald-100 border-emerald-600 hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {publishing ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
+              Publish All
+            </button>
+          )}
+          {!showStudentView && (
+            <button
+              onClick={() => setAiPanelOpen(o => !o)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border", aiPanelOpen ? "bg-violet-500 text-white border-violet-400" : "bg-navy-800 text-navy-200 border-navy-700 hover:bg-navy-700")}
+            >
+              <Sparkles size={12} />
+              AI Assistant
+            </button>
+          )}
           <button
             onClick={() => setShowStudentView(!showStudentView)}
             className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border", showStudentView ? "bg-blue-500 text-white border-blue-400" : "bg-navy-800 text-navy-200 border-navy-700 hover:bg-navy-700")}
@@ -1271,6 +1819,19 @@ export default function CourseBuilderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Assistant Panel */}
+      {aiPanelOpen && !showStudentView && (
+        <AiAssistantPanel
+          courseId={courseId}
+          course={course}
+          modules={modules}
+          token={token}
+          selectedLesson={selectedLesson}
+          onRefresh={async () => { await mutate(); }}
+          onClose={() => setAiPanelOpen(false)}
+        />
       )}
     </div>
   );

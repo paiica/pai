@@ -46,6 +46,12 @@ export class LearningService {
                 },
               },
             },
+            // Load all linked active prep courses (no take limit — all contribute modules)
+            prep_courses: {
+              where: { status: "active" },
+              select: { id: true, title: true, slug: true, sort_order: true },
+              orderBy: { sort_order: "asc" },
+            },
           },
         },
         lesson_progress: { select: { lesson_id: true, completed: true, quiz_score: true, last_position: true } },
@@ -60,14 +66,42 @@ export class LearningService {
     );
     const progressMap = new Map(enrollment.lesson_progress.map((lp) => [lp.lesson_id, lp]));
 
-    const modules = enrollment.certification.modules.map((mod) => ({
+    // Primary: modules attached directly to the certification.
+    // Fallback: merge modules from all linked active prep courses, in course order.
+    let rawModules = enrollment.certification.modules;
+    const linkedCourses: { id: string; title: string; slug: string; sort_order: number }[] =
+      (enrollment.certification as any).prep_courses ?? [];
+    if (rawModules.length === 0 && linkedCourses.length > 0) {
+      const perCourse = await Promise.all(
+        linkedCourses.map((c) =>
+          this.prisma.module.findMany({
+            where: { course_id: c.id, is_published: true },
+            orderBy: { sort_order: "asc" },
+            include: {
+              lessons: {
+                where: { is_published: true },
+                orderBy: { sort_order: "asc" },
+                select: {
+                  id: true, title: true, type: true,
+                  duration_minutes: true, is_free_preview: true,
+                  due_date: true,
+                },
+              },
+            },
+          }).then((mods) => mods.map((m) => ({ ...m, _source_course_id: c.id })))
+        )
+      );
+      rawModules = perCourse.flat() as any;
+    }
+
+    const modules = rawModules.map((mod: any) => ({
       ...mod,
-      lessons: mod.lessons.map((lesson) => ({
+      lessons: mod.lessons.map((lesson: any) => ({
         ...lesson,
         completed: completedLessonIds.has(lesson.id),
         progress: progressMap.get(lesson.id) ?? null,
       })),
-      completed_count: mod.lessons.filter((l) => completedLessonIds.has(l.id)).length,
+      completed_count: mod.lessons.filter((l: any) => completedLessonIds.has(l.id)).length,
       total_count: mod.lessons.length,
     }));
 
@@ -86,6 +120,7 @@ export class LearningService {
         badge_icon: enrollment.certification.badge_icon,
         passing_score: enrollment.certification.passing_score,
       },
+      linked_courses: linkedCourses,
       modules,
       last_attempt: enrollment.exam_attempts[0] ?? null,
       certificate: enrollment.certificate ?? null,
@@ -110,6 +145,8 @@ export class LearningService {
         module: {
           select: {
             id: true, title: true, sort_order: true,
+            certification_id: true,
+            course_id: true,
             certification: { select: { id: true, passing_score: true } },
           },
         },
@@ -117,12 +154,36 @@ export class LearningService {
     });
     if (!lesson) throw new NotFoundException("Lesson not found");
 
-    if (!lesson.module.certification) throw new NotFoundException("Lesson module has no associated certification");
-    // Verify lesson belongs to this enrollment's certification
+    // The module may belong directly to a certification OR to a linked prep course.
+    // In both cases verify the enrollment's certification owns this content.
     const enrollment = await this.prisma.enrollment.findFirst({
-      where: { id: enrollmentId, certification_id: lesson.module.certification.id },
+      where: { id: enrollmentId },
+      include: {
+        certification: {
+          select: {
+            id: true, passing_score: true,
+            prep_courses: { select: { id: true }, where: { status: "active" } },
+          },
+        },
+      },
     });
-    if (!enrollment) throw new ForbiddenException("Lesson is not part of your enrollment");
+    if (!enrollment) throw new ForbiddenException("Enrollment not found");
+
+    const certId = enrollment.certification.id;
+    const linkedCourseIds = new Set(
+      ((enrollment.certification as any).prep_courses ?? []).map((c: any) => c.id)
+    );
+    const belongsToCert = lesson.module.certification_id === certId;
+    const belongsToLinkedCourse = lesson.module.course_id && linkedCourseIds.has(lesson.module.course_id);
+    if (!belongsToCert && !belongsToLinkedCourse) {
+      throw new ForbiddenException("Lesson is not part of your enrollment");
+    }
+
+    // Attach cert-level passing score onto the lesson's module for the client
+    (lesson.module as any).certification = lesson.module.certification ?? {
+      id: certId,
+      passing_score: enrollment.certification.passing_score,
+    };
 
     // Load student's progress for this lesson
     const progress = await this.prisma.lessonProgress.findUnique({

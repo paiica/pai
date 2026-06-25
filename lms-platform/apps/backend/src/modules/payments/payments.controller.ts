@@ -1,11 +1,15 @@
 import {
   Controller, Get, Post, Body, Req, UseGuards,
   RawBodyRequest, Headers, HttpCode, HttpStatus,
+  Param, Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Request } from "express";
+import { Role } from "@prisma/client";
 import { PaymentsService } from "./payments.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
@@ -58,6 +62,54 @@ export class PaymentsController {
   getMyPayments(@CurrentUser("id") userId: string) {
     return this.paymentsService.getMyPayments(userId);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get("my-orders")
+  @ApiOperation({ summary: "Get all orders including free enrollments" })
+  getMyOrders(@CurrentUser("id") userId: string) {
+    return this.paymentsService.getMyOrders(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("billing-portal")
+  @ApiOperation({ summary: "Create Stripe billing portal session for card management" })
+  billingPortal(@CurrentUser("id") userId: string) {
+    return this.paymentsService.createBillingPortalSession(userId);
+  }
+
+  // ── Admin endpoints ────────────────────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @Get("admin/list")
+  @ApiOperation({ summary: "List all payments (admin)" })
+  adminList(@Query() query: { page?: string; limit?: string; status?: string; type?: string; search?: string }) {
+    return this.paymentsService.adminList(query);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @Get("admin/stats")
+  @ApiOperation({ summary: "Payment revenue stats (admin)" })
+  adminStats() {
+    return this.paymentsService.adminStats();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @Post("admin/:id/refund")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Issue full refund for a payment (admin)" })
+  adminRefund(@Param("id") id: string, @Body("reason") reason?: string) {
+    return this.paymentsService.adminRefund(id, reason);
+  }
+
+  // ── Webhook ────────────────────────────────────────────────────────────────
 
   @Public()
   @SkipThrottle()

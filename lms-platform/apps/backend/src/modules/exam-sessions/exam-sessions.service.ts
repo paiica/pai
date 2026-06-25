@@ -7,6 +7,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class ExamSessionsService {
@@ -14,6 +15,7 @@ export class ExamSessionsService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   // ── Admin: CRUD ────────────────────────────────────────────────────────────
@@ -165,21 +167,45 @@ export class ExamSessionsService {
 
     if (existing) {
       if (existing.status === "confirmed") throw new BadRequestException("You already have a booking for this session");
-      return (this.prisma as any).examBooking.update({
+      const updated = await (this.prisma as any).examBooking.update({
         where: { id: existing.id },
         data: { status: "confirmed", cancelled_at: null, booked_at: new Date() },
-        include: { exam_session: true },
+        include: { exam_session: { include: { certification: { select: { title: true } } } } },
       });
+      this.sendExamBookedEmail(userId, updated.exam_session).catch(() => {});
+      return updated;
     }
 
-    return (this.prisma as any).examBooking.create({
+    const booking = await (this.prisma as any).examBooking.create({
       data: {
         user_id: userId,
         exam_session_id: sessionId,
         enrollment_id: enrollment.id,
         status: "confirmed",
       },
-      include: { exam_session: true },
+      include: { exam_session: { include: { certification: { select: { title: true } } } } },
+    });
+    this.sendExamBookedEmail(userId, booking.exam_session).catch(() => {});
+    return booking;
+  }
+
+  private async sendExamBookedEmail(userId: string, session: any) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, profile: { select: { first_name: true } } },
+    });
+    if (!user) return;
+    const examDate = new Date(session.scheduled_at).toLocaleString("en-CA", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+    });
+    await this.mail.sendExamBooked({
+      to: user.email,
+      firstName: user.profile?.first_name ?? "there",
+      certTitle: session.certification?.title ?? "your certification",
+      sessionTitle: session.title ?? `Exam Session`,
+      examDate,
+      meetingLink: session.meeting_link ?? null,
     });
   }
 

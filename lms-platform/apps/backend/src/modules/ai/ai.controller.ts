@@ -49,6 +49,47 @@ export class AiController {
     return this.aiService.generateExamQuestions(body);
   }
 
+  @Post("generate-course-content")
+  @HttpCode(HttpStatus.OK)
+  generateCourseContent(
+    @Body() body: {
+      lesson_title: string;
+      lesson_type: string;
+      topic?: string;
+      course_title?: string;
+      module_title?: string;
+      num_questions?: number;
+    },
+  ) {
+    return this.aiService.generateCourseContent(body);
+  }
+
+  @Post("generate-module-structure")
+  @HttpCode(HttpStatus.OK)
+  generateModuleStructure(
+    @Body() body: {
+      course_title?: string;
+      module_title: string;
+      topic: string;
+      num_lessons: number;
+    },
+  ) {
+    return this.aiService.generateModuleStructure(body);
+  }
+
+  @Post("generate-course-structure")
+  @HttpCode(HttpStatus.OK)
+  generateCourseStructure(
+    @Body() body: {
+      course_title: string;
+      topic: string;
+      num_modules: number;
+      lessons_per_module: number;
+    },
+  ) {
+    return this.aiService.generateCourseStructure(body);
+  }
+
   @Post("improve-question")
   @HttpCode(HttpStatus.OK)
   improveQuestion(

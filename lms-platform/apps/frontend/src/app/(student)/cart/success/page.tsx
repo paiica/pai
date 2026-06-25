@@ -13,7 +13,7 @@ function CheckoutSuccessContent() {
   useEffect(() => { setTimeout(() => setShow(true), 100); }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center p-8">
       <div className={`max-w-md w-full text-center transition-all duration-500 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={40} className="text-emerald-600" />

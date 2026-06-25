@@ -29,6 +29,12 @@ export class AdminCoursesController {
     return this.coursesService.adminGetCertification(certId);
   }
 
+  @Get(":certId/enrollments")
+  @ApiOperation({ summary: "List all enrollments for a certification" })
+  getCertEnrollments(@Param("certId", ParseUUIDPipe) certId: string) {
+    return this.coursesService.adminGetCertificationEnrollments(certId);
+  }
+
   @Post()
   @ApiOperation({ summary: "Create a new certification program" })
   create(@Body() dto: any) {

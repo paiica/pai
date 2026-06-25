@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award,
   ClipboardList, LogOut, Shield, Settings,
-  Paintbrush, LayoutTemplate, Navigation, PlusCircle, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays,
+  Paintbrush, LayoutTemplate, Navigation, PlusCircle, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -18,9 +18,18 @@ const NAV = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/blog", label: "Blog", icon: Rss },
   { href: "/pages", label: "Pages", icon: FileText },
-  { href: "/settings", label: "Site Settings", icon: Settings },
   { href: "/online-tools", label: "Online Tools", icon: Wrench },
   { href: "/promo-codes", label: "Promo Codes", icon: Tag },
+];
+
+const PAYMENTS_NAV = [
+  { href: "/payments",         label: "Transactions", icon: ReceiptText },
+  { href: "/payments/reports", label: "Reports",      icon: BarChart3   },
+];
+
+const SETTINGS_NAV = [
+  { href: "/settings",      label: "General", icon: Settings },
+  { href: "/settings/apis", label: "APIs",    icon: Key      },
 ];
 
 const COURSE_NAV = [
@@ -37,6 +46,7 @@ const DESIGN_NAV = [
   { href: "/design/blocks", label: "Page Blocks", icon: LayoutTemplate },
   { href: "/design/navigation", label: "Navigation", icon: Navigation },
   { href: "/design/footer", label: "Footer", icon: PanelBottom },
+  { href: "/design/email-templates", label: "Email Templates", icon: Mail },
 ];
 
 export default function AdminSidebar() {
@@ -44,9 +54,11 @@ export default function AdminSidebar() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const [designOpen, setDesignOpen] = useState(pathname.startsWith("/design"));
-  const [courseOpen, setCourseOpen] = useState(pathname.startsWith("/courses"));
-  const [certOpen,   setCertOpen]   = useState(pathname.startsWith("/certificates") || pathname.startsWith("/certifications"));
+  const [designOpen,   setDesignOpen]   = useState(pathname.startsWith("/design"));
+  const [courseOpen,   setCourseOpen]   = useState(pathname.startsWith("/courses"));
+  const [certOpen,     setCertOpen]     = useState(pathname.startsWith("/certificates") || pathname.startsWith("/certifications"));
+  const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
+  const [paymentsOpen, setPaymentsOpen] = useState(pathname.startsWith("/payments"));
 
   async function handleLogout() {
     await logout();
@@ -97,6 +109,80 @@ export default function AdminSidebar() {
             {label}
           </Link>
         ))}
+
+        {/* Payments collapsible */}
+        <div>
+          <button
+            onClick={() => setPaymentsOpen(!paymentsOpen)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors w-full",
+              pathname.startsWith("/payments")
+                ? "bg-gold-500/20 text-gold-300"
+                : "text-navy-300 hover:bg-navy-800 hover:text-white"
+            )}
+          >
+            <CreditCard size={17} />
+            <span className="flex-1 text-left">Payments</span>
+            <ChevronDown size={14} className={cn("transition-transform", paymentsOpen && "rotate-180")} />
+          </button>
+
+          {paymentsOpen && (
+            <div className="ml-3 mt-1 space-y-0.5 pl-3 border-l border-navy-700/50">
+              {PAYMENTS_NAV.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+                    pathname === href
+                      ? "bg-gold-500/20 text-gold-300"
+                      : "text-navy-400 hover:bg-navy-800 hover:text-white"
+                  )}
+                >
+                  <Icon size={14} />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Site Settings collapsible */}
+        <div>
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors w-full",
+              pathname.startsWith("/settings")
+                ? "bg-gold-500/20 text-gold-300"
+                : "text-navy-300 hover:bg-navy-800 hover:text-white"
+            )}
+          >
+            <Settings size={17} />
+            <span className="flex-1 text-left">Site Settings</span>
+            <ChevronDown size={14} className={cn("transition-transform", settingsOpen && "rotate-180")} />
+          </button>
+
+          {settingsOpen && (
+            <div className="ml-3 mt-1 space-y-0.5 pl-3 border-l border-navy-700/50">
+              {SETTINGS_NAV.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+                    pathname === href
+                      ? "bg-gold-500/20 text-gold-300"
+                      : "text-navy-400 hover:bg-navy-800 hover:text-white"
+                  )}
+                >
+                  <Icon size={14} />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Prep Courses collapsible */}
         <div>

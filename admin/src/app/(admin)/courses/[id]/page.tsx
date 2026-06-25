@@ -120,6 +120,8 @@ export default function CourseDetailPage() {
 
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [savingContent, setSavingContent] = useState(false);
+  const [recommendedCertIds, setRecommendedCertIds] = useState<string[]>([]);
+  const [savingRecs, setSavingRecs] = useState(false);
 
   useEffect(() => {
     if (course.id) {
@@ -134,6 +136,8 @@ export default function CourseDetailPage() {
         certification_id: course.certification_id || "",
         is_featured: course.is_featured ?? false,
       });
+
+      setRecommendedCertIds((course as any).recommended_cert_ids ?? []);
 
       if (course.content) {
         setContentForm({
@@ -171,7 +175,7 @@ export default function CourseDetailPage() {
         level: form.level,
         status: form.status,
         duration_hours: parseFloat(form.duration_hours) || 0,
-        certification_id: form.certification_id || undefined,
+        certification_id: form.certification_id || null,
         is_featured: form.is_featured,
       }, token);
       toast.success("Course updated!");
@@ -212,6 +216,19 @@ export default function CourseDetailPage() {
       api.delete(`/admin/courses/${courseId}/teachers/${userId}`, token).then(mutate),
       { loading: "Removing…", success: "Removed", error: "Failed" }
     );
+  }
+
+  async function handleSaveRecommendations() {
+    setSavingRecs(true);
+    try {
+      await api.put(`/admin/courses/${courseId}/recommendations`, { certification_ids: recommendedCertIds }, token);
+      toast.success("Recommendations saved!");
+      mutate();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save recommendations");
+    } finally {
+      setSavingRecs(false);
+    }
   }
 
   async function handleSaveContent(e: React.FormEvent) {
@@ -501,6 +518,51 @@ export default function CourseDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Related Certifications (shown when not directly linked to a cert) */}
+          {!form.certification_id && certs.length > 0 && (
+            <div className="card p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Related Certifications</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    This course appears as "Recommended" on student dashboards for the selected certifications.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveRecommendations}
+                  disabled={savingRecs}
+                  className="btn-outline !py-1.5 !px-3 !text-xs flex items-center gap-1.5 flex-shrink-0"
+                >
+                  {savingRecs ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+                </button>
+              </div>
+              <div className="space-y-2">
+                {certs.map((c: any) => (
+                  <label key={c.id} className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={recommendedCertIds.includes(c.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRecommendedCertIds((prev) => [...prev, c.id]);
+                        } else {
+                          setRecommendedCertIds((prev) => prev.filter((id) => id !== c.id));
+                        }
+                      }}
+                      className="rounded border-slate-300 text-navy-700 focus:ring-navy-500"
+                    />
+                    <span className="text-sm text-slate-700">
+                      <span className="font-semibold text-navy-800">{c.acronym}</span>
+                      {" — "}
+                      {c.title}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Settings Section */}
           <div className="card p-6 space-y-5">

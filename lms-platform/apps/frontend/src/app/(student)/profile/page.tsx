@@ -8,6 +8,7 @@ import {
   User, Lock, Bell, CreditCard, FileText, Briefcase,
   GraduationCap, MapPin, Plus, Trash2, ExternalLink,
   Save, Loader2, Eye, EyeOff, Building, Calendar, ChevronDown, ChevronUp,
+  Award,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -143,7 +144,7 @@ function ProfilePageContent() {
   const initials = `${profile?.first_name?.charAt(0) ?? ""}${profile?.last_name?.charAt(0) ?? ""}`.toUpperCase() || "?";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f7f8fa]">
       <div className="bg-white border-b border-slate-200 px-6 lg:px-10 py-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0">
@@ -805,13 +806,51 @@ function CommsSection({ token, profile, mutate }: any) {
 // ── Payment ───────────────────────────────────────────────────────────────────
 
 function PaymentSection() {
+  const token = useAuthStore((s) => s.accessToken) ?? "";
+  const [loading, setLoading] = useState(false);
+
+  async function openBillingPortal() {
+    setLoading(true);
+    try {
+      const res = await api.post<any>("/payments/billing-portal", {}, token);
+      const data = res?.data ?? res;
+      if (data.portal_url) {
+        window.location.href = data.portal_url;
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to open billing portal");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <SectionTitle>Payment Methods</SectionTitle>
-      <div className="text-center py-16 text-slate-400">
-        <CreditCard size={36} className="mx-auto mb-3 opacity-30" />
-        <p className="text-sm">Payment methods are managed through Stripe.</p>
-        <p className="text-xs mt-1">Coming soon.</p>
+      <div className="bg-white border border-slate-200 rounded-2xl p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+            <CreditCard size={22} className="text-indigo-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-slate-800 mb-1">Manage Payment Methods</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
+              Add or update your credit/debit cards securely through Stripe. Your card information is encrypted and never stored on our servers.
+            </p>
+            <button
+              onClick={openBillingPortal}
+              disabled={loading}
+              className="btn-primary !text-sm !py-2.5 disabled:opacity-60"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+              Manage Cards via Stripe
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400">
+          <Lock size={11} className="text-emerald-500" />
+          Secured by Stripe — PCI DSS compliant
+        </div>
       </div>
     </div>
   );
@@ -822,69 +861,79 @@ function PaymentSection() {
 function OrdersSection() {
   const token = useAuthStore((s) => s.accessToken) ?? "";
   const { data, isLoading } = useSWR(
-    token ? ["/payments/my", token] : null,
+    token ? ["/payments/my-orders", token] : null,
     ([url, t]) => api.get<any>(url, t),
     { revalidateOnFocus: false },
   );
-  const payments: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  const orders: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
 
   const statusColor: Record<string, string> = {
-    succeeded:           "bg-emerald-100 text-emerald-700",
-    pending:             "bg-amber-100 text-amber-700",
-    failed:              "bg-red-100 text-red-700",
-    refunded:            "bg-slate-100 text-slate-600",
-    partially_refunded:  "bg-orange-100 text-orange-700",
+    succeeded:          "bg-emerald-100 text-emerald-700",
+    pending:            "bg-amber-100 text-amber-700",
+    failed:             "bg-red-100 text-red-700",
+    refunded:           "bg-slate-100 text-slate-600",
+    partially_refunded: "bg-orange-100 text-orange-700",
   };
   const statusLabel: Record<string, string> = {
-    succeeded:           "Paid",
-    pending:             "Pending",
-    failed:              "Failed",
-    refunded:            "Refunded",
-    partially_refunded:  "Partial Refund",
+    succeeded:          "Paid",
+    pending:            "Pending",
+    failed:             "Failed",
+    refunded:           "Refunded",
+    partially_refunded: "Partial Refund",
   };
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Payment History</SectionTitle>
+      <SectionTitle>Order History</SectionTitle>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 size={22} className="animate-spin text-slate-300" />
         </div>
-      ) : payments.length === 0 ? (
+      ) : orders.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
-          <CreditCard size={36} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">No payments yet</p>
-          <p className="text-xs mt-1 text-slate-300">Your payment history will appear here after your first purchase.</p>
+          <FileText size={36} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">No orders yet</p>
+          <p className="text-xs mt-1 text-slate-300">Your order history will appear here after your first enrollment.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {payments.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 p-4 border border-slate-200 rounded-xl bg-white hover:border-slate-300 transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0">
-                <CreditCard size={18} className="text-teal-600" />
+          {orders.map((o) => (
+            <div key={o.id} className="flex items-center gap-4 p-4 border border-slate-200 rounded-xl bg-white hover:border-slate-300 transition-colors">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                o.amount === 0 ? "bg-emerald-50" : "bg-teal-50"
+              }`}>
+                {o.amount === 0
+                  ? <Award size={18} className="text-emerald-600" />
+                  : <CreditCard size={18} className="text-teal-600" />}
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{p.description || "Payment"}</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{o.description || "Enrollment"}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <p className="text-xs text-slate-400 flex items-center gap-1">
                     <Calendar size={10} />
-                    {new Date(p.succeeded_at ?? p.created_at).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}
+                    {new Date(o.date).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}
                   </p>
                   <span className="text-xs font-bold text-slate-700">
-                    ${Number(p.amount).toFixed(2)} {p.currency?.toUpperCase()}
+                    {o.amount === 0 ? "Free" : `$${Number(o.amount).toFixed(2)} ${o.currency?.toUpperCase()}`}
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusColor[p.status] ?? "bg-slate-100 text-slate-600"}`}>
-                  {statusLabel[p.status] ?? p.status}
-                </span>
-                {p.stripe_receipt_url && (
+                {o.amount === 0 ? (
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                    Enrolled
+                  </span>
+                ) : (
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusColor[o.status] ?? "bg-slate-100 text-slate-600"}`}>
+                    {statusLabel[o.status] ?? o.status}
+                  </span>
+                )}
+                {o.stripe_receipt_url && (
                   <a
-                    href={p.stripe_receipt_url}
+                    href={o.stripe_receipt_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-300 px-3 py-1.5 rounded-lg transition-colors"

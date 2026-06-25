@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import configuration from "./config/configuration";
@@ -27,6 +28,7 @@ import { PromoCodesModule } from "./modules/promo-codes/promo-codes.module";
 import { OnlineToolsModule } from "./modules/online-tools/online-tools.module";
 import { ExamSessionsModule } from "./modules/exam-sessions/exam-sessions.module";
 import { AiModule } from "./modules/ai/ai.module";
+import { MailSchedulerModule } from "./modules/mail/mail-scheduler.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -46,6 +48,7 @@ import { AppController } from "./app.controller";
         },
       ],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -69,6 +72,7 @@ import { AppController } from "./app.controller";
     OnlineToolsModule,
     ExamSessionsModule,
     AiModule,
+    MailSchedulerModule,
   ],
   controllers: [AppController],
   providers: [

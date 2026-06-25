@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
@@ -75,6 +75,12 @@ export class AdminPrepCoursesController {
     @Param("userId", ParseUUIDPipe) userId: string,
   ) {
     return this.service.removeTeacher(id, userId);
+  }
+
+  @Post(":id/publish-all")
+  @ApiOperation({ summary: "Publish all modules and lessons for a course" })
+  publishAll(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminPublishAll(id);
   }
 
   @Get(":id/modules")
@@ -185,5 +191,20 @@ export class AdminPrepCoursesController {
   @Get(":id/submissions")
   getSubmissions(@Param("id", ParseUUIDPipe) id: string) {
     return this.service.adminGetSubmissions(id);
+  }
+
+  @Get(":id/recommendations")
+  @ApiOperation({ summary: "Get recommended certifications for this course" })
+  getRecommendations(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminGetRecommendations(id);
+  }
+
+  @Put(":id/recommendations")
+  @ApiOperation({ summary: "Replace recommended certifications for this course" })
+  setRecommendations(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body("certification_ids") certificationIds: string[],
+  ) {
+    return this.service.adminSetRecommendations(id, certificationIds ?? []);
   }
 }

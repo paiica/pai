@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { PaymentType, PaymentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class PaymentsService {
@@ -14,18 +15,34 @@ export class PaymentsService {
     private prisma: PrismaService,
     private config: ConfigService,
     private promoCodes: PromoCodesService,
+    private mail: MailService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
-    if (stripeKey) {
+    if (stripeKey && stripeKey.length > 10) {
       this.stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
     } else {
-      this.logger.warn("STRIPE_SECRET_KEY not set — payments disabled");
+      this.logger.warn("STRIPE_SECRET_KEY not set or invalid — payments disabled");
     }
+  }
+
+  private ensureStripe() {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        "Payment processing is not configured. Please add your Stripe key in Settings → APIs."
+      );
+    }
+  }
+
+  private stripeError(err: any): never {
+    const msg = err?.raw?.message || err?.message || "Payment processing failed. Please try again.";
+    this.logger.error("Stripe error:", msg);
+    throw new BadRequestException(msg);
   }
 
   // ─── Existing certification checkout (via application) ──────────────────────
 
   async createCheckoutSession(userId: string, certificationSlug: string, applicationId?: string) {
+    this.ensureStripe();
     const cert = await this.prisma.certification.findUnique({ where: { slug: certificationSlug } });
     if (!cert) throw new NotFoundException("Certification not found");
 
@@ -35,23 +52,24 @@ export class PaymentsService {
     const successUrl = `${this.config.get("frontendUrl")}/apply/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${this.config.get("frontendUrl")}/certifications/${certificationSlug}`;
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: user.email,
-      metadata: { user_id: userId, certification_id: cert.id, application_id: applicationId || "" },
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          unit_amount: Math.round(Number(cert.price) * 100),
-          product_data: { name: `${cert.title} (${cert.acronym}) — PAI Certification`, description: cert.description },
-        },
-        quantity: 1,
-      }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-
-    return { checkout_url: session.url, session_id: session.id };
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: { user_id: userId, certification_id: cert.id, application_id: applicationId || "" },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(Number(cert.price) * 100),
+            product_data: { name: `${cert.title} (${cert.acronym}) — PAI Certification`, description: cert.description },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
   }
 
   // ─── Course checkout (direct enrollment) ────────────────────────────────────
@@ -69,7 +87,7 @@ export class PaymentsService {
     );
     if (existing.length) throw new BadRequestException("You are already enrolled in this course");
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");
 
     let price = Number(course.price);
@@ -92,35 +110,43 @@ export class PaymentsService {
     if (price <= 0) {
       await this.enrollInCourse(userId, courseId, null, Number(course.price) - promoDiscount);
       if (promoId) await this.promoCodes.incrementUsed(promoId);
+      await this.mail.sendFreeEnrollmentConfirmation({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        itemName: course.title,
+        type: "course",
+      });
       return { checkout_url: null, enrolled: true };
     }
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: user.email,
-      metadata: {
-        user_id: userId,
-        checkout_type: "course",
-        course_id: courseId,
-        promo_id: promoId || "",
-        original_price: String(course.price),
-      },
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          unit_amount: Math.round(price * 100),
-          product_data: {
-            name: course.title,
-            description: course.subtitle || course.description || "",
-          },
+    this.ensureStripe();
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "course",
+          course_id: courseId,
+          promo_id: promoId || "",
+          original_price: String(course.price),
         },
-        quantity: 1,
-      }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-
-    return { checkout_url: session.url, session_id: session.id };
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: course.title,
+              description: course.subtitle || course.description || "",
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
   }
 
   // ─── Certification direct-enrollment checkout ────────────────────────────────
@@ -135,7 +161,7 @@ export class PaymentsService {
     });
     if (existing) throw new BadRequestException("You are already enrolled in this certification");
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");
 
     let price = Number(cert.price);
@@ -186,36 +212,44 @@ export class PaymentsService {
       // No application at all — direct free enrollment (cart used without applying first)
       await this.enrollInCertification(userId, cert.id);
       if (promoId) await this.promoCodes.incrementUsed(promoId);
+      await this.mail.sendFreeEnrollmentConfirmation({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        itemName: `${cert.acronym} — ${cert.title}`,
+        type: "certification",
+      });
       return { checkout_url: null, enrolled: true };
     }
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: user.email,
-      metadata: {
-        user_id: userId,
-        checkout_type: "certification",
-        certification_id: cert.id,
-        promo_id: promoId || "",
-        promo_code: promoCode || "",
-        original_price: String(cert.price),
-      },
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          unit_amount: Math.round(price * 100),
-          product_data: {
-            name: `${cert.title} (${cert.acronym}) — PAI Certification`,
-            description: cert.description,
-          },
+    this.ensureStripe();
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "certification",
+          certification_id: cert.id,
+          promo_id: promoId || "",
+          promo_code: promoCode || "",
+          original_price: String(cert.price),
         },
-        quantity: 1,
-      }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-
-    return { checkout_url: session.url, session_id: session.id };
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: `${cert.title} (${cert.acronym}) — PAI Certification`,
+              description: cert.description,
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
   }
 
   // ─── Enrollment helpers ──────────────────────────────────────────────────────
@@ -267,9 +301,30 @@ export class PaymentsService {
         this.logger.log(`Charge refunded: ${charge.id}`);
         break;
       }
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await this.handleCheckoutExpired(session);
+        break;
+      }
     }
 
     return { received: true };
+  }
+
+  private async handleCheckoutExpired(session: Stripe.Checkout.Session) {
+    const { user_id } = session.metadata || {};
+    if (!user_id) return;
+    const user = await this.prisma.user.findUnique({
+      where: { id: user_id },
+      select: { email: true, profile: { select: { first_name: true } } },
+    });
+    if (!user) return;
+    const itemName = session.line_items?.data?.[0]?.description ?? "your purchase";
+    this.mail.sendPaymentFailed({
+      to: user.email,
+      firstName: user.profile?.first_name ?? "there",
+      itemName,
+    }).catch(() => {});
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -399,6 +454,19 @@ export class PaymentsService {
         },
       });
       this.logger.log(`Payment record saved for user ${user_id}: ${description}`);
+
+      // Send purchase confirmation email
+      const user = await this.prisma.user.findUnique({ where: { id: user_id }, include: { profile: true } });
+      if (user) {
+        await this.mail.sendPurchaseConfirmation({
+          to: user.email,
+          firstName: user.profile?.first_name ?? "there",
+          itemName: description,
+          amount,
+          currency: session.currency ?? "usd",
+          receiptUrl,
+        });
+      }
     }
   }
 
@@ -408,5 +476,192 @@ export class PaymentsService {
 
   async getMyPayments(userId: string) {
     return this.prisma.payment.findMany({ where: { user_id: userId }, orderBy: { created_at: "desc" } });
+  }
+
+  async getMyOrders(userId: string) {
+    const [payments, freeCourses, freeCerts] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: "desc" },
+      }),
+      this.prisma.$queryRawUnsafe<any[]>(`
+        SELECT ce.id, ce.enrolled_at AS date, c.title AS description, 'course' AS item_type
+        FROM lms.course_enrollments ce
+        JOIN lms.courses c ON c.id = ce.course_id
+        WHERE ce.user_id = $1
+          AND ce.stripe_payment_intent_id IS NULL
+      `, userId),
+      this.prisma.$queryRawUnsafe<any[]>(`
+        SELECT e.id, e.enrolled_at AS date,
+               c.title || ' (' || c.acronym || ')' AS description,
+               'certification' AS item_type
+        FROM lms.enrollments e
+        JOIN lms.certifications c ON c.id = e.certification_id
+        WHERE e.user_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM lms.payments p
+            WHERE p.user_id = e.user_id
+              AND p.created_at BETWEEN e.enrolled_at - INTERVAL '5 minutes'
+                                   AND e.enrolled_at + INTERVAL '5 minutes'
+          )
+      `, userId),
+    ]);
+
+    const orders: any[] = [
+      ...payments.map(p => ({
+        id: p.id,
+        description: p.description ?? "Payment",
+        amount: Number(p.amount),
+        currency: p.currency,
+        status: p.status,
+        date: p.succeeded_at ?? p.created_at,
+        stripe_receipt_url: p.stripe_receipt_url,
+        source: "payment",
+      })),
+      ...freeCourses.map((e: any) => ({
+        id: e.id,
+        description: String(e.description),
+        amount: 0,
+        currency: "usd",
+        status: "succeeded",
+        date: e.date,
+        stripe_receipt_url: null,
+        source: "free",
+      })),
+      ...freeCerts.map((e: any) => ({
+        id: e.id,
+        description: String(e.description),
+        amount: 0,
+        currency: "usd",
+        status: "succeeded",
+        date: e.date,
+        stripe_receipt_url: null,
+        source: "free",
+      })),
+    ];
+
+    return orders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  async createBillingPortalSession(userId: string) {
+    this.ensureStripe();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const frontendUrl = this.config.get("frontendUrl");
+
+    // Find or create Stripe customer by email
+    const customers = await this.stripe.customers.list({ email: user.email, limit: 1 });
+    let customerId: string;
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
+    } else {
+      const customer = await this.stripe.customers.create({ email: user.email });
+      customerId = customer.id;
+    }
+
+    try {
+      const session = await this.stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${frontendUrl}/profile?tab=payment`,
+      });
+      return { portal_url: session.url };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  // ── Admin ────────────────────────────────────────────────────────────────────
+
+  async adminList(query: { page?: string; limit?: string; status?: string; type?: string; search?: string }) {
+    const page  = Math.max(1, Number(query.page)  || 1);
+    const limit = Math.min(100, Number(query.limit) || 20);
+    const skip  = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.status) where.status = query.status;
+    if (query.type)   where.type   = query.type;
+    if (query.search) {
+      where.OR = [
+        { description: { contains: query.search, mode: "insensitive" } },
+        { stripe_payment_intent_id: { contains: query.search } },
+        { user: { email: { contains: query.search, mode: "insensitive" } } },
+      ];
+    }
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+        },
+        orderBy: { created_at: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return { data: payments, total, page, limit, pages: Math.ceil(total / limit) };
+  }
+
+  async adminStats() {
+    const [totalRevenue, byStatus, byType, monthly] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { status: PaymentStatus.succeeded },
+      }),
+      this.prisma.payment.groupBy({
+        by: ["status"],
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+      this.prisma.payment.groupBy({
+        by: ["type"],
+        _count: { id: true },
+        _sum: { amount: true },
+        where: { status: PaymentStatus.succeeded },
+      }),
+      this.prisma.$queryRawUnsafe<{ month: string; count: string; revenue: string }[]>(`
+        SELECT
+          TO_CHAR(succeeded_at, 'YYYY-MM') AS month,
+          COUNT(*)::text                   AS count,
+          COALESCE(SUM(amount), 0)::text   AS revenue
+        FROM lms.payments
+        WHERE status = 'succeeded'
+          AND succeeded_at >= NOW() - INTERVAL '12 months'
+        GROUP BY month
+        ORDER BY month
+      `),
+    ]);
+
+    return {
+      total_revenue: totalRevenue._sum.amount ?? 0,
+      by_status: byStatus,
+      by_type: byType,
+      monthly: monthly.map((r) => ({ month: r.month, count: Number(r.count), revenue: Number(r.revenue) })),
+    };
+  }
+
+  async adminRefund(paymentId: string, reason?: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException("Payment not found");
+    if (payment.status !== PaymentStatus.succeeded)
+      throw new BadRequestException("Only succeeded payments can be refunded");
+    if (!payment.stripe_payment_intent_id)
+      throw new BadRequestException("No Stripe payment intent linked to this payment");
+
+    const refund = await this.stripe.refunds.create({
+      payment_intent: payment.stripe_payment_intent_id,
+      reason: (reason as any) ?? "requested_by_customer",
+    });
+
+    return this.prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.refunded,
+        stripe_refund_id: refund.id,
+        refund_amount: payment.amount,
+        refunded_at: new Date(),
+      },
+    });
   }
 }

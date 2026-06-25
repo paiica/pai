@@ -36,4 +36,22 @@ export class SiteSettingsController {
   update(@Body() body: Record<string, string>) {
     return this.service.upsertMany(body);
   }
+
+  @Get("api-settings")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Get API integration settings — secrets masked (admin)" })
+  getApiSettings() {
+    return this.service.getApiSettings();
+  }
+
+  @Get("payment-settings")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Get payment settings — secrets masked (admin)" })
+  getPaymentSettings() {
+    return this.service.getPaymentSettings();
+  }
 }
