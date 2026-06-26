@@ -50,7 +50,7 @@ const PROVIDER_MODELS: Record<Provider, { value: string; label: string }[]> = {
   ],
   groq: [
     { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile (recommended)" },
-    { value: "llama-3.1-8b-instant",    label: "Llama 3.1 8B Instant (fastest)" },
+    { value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B Versatile" },
     { value: "gemma2-9b-it",            label: "Gemma 2 9B" },
     { value: "mixtral-8x7b-32768",      label: "Mixtral 8x7B" },
   ],
