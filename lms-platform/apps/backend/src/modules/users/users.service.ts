@@ -44,7 +44,7 @@ export class UsersService {
     let p = 1;
 
     if (q) {
-      conditions.push(`(u.email ILIKE $${p} OR p.first_name ILIKE $${p} OR p.last_name ILIKE $${p})`);
+      conditions.push(`(u.email ILIKE $${p} OR p.first_name ILIKE $${p} OR p.last_name ILIKE $${p} OR p.pai_id ILIKE $${p})`);
       params.push(`%${q}%`);
       p++;
     }
