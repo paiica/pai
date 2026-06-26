@@ -38,7 +38,7 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: "Login and receive JWT token pair" })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto, req.ip, req.headers["user-agent"]);

@@ -43,6 +43,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const emailVerifyToken = randomBytes(32).toString("hex");
+    const emailVerifyTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
     const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
@@ -51,6 +52,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         password_hash: passwordHash,
         email_verify_token: emailVerifyToken,
+        email_verify_token_expires_at: emailVerifyTokenExpiresAt,
         profile: {
           create: {
             first_name: dto.first_name,
@@ -237,9 +239,14 @@ export class AuthService {
     if (!user) throw new BadRequestException("Invalid verification token");
     if (user.email_verified) return { message: "Email already verified" };
 
+    const expires = (user as any).email_verify_token_expires_at;
+    if (expires && new Date(expires) < new Date()) {
+      throw new BadRequestException("Verification link has expired. Please request a new one.");
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { email_verified: true, email_verify_token: null },
+      data: { email_verified: true, email_verify_token: null, email_verify_token_expires_at: null } as any,
     });
 
     return { message: "Email verified successfully" };
@@ -257,9 +264,10 @@ export class AuthService {
     }
 
     const emailVerifyToken = randomBytes(32).toString("hex");
+    const emailVerifyTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { email_verify_token: emailVerifyToken },
+      data: { email_verify_token: emailVerifyToken, email_verify_token_expires_at: emailVerifyTokenExpiresAt } as any,
     });
 
     await this.mail.sendVerificationEmail(user.email, user.profile?.first_name ?? "there", emailVerifyToken);

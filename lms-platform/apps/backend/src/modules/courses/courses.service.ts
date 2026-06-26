@@ -74,8 +74,18 @@ export class CoursesService {
       },
     });
     if (!lesson) throw new NotFoundException("Lesson not found");
-    if (!lesson.is_free_preview && !enrollmentId) {
-      return { ...lesson, content_body: null, video_url: null, quiz_questions: [] };
+    if (!lesson.is_free_preview) {
+      if (!enrollmentId) {
+        return { ...lesson, content_body: null, video_url: null, quiz_questions: [] };
+      }
+      // Verify the enrollment actually belongs to the requesting user
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id: enrollmentId },
+        select: { user_id: true },
+      });
+      if (!enrollment || enrollment.user_id !== userId) {
+        return { ...lesson, content_body: null, video_url: null, quiz_questions: [] };
+      }
     }
     return lesson;
   }

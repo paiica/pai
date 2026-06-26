@@ -341,6 +341,13 @@ export class PaymentsService {
     const { user_id, checkout_type, certification_id, course_id, application_id, promo_id, promo_code } = session.metadata || {};
     if (!user_id) return;
 
+    // Idempotency guard — skip if this Stripe session was already processed
+    const existing = await this.prisma.payment.findFirst({ where: { stripe_session_id: session.id } });
+    if (existing) {
+      this.logger.log(`Webhook idempotency: session ${session.id} already processed, skipping`);
+      return;
+    }
+
     const amount = session.amount_total ? session.amount_total / 100 : 0;
     const paymentIntentId = session.payment_intent as string | undefined;
 

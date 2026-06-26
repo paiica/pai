@@ -85,26 +85,30 @@ async function bootstrap() {
     console.log(`[PAI Backend] Swagger at http://localhost:${port}/${apiPrefix}/docs`);
   }
 
-  // Auto-create super admin if none exists
-  try {
-    const prisma = app.get(PrismaService);
-    const adminEmail    = process.env.SUPER_ADMIN_EMAIL    || "admin@paii.ca";
-    const adminPassword = process.env.SUPER_ADMIN_PASSWORD || "Admin@123456";
-    const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          email:          adminEmail,
-          password_hash:  await bcrypt.hash(adminPassword, 12),
-          role:           "super_admin",
-          email_verified: true,
-          profile: { create: { first_name: "PAI", last_name: "Admin", display_name: "PAI Administrator" } },
-        },
-      });
-      console.log(`[PAI Bootstrap] Super admin created: ${adminEmail}`);
+  // Auto-create super admin if env vars are provided and no admin exists yet
+  const adminEmail    = process.env.SUPER_ADMIN_EMAIL;
+  const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+  if (adminEmail && adminPassword) {
+    try {
+      const prisma = app.get(PrismaService);
+      const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            email:          adminEmail,
+            password_hash:  await bcrypt.hash(adminPassword, 12),
+            role:           "super_admin",
+            email_verified: true,
+            profile: { create: { first_name: "PAI", last_name: "Admin", display_name: "PAI Administrator" } },
+          },
+        });
+        console.log(`[PAI Bootstrap] Super admin created: ${adminEmail}`);
+      }
+    } catch (e) {
+      console.error("[PAI Bootstrap] Failed to create super admin:", e);
     }
-  } catch (e) {
-    console.error("[PAI Bootstrap] Failed to create super admin:", e);
+  } else {
+    console.warn("[PAI Bootstrap] SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set — skipping auto-create.");
   }
 }
 

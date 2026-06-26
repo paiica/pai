@@ -15,8 +15,8 @@ export default () => ({
   },
 
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET || "fallback_access_secret",
-    refreshSecret: process.env.JWT_REFRESH_SECRET || "fallback_refresh_secret",
+    accessSecret: process.env.JWT_ACCESS_SECRET || (() => { throw new Error("JWT_ACCESS_SECRET environment variable is required"); })(),
+    refreshSecret: process.env.JWT_REFRESH_SECRET || (() => { throw new Error("JWT_REFRESH_SECRET environment variable is required"); })(),
     accessExpiry: process.env.JWT_ACCESS_EXPIRY || "15m",
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || "7d",
   },
