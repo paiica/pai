@@ -119,7 +119,6 @@ export default function CartPage() {
       const result = data?.data ?? data;
       setPromoResult(result);
       if (result.valid) toast.success(result.message);
-      else              toast.error(result.message);
     } catch {
       toast.error("Failed to validate promo code");
     } finally {
@@ -332,10 +331,10 @@ export default function CartPage() {
                   <div className="flex gap-2">
                     <input
                       value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); if (promoResult && !promoResult.valid) setPromoResult(null); }}
                       onKeyDown={(e) => e.key === "Enter" && validatePromo()}
                       placeholder="Enter promo code"
-                      className="input-base text-sm flex-1 !py-2"
+                      className={cn("input-base text-sm flex-1 !py-2", promoResult && !promoResult.valid && "border-red-300 focus:border-red-400")}
                     />
                     <button
                       onClick={validatePromo}
@@ -345,6 +344,11 @@ export default function CartPage() {
                       {validatingPromo ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
                     </button>
                   </div>
+                  {promoResult && !promoResult.valid && (
+                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                      <X size={11} className="flex-shrink-0" /> {promoResult.message}
+                    </p>
+                  )}
                 )}
               </div>
 

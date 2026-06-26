@@ -223,7 +223,7 @@ export default function PromoCodesPage() {
           <p className="text-slate-400 text-sm mt-1">Create a promo code to offer discounts to students.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">

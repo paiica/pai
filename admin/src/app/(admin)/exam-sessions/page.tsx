@@ -189,6 +189,7 @@ export default function ExamSessionsPage() {
             <p className="text-sm">No exam sessions yet. Create one to get started.</p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-navy-50 border-b border-navy-100">
               <tr>
@@ -261,6 +262,7 @@ export default function ExamSessionsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

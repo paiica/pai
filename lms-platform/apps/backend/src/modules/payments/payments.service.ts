@@ -95,7 +95,7 @@ export class PaymentsService {
     let promoDiscount = 0;
 
     if (promoCode && price > 0) {
-      const result = await this.promoCodes.validate(promoCode, price, { courseId });
+      const result = await this.promoCodes.validate(promoCode, price, { courseId, userId });
       if (!result.valid) throw new BadRequestException(result.message);
       promoDiscount = result.discount_amount;
       promoId = result.promo_id;
@@ -109,7 +109,7 @@ export class PaymentsService {
     // If price is 0 after discount, enroll directly without Stripe
     if (price <= 0) {
       await this.enrollInCourse(userId, courseId, null, Number(course.price) - promoDiscount);
-      if (promoId) await this.promoCodes.incrementUsed(promoId);
+      if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
       await this.mail.sendFreeEnrollmentConfirmation({
         to: user.email,
         firstName: user.profile?.first_name ?? "there",
@@ -169,7 +169,7 @@ export class PaymentsService {
     let promoDiscount = 0;
 
     if (promoCode && price > 0) {
-      const result = await this.promoCodes.validate(promoCode, price, { certificationId: cert.id });
+      const result = await this.promoCodes.validate(promoCode, price, { certificationId: cert.id, userId });
       if (!result.valid) throw new BadRequestException(result.message);
       promoDiscount = result.discount_amount;
       promoId = result.promo_id;
@@ -204,7 +204,7 @@ export class PaymentsService {
               promo_code: promoCode,
             },
           });
-          if (promoId) await this.promoCodes.incrementUsed(promoId);
+          if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
         }
         // Already moved (payment_submitted / pending_review) — idempotent, do nothing
         return { checkout_url: null, enrolled: false };
@@ -227,7 +227,7 @@ export class PaymentsService {
           promo_code: promoCode || null,
         },
       });
-      if (promoId) await this.promoCodes.incrementUsed(promoId);
+      if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
       return { checkout_url: null, enrolled: false };
     }
 
@@ -369,7 +369,7 @@ export class PaymentsService {
 
     if (checkout_type === "course" && course_id) {
       await this.enrollInCourse(user_id, course_id, paymentIntentId!, amount);
-      if (promo_id) await this.promoCodes.incrementUsed(promo_id);
+      if (promo_id) await this.promoCodes.incrementUsed(promo_id, user_id);
       const rows = await this.prisma.$queryRawUnsafe<any[]>(`SELECT title FROM lms.courses WHERE id = $1`, course_id);
       description = rows[0] ? `Course: ${rows[0].title}` : "Course Enrollment";
 
@@ -443,7 +443,7 @@ export class PaymentsService {
         this.logger.log(`Cart certification purchase by ${user_id} for cert ${certification_id} — application created, awaiting admin review`);
       }
 
-      if (promo_id) await this.promoCodes.incrementUsed(promo_id);
+      if (promo_id) await this.promoCodes.incrementUsed(promo_id, user_id);
       const cert = await this.prisma.certification.findUnique({ where: { id: certification_id } });
       description = cert ? `${cert.acronym} — ${cert.title}` : "Certification Enrollment";
 

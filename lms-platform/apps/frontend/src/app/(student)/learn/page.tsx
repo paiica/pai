@@ -569,7 +569,17 @@ export default function MyCoursesPage() {
 
           {isLoading ? (
             <div className="space-y-3">
-              {[1, 2].map(i => <div key={i} className="h-[76px] rounded-2xl animate-pulse bg-slate-200" />)}
+              {[1, 2].map(i => (
+                <div key={i} className="rounded-2xl bg-white border border-slate-200 p-5 flex items-center gap-4 animate-pulse">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-200 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-slate-200 rounded w-24" />
+                    <div className="h-4 bg-slate-200 rounded w-48" />
+                    <div className="h-1.5 bg-slate-200 rounded-full w-full" />
+                  </div>
+                  <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-200" />
+                </div>
+              ))}
             </div>
           ) : shown.length === 0 ? (
             <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl bg-white">

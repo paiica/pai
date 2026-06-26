@@ -143,12 +143,6 @@ export class AuthService {
       throw new UnauthorizedException("Refresh token not found or expired");
     }
 
-    // Revoke used refresh token (rotation)
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { is_revoked: true },
-    });
-
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, email: true, role: true, is_active: true },
@@ -158,7 +152,27 @@ export class AuthService {
       throw new UnauthorizedException("Account not found or deactivated");
     }
 
-    return this.generateTokenPair(user.id, user.email, user.role, ipAddress, userAgent);
+    // Revoke old token and create new token pair atomically
+    const tokenHash = this.hashToken; // already have hashToken helper
+    const newRefreshToken = this.jwtService.sign(
+      { sub: user.id, email: user.email, role: user.role } as JwtPayload,
+      { secret: this.config.get<string>("jwt.refreshSecret"), expiresIn: this.config.get("jwt.refreshExpiry", "7d") as any },
+    );
+    const newAccessToken = this.jwtService.sign(
+      { sub: user.id, email: user.email, role: user.role } as JwtPayload,
+      { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: this.config.get("jwt.accessExpiry", "15m") as any },
+    );
+    const newTokenHash = this.hashToken(newRefreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.update({ where: { id: stored.id }, data: { is_revoked: true } }),
+      this.prisma.refreshToken.create({
+        data: { user_id: user.id, token_hash: newTokenHash, ip_address: ipAddress, device_info: userAgent, expires_at: expiresAt },
+      }),
+    ]);
+
+    return { access_token: newAccessToken, refresh_token: newRefreshToken };
   }
 
   async logout(userId: string, refreshToken?: string) {

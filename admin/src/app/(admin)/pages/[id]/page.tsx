@@ -6,7 +6,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -138,6 +138,11 @@ export default function PageEditorPage() {
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
       {/* Header */}
+      <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+        <Link href="/pages" className="hover:text-slate-600">Pages</Link>
+        <ChevronRight size={12} />
+        <span className="text-slate-700 font-semibold truncate max-w-xs">{title || "Untitled Page"}</span>
+      </div>
       <div className="mb-6 flex items-center gap-3">
         <Link href="/pages" className="p-2 text-slate-400 hover:text-navy-700 hover:bg-slate-100 rounded-lg transition-colors">
           <ArrowLeft size={17} />

@@ -1307,6 +1307,7 @@ model PromoCode {
   discount_type    String   // "percentage" | "fixed"
   discount_value   Decimal  @db.Decimal(10, 2)
   max_uses         Int?
+  max_uses_per_user Int?
   used_count       Int      @default(0)
   expires_at       DateTime?
   is_active        Boolean  @default(true)
@@ -1315,6 +1316,20 @@ model PromoCode {
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
+  redemptions      PromoRedemption[]
+
   @@map("promo_codes")
+  @@schema("lms")
+}
+
+model PromoRedemption {
+  id           String    @id @default(uuid())
+  promo_id     String
+  promo        PromoCode @relation(fields: [promo_id], references: [id], onDelete: Cascade)
+  user_id      String
+  redeemed_at  DateTime  @default(now())
+
+  @@index([promo_id, user_id])
+  @@map("promo_redemptions")
   @@schema("lms")
 }

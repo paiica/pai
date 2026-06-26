@@ -7,7 +7,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Loader2, Save, Plus, Trash2, X, Check,
-  BookOpen, Users, Settings, ChevronLeft, AlertCircle, RefreshCw,
+  BookOpen, Users, Settings, ChevronLeft, ChevronRight, AlertCircle, RefreshCw,
   Globe, Archive, ArchiveRestore, UserPlus, UserMinus,
   DollarSign, Clock, Layers, Eye, EyeOff,
 } from "lucide-react";
@@ -347,12 +347,11 @@ export default function CourseDetailPage() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <Link
-            href="/courses?tab=manage"
-            className="text-xs font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2"
-          >
-            <ChevronLeft size={12} /> Back to Courses
-          </Link>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
+            <Link href="/courses?tab=manage" className="hover:text-slate-600">Courses</Link>
+            <ChevronRight size={12} />
+            <span className="text-slate-700 font-semibold">{course.title}</span>
+          </div>
           <h1 className="text-2xl font-display font-black text-navy-900">{course.title}</h1>
           <p className="text-slate-500 text-sm mt-1">/{course.slug}</p>
         </div>

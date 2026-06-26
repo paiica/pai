@@ -34,11 +34,32 @@ async function bootstrap() {
   // Security headers
   app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: nodeEnv === "production"
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+    contentSecurityPolicy: nodeEnv === "production"
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", ...allowedOrigins],
+            fontSrc: ["'self'", "https:"],
+            objectSrc: ["'none'"],
+            frameSrc: ["'none'"],
+          },
+        }
+      : false,
   }));
 
-  // CORS
+  // CORS — always restrict to explicit allowed origins (never use `true`)
   app.enableCors({
-    origin: nodeEnv === "production" ? allowedOrigins : true,
+    origin: (origin, callback) => {
+      // Allow non-browser requests (server-to-server, curl) and allowed origins
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Refresh-Token"],

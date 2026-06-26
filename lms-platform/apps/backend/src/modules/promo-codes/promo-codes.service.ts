@@ -8,7 +8,7 @@ export class PromoCodesService {
   async validate(
     code: string,
     subtotal: number,
-    context?: { courseId?: string; certificationId?: string },
+    context?: { courseId?: string; certificationId?: string; userId?: string },
   ): Promise<{ valid: boolean; discount_amount: number; message: string; promo_id?: string }> {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM lms.promo_codes WHERE code = $1`,
@@ -19,6 +19,18 @@ export class PromoCodesService {
     if (!promo.is_active) return { valid: false, discount_amount: 0, message: "Promo code is no longer active" };
     if (promo.expires_at && new Date(promo.expires_at) < new Date()) return { valid: false, discount_amount: 0, message: "Promo code has expired" };
     if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return { valid: false, discount_amount: 0, message: "Promo code usage limit reached" };
+
+    // Per-user redemption limit
+    if (context?.userId && promo.max_uses_per_user !== null && promo.max_uses_per_user !== undefined) {
+      const usedRows = await this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT COUNT(*)::int AS count FROM lms.promo_redemptions WHERE promo_id = $1 AND user_id = $2`,
+        promo.id, context.userId,
+      );
+      const userUsed = usedRows[0]?.count ?? 0;
+      if (userUsed >= promo.max_uses_per_user) {
+        return { valid: false, discount_amount: 0, message: "You have already used this promo code" };
+      }
+    }
 
     // Enforce item restriction if the code is scoped to a specific course or certification
     if (promo.course_id) {
@@ -40,11 +52,17 @@ export class PromoCodesService {
     return { valid: true, discount_amount, message: `${promo.discount_type === "percentage" ? val + "% off" : "$" + val + " off"} applied`, promo_id: promo.id };
   }
 
-  async incrementUsed(promoId: string) {
+  async incrementUsed(promoId: string, userId?: string) {
     await this.prisma.$executeRawUnsafe(
       `UPDATE lms.promo_codes SET used_count = used_count + 1, updated_at = now() WHERE id = $1`,
       promoId
     );
+    if (userId) {
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO lms.promo_redemptions (id, promo_id, user_id) VALUES (gen_random_uuid(), $1, $2)`,
+        promoId, userId,
+      );
+    }
   }
 
   async adminList() {
