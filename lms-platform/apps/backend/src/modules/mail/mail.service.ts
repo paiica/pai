@@ -24,7 +24,10 @@ export class MailService {
     const fromName = config.get<string>("EMAIL_FROM_NAME", "Professional AI Institute");
     const fromAddr = config.get<string>("EMAIL_FROM", "noreply@paii.ca");
     this.envFrom = `${fromName} <${fromAddr}>`;
-    this.frontendUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
+    // FRONTEND_URL may be a comma-separated CORS origins list — extract the student portal URL
+    const rawUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
+    const urls = rawUrl.split(",").map((u) => u.trim()).filter(Boolean);
+    this.frontendUrl = urls.find((u) => u.includes("learn")) ?? urls[0];
   }
 
   // Resolve Resend client and from address — env takes priority, then site settings
