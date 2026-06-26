@@ -117,7 +117,11 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
         </div>
         {currentLessonId && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-white/40 text-xs hidden sm:block">{currentIdx + 1}/{allLessons.length}</span>
+            <span className="text-white/40 text-xs">
+              <span className="hidden sm:inline">Lesson </span>
+              {currentIdx + 1}<span className="hidden sm:inline"> of {allLessons.length}</span>
+              <span className="sm:hidden">/{allLessons.length}</span>
+            </span>
             <Link
               href={prevLesson ? `/learn/course/${enrollmentId}/lesson/${prevLesson.id}` : `/learn/course/${enrollmentId}`}
               className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"

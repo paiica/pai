@@ -133,8 +133,9 @@ export default function PromoCodesPage() {
           <p className="font-semibold text-navy-900 text-sm mb-4">{editId ? "Edit Promo Code" : "New Promo Code"}</p>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Code *</label>
+              <label htmlFor="promo-code" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Code *</label>
               <input
+                id="promo-code"
                 value={form.code}
                 onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
                 className="input-base text-sm font-mono"
@@ -143,35 +144,36 @@ export default function PromoCodesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Description</label>
-              <input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="input-base text-sm" placeholder="Summer sale 20% off" />
+              <label htmlFor="promo-description" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Description</label>
+              <input id="promo-description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="input-base text-sm" placeholder="Summer sale 20% off" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Discount Type</label>
-              <select value={form.discount_type} onChange={(e) => setForm((p) => ({ ...p, discount_type: e.target.value }))} className="input-base text-sm">
+              <label htmlFor="promo-discount-type" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Discount Type</label>
+              <select id="promo-discount-type" value={form.discount_type} onChange={(e) => setForm((p) => ({ ...p, discount_type: e.target.value }))} className="input-base text-sm">
                 <option value="percentage">Percentage (%)</option>
                 <option value="fixed">Fixed Amount ($)</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">
+              <label htmlFor="promo-discount-value" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">
                 Discount Value {form.discount_type === "percentage" ? "(%)" : "($)"} *
               </label>
-              <input type="number" min={0} max={form.discount_type === "percentage" ? 100 : undefined} value={form.discount_value} onChange={(e) => setForm((p) => ({ ...p, discount_value: e.target.value }))} className="input-base text-sm" placeholder={form.discount_type === "percentage" ? "20" : "50"} />
+              <input id="promo-discount-value" type="number" min={0} max={form.discount_type === "percentage" ? 100 : undefined} value={form.discount_value} onChange={(e) => setForm((p) => ({ ...p, discount_value: e.target.value }))} className="input-base text-sm" placeholder={form.discount_type === "percentage" ? "20" : "50"} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Max Uses (blank = unlimited)</label>
-              <input type="number" min={1} value={form.max_uses} onChange={(e) => setForm((p) => ({ ...p, max_uses: e.target.value }))} className="input-base text-sm" placeholder="100" />
+              <label htmlFor="promo-max-uses" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Max Uses (blank = unlimited)</label>
+              <input id="promo-max-uses" type="number" min={1} value={form.max_uses} onChange={(e) => setForm((p) => ({ ...p, max_uses: e.target.value }))} className="input-base text-sm" placeholder="100" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Expires At (optional)</label>
-              <input type="date" value={form.expires_at} onChange={(e) => setForm((p) => ({ ...p, expires_at: e.target.value }))} className="input-base text-sm" />
+              <label htmlFor="promo-expires-at" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Expires At (optional)</label>
+              <input id="promo-expires-at" type="date" value={form.expires_at} onChange={(e) => setForm((p) => ({ ...p, expires_at: e.target.value }))} className="input-base text-sm" />
             </div>
 
             {/* Scope — restrict to a specific course */}
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Course (optional)</label>
+              <label htmlFor="promo-course-id" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Course (optional)</label>
               <select
+                id="promo-course-id"
                 value={form.course_id}
                 onChange={(e) => setForm((p) => ({ ...p, course_id: e.target.value, certification_id: "" }))}
                 className="input-base text-sm"
@@ -186,8 +188,9 @@ export default function PromoCodesPage() {
 
             {/* Scope — restrict to a specific certification */}
             <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Certification (optional)</label>
+              <label htmlFor="promo-cert-id" className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Certification (optional)</label>
               <select
+                id="promo-cert-id"
                 value={form.certification_id}
                 onChange={(e) => setForm((p) => ({ ...p, certification_id: e.target.value, course_id: "" }))}
                 className="input-base text-sm"

@@ -109,8 +109,9 @@ export default function RegisterPage() {
         {/* Name */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">First Name *</label>
+            <label htmlFor="reg-first-name" className="block text-xs font-semibold text-slate-700 mb-1.5">First Name *</label>
             <input
+              id="reg-first-name"
               type="text"
               value={form.first_name}
               onChange={(e) => update("first_name", e.target.value)}
@@ -120,8 +121,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Last Name *</label>
+            <label htmlFor="reg-last-name" className="block text-xs font-semibold text-slate-700 mb-1.5">Last Name *</label>
             <input
+              id="reg-last-name"
               type="text"
               value={form.last_name}
               onChange={(e) => update("last_name", e.target.value)}
@@ -134,8 +136,9 @@ export default function RegisterPage() {
 
         {/* Email */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address *</label>
+          <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address *</label>
           <input
+            id="reg-email"
             type="email"
             value={form.email}
             onChange={(e) => update("email", e.target.value)}
@@ -148,8 +151,9 @@ export default function RegisterPage() {
         {/* Phone + Country */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone</label>
+            <label htmlFor="reg-phone" className="block text-xs font-semibold text-slate-700 mb-1.5">Phone</label>
             <input
+              id="reg-phone"
               type="tel"
               value={form.phone}
               onChange={(e) => update("phone", e.target.value)}
@@ -158,8 +162,9 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Country</label>
+            <label htmlFor="reg-country" className="block text-xs font-semibold text-slate-700 mb-1.5">Country</label>
             <select
+              id="reg-country"
               value={form.country}
               onChange={(e) => update("country", e.target.value)}
               className="input-base"
@@ -174,8 +179,9 @@ export default function RegisterPage() {
 
         {/* Date of Birth */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth</label>
+          <label htmlFor="reg-dob" className="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth</label>
           <input
+            id="reg-dob"
             type="date"
             value={form.date_of_birth}
             onChange={(e) => update("date_of_birth", e.target.value)}
@@ -186,9 +192,10 @@ export default function RegisterPage() {
 
         {/* Password */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Password *</label>
+          <label htmlFor="reg-password" className="block text-xs font-semibold text-slate-700 mb-1.5">Password *</label>
           <div className="relative">
             <input
+              id="reg-password"
               type={showPw ? "text" : "password"}
               value={form.password}
               onChange={(e) => update("password", e.target.value)}
@@ -209,9 +216,10 @@ export default function RegisterPage() {
 
         {/* Confirm Password */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password *</label>
+          <label htmlFor="reg-confirm-password" className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password *</label>
           <div className="relative">
             <input
+              id="reg-confirm-password"
               type={showConfirm ? "text" : "password"}
               value={form.confirm_password}
               onChange={(e) => update("confirm_password", e.target.value)}

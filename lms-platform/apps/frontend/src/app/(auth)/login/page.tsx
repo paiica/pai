@@ -58,8 +58,9 @@ function LoginContent() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
+          <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -71,13 +72,14 @@ function LoginContent() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-slate-700">Password</label>
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-700">Password</label>
             <Link href="/forgot-password" className="text-xs text-navy-600 hover:text-navy-800 font-medium">
               Forgot password?
             </Link>
           </div>
           <div className="relative">
             <input
+              id="login-password"
               type={showPw ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

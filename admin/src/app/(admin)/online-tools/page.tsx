@@ -47,7 +47,7 @@ const BILLING_TYPES = [
 const STATUS_COLORS: Record<string, string> = {
   active:   "bg-emerald-50 text-emerald-700",
   draft:    "bg-slate-100 text-slate-500",
-  archived: "bg-red-50 text-red-500",
+  archived: "bg-red-50 text-red-700",
 };
 
 export default function OnlineToolsAdminPage() {

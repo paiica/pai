@@ -25,7 +25,7 @@ const LEVEL_COLORS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-500",
   active: "bg-emerald-50 text-emerald-700",
-  archived: "bg-red-50 text-red-500",
+  archived: "bg-red-50 text-red-700",
 };
 
 type Course = {
