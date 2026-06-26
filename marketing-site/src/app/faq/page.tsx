@@ -1,13 +1,31 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ArrowRight } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Frequently Asked Questions",
-  description: "Answers to the most common questions about PAI certifications, exams, enrollment, and credentials.",
-};
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+type CmsPage = { title: string; content: string; meta_description: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/faq`, { next: { revalidate: 300 } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title ?? "Frequently Asked Questions",
+    description: cms?.meta_description ?? "Answers to the most common questions about PAI certifications, exams, enrollment, and credentials.",
+  };
+}
 
 const FAQS = [
   {
@@ -22,9 +40,9 @@ const FAQS = [
   {
     category: "Application & Enrollment",
     items: [
-      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3â€“5 business days. You receive your LMS access credentials via email upon approval." },
-      { q: "Why do I need to apply? Can't I just enroll?", a: "PAI's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined â€” it's not an exclusionary process." },
-      { q: "What if my application is rejected?", a: "You'll receive a full refund within 5â€“7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways." },
+      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval." },
+      { q: "Why do I need to apply? Can't I just enroll?", a: "PAI's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined — it's not an exclusionary process." },
+      { q: "What if my application is rejected?", a: "You'll receive a full refund within 5–7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways." },
     ],
   },
   {
@@ -33,7 +51,7 @@ const FAQS = [
       { q: "How is the exam delivered?", a: "Online, proctored through our secure testing platform. You can take it from home or office. You'll need a webcam, government ID, and a quiet space." },
       { q: "What happens if I fail?", a: "Two retakes are included in your enrollment fee. If you fail a third time, additional retakes are $99 each. Detailed score reports guide your preparation." },
       { q: "How long is the exam?", a: "CAIP, CAIM, and CAIDA: 90 minutes, 75 questions. CAIE: 75 minutes, 60 questions. All are multiple-choice." },
-      { q: "When can I take the exam?", a: "You can schedule your exam at any time after completing all required modules. No cohort deadlines â€” take it when you're ready." },
+      { q: "When can I take the exam?", a: "You can schedule your exam at any time after completing all required modules. No cohort deadlines — take it when you're ready." },
     ],
   },
   {
@@ -54,11 +72,14 @@ const FAQS = [
   },
 ];
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const cms = await getCmsPage();
+
   return (
     <>
       <Navbar />
       <main>
+        {/* Hero — always hardcoded */}
         <section className="pt-[148px] pb-20 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">FAQ</span>
@@ -72,38 +93,42 @@ export default function FAQPage() {
           </div>
         </section>
 
-        <section className="section-padding bg-white">
-          <div className="container-md">
-            <div className="space-y-12">
-              {FAQS.map((section) => (
-                <div key={section.category}>
-                  <h2 className="text-lg font-display font-black text-ink-900 mb-5 pb-3 border-b border-sand-200">
-                    {section.category}
-                  </h2>
-                  <div className="space-y-4">
-                    {section.items.map((item) => (
-                      <div key={item.q} className="bg-sand-100 rounded-2xl p-5 border border-sand-200">
-                        <h3 className="font-display font-bold text-ink-900 text-base mb-2">{item.q}</h3>
-                        <p className="text-ink-900 text-sm leading-relaxed">{item.a}</p>
-                      </div>
-                    ))}
+        {/* Content — CMS if available, otherwise hardcoded */}
+        {cms?.content ? (
+          <div dangerouslySetInnerHTML={{ __html: cms.content }} />
+        ) : (
+          <section className="section-padding bg-white">
+            <div className="container-md">
+              <div className="space-y-12">
+                {FAQS.map((section) => (
+                  <div key={section.category}>
+                    <h2 className="text-lg font-display font-black text-ink-900 mb-5 pb-3 border-b border-sand-200">
+                      {section.category}
+                    </h2>
+                    <div className="space-y-4">
+                      {section.items.map((item) => (
+                        <div key={item.q} className="bg-sand-100 rounded-2xl p-5 border border-sand-200">
+                          <h3 className="font-display font-bold text-ink-900 text-base mb-2">{item.q}</h3>
+                          <p className="text-ink-900 text-sm leading-relaxed">{item.a}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div className="mt-14 bg-ink-800 rounded-2xl p-7 text-center text-white">
-              <h3 className="font-display font-bold text-xl mb-2">Still have questions?</h3>
-              <p className="text-white text-sm mb-5">Our team responds within 24 hours on business days.</p>
-              <a href="mailto:info@paii.ca" className="btn-primary !py-3 !px-7 !text-sm">
-                Contact Us <ArrowRight size={14} />
-              </a>
+              <div className="mt-14 bg-ink-800 rounded-2xl p-7 text-center text-white">
+                <h3 className="font-display font-bold text-xl mb-2">Still have questions?</h3>
+                <p className="text-white text-sm mb-5">Our team responds within 24 hours on business days.</p>
+                <a href="mailto:info@paii.ca" className="btn-primary !py-3 !px-7 !text-sm">
+                  Contact Us <ArrowRight size={14} />
+                </a>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
       <Footer />
     </>
   );
 }
-

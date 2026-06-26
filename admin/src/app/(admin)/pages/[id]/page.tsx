@@ -1,13 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, Save, Loader2, Globe, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MonacoEditor = dynamic(
+  () => import("@monaco-editor/react"),
+  { ssr: false, loading: () => <div className="bg-slate-900 rounded-xl animate-pulse" style={{ height: 560 }} /> },
+) as any;
+
+const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3001";
 
 type Page = {
   id: string;
@@ -19,9 +28,31 @@ type Page = {
   updated_at: string;
 };
 
+function previewDoc(content: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; color: #0f172a; background: #f8fafc; }
+    h1 { font-size: 2rem; font-weight: 900; margin: 0 0 8px; }
+    h2 { font-size: 1.25rem; font-weight: 700; margin: 32px 0 12px; }
+    h3 { font-size: 1rem; font-weight: 700; margin: 0 0 8px; }
+    p  { line-height: 1.7; margin: 0 0 16px; }
+    a  { color: #0f172a; }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 6px; font-size: 14px; line-height: 1.6; }
+    section { overflow: hidden; }
+  </style>
+</head>
+<body>${content}</body>
+</html>`;
+}
+
 export default function PageEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { accessToken, refreshTokens } = useAuthStore();
 
   const { data, error, isLoading } = useSWR(
@@ -49,6 +80,7 @@ export default function PageEditorPage() {
   const [isPublished,     setIsPublished]     = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [initialized,     setInitialized]     = useState(false);
+  const [activeTab,       setActiveTab]       = useState<"editor" | "preview">("editor");
 
   useEffect(() => {
     if (page && !initialized) {
@@ -104,14 +136,25 @@ export default function PageEditorPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-5xl">
+      {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <Link href="/pages" className="p-2 text-slate-400 hover:text-navy-700 hover:bg-slate-100 rounded-lg transition-colors">
           <ArrowLeft size={17} />
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-display font-black text-navy-900 truncate">{title || "Untitled Page"}</h1>
-          <p className="text-slate-400 text-xs font-mono mt-0.5">/{slug}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-slate-400 text-xs font-mono">/{slug}</p>
+            <a
+              href={`${LMS_URL}/${slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-navy-700 transition-colors"
+            >
+              <ExternalLink size={10} /> View on site
+            </a>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -132,9 +175,10 @@ export default function PageEditorPage() {
       </div>
 
       <div className="space-y-4">
+        {/* Page Details */}
         <div className="card p-5">
           <p className="text-xs font-bold text-navy-900 uppercase tracking-widest mb-4">Page Details</p>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Title</label>
               <input
@@ -158,15 +202,15 @@ export default function PageEditorPage() {
                 />
               </div>
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Meta Description <span className="text-slate-400 font-normal">(SEO)</span>
+                Meta Description <span className="text-slate-400 font-normal">(SEO — 150–160 chars)</span>
               </label>
               <input
                 className="input-base"
                 value={metaDescription}
                 onChange={(e) => setMetaDescription(e.target.value)}
-                placeholder="Short description for search engines (150–160 chars recommended)"
+                placeholder="Short description for search engines"
                 maxLength={200}
               />
               <p className="text-[10px] text-slate-400 mt-1">{metaDescription.length}/200</p>
@@ -174,19 +218,62 @@ export default function PageEditorPage() {
           </div>
         </div>
 
+        {/* Content Editor */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Content</p>
-            <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded font-mono">HTML</span>
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => setActiveTab("editor")}
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  activeTab === "editor" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Code2 size={11} /> HTML
+              </button>
+              <button
+                onClick={() => setActiveTab("preview")}
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  activeTab === "preview" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Eye size={11} /> Preview
+              </button>
+            </div>
           </div>
-          <textarea
-            className="input-base font-mono text-xs leading-relaxed resize-none"
-            rows={24}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="<p>Write your page content here. You can use HTML tags for formatting.</p>"
-          />
-          <p className="text-[10px] text-slate-400 mt-2">Supports full HTML. Use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;, etc.</p>
+
+          {activeTab === "editor" ? (
+            <div className="rounded-xl overflow-hidden border border-slate-200">
+              <MonacoEditor
+                height="560px"
+                language="html"
+                theme="vs-dark"
+                value={content}
+                onChange={(v: string | undefined) => setContent(v ?? "")}
+                options={{
+                  minimap: { enabled: false },
+                  lineNumbers: "on",
+                  wordWrap: "on",
+                  scrollBeyondLastLine: false,
+                  fontSize: 13,
+                  tabSize: 2,
+                  folding: true,
+                  formatOnPaste: true,
+                }}
+              />
+            </div>
+          ) : (
+            <iframe
+              srcDoc={previewDoc(content)}
+              className="w-full rounded-xl border border-slate-200 bg-white"
+              style={{ height: 560 }}
+              title="Page preview"
+            />
+          )}
+
+          <p className="text-[10px] text-slate-400 mt-2">
+            HTML editor — use inline styles or Tailwind classes (rendered on the marketing site). Preview shows an approximation.
+          </p>
         </div>
 
         <div className="flex justify-end pt-2">
