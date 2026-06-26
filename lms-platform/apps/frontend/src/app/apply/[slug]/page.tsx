@@ -6,8 +6,9 @@ import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
-  Loader2, CheckCircle2, ChevronRight, Award, ArrowRight,
+  Loader2, CheckCircle2, ChevronRight, Award,
   User, Briefcase, GraduationCap, FileText, AlertCircle, Eye, EyeOff, ShoppingCart, XCircle,
+  Plus, Trash2, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
@@ -22,6 +23,31 @@ type Cert = {
 };
 
 type StepDef = { id: number; label: string; icon: React.ElementType };
+
+type EducationEntry = {
+  id: string;
+  institution: string;
+  degree: string;
+  field_of_study: string;
+  start_year: string;
+  end_year: string;
+  is_current: boolean;
+};
+
+type ExperienceEntry = {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+  description: string;
+};
+
+function uid() {
+  return Math.random().toString(36).slice(2);
+}
 
 const STEPS: StepDef[] = [
   { id: 1, label: "Personal",     icon: User },
@@ -55,7 +81,6 @@ function Field({ label, hint, required, children }: {
   );
 }
 
-/** Returns a list of unmet eligibility requirement strings, or empty array if all met */
 function getEligibilityFailures(cert: Cert, yearsExp: string, trainingHours: string): string[] {
   const failures: string[] = [];
   if (cert.min_years_experience != null) {
@@ -90,22 +115,23 @@ export default function ApplyPage() {
   const [email,        setEmail]        = useState("");
   const [password,     setPassword]     = useState("");
 
-  // Application fields
-  const [phone,          setPhone]          = useState("");
-  const [dob,            setDob]            = useState("");
-  const [gender,         setGender]         = useState("");
-  const [country,        setCountry]        = useState("");
-  const [careerStatus,   setCareerStatus]   = useState("");
-  const [jobTitle,       setJobTitle]       = useState("");
-  const [company,        setCompany]        = useState("");
-  const [yearsExp,       setYearsExp]       = useState("");
-  const [trainingHours,  setTrainingHours]  = useState("");
-  const [linkedin,       setLinkedin]       = useState("");
-  const [university,     setUniversity]     = useState("");
-  const [degree,         setDegree]         = useState("");
-  const [gradYear,       setGradYear]       = useState("");
-  const [motivation,     setMotivation]     = useState("");
-  const [howHeard,       setHowHeard]       = useState("");
+  // Application flat fields
+  const [phone,         setPhone]         = useState("");
+  const [dob,           setDob]           = useState("");
+  const [gender,        setGender]        = useState("");
+  const [country,       setCountry]       = useState("");
+  const [careerStatus,  setCareerStatus]  = useState("");
+  const [jobTitle,      setJobTitle]      = useState("");
+  const [company,       setCompany]       = useState("");
+  const [yearsExp,      setYearsExp]      = useState("");
+  const [trainingHours, setTrainingHours] = useState("");
+  const [linkedin,      setLinkedin]      = useState("");
+  const [motivation,    setMotivation]    = useState("");
+  const [howHeard,      setHowHeard]      = useState("");
+
+  // Multi-entry arrays
+  const [educationEntries,  setEducationEntries]  = useState<EducationEntry[]>([]);
+  const [experienceEntries, setExperienceEntries] = useState<ExperienceEntry[]>([]);
 
   useEffect(() => {
     if (!_hasHydrated) return;
@@ -132,7 +158,6 @@ export default function ApplyPage() {
     ([url, token]) => api.get<any>(url, token),
   );
 
-  // Derive enrollmentId from raw SWR data (must be before any hooks that depend on it)
   const enrollmentIdForAttempts: string | null = (() => {
     const enrollments: any[] = Array.isArray(enrollmentsData?.data) ? enrollmentsData.data
       : Array.isArray(enrollmentsData) ? enrollmentsData : [];
@@ -164,7 +189,6 @@ export default function ApplyPage() {
   const latestAttempt = allAttempts.length > 0 ? allAttempts[allAttempts.length - 1] : null;
   const hadFailedExam = latestAttempt?.status === "failed" && latestAttempt?.passed === false;
 
-  // Only block on truly in-progress applications; rejected/withdrawn/approved+suspended can re-apply
   const existingApp = cert
     ? myApps.find((a) =>
         a.certification_id === cert.id &&
@@ -172,10 +196,9 @@ export default function ApplyPage() {
       )
     : null;
 
-  // Each certification requires its own fresh application; profile fields are pre-filled via profileData useEffect
   const isReturningStudent = false;
 
-  // Pre-populate form fields from stored profile when data arrives
+  // Pre-populate from stored profile when data arrives
   useEffect(() => {
     const p = profileData?.data?.profile ?? profileData?.profile;
     if (!p) return;
@@ -188,15 +211,44 @@ export default function ApplyPage() {
     if (p.company)         setCompany(p.company);
     if (p.years_experience != null) setYearsExp(String(p.years_experience));
     if (p.linkedin_url)    setLinkedin(p.linkedin_url);
-    if (p.university)      setUniversity(p.university);
-    if (p.degree_program)  setDegree(p.degree_program);
-    if (p.graduation_year != null) setGradYear(String(p.graduation_year));
+
+    // Education: prefer stored array, fall back to flat fields
+    const rawEdu = p.education_entries;
+    if (Array.isArray(rawEdu) && rawEdu.length > 0) {
+      setEducationEntries(rawEdu);
+    } else if (p.university) {
+      setEducationEntries([{
+        id: uid(),
+        institution:    p.university     ?? "",
+        degree:         p.degree_program ?? "",
+        field_of_study: "",
+        start_year:     "",
+        end_year:       p.graduation_year ? String(p.graduation_year) : "",
+        is_current:     false,
+      }]);
+    }
+
+    // Experience: prefer stored array, fall back to flat fields
+    const rawExp = p.experience_entries;
+    if (Array.isArray(rawExp) && rawExp.length > 0) {
+      setExperienceEntries(rawExp);
+    } else if (p.job_title || p.company) {
+      setExperienceEntries([{
+        id: uid(),
+        title:       p.job_title ?? "",
+        company:     p.company   ?? "",
+        location:    "",
+        start_date:  "",
+        end_date:    "",
+        is_current:  true,
+        description: "",
+      }]);
+    }
   }, [profileData]);
 
   const isLoggedIn  = !!accessToken && _hasHydrated;
   const displayName = user ? `${user.profile?.first_name ?? ""} ${user.profile?.last_name ?? ""}`.trim() : "";
 
-  // Eligibility check — only relevant when the cert has requirements
   const eligibilityFailures = cert ? getEligibilityFailures(cert, yearsExp, trainingHours) : [];
   const hasRequirements = cert && (cert.min_years_experience != null || cert.min_training_hours != null);
   const isEligible = eligibilityFailures.length === 0;
@@ -204,7 +256,6 @@ export default function ApplyPage() {
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      // Returning students — profile already on file, just add to cart
       if (isReturningStudent) {
         addItem({
           id:           cert!.id,
@@ -222,13 +273,9 @@ export default function ApplyPage() {
       let token = accessToken;
 
       if (!token) {
-        // Step 1: create account
         try {
           await api.post("/auth/register", {
-            email,
-            password,
-            first_name: firstName,
-            last_name:  lastName,
+            email, password, first_name: firstName, last_name: lastName,
           });
         } catch (err: any) {
           if (err instanceof ApiError && err.status === 409) {
@@ -238,8 +285,6 @@ export default function ApplyPage() {
           }
           throw err;
         }
-
-        // Step 2: log in to get token
         const loginData = await api.post<any>("/auth/login", { email, password });
         token = loginData.data?.access_token ?? loginData.access_token;
         const refreshToken = loginData.data?.refresh_token ?? loginData.refresh_token;
@@ -247,24 +292,29 @@ export default function ApplyPage() {
         useAuthStore.setState({ accessToken: token, refreshToken, user: userObj, _hasHydrated: true });
       }
 
-      // Step 3: submit application (first-time applicants only)
+      // Derive flat fields from first entries for profile backwards compat
+      const firstEdu = educationEntries[0];
+      const firstExp = experienceEntries[0];
+
       await api.post("/applications", {
         certification_slug: cert!.slug,
-        phone:            phone        || undefined,
-        date_of_birth:    dob          || undefined,
-        gender:           gender       || undefined,
-        country:          country      || undefined,
-        career_status:    careerStatus || undefined,
-        job_title:        jobTitle     || undefined,
-        company:          company      || undefined,
-        years_experience: yearsExp ? parseInt(yearsExp) : undefined,
-        training_hours:   trainingHours ? parseInt(trainingHours) : undefined,
-        linkedin_url:     linkedin     || undefined,
-        university:       university   || undefined,
-        degree_program:   degree       || undefined,
-        graduation_year:  gradYear ? parseInt(gradYear) : undefined,
-        motivation:       motivation   || undefined,
-        how_heard:        howHeard     || undefined,
+        phone:              phone        || undefined,
+        date_of_birth:      dob          || undefined,
+        gender:             gender       || undefined,
+        country:            country      || undefined,
+        career_status:      careerStatus || undefined,
+        job_title:          firstExp?.title   || jobTitle  || undefined,
+        company:            firstExp?.company || company   || undefined,
+        years_experience:   yearsExp ? parseInt(yearsExp) : undefined,
+        training_hours:     trainingHours ? parseInt(trainingHours) : undefined,
+        linkedin_url:       linkedin     || undefined,
+        university:         firstEdu?.institution || undefined,
+        degree_program:     firstEdu?.degree      || undefined,
+        graduation_year:    firstEdu?.end_year ? parseInt(firstEdu.end_year) : undefined,
+        education_entries:  educationEntries.length > 0 ? educationEntries : undefined,
+        experience_entries: experienceEntries.length > 0 ? experienceEntries : undefined,
+        motivation:         motivation   || undefined,
+        how_heard:          howHeard     || undefined,
       }, token!);
 
       setSubmitted(true);
@@ -374,7 +424,7 @@ export default function ApplyPage() {
     );
   }
 
-  // ── Certificate already earned (permanent block) ──────────────────────────
+  // ── Certificate already earned ─────────────────────────────────────────────
 
   if (certEnrollment?.status === "completed") {
     return (
@@ -384,7 +434,7 @@ export default function ApplyPage() {
         </div>
         <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Certificate Already Earned</h2>
         <p className="text-slate-500 text-sm mb-6">
-          You have already been granted the <strong>{cert.acronym}</strong> certificate. You cannot apply for the same certification again.
+          You have already been granted the <strong>{cert.acronym}</strong> certificate.
         </p>
         <Link href="/certificates" className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
           View My Certificates
@@ -393,7 +443,7 @@ export default function ApplyPage() {
     );
   }
 
-  // ── Currently enrolled (active) — block unless student already failed their exam ──
+  // ── Currently enrolled (active) ────────────────────────────────────────────
 
   if (certEnrollment?.status === "active" && !hadFailedExam) {
     return (
@@ -401,7 +451,7 @@ export default function ApplyPage() {
         <AlertCircle size={40} className="text-teal-400 mx-auto mb-4" />
         <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Already Enrolled</h2>
         <p className="text-slate-500 text-sm mb-6">
-          You are currently enrolled in <strong>{cert.acronym}</strong>. Complete the program and take your exam to earn the certificate.
+          You are currently enrolled in <strong>{cert.acronym}</strong>.
         </p>
         <Link href={`/certificates/${cert.id}`} className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
           Go to My Program
@@ -437,7 +487,6 @@ export default function ApplyPage() {
           <h1 className="text-2xl font-display font-black text-navy-900 mb-2">Application Received!</h1>
           <p className="text-slate-500 text-sm leading-relaxed mb-8">
             Your application for <strong>{cert.title} ({cert.acronym})</strong> is awaiting payment.
-            Complete your payment now to move to the next step.
           </p>
           <button
             onClick={handleProceedToPaymentFromGuard}
@@ -486,7 +535,6 @@ export default function ApplyPage() {
       return country.trim().length > 0;
     }
     if (step === 2) return careerStatus.trim().length > 0;
-    // Step 3 → Step 4: block if requirements not met
     if (step === 3) return isEligible || !hasRequirements;
     return true;
   }
@@ -538,17 +586,10 @@ export default function ApplyPage() {
         })}
       </div>
 
-      {/* Returning student banner */}
-      {isReturningStudent && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 flex items-start gap-2 mb-2">
-          <CheckCircle2 size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
-          <span>Your information has been pre-filled from your previous application. Review each step and confirm to add this certification to your cart.</span>
-        </div>
-      )}
-
       {/* Step card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
 
+        {/* ── Step 1: Personal ──────────────────────────────────────────── */}
         {step === 1 && (
           <>
             <div>
@@ -635,6 +676,7 @@ export default function ApplyPage() {
           </>
         )}
 
+        {/* ── Step 2: Professional ──────────────────────────────────────── */}
         {step === 2 && (
           <>
             <div>
@@ -649,14 +691,6 @@ export default function ApplyPage() {
                 <option value="other">Other</option>
               </select>
             </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Job Title">
-                <input className="input-base" placeholder="e.g. Product Manager" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
-              </Field>
-              <Field label="Company / Organization">
-                <input className="input-base" placeholder="e.g. Accenture" value={company} onChange={(e) => setCompany(e.target.value)} />
-              </Field>
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <Field
                 label="Years of Experience"
@@ -679,31 +713,79 @@ export default function ApplyPage() {
                 />
               </Field>
             </div>
-            <div>
-              <Field label="LinkedIn Profile URL">
-                <input className="input-base" placeholder="linkedin.com/in/yourname" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
-              </Field>
+            <Field label="LinkedIn Profile URL">
+              <input className="input-base" placeholder="linkedin.com/in/yourname" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+            </Field>
+
+            {/* Career Experience entries */}
+            <div className="pt-1">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Career Experience</p>
+
+              {experienceEntries.length === 0 && (
+                <div className="text-center py-5 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl mb-3">
+                  No experience entries yet.
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {experienceEntries.map((entry) => (
+                  <AppExperienceCard
+                    key={entry.id}
+                    entry={entry}
+                    onChange={(f, v) => setExperienceEntries(prev => prev.map(e => e.id === entry.id ? { ...e, [f]: v } : e))}
+                    onRemove={() => setExperienceEntries(prev => prev.filter(e => e.id !== entry.id))}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={() => setExperienceEntries(prev => [...prev, {
+                  id: uid(), title: "", company: "", location: "",
+                  start_date: "", end_date: "", is_current: false, description: "",
+                }])}
+                className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors mt-3"
+              >
+                <Plus size={15} /> Add Experience
+              </button>
             </div>
           </>
         )}
 
+        {/* ── Step 3: Education ─────────────────────────────────────────── */}
         {step === 3 && (
           <>
             <div>
               <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Education</h2>
-              <p className="text-slate-400 text-xs">Optional — helps us understand your background.</p>
+              <p className="text-slate-400 text-xs">Optional — add all your degrees and qualifications.</p>
             </div>
-            <Field label="University or Institution">
-              <input className="input-base" placeholder="e.g. University of Toronto" value={university} onChange={(e) => setUniversity(e.target.value)} />
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Degree / Program">
-                <input className="input-base" placeholder="e.g. B.Sc. Computer Science" value={degree} onChange={(e) => setDegree(e.target.value)} />
-              </Field>
-              <Field label="Graduation Year">
-                <input className="input-base" type="number" min="1950" max="2030" placeholder="e.g. 2020" value={gradYear} onChange={(e) => setGradYear(e.target.value)} />
-              </Field>
+
+            {educationEntries.length === 0 && (
+              <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
+                No education entries yet. Add your degrees and qualifications.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {educationEntries.map((entry) => (
+                <AppEducationCard
+                  key={entry.id}
+                  entry={entry}
+                  onChange={(f, v) => setEducationEntries(prev => prev.map(e => e.id === entry.id ? { ...e, [f]: v } : e))}
+                  onRemove={() => setEducationEntries(prev => prev.filter(e => e.id !== entry.id))}
+                />
+              ))}
             </div>
+
+            <button
+              onClick={() => setEducationEntries(prev => [...prev, {
+                id: uid(), institution: "", degree: "", field_of_study: "",
+                start_year: "", end_year: "", is_current: false,
+              }])}
+              className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors"
+            >
+              <Plus size={15} /> Add Education Entry
+            </button>
+
             <Field label={`Why do you want the ${cert.acronym}?`} hint="Tell us what motivated you to pursue this certification.">
               <textarea
                 className="input-base h-28 resize-none"
@@ -719,7 +801,7 @@ export default function ApplyPage() {
               </select>
             </Field>
 
-            {/* Eligibility result — show when cert has requirements */}
+            {/* Eligibility result */}
             {hasRequirements && (
               <div className={`rounded-xl border p-4 ${isEligible ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
                 {isEligible ? (
@@ -753,17 +835,12 @@ export default function ApplyPage() {
           </>
         )}
 
+        {/* ── Step 4: Review ────────────────────────────────────────────── */}
         {step === 4 && (
           <>
             <div>
-              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">
-                {isReturningStudent ? "Confirm & Add to Cart" : "Review Your Application"}
-              </h2>
-              <p className="text-slate-400 text-xs">
-                {isReturningStudent
-                  ? "Your information is on file. Confirm and we'll add this certification to your cart."
-                  : "Confirm your information before submitting."}
-              </p>
+              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Review Your Application</h2>
+              <p className="text-slate-400 text-xs">Confirm your information before submitting.</p>
             </div>
             <div className="space-y-4">
               <ReviewSection title="Personal Information">
@@ -773,38 +850,58 @@ export default function ApplyPage() {
                 <ReviewRow label="Country"   value={country} />
                 <ReviewRow label="Gender"    value={gender || "Not specified"} />
               </ReviewSection>
+
               <ReviewSection title="Professional Background">
                 <ReviewRow label="Career Status" value={
                   careerStatus === "professional" ? "Working Professional"
                   : careerStatus === "student" ? "Student"
                   : careerStatus || "—"
                 } />
-                <ReviewRow label="Job Title"       value={jobTitle} />
-                <ReviewRow label="Company"         value={company} />
-                <ReviewRow label="Experience"      value={yearsExp ? `${yearsExp} years` : ""} />
-                <ReviewRow label="Training Hours"  value={trainingHours ? `${trainingHours} hours` : ""} />
-                <ReviewRow label="LinkedIn"        value={linkedin} />
+                <ReviewRow label="Experience"     value={yearsExp ? `${yearsExp} years` : ""} />
+                <ReviewRow label="Training Hours" value={trainingHours ? `${trainingHours} hours` : ""} />
+                <ReviewRow label="LinkedIn"       value={linkedin} />
+                {experienceEntries.length > 0 && (
+                  <div className="pt-1 space-y-1">
+                    {experienceEntries.map((e) => (
+                      <div key={e.id} className="flex items-start gap-3 text-sm">
+                        <span className="text-slate-400 w-28 flex-shrink-0">Experience</span>
+                        <span className="text-slate-800 font-medium">
+                          {[e.title, e.company].filter(Boolean).join(" · ")}
+                          {(e.start_date || e.is_current) ? ` (${e.start_date || ""}${e.is_current ? " – Present" : e.end_date ? ` – ${e.end_date}` : ""})` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ReviewSection>
+
               <ReviewSection title="Education">
-                <ReviewRow label="University" value={university} />
-                <ReviewRow label="Degree"     value={degree} />
-                <ReviewRow label="Grad. Year" value={gradYear} />
+                {educationEntries.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">No education entries added.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {educationEntries.map((e) => (
+                      <div key={e.id} className="flex items-start gap-3 text-sm">
+                        <span className="text-slate-400 w-28 flex-shrink-0">Degree</span>
+                        <span className="text-slate-800 font-medium">
+                          {[e.institution, e.degree, e.field_of_study].filter(Boolean).join(" · ")}
+                          {e.end_year ? ` (${e.end_year})` : e.is_current ? " (In progress)" : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ReviewSection>
+
               {motivation && (
                 <ReviewSection title="Motivation">
                   <p className="text-sm text-slate-700 leading-relaxed">{motivation}</p>
                 </ReviewSection>
               )}
             </div>
-            {isReturningStudent ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
-                Your profile information is pre-filled from your previous application. You can edit any field above before continuing to payment.
-              </div>
-            ) : (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
-                By submitting, you confirm the information above is accurate. Your application will be reviewed within 1–2 business days.
-              </div>
-            )}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
+              By submitting, you confirm the information above is accurate. Your application will be reviewed within 1–2 business days.
+            </div>
           </>
         )}
       </div>
@@ -832,18 +929,13 @@ export default function ApplyPage() {
         ) : (
           <button
             onClick={handleSubmit}
-            disabled={submitting || (isReturningStudent && hasItem(cert!.id))}
+            disabled={submitting}
             className="btn-primary !py-2.5 !px-6 !text-sm disabled:opacity-60"
           >
-            {submitting ? (
-              <><Loader2 size={15} className="animate-spin" /> {isReturningStudent ? "Adding…" : "Submitting…"}</>
-            ) : isReturningStudent ? (
-              hasItem(cert!.id)
-                ? <><CheckCircle2 size={15} /> Already in Cart</>
-                : <><ShoppingCart size={15} /> Add to Cart</>
-            ) : (
-              <><CheckCircle2 size={15} /> Submit Application</>
-            )}
+            {submitting
+              ? <><Loader2 size={15} className="animate-spin" /> Submitting…</>
+              : <><CheckCircle2 size={15} /> Submit Application</>
+            }
           </button>
         )}
       </div>
@@ -868,6 +960,112 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-start gap-3 text-sm">
       <span className="text-slate-400 w-28 flex-shrink-0">{label}</span>
       <span className="text-slate-800 font-medium">{value}</span>
+    </div>
+  );
+}
+
+function AppEducationCard({ entry, onChange, onRemove }: {
+  entry: EducationEntry;
+  onChange: (f: keyof EducationEntry, v: any) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer" onClick={() => setOpen(v => !v)}>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-navy-900 truncate">{entry.institution || "New Education Entry"}</p>
+          {entry.degree && <p className="text-xs text-slate-500">{entry.degree}{entry.field_of_study ? ` · ${entry.field_of_study}` : ""}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+          {open ? <ChevronUp size={15} className="text-slate-400" /> : <ChevronDown size={15} className="text-slate-400" />}
+        </div>
+      </div>
+      {open && (
+        <div className="p-4 space-y-4">
+          <Field label="Institution / University">
+            <input className="input-base" placeholder="e.g. University of Toronto" value={entry.institution} onChange={(e) => onChange("institution", e.target.value)} />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Degree">
+              <select className="input-base" value={entry.degree} onChange={(e) => onChange("degree", e.target.value)}>
+                <option value="">Select…</option>
+                {["High School Diploma","Associate's Degree","Bachelor's Degree","Master's Degree","MBA","Ph.D.","Professional Certificate","Other"].map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Field of Study">
+              <input className="input-base" placeholder="e.g. Computer Science" value={entry.field_of_study} onChange={(e) => onChange("field_of_study", e.target.value)} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-3 gap-4 items-end">
+            <Field label="Start Year">
+              <input className="input-base" type="number" min="1950" max="2030" placeholder="2018" value={entry.start_year} onChange={(e) => onChange("start_year", e.target.value)} />
+            </Field>
+            <Field label="End Year">
+              <input className="input-base" type="number" min="1950" max="2030" placeholder="2022" value={entry.end_year} disabled={entry.is_current} onChange={(e) => onChange("end_year", e.target.value)} />
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-slate-600 pb-2 cursor-pointer">
+              <input type="checkbox" checked={entry.is_current} onChange={(e) => { onChange("is_current", e.target.checked); if (e.target.checked) onChange("end_year", ""); }} className="rounded" />
+              Currently enrolled
+            </label>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AppExperienceCard({ entry, onChange, onRemove }: {
+  entry: ExperienceEntry;
+  onChange: (f: keyof ExperienceEntry, v: any) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer" onClick={() => setOpen(v => !v)}>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-navy-900 truncate">{entry.title || "New Experience"}</p>
+          {entry.company && <p className="text-xs text-slate-500">{entry.company}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+          {open ? <ChevronUp size={15} className="text-slate-400" /> : <ChevronDown size={15} className="text-slate-400" />}
+        </div>
+      </div>
+      {open && (
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Job Title">
+              <input className="input-base" placeholder="e.g. Product Manager" value={entry.title} onChange={(e) => onChange("title", e.target.value)} />
+            </Field>
+            <Field label="Company">
+              <input className="input-base" placeholder="e.g. Accenture" value={entry.company} onChange={(e) => onChange("company", e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Location">
+            <input className="input-base" placeholder="e.g. Toronto, ON" value={entry.location} onChange={(e) => onChange("location", e.target.value)} />
+          </Field>
+          <div className="grid grid-cols-3 gap-4 items-end">
+            <Field label="Start Date">
+              <input className="input-base" type="month" value={entry.start_date} onChange={(e) => onChange("start_date", e.target.value)} />
+            </Field>
+            <Field label="End Date">
+              <input className="input-base" type="month" value={entry.end_date} disabled={entry.is_current} onChange={(e) => onChange("end_date", e.target.value)} />
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-slate-600 pb-2 cursor-pointer">
+              <input type="checkbox" checked={entry.is_current} onChange={(e) => { onChange("is_current", e.target.checked); if (e.target.checked) onChange("end_date", ""); }} className="rounded" />
+              Current role
+            </label>
+          </div>
+          <Field label="Description">
+            <textarea className="input-base h-20 resize-none" placeholder="Describe your responsibilities…" value={entry.description} onChange={(e) => onChange("description", e.target.value)} />
+          </Field>
+        </div>
+      )}
     </div>
   );
 }

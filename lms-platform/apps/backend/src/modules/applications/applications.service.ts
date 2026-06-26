@@ -89,6 +89,12 @@ export class ApplicationsService {
         profileUpdate[field] = field === "date_of_birth" ? parsedDob : dto[field];
       }
     }
+    if (Array.isArray(dto.education_entries) && dto.education_entries.length > 0) {
+      profileUpdate["education_entries"] = dto.education_entries;
+    }
+    if (Array.isArray(dto.experience_entries) && dto.experience_entries.length > 0) {
+      profileUpdate["experience_entries"] = dto.experience_entries;
+    }
 
     const fullName = `${user.profile?.first_name ?? ""} ${user.profile?.last_name ?? ""}`.trim() || user.email;
 

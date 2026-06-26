@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   Award, CheckCircle2, XCircle, Loader2, AlertCircle,
-  RefreshCw, ChevronDown, ChevronUp, Search, RotateCcw, AlertTriangle, Trash2,
+  RefreshCw, ChevronDown, ChevronUp, Search, RotateCcw, AlertTriangle, Trash2, Check,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -18,6 +18,26 @@ const STATUS_COLORS: Record<string, string> = {
   suspended: "bg-red-50 text-red-700",
   expired:   "bg-slate-100 text-slate-500",
 };
+
+// Mirrors the student portal's getProgress() — returns the last completed step (0–4)
+// and a variant string describing the current state
+function getAdminProgress(row: any): { step: number; variant: string } {
+  if (row.status === "completed") return { step: 4, variant: "completed" };
+  if (row.status === "active")    return { step: 3, variant: "active" };
+  // suspended or expired — derive from application if available
+  const app = row.application;
+  if (!app) {
+    // Cart-enrolled student with no application (old flow) or freshly failed
+    return row.status === "suspended"
+      ? { step: 3, variant: "suspended_no_app" }
+      : { step: 0, variant: "none" };
+  }
+  if (app.status === "approved")          return { step: 3, variant: row.status === "suspended" ? "suspended" : "active" };
+  if (app.status === "pending_review")    return { step: 2, variant: "pending_review" };
+  if (app.status === "payment_submitted") return { step: 1, variant: "payment_submitted" };
+  if (app.status === "pending_payment")   return { step: 1, variant: "pending_payment" };
+  return { step: 0, variant: app.status }; // rejected / withdrawn
+}
 
 function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onRefresh: () => void }) {
   const [expanded, setExpanded]   = useState(false);
@@ -335,30 +355,113 @@ function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onR
             </div>
           )}
 
-          {/* Return to step */}
+          {/* Return to step — visual step bar matching student portal logic */}
           <div className="pt-2 border-t border-slate-200">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-4">
               <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
-              <p className="text-xs font-semibold text-slate-600">Return student to step — undoes all progress after that step</p>
+              <p className="text-xs font-semibold text-slate-600">Click a step to return the student there — undoes all progress after it</p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {STEP_DEFS.map(({ step, label, sublabel, description }) => (
-                <button
-                  key={step}
-                  disabled={loading === `step${step}`}
-                  onClick={(e) => { e.stopPropagation(); handleResetToStep(step, description); }}
-                  className="flex flex-col items-start gap-0.5 border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-xl px-3 py-2.5 text-left transition-colors disabled:opacity-50 group"
-                >
-                  {loading === `step${step}` ? (
-                    <Loader2 size={12} className="animate-spin text-amber-600 mb-1" />
-                  ) : (
-                    <RotateCcw size={12} className="text-slate-300 group-hover:text-amber-500 mb-1 transition-colors" />
-                  )}
-                  <span className="text-xs font-bold text-slate-700">{label}</span>
-                  <span className="text-[10px] text-slate-400 leading-tight">{sublabel}</span>
-                </button>
-              ))}
-            </div>
+
+            {(() => {
+              const { step: currentStep, variant } = getAdminProgress(row);
+
+              return (
+                <div className="flex items-start w-full">
+                  {STEP_DEFS.map(({ step, label, sublabel, description }, idx) => {
+                    const isSuspended = variant === "suspended" || variant === "suspended_no_app";
+                    const done   = currentStep >= step;
+                    // Active = the next step to complete — but not when student is suspended
+                    const active = !isSuspended && currentStep === step - 1;
+
+                    // Circle colors — mirrors student portal palette (adapted to light bg)
+                    const circleClass = done
+                      ? isSuspended && step === currentStep
+                        ? "bg-red-100 text-red-600 border-red-300"   // suspended at this step
+                        : "bg-emerald-100 text-emerald-700 border-emerald-300"  // completed step
+                      : active
+                      ? variant === "pending_review" || variant === "payment_submitted"
+                        ? "bg-amber-100 text-amber-700 border-amber-300"   // waiting on admin
+                        : "bg-blue-100 text-blue-700 border-blue-300"      // application in progress
+                      : "bg-slate-100 text-slate-400 border-slate-200";   // future
+
+                    const labelClass = done
+                      ? isSuspended && step === currentStep ? "text-red-500" : "text-emerald-600"
+                      : active
+                      ? variant === "pending_review" || variant === "payment_submitted" ? "text-amber-600"
+                        : "text-blue-600"
+                      : "text-slate-400";
+
+                    // Line turns grey after a suspended step (don't show green progress past it)
+                    const lineClass = done && !(isSuspended && step === currentStep)
+                      ? "bg-emerald-300"
+                      : "bg-slate-200";
+
+                    // Active step sub-label
+                    const activeTag = active
+                      ? variant === "pending_review"    ? "Under Review"
+                        : variant === "payment_submitted" ? "Payment Processing"
+                        : variant === "pending_payment"   ? "Applied"
+                        : variant === "suspended_no_app"  ? "Suspended"
+                        : ""
+                      : done && isSuspended && step === currentStep ? "Suspended"
+                      : "";
+
+                    return (
+                      <div key={step} className="flex items-start flex-1 last:flex-none">
+                        <button
+                          disabled={loading === `step${step}`}
+                          onClick={(e) => { e.stopPropagation(); handleResetToStep(step, description); }}
+                          className="flex flex-col items-center gap-1.5 group hover:opacity-80 transition-opacity flex-shrink-0 disabled:cursor-not-allowed"
+                          title={`Return to ${label} — ${description}`}
+                        >
+                          {/* Circle */}
+                          <div className={cn(
+                            "w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all group-hover:scale-105",
+                            circleClass,
+                            active && "ring-2 ring-offset-1 ring-current ring-opacity-30",
+                          )}>
+                            {loading === `step${step}`
+                              ? <Loader2 size={14} className="animate-spin" />
+                              : done
+                              ? <Check size={16} className={isSuspended && step === currentStep ? "text-red-500" : "text-emerald-600"} />
+                              : step}
+                          </div>
+
+                          {/* Labels */}
+                          <div className="text-center w-20">
+                            <span className={cn("text-[10px] font-bold whitespace-nowrap block", labelClass)}>
+                              {label}
+                            </span>
+                            <span className="text-[9px] text-slate-400 leading-tight block">{sublabel}</span>
+                            {activeTag && (
+                              <span className={cn(
+                                "text-[9px] font-semibold block mt-0.5",
+                                variant === "suspended" || variant === "suspended_no_app" ? "text-red-500" : "text-amber-500"
+                              )}>
+                                {activeTag}
+                              </span>
+                            )}
+                            {active && !activeTag && (
+                              <span className="text-[9px] text-blue-500 font-semibold block mt-0.5">Current</span>
+                            )}
+                          </div>
+
+                          {/* Hover hint */}
+                          <span className="text-[8px] text-slate-300 group-hover:text-amber-500 flex items-center gap-0.5 transition-colors">
+                            <RotateCcw size={8} /> Reset here
+                          </span>
+                        </button>
+
+                        {/* Connector line */}
+                        {idx < STEP_DEFS.length - 1 && (
+                          <div className={cn("flex-1 h-0.5 mt-[18px] mx-1", lineClass)} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {row.status === "suspended" && !cert && (

@@ -30,6 +30,7 @@ export default function ApiSettingsPage() {
   const [emailFromName, setEmailFromName] = useState("");
   const [showResend,    setShowResend]    = useState(false);
   const [savingEmail,   setSavingEmail]   = useState(false);
+  const [testingEmail,  setTestingEmail]  = useState(false);
 
   // Supabase
   const [supabaseUrl,     setSupabaseUrl]     = useState("");
@@ -72,6 +73,20 @@ export default function ApiSettingsPage() {
       setStripePubKey(payData.stripe_publishable_key ?? "");
     }
   }, [payData]);
+
+  async function sendTestEmail() {
+    setTestingEmail(true);
+    try {
+      const r = await api.post<{ sent: boolean; reason?: string }>("/mail/test-send", {}, accessToken!);
+      const result = (r as any).data ?? r;
+      if (result.sent) toast.success("Test email sent — check your inbox");
+      else toast.error(`Email not sent: ${result.reason ?? "unknown error"}`);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to send test email");
+    } finally {
+      setTestingEmail(false);
+    }
+  }
 
   async function saveEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -257,10 +272,18 @@ export default function ApiSettingsPage() {
             </div>
           </div>
         </div>
-        <button type="submit" disabled={savingEmail} className="btn-primary w-full justify-center disabled:opacity-60">
-          {savingEmail ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          Save Email Settings
-        </button>
+        <div className="flex gap-3">
+          <button type="submit" disabled={savingEmail} className="btn-primary flex-1 justify-center disabled:opacity-60">
+            {savingEmail ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            Save Email Settings
+          </button>
+          <button type="button" onClick={sendTestEmail} disabled={testingEmail || !data?.resend_key_set}
+            title={!data?.resend_key_set ? "Save a Resend API key first" : "Send a test email to your admin address"}
+            className="btn-outline px-4 disabled:opacity-50">
+            {testingEmail ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+            Test
+          </button>
+        </div>
       </form>
 
       {/* File Storage — S3 */}

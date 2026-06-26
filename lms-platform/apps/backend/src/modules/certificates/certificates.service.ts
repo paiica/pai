@@ -120,6 +120,9 @@ export class CertificatesService {
             orderBy: { started_at: "desc" },
             take: 1,
           },
+          application: {
+            select: { id: true, status: true, amount_paid: true, payment_status: true },
+          },
         },
         skip,
         take: limit,
@@ -196,10 +199,19 @@ export class CertificatesService {
 
     const cert = await this.prisma.certificate.findFirst({ where: { enrollment_id: enrollmentId } });
 
-    const application = await this.prisma.application.findFirst({
+    let application = await this.prisma.application.findFirst({
       where: { user_id: enrollment.user_id, certification_id: enrollment.certification_id },
       orderBy: { created_at: "desc" },
     });
+
+    // For step 1/2 with no application (cart-enrolled student), fetch user info to create one
+    let userForApp: { email: string; profile: { first_name: string | null; last_name: string | null } | null } | null = null;
+    if (!application && (step === 1 || step === 2)) {
+      userForApp = await this.prisma.user.findUnique({
+        where: { id: enrollment.user_id },
+        include: { profile: { select: { first_name: true, last_name: true } } },
+      }) as any;
+    }
 
     await this.prisma.$transaction(async (tx) => {
       // Always revoke an active certificate
@@ -225,18 +237,41 @@ export class CertificatesService {
           data: { status: "active", completed_at: null },
         });
       } else {
-        await tx.enrollment.update({
-          where: { id: enrollmentId },
-          data: { status: "suspended", completed_at: null },
-        });
-        if (application) {
-          await tx.application.update({
-            where: { id: application.id },
+        const targetStatus = step === 1 ? ApplicationStatus.pending_payment : ApplicationStatus.pending_review;
+
+        if (!application && userForApp) {
+          // Student was enrolled via cart with no application — create a synthetic one
+          const fullName = userForApp.profile
+            ? `${userForApp.profile.first_name ?? ""} ${userForApp.profile.last_name ?? ""}`.trim()
+            : (userForApp.email ?? "");
+          application = await tx.application.create({
             data: {
-              status: step === 1 ? ApplicationStatus.pending_payment : ApplicationStatus.pending_review,
-              ...(step === 1 ? { reviewed_by: null, reviewed_at: null, rejection_reason: null } : {}),
+              user_id: enrollment.user_id,
+              certification_id: enrollment.certification_id,
+              status: targetStatus,
+              full_name: fullName || userForApp.email,
+              email: userForApp.email,
             },
           });
+          // Link enrollment to the newly created application
+          await tx.enrollment.update({
+            where: { id: enrollmentId },
+            data: { status: "suspended", completed_at: null, application_id: application.id },
+          });
+        } else {
+          await tx.enrollment.update({
+            where: { id: enrollmentId },
+            data: { status: "suspended", completed_at: null },
+          });
+          if (application) {
+            await tx.application.update({
+              where: { id: application.id },
+              data: {
+                status: targetStatus,
+                ...(step === 1 ? { reviewed_by: null, reviewed_at: null, rejection_reason: null } : {}),
+              },
+            });
+          }
         }
       }
     });

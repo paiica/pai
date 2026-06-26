@@ -361,16 +361,17 @@ model Certification {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  modules          Module[]
-  applications     Application[]
-  enrollments      Enrollment[]
-  certificates     Certificate[]
-  exam_banks       ExamBank[]
-  exam_sessions    ExamSession[]
-  instructors      CourseInstructor[]
-  faqs             CourseFAQ[]
-  prep_courses     Course[]
-  structured_exams StructuredExam[]
+  modules              Module[]
+  applications         Application[]
+  enrollments          Enrollment[]
+  certificates         Certificate[]
+  exam_banks           ExamBank[]
+  exam_sessions        ExamSession[]
+  instructors          CourseInstructor[]
+  faqs                 CourseFAQ[]
+  prep_courses         Course[]
+  structured_exams     StructuredExam[]
+  course_recommendations CourseCertRecommendation[]
 
   @@index([slug])
   @@index([status])
@@ -548,13 +549,15 @@ model Course {
   certification_id     String?
   certification        Certification? @relation(fields: [certification_id], references: [id], onDelete: SetNull)
 
-  sort_order Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  is_featured  Boolean  @default(false)
+  sort_order   Int      @default(0)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
-  modules     Module[]
-  instructors CourseTeacher[]
-  enrollments CourseEnrollment[]
+  modules          Module[]
+  instructors      CourseTeacher[]
+  enrollments      CourseEnrollment[]
+  cert_recommendations CourseCertRecommendation[]
 
   @@index([slug])
   @@index([status])
@@ -593,6 +596,17 @@ model CourseEnrollment {
   @@index([user_id])
   @@index([course_id])
   @@map("course_enrollments")
+  @@schema("lms")
+}
+
+model CourseCertRecommendation {
+  course_id        String
+  course           Course        @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  certification_id String
+  certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+
+  @@id([course_id, certification_id])
+  @@map("course_cert_recommendations")
   @@schema("lms")
 }
 
@@ -652,6 +666,9 @@ model Application {
   graduation_year Int?
   motivation      String?
   how_heard       String?
+
+  education_entries  Json     @default("[]")
+  experience_entries Json     @default("[]")
 
   documents_requested       Boolean   @default(false)
   documents_request_message String?
@@ -915,6 +932,7 @@ model ExamSection {
   time_limit_minutes Int?
   instructions       String?        @db.Text
   is_required        Boolean        @default(true)
+  passing_score      Int            @default(70)
   created_at         DateTime       @default(now())
   updated_at         DateTime       @updatedAt
 

@@ -5,6 +5,7 @@ import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class UsersService {
@@ -12,6 +13,7 @@ export class UsersService {
     private prisma: PrismaService,
     private email: EmailService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   async findById(id: string) {
@@ -33,33 +35,113 @@ export class UsersService {
     return { ...user, profile: rows[0] ?? null };
   }
 
-  async findAll({ page = 1, limit = 20, q }: { page: number; limit: number; q?: string }) {
+  async findAll({ page = 1, limit = 25, q, role, status }: {
+    page: number; limit: number; q?: string; role?: string; status?: string;
+  }) {
     const skip = (page - 1) * limit;
-    const where = q
-      ? {
-          OR: [
-            { email: { contains: q, mode: "insensitive" as const } },
-            { profile: { first_name: { contains: q, mode: "insensitive" as const } } },
-            { profile: { last_name: { contains: q, mode: "insensitive" as const } } },
-          ],
-        }
-      : {};
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let p = 1;
 
-    const [users, total] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        where,
-        include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } },
-        skip,
-        take: limit,
-        orderBy: { created_at: "desc" },
-      }),
-      this.prisma.user.count({ where }),
+    if (q) {
+      conditions.push(`(u.email ILIKE $${p} OR p.first_name ILIKE $${p} OR p.last_name ILIKE $${p})`);
+      params.push(`%${q}%`);
+      p++;
+    }
+    if (role) {
+      conditions.push(`u.role::text = $${p}`);
+      params.push(role);
+      p++;
+    }
+    if (status === "active")   { conditions.push(`u.is_active = true`); }
+    if (status === "inactive") { conditions.push(`u.is_active = false`); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const [rows, countRows] = await Promise.all([
+      this.prisma.$queryRawUnsafe<any[]>(`
+        SELECT u.id, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
+               p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth
+        FROM lms.users u
+        LEFT JOIN lms.profiles p ON p.user_id = u.id
+        ${where}
+        ORDER BY u.created_at DESC
+        LIMIT $${p} OFFSET $${p + 1}
+      `, ...params, limit, skip),
+      this.prisma.$queryRawUnsafe<any[]>(`
+        SELECT COUNT(*)::int AS count
+        FROM lms.users u
+        LEFT JOIN lms.profiles p ON p.user_id = u.id
+        ${where}
+      `, ...params),
     ]);
 
-    return {
-      data: users.map(({ password_hash, email_verify_token, ...u }) => u),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+    const total = countRows[0]?.count ?? 0;
+    return { data: rows, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async deleteUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    try {
+      await this.prisma.user.delete({ where: { id: userId } });
+      return { deleted: true };
+    } catch (err: any) {
+      if (err.code === "P2003" || err.code === "P2014") {
+        throw new BadRequestException(
+          "Cannot delete a user with enrollments or certificates. Disable their access instead.",
+        );
+      }
+      throw err;
+    }
+  }
+
+  async requirePasswordReset(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    if (!user) throw new NotFoundException("User not found");
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.passwordReset.create({
+      data: { user_id: user.id, token_hash: tokenHash, expires_at: expiresAt },
+    });
+
+    await this.mail.sendPasswordResetEmail(
+      user.email,
+      user.profile?.first_name ?? "there",
+      token,
+    );
+    return { message: "Password reset email sent" };
+  }
+
+  async exportCsv({ q, role, status }: { q?: string; role?: string; status?: string }) {
+    const { data } = await this.findAll({ page: 1, limit: 10000, q, role, status });
+    const headers = [
+      "ID", "Email", "First Name", "Last Name", "Role", "Status",
+      "Phone", "Country", "Date of Birth", "Email Verified", "Registered", "Last Login",
+    ];
+    const rows = (data as any[]).map((u) => [
+      u.id,
+      u.email,
+      u.first_name ?? "",
+      u.last_name ?? "",
+      u.role,
+      u.is_active ? "Active" : "Inactive",
+      u.phone ?? "",
+      u.country ?? "",
+      u.date_of_birth ? new Date(u.date_of_birth).toISOString().split("T")[0] : "",
+      u.email_verified ? "Yes" : "No",
+      new Date(u.created_at).toISOString().split("T")[0],
+      u.last_login_at ? new Date(u.last_login_at).toISOString().split("T")[0] : "",
+    ]);
+    return [headers, ...rows]
+      .map((row) => row.map((cell: any) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
   }
 
   async updateProfile(userId: string, dto: Record<string, any>) {
@@ -208,5 +290,60 @@ export class UsersService {
       data: { is_active },
       select: { id: true, email: true, is_active: true },
     });
+  }
+
+  async bulkSetActive(ids: string[], is_active: boolean) {
+    const result = await this.prisma.user.updateMany({
+      where: { id: { in: ids } },
+      data: { is_active },
+    });
+    return { updated: result.count };
+  }
+
+  async bulkChangeRole(ids: string[], role: Role) {
+    const result = await this.prisma.user.updateMany({
+      where: { id: { in: ids } },
+      data: { role },
+    });
+    return { updated: result.count };
+  }
+
+  async bulkRequirePasswordReset(ids: string[]) {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      include: { profile: { select: { first_name: true } } },
+    });
+
+    const resets = users.map((user) => {
+      const token = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      return { user, token, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) };
+    });
+
+    await this.prisma.passwordReset.createMany({
+      data: resets.map(({ user, tokenHash, expiresAt }) => ({
+        user_id: user.id, token_hash: tokenHash, expires_at: expiresAt,
+      })),
+    });
+
+    for (const { user, token } of resets) {
+      this.mail.sendPasswordResetEmail(user.email, user.profile?.first_name ?? "there", token).catch(() => {});
+    }
+
+    return { sent: resets.length };
+  }
+
+  async bulkDelete(ids: string[]) {
+    try {
+      const result = await this.prisma.user.deleteMany({ where: { id: { in: ids } } });
+      return { deleted: result.count };
+    } catch (err: any) {
+      if (err.code === "P2003" || err.code === "P2014") {
+        throw new BadRequestException(
+          "One or more selected users have enrollments or certificates and cannot be deleted.",
+        );
+      }
+      throw err;
+    }
   }
 }

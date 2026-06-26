@@ -265,6 +265,73 @@ export class ExamsService {
     return this.prisma.examBank.delete({ where: { id } });
   }
 
+  async adminGetAttemptDetail(attemptId: string) {
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        user: { select: { email: true, profile: { select: { first_name: true, last_name: true } } } },
+        enrollment: { include: { certification: { select: { title: true, acronym: true, passing_score: true } } } },
+      },
+    });
+    if (!attempt) throw new NotFoundException("Attempt not found");
+
+    const attemptData = attempt.answers as any;
+    const questions = (attemptData?.questions ?? []) as any[];
+    const submittedAnswers = (attemptData?.submitted_answers ?? {}) as Record<string, number>;
+
+    if (!questions.length) return { ...attempt, sections: [] };
+
+    const bankQuestions = await this.prisma.examBank.findMany({
+      where: { id: { in: questions.map((q: any) => q.id) } },
+    });
+    const bankMap = new Map(bankQuestions.map((q) => [q.id, q]));
+
+    const enriched = questions.map((q: any) => {
+      const bank = bankMap.get(q.id);
+      const studentAnswer = submittedAnswers[q.id] ?? null;
+      const correctIndex = bank?.correct_index ?? null;
+      const isCorrect = studentAnswer !== null && studentAnswer === correctIndex;
+      return {
+        id: q.id,
+        question_text: q.question_text,
+        options: q.options as string[],
+        topic_tag: q.topic_tag ?? "General",
+        student_answer: studentAnswer,
+        correct_index: correctIndex,
+        is_correct: isCorrect,
+        explanation: bank?.explanation ?? null,
+      };
+    });
+
+    const sectionMap = new Map<string, typeof enriched>();
+    for (const q of enriched) {
+      if (!sectionMap.has(q.topic_tag)) sectionMap.set(q.topic_tag, []);
+      sectionMap.get(q.topic_tag)!.push(q);
+    }
+
+    const sections = Array.from(sectionMap.entries()).map(([tag, qs]) => {
+      const correct = qs.filter((q) => q.is_correct).length;
+      const total = qs.length;
+      const sectionScore = total > 0 ? Math.round((correct / total) * 100) : 0;
+      return { tag, questions: qs, total, correct, score: sectionScore, passed: sectionScore >= 70 };
+    });
+
+    return { ...attempt, sections };
+  }
+
+  async adminOverrideScore(attemptId: string, dto: { score_percentage: number; passed: boolean }) {
+    const attempt = await this.prisma.examAttempt.findUnique({ where: { id: attemptId } });
+    if (!attempt) throw new NotFoundException("Attempt not found");
+    return this.prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: {
+        score_percentage: dto.score_percentage,
+        passed: dto.passed,
+        status: dto.passed ? ExamAttemptStatus.passed : ExamAttemptStatus.failed,
+      },
+    });
+  }
+
   async adminGetAllAttempts() {
     return this.prisma.examAttempt.findMany({
       include: {
@@ -417,6 +484,7 @@ export class ExamsService {
     instructions?: string;
     sort_order?: number;
     is_required?: boolean;
+    passing_score?: number;
   }) {
     return this.prisma.examSection.update({ where: { id: sectionId }, data: dto });
   }

@@ -23,6 +23,7 @@ interface SitePageDef {
   description: string;
   defaultMeta: string;
   defaultHtml: string;
+  catchAll?: boolean; // served by /[slug] catch-all (no dedicated page file)
 }
 
 const SITE_PAGES: SitePageDef[] = [
@@ -272,6 +273,80 @@ const SITE_PAGES: SitePageDef[] = [
 <h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:32px 0 12px">Contact</h2>
 <p style="color:#334155;line-height:1.7;font-size:14px;margin:0">For questions about these terms, contact <a href="mailto:legal@paii.ca" style="color:#0f172a;font-weight:600">legal@paii.ca</a>.</p>`,
   },
+  {
+    slug: "careers",
+    title: "Careers",
+    catchAll: true,
+    description: "Open roles and working at PAI",
+    defaultMeta: "Join the Professional AI Institute team. Explore open roles and our mission-driven culture.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Careers at PAI</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">We're building the credential standard for the AI era. Join us.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">Open Roles</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0">No open roles at this time. Check back soon or send your resume to <a href="mailto:careers@paii.ca" style="color:#0f172a;font-weight:600">careers@paii.ca</a>.</p>`,
+  },
+  {
+    slug: "resources",
+    title: "Resources",
+    catchAll: true,
+    description: "Learning resources, guides, and tools",
+    defaultMeta: "Free AI learning resources, guides, and tools from the Professional AI Institute.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Resources</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">Free guides, templates, and tools to accelerate your AI journey.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">Coming Soon</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0">We're compiling our best resources. Add your content here.</p>`,
+  },
+  {
+    slug: "contact",
+    title: "Contact",
+    catchAll: true,
+    description: "Get in touch with PAI",
+    defaultMeta: "Contact the Professional AI Institute. Reach our team for enrollment questions, corporate inquiries, and support.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Contact Us</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">Our team is here to help.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:32px">
+  <div style="background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;padding:24px"><h3 style="font-weight:700;color:#0f172a;font-size:15px;margin:0 0 8px">General Enquiries</h3><p style="color:#475569;font-size:14px;margin:0"><a href="mailto:info@paii.ca" style="color:#0f172a;font-weight:600">info@paii.ca</a></p></div>
+  <div style="background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;padding:24px"><h3 style="font-weight:700;color:#0f172a;font-size:15px;margin:0 0 8px">Corporate &amp; Partnerships</h3><p style="color:#475569;font-size:14px;margin:0"><a href="mailto:corporate@paii.ca" style="color:#0f172a;font-weight:600">corporate@paii.ca</a></p></div>
+  <div style="background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;padding:24px"><h3 style="font-weight:700;color:#0f172a;font-size:15px;margin:0 0 8px">Privacy &amp; Legal</h3><p style="color:#475569;font-size:14px;margin:0"><a href="mailto:privacy@paii.ca" style="color:#0f172a;font-weight:600">privacy@paii.ca</a></p></div>
+  <div style="background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;padding:24px"><h3 style="font-weight:700;color:#0f172a;font-size:15px;margin:0 0 8px">Press &amp; Media</h3><p style="color:#475569;font-size:14px;margin:0"><a href="mailto:press@paii.ca" style="color:#0f172a;font-weight:600">press@paii.ca</a></p></div>
+</div>`,
+  },
+  {
+    slug: "partners",
+    title: "Partners",
+    catchAll: true,
+    description: "Partner organizations and integrations",
+    defaultMeta: "PAI partner organizations, academic institutions, and technology integrations.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Partners</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">We work with leading organizations to advance professional AI credentialing.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">Partner With Us</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0">Interested in partnering with PAI? Reach out at <a href="mailto:partnerships@paii.ca" style="color:#0f172a;font-weight:600">partnerships@paii.ca</a>.</p>`,
+  },
+  {
+    slug: "press",
+    title: "Press",
+    catchAll: true,
+    description: "Media coverage, press releases, brand assets",
+    defaultMeta: "PAI press room — media coverage, press releases, and brand assets for journalists and media partners.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Press &amp; Media</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">For media inquiries, interview requests, and press assets.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">Media Contact</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0 0 32px">Contact our communications team at <a href="mailto:press@paii.ca" style="color:#0f172a;font-weight:600">press@paii.ca</a>.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">Press Releases</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0">Add press releases and announcements here.</p>`,
+  },
+  {
+    slug: "accreditation",
+    title: "Accreditation",
+    catchAll: true,
+    description: "Credentialing framework and standards compliance",
+    defaultMeta: "PAI's ISO 17024-aligned credentialing framework and accreditation standards.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#0f172a;margin:0 0 12px">Accreditation</h1>
+<p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 40px">PAI's certification framework meets the highest international standards for professional credentialing.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:0 0 12px">ISO 17024 Alignment</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0 0 16px">PAI's programs are developed in alignment with ISO 17024, the international standard for personnel certification bodies.</p>
+<h2 style="font-size:1.125rem;font-weight:700;color:#0f172a;margin:32px 0 12px">NCCA Best Practices</h2>
+<p style="color:#334155;font-size:14px;line-height:1.7;margin:0">Our exam development follows best practices from the National Commission for Certifying Agencies (NCCA).</p>`,
+  },
 ];
 
 export default function PagesListPage() {
@@ -436,50 +511,91 @@ export default function PagesListPage() {
         {isLoading ? (
           <div className="card p-6 text-center"><Loader2 size={20} className="animate-spin text-slate-300 mx-auto" /></div>
         ) : (
-          <div className="space-y-2">
-            {SITE_PAGES.map((sp) => {
-              const existing = pages.find((p) => p.slug === sp.slug);
-              return (
-                <div key={sp.slug} className="card px-4 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-navy-900 text-sm">{sp.title}</span>
-                      {existing ? (
-                        existing.is_published ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-                            <Globe size={9} /> Published
-                          </span>
+          <>
+            {/* Pages with dedicated React route files */}
+            <div className="space-y-2 mb-5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1 mb-2">Existing pages</p>
+              {SITE_PAGES.filter((sp) => !sp.catchAll).map((sp) => {
+                const existing = pages.find((p) => p.slug === sp.slug);
+                return (
+                  <div key={sp.slug} className="card px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-navy-900 text-sm">{sp.title}</span>
+                        {existing ? (
+                          existing.is_published ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                              <Globe size={9} /> Published
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                              <EyeOff size={9} /> Draft
+                            </span>
+                          )
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                            <EyeOff size={9} /> Draft
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
+                            Not set up
                           </span>
-                        )
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
-                          Not set up
-                        </span>
-                      )}
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">/{sp.slug} <span className="font-sans not-italic">·</span> {sp.description}</div>
                     </div>
-                    <div className="text-xs text-slate-400 font-mono mt-0.5">/{sp.slug} <span className="font-sans not-italic text-slate-400">·</span> {sp.description}</div>
+                    {existing ? (
+                      <Link href={`/pages/${existing.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">
+                        <Edit2 size={11} /> Edit
+                      </Link>
+                    ) : (
+                      <button onClick={() => setupSitePage(sp)} disabled={settingUp === sp.slug} className="btn-primary !py-1.5 !px-3 !text-xs flex-shrink-0">
+                        {settingUp === sp.slug ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />} Set Up
+                      </button>
+                    )}
                   </div>
-                  {existing ? (
-                    <Link href={`/pages/${existing.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">
-                      <Edit2 size={11} /> Edit
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={() => setupSitePage(sp)}
-                      disabled={settingUp === sp.slug}
-                      className="btn-primary !py-1.5 !px-3 !text-xs flex-shrink-0"
-                    >
-                      {settingUp === sp.slug ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                      Set Up
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {/* Planned pages — served by /[slug] catch-all */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-1 mb-2">Planned pages <span className="font-normal normal-case tracking-normal">· served by /[slug] catch-all</span></p>
+              {SITE_PAGES.filter((sp) => sp.catchAll).map((sp) => {
+                const existing = pages.find((p) => p.slug === sp.slug);
+                return (
+                  <div key={sp.slug} className="card px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-navy-900 text-sm">{sp.title}</span>
+                        {existing ? (
+                          existing.is_published ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                              <Globe size={9} /> Published
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                              <EyeOff size={9} /> Draft
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-300 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
+                            Empty
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">/{sp.slug} <span className="font-sans not-italic">·</span> {sp.description}</div>
+                    </div>
+                    {existing ? (
+                      <Link href={`/pages/${existing.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">
+                        <Edit2 size={11} /> Edit
+                      </Link>
+                    ) : (
+                      <button onClick={() => setupSitePage(sp)} disabled={settingUp === sp.slug} className="btn-primary !py-1.5 !px-3 !text-xs flex-shrink-0">
+                        {settingUp === sp.slug ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />} Set Up
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

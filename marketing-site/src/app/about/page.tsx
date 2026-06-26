@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -10,7 +10,7 @@ type CmsPage = { title: string; content: string; meta_description: string };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
-    const res = await fetch(`${API}/pages/public/about`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/pages/public/about`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? json) as CmsPage;
@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
     title: cms?.title ?? "About PAI",
-    description: cms?.meta_description ?? "Learn about the Professional AI Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
+    description: cms?.meta_description ?? "Learn about the Professional AI Institute â€” our mission, values, advisory board, and commitment to rigorous AI certification.",
   };
 }
 
@@ -50,7 +50,7 @@ export default async function AboutPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
+        {/* Hero â€” always hardcoded */}
         <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">About PAI</span>
@@ -69,7 +69,7 @@ export default async function AboutPage() {
           </div>
         </section>
 
-        {/* Content — CMS if available, otherwise hardcoded */}
+        {/* Content â€” CMS if available, otherwise hardcoded */}
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />
         ) : (
@@ -88,7 +88,7 @@ export default async function AboutPage() {
                       inaccessible to most professionals.
                     </p>
                     <p className="text-ink-900 leading-relaxed mb-5">
-                      PAI was founded to solve that problem — to create the professional certification
+                      PAI was founded to solve that problem â€” to create the professional certification
                       infrastructure for AI, modeled after institutions like the CPA, PMI, and CSI that
                       define credentialing in other professions.
                     </p>
@@ -103,7 +103,7 @@ export default async function AboutPage() {
                       "Curriculum reviewed quarterly to stay current",
                       "Independent psychometric exam development",
                       "ISO 17024-aligned credentialing framework",
-                      "No sponsorship from AI vendors — 100% independent",
+                      "No sponsorship from AI vendors â€” 100% independent",
                       "Advisory board includes practitioners from 12 industries",
                     ].map((item) => (
                       <div key={item} className="flex items-start gap-3 bg-sand-100 rounded-xl p-4 border border-sand-200">
@@ -166,7 +166,7 @@ export default async function AboutPage() {
                 <span className="badge-gold mb-4">Accreditation</span>
                 <h2 className="section-title mb-5">Standards-Aligned Credentialing</h2>
                 <p className="text-ink-900 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  PAI's certification framework aligns with ISO 17024 — the international standard for
+                  PAI's certification framework aligns with ISO 17024 â€” the international standard for
                   personnel certification bodies. Our exam development follows best practices from the
                   National Commission for Certifying Agencies (NCCA).
                 </p>
@@ -182,3 +182,4 @@ export default async function AboutPage() {
     </>
   );
 }
+

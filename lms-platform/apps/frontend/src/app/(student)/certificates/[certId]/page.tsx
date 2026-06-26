@@ -91,7 +91,7 @@ function getProgress(application: any, enrollment: any) {
 
 /* ── Step progress bar ───────────────────────────────────────────────── */
 function StepBar({
-  currentStep, docsRequested, certId, isEnrolled, hasBooking, paymentPending, onStepClick,
+  currentStep, docsRequested, certId, isEnrolled, hasBooking, paymentPending, onStepClick, hasApplication,
 }: {
   currentStep: number;
   docsRequested: boolean;
@@ -100,6 +100,7 @@ function StepBar({
   hasBooking: boolean;
   paymentPending?: boolean;
   onStepClick?: (stepId: number) => void;
+  hasApplication?: boolean;
 }) {
   return (
     <div className="flex items-center w-full mt-8">
@@ -116,9 +117,10 @@ function StepBar({
         const isVerificationStep = step.id === 3;
         const waitingForAdmin    = isVerificationStep && active;
 
-        // Steps 1 and 2 are clickable once the application is submitted
-        const step1Clickable = step.id === 1 && currentStep >= 1 && !!onStepClick;
-        const step2Clickable = step.id === 2 && currentStep >= 1 && !!onStepClick;
+        // Step 1 only clickable when there's an application to show
+        // Step 2 only clickable when there's meaningful content (application or going to pay)
+        const step1Clickable = step.id === 1 && currentStep >= 1 && !!onStepClick && !!hasApplication;
+        const step2Clickable = step.id === 2 && currentStep >= 1 && !!onStepClick && (!!hasApplication || (!isEnrolled && currentStep <= 1));
 
         const label = examBooked
           ? "Exam Scheduled"
@@ -1097,16 +1099,18 @@ export default function CertDetailPage() {
   }
 
   function handleStepClick(stepId: number) {
-    if (stepId === 1 && application) {
-      setShowApp(true);
+    if (stepId === 1) {
+      if (application) setShowApp(true);
     } else if (stepId === 2) {
-      if (!application || application.status === "pending_payment") {
+      if (application && application.status !== "pending_payment") {
+        // Payment already processed — show drawer with payment details
+        setShowApp(true);
+      } else if (!enrollment || enrollment.status === "suspended") {
+        // Not yet enrolled — navigate to payment page
         const slug = (cert as any)?.slug ?? application?.certification?.slug;
         if (slug) router.push(`/apply/${slug}`);
-      } else {
-        // Show application drawer which includes payment details
-        setShowApp(true);
       }
+      // If enrolled without application (cart flow), do nothing — step bar won't show as clickable anyway
     }
   }
 
@@ -1231,7 +1235,7 @@ export default function CertDetailPage() {
             </div>
           </div>
 
-          <StepBar currentStep={step} docsRequested={docsRequested} certId={certId} isEnrolled={isEnrolledHere} hasBooking={hasBooking} paymentPending={!!paymentPending} onStepClick={handleStepClick} />
+          <StepBar currentStep={step} docsRequested={docsRequested} certId={certId} isEnrolled={isEnrolledHere} hasBooking={hasBooking} paymentPending={!!paymentPending} onStepClick={handleStepClick} hasApplication={!!application} />
         </div>
       </div>
 

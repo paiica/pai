@@ -3,10 +3,9 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { ApiError } from "@/lib/api";
-import type { Metadata } from "next";
+import { api, ApiError } from "@/lib/api";
 
 function LoginContent() {
   const router = useRouter();
@@ -18,19 +17,37 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
+
+  const isVerificationError = needsVerification;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
     try {
       await login(email, password);
       router.push(redirectTo);
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.message.toLowerCase().includes("verify your email")) {
+          setNeedsVerification(true);
+        }
         setError(err.message);
       } else {
         setError("Something went wrong. Please try again.");
       }
+    }
+  }
+
+  async function handleResend() {
+    setResendStatus("sending");
+    try {
+      await api.post("/auth/resend-verification", { email });
+      setResendStatus("sent");
+    } catch {
+      setResendStatus("idle");
     }
   }
 
@@ -82,6 +99,29 @@ function LoginContent() {
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
             {error}
+          </div>
+        )}
+
+        {isVerificationError && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            {resendStatus === "sent" ? (
+              <div className="flex items-center gap-2 text-emerald-700 text-sm">
+                <MailCheck size={16} />
+                <span>Verification email sent! Check your inbox.</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-amber-700">Didn&apos;t get the email?</p>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendStatus === "sending"}
+                  className="text-xs font-semibold text-amber-800 underline underline-offset-2 disabled:opacity-60"
+                >
+                  {resendStatus === "sending" ? "Sending…" : "Resend verification email"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

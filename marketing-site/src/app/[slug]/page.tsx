@@ -16,7 +16,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 async function getPage(slug: string): Promise<CMSPage | null> {
   try {
-    const res = await fetch(`${API}/pages/public/${slug}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/pages/public/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? json) as CMSPage;

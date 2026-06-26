@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -8,7 +8,7 @@ type CmsPage = { title: string; content: string; meta_description: string };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
-    const res = await fetch(`${API}/pages/public/privacy`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/pages/public/privacy`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? json) as CmsPage;
@@ -67,3 +67,4 @@ export default async function PrivacyPage() {
     </>
   );
 }
+

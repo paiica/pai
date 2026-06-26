@@ -293,6 +293,25 @@ export class ExamsController {
     return this.examsService.adminGetAllAttempts();
   }
 
+  @Get("admin/attempts/:attemptId")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Admin: get attempt detail with per-question breakdown by section" })
+  adminGetAttemptDetail(@Param("attemptId", ParseUUIDPipe) attemptId: string) {
+    return this.examsService.adminGetAttemptDetail(attemptId);
+  }
+
+  @Patch("admin/attempts/:attemptId/score")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Admin: override attempt score and pass status" })
+  adminOverrideScore(
+    @Param("attemptId", ParseUUIDPipe) attemptId: string,
+    @Body() dto: { score_percentage: number; passed: boolean },
+  ) {
+    return this.examsService.adminOverrideScore(attemptId, dto);
+  }
+
   @Get("admin/attempts/:attemptId/proctor-events")
   @UseGuards(RolesGuard)
   @Roles(Role.admin, Role.super_admin)

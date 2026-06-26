@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -10,7 +10,7 @@ type CmsPage = { title: string; content: string; meta_description: string };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
-    const res = await fetch(`${API}/pages/public/corporate`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/pages/public/corporate`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? json) as CmsPage;
@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const TIERS = [
   {
     name: "Team",
-    seats: "3–9 seats",
+    seats: "3â€“9 seats",
     discount: "15% off",
     price: "From $1,101/seat",
     features: ["All certification programs", "Team dashboard", "Bulk enrollment", "Email support"],
@@ -39,7 +39,7 @@ const TIERS = [
   },
   {
     name: "Organization",
-    seats: "10–49 seats",
+    seats: "10â€“49 seats",
     discount: "25% off",
     price: "From $971/seat",
     features: ["All certification programs", "Admin analytics dashboard", "Custom onboarding", "Dedicated account manager", "Quarterly progress reports"],
@@ -64,7 +64,7 @@ export default async function CorporatePage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
+        {/* Hero â€” always hardcoded */}
         <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">For Organizations</span>
@@ -80,7 +80,7 @@ export default async function CorporatePage() {
                 <Mail size={16} /> Get a Custom Quote
               </a>
               <Link href="#pricing" className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors">
-                View pricing tiers →
+                View pricing tiers â†’
               </Link>
             </div>
           </div>
@@ -91,7 +91,7 @@ export default async function CorporatePage() {
           </div>
         </section>
 
-        {/* Content — CMS if available, otherwise hardcoded */}
+        {/* Content â€” CMS if available, otherwise hardcoded */}
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />
         ) : (
@@ -188,3 +188,4 @@ export default async function CorporatePage() {
     </>
   );
 }
+

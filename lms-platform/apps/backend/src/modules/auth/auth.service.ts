@@ -57,6 +57,9 @@ export class AuthService {
             last_name: dto.last_name,
             display_name: `${dto.first_name} ${dto.last_name}`,
             pai_id: paiId,
+            ...(dto.phone ? { phone: dto.phone } : {}),
+            ...(dto.country ? { country: dto.country } : {}),
+            ...(dto.date_of_birth ? { date_of_birth: new Date(dto.date_of_birth) } : {}),
           },
         },
       },
@@ -85,6 +88,10 @@ export class AuthService {
 
     if (!user.is_active) {
       throw new UnauthorizedException("Account has been deactivated");
+    }
+
+    if (!user.email_verified) {
+      throw new UnauthorizedException("Please verify your email before logging in");
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.password_hash);
@@ -236,6 +243,27 @@ export class AuthService {
     });
 
     return { message: "Email verified successfully" };
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: { profile: true },
+    });
+
+    // Always return success to prevent user enumeration
+    if (!user || user.email_verified) {
+      return { message: "If that email is registered and unverified, a new email has been sent." };
+    }
+
+    const emailVerifyToken = randomBytes(32).toString("hex");
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { email_verify_token: emailVerifyToken },
+    });
+
+    await this.mail.sendVerificationEmail(user.email, user.profile?.first_name ?? "there", emailVerifyToken);
+    return { message: "If that email is registered and unverified, a new email has been sent." };
   }
 
   async getMe(userId: string) {

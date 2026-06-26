@@ -10,6 +10,8 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Res,
+  HttpCode,
+  HttpStatus,
 } from "@nestjs/common";
 import { Response } from "express";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
@@ -72,9 +74,73 @@ export class UsersController {
   @Get()
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "List all users (admin)" })
-  findAll(@Query("page") page = 1, @Query("limit") limit = 20, @Query("q") q?: string) {
-    return this.usersService.findAll({ page: +page, limit: +limit, q });
+  findAll(
+    @Query("page") page = 1,
+    @Query("limit") limit = 25,
+    @Query("q") q?: string,
+    @Query("role") role?: string,
+    @Query("status") status?: string,
+  ) {
+    return this.usersService.findAll({ page: +page, limit: +limit, q, role, status });
   }
+
+  @Get("export")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Export all users as CSV (admin)" })
+  async exportCsv(
+    @Query("q") q: string | undefined,
+    @Query("role") role: string | undefined,
+    @Query("status") status: string | undefined,
+    @Res() res: Response,
+  ) {
+    const csv = await this.usersService.exportCsv({ q, role, status });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="users-${new Date().toISOString().split("T")[0]}.csv"`,
+    );
+    res.send(csv);
+  }
+
+  // ── Bulk endpoints (must be before /:id to avoid NestJS route conflicts) ──────
+
+  @Patch("bulk/activate")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Bulk activate users (admin)" })
+  bulkActivate(@Body("ids") ids: string[]) {
+    return this.usersService.bulkSetActive(ids, true);
+  }
+
+  @Patch("bulk/deactivate")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Bulk deactivate users (admin)" })
+  bulkDeactivate(@Body("ids") ids: string[]) {
+    return this.usersService.bulkSetActive(ids, false);
+  }
+
+  @Patch("bulk/role")
+  @Roles(Role.super_admin)
+  @ApiOperation({ summary: "Bulk change role (super_admin)" })
+  bulkRole(@Body("ids") ids: string[], @Body("role") role: Role) {
+    return this.usersService.bulkChangeRole(ids, role);
+  }
+
+  @Post("bulk/require-password-reset")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Bulk send password reset emails (admin)" })
+  bulkRequirePasswordReset(@Body("ids") ids: string[]) {
+    return this.usersService.bulkRequirePasswordReset(ids);
+  }
+
+  @Delete("bulk")
+  @Roles(Role.super_admin)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Bulk delete users (super_admin)" })
+  bulkDelete(@Body("ids") ids: string[]) {
+    return this.usersService.bulkDelete(ids);
+  }
+
+  // ── Single-user endpoints ────────────────────────────────────────────────────
 
   @Get(":id")
   @Roles(Role.admin, Role.super_admin)
@@ -102,5 +168,19 @@ export class UsersController {
   @ApiOperation({ summary: "Activate a user account (admin)" })
   activate(@Param("id", ParseUUIDPipe) id: string) {
     return this.usersService.setActive(id, true);
+  }
+
+  @Post(":id/require-password-reset")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Send password reset email to user (admin)" })
+  requirePasswordReset(@Param("id", ParseUUIDPipe) id: string) {
+    return this.usersService.requirePasswordReset(id);
+  }
+
+  @Delete(":id")
+  @Roles(Role.super_admin)
+  @ApiOperation({ summary: "Hard delete a user (super_admin only)" })
+  deleteUser(@Param("id", ParseUUIDPipe) id: string) {
+    return this.usersService.deleteUser(id);
   }
 }

@@ -177,7 +177,7 @@ export class PaymentsService {
     }
 
     const frontendUrl = this.config.get("frontendUrl");
-    const successUrl = `${frontendUrl}/cart/success?session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${frontendUrl}/cart/success?session_id={CHECKOUT_SESSION_ID}&type=certification`;
     const cancelUrl = `${frontendUrl}/certifications`;
 
     // Free after promo — treat as payment_submitted so admin still reviews
@@ -209,16 +209,26 @@ export class PaymentsService {
         // Already moved (payment_submitted / pending_review) — idempotent, do nothing
         return { checkout_url: null, enrolled: false };
       }
-      // No application at all — direct free enrollment (cart used without applying first)
-      await this.enrollInCertification(userId, cert.id);
-      if (promoId) await this.promoCodes.incrementUsed(promoId);
-      await this.mail.sendFreeEnrollmentConfirmation({
-        to: user.email,
-        firstName: user.profile?.first_name ?? "there",
-        itemName: `${cert.acronym} — ${cert.title}`,
-        type: "certification",
+      // No application at all — cart purchase without /apply form.
+      // Create a minimal application at payment_submitted so admin must still review.
+      const fullName = user.profile
+        ? `${user.profile.first_name ?? ""} ${user.profile.last_name ?? ""}`.trim()
+        : user.email;
+      await this.prisma.application.create({
+        data: {
+          user_id: userId,
+          certification_id: cert.id,
+          status: "payment_submitted",
+          full_name: fullName || user.email,
+          email: user.email,
+          amount_paid: 0,
+          payment_status: "succeeded",
+          paid_at: new Date(),
+          promo_code: promoCode || null,
+        },
       });
-      return { checkout_url: null, enrolled: true };
+      if (promoId) await this.promoCodes.incrementUsed(promoId);
+      return { checkout_url: null, enrolled: false };
     }
 
     this.ensureStripe();
@@ -398,8 +408,32 @@ export class PaymentsService {
           this.logger.log(`Application ${existingApp.id} already at ${existingApp.status}, Stripe info updated`);
         }
       } else {
-        // No application exists — direct cart purchase (no application flow), enroll directly
-        await this.enrollInCertification(user_id, certification_id);
+        // No application on file — cart purchase without the /apply form.
+        // Create a minimal application at payment_submitted so admin must review
+        // before the student is enrolled, matching the standard application flow.
+        const cartUser = await this.prisma.user.findUnique({
+          where: { id: user_id },
+          include: { profile: true },
+        });
+        const fullName = cartUser?.profile
+          ? `${cartUser.profile.first_name ?? ""} ${cartUser.profile.last_name ?? ""}`.trim()
+          : (cartUser?.email ?? "");
+        await this.prisma.application.create({
+          data: {
+            user_id,
+            certification_id,
+            status: "payment_submitted",
+            full_name: fullName || cartUser?.email || "",
+            email: cartUser?.email ?? "",
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id: paymentIntentId ?? null,
+            amount_paid: amount || null,
+            payment_status: "succeeded",
+            paid_at: new Date(),
+            promo_code: promo_code || null,
+          },
+        });
+        this.logger.log(`Cart certification purchase by ${user_id} for cert ${certification_id} — application created, awaiting admin review`);
       }
 
       if (promo_id) await this.promoCodes.incrementUsed(promo_id);

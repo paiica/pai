@@ -14,17 +14,28 @@ export interface TemplateDefault {
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly resend: Resend | null;
-  private readonly from: string;
+  private readonly envResend: Resend | null;
+  private readonly envFrom: string;
   private readonly frontendUrl: string;
 
   constructor(private config: ConfigService, private settings: SiteSettingsService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
-    this.resend = apiKey ? new Resend(apiKey) : null;
+    this.envResend = apiKey ? new Resend(apiKey) : null;
     const fromName = config.get<string>("EMAIL_FROM_NAME", "Professional AI Institute");
     const fromAddr = config.get<string>("EMAIL_FROM", "noreply@paii.ca");
-    this.from = `${fromName} <${fromAddr}>`;
+    this.envFrom = `${fromName} <${fromAddr}>`;
     this.frontendUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
+  }
+
+  // Resolve Resend client and from address — env takes priority, then site settings
+  private async resolveClient(): Promise<{ resend: Resend; from: string } | null> {
+    if (this.envResend) return { resend: this.envResend, from: this.envFrom };
+    const all = await this.settings.getAll();
+    const key = all["resend_api_key"];
+    if (!key) return null;
+    const fromName = all["email_from_name"] || "Professional AI Institute";
+    const fromAddr = all["email_from"]      || "noreply@paii.ca";
+    return { resend: new Resend(key), from: `${fromName} <${fromAddr}>` };
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -46,12 +57,13 @@ export class MailService {
   }
 
   private async send(opts: { to: string; subject: string; html: string }) {
-    if (!this.resend) {
+    const client = await this.resolveClient();
+    if (!client) {
       this.logger.warn(`[Mail skipped — no RESEND_API_KEY] To: ${opts.to} | ${opts.subject}`);
       return;
     }
     try {
-      await this.resend.emails.send({ from: this.from, ...opts });
+      await client.resend.emails.send({ from: client.from, ...opts });
       this.logger.log(`Email sent to ${opts.to}: ${opts.subject}`);
     } catch (err: any) {
       this.logger.error(`Failed to send email to ${opts.to}: ${err?.message}`);
@@ -219,6 +231,30 @@ export class MailService {
       ? this.applyVars(customHtml, { firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym })
       : this.wrapper(this.applicationApprovedBody(opts));
     await this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendTestEmail(to: string) {
+    const client = await this.resolveClient();
+    if (!client) return { sent: false, reason: "No Resend API key configured (env or site settings)" };
+    try {
+      await client.resend.emails.send({
+        from: client.from,
+        to,
+        subject: "PAI — Test Email",
+        html: this.wrapper(`
+          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Test Email</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your Resend integration is working correctly. Emails will be delivered from <strong>${client.from}</strong>.</p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px">
+            <p style="margin:0;font-size:13px;color:#15803d;font-weight:600">✓ Resend API key is valid and email delivery is active.</p>
+          </div>
+        `),
+      });
+      this.logger.log(`Test email sent to ${to}`);
+      return { sent: true };
+    } catch (err: any) {
+      this.logger.error(`Test email failed: ${err?.message}`);
+      return { sent: false, reason: err?.message ?? "Unknown error" };
+    }
   }
 
   async sendApplicationRejected(opts: {

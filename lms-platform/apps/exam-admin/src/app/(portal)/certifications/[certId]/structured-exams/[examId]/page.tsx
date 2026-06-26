@@ -58,6 +58,7 @@ interface Section {
   time_limit_minutes?: number | null;
   instructions?: string | null;
   is_required: boolean;
+  passing_score: number;
   instruction_pages: InstructionPage[];
   questions: Question[];
 }
@@ -1044,9 +1045,10 @@ function SectionPanel({
   const [deletingQId, setDeletingQId] = useState<string | null>(null);
   const [addingPage, setAddingPage] = useState(false);
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
-  const [sectionTitle, setSectionTitle]     = useState(section.title);
-  const [sectionDesc, setSectionDesc]       = useState(section.description ?? "");
-  const [timeLimitStr, setTimeLimitStr]     = useState(String(section.time_limit_minutes ?? ""));
+  const [sectionTitle, setSectionTitle]         = useState(section.title);
+  const [sectionDesc, setSectionDesc]           = useState(section.description ?? "");
+  const [timeLimitStr, setTimeLimitStr]         = useState(String(section.time_limit_minutes ?? ""));
+  const [sectionPassingScore, setSectionPassingScore] = useState(String(section.passing_score ?? 70));
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg]       = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [pageTitle, setPageTitle]           = useState("");
@@ -1124,6 +1126,7 @@ function SectionPanel({
         title: sectionTitle,
         description: sectionDesc || null,
         time_limit_minutes: timeLimitStr ? parseInt(timeLimitStr) : null,
+        passing_score: sectionPassingScore ? parseInt(sectionPassingScore) : 70,
       }, accessToken);
       setSettingsMsg({ type: "ok", text: "Saved." });
       onReload();
@@ -1237,6 +1240,9 @@ function SectionPanel({
               {section.time_limit_minutes} min
             </span>
           )}
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-400/80 bg-teal-950/40 border border-teal-800/40 rounded-lg px-2 py-0.5">
+            Pass {section.passing_score ?? 70}%
+          </span>
         </div>
       </div>
 
@@ -1521,6 +1527,11 @@ function SectionPanel({
               <label className="label">Time limit (minutes)</label>
               <input type="number" min={1} max={480} className="input" value={timeLimitStr} onChange={(e) => setTimeLimitStr(e.target.value)} placeholder="Leave blank for no limit" />
               <p className="text-slate-600 text-xs mt-1">Leave blank for no per-section time limit.</p>
+            </div>
+            <div>
+              <label className="label">Section passing score (%)</label>
+              <input type="number" min={1} max={100} className="input" value={sectionPassingScore} onChange={(e) => setSectionPassingScore(e.target.value)} placeholder="70" />
+              <p className="text-slate-600 text-xs mt-1">Minimum score required to pass this section (default 70%).</p>
             </div>
             <div className="flex items-center gap-4 pt-2">
               <button type="submit" disabled={savingSettings} className="btn-primary">{savingSettings ? "Saving…" : "Save Settings"}</button>
