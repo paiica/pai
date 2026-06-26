@@ -39,6 +39,7 @@ interface User {
   last_login_at: string | null;
   first_name: string | null;
   last_name: string | null;
+  pai_id: string | null;
   phone: string | null;
   country: string | null;
   date_of_birth: string | null;
@@ -384,6 +385,9 @@ export default function UsersPage() {
                         <div className="min-w-0">
                           <div className="font-semibold text-navy-900 text-sm truncate max-w-[160px]">{fullName(u)}</div>
                           <div className="text-xs text-slate-400 truncate max-w-[160px]">{u.email}</div>
+                          {u.pai_id && (
+                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">{u.pai_id}</div>
+                          )}
                         </div>
                       </div>
                     </td>

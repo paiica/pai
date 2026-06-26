@@ -61,7 +61,7 @@ export class UsersService {
     const [rows, countRows] = await Promise.all([
       this.prisma.$queryRawUnsafe<any[]>(`
         SELECT u.id, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
-               p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth
+               p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth, p.pai_id
         FROM lms.users u
         LEFT JOIN lms.profiles p ON p.user_id = u.id
         ${where}
@@ -122,10 +122,11 @@ export class UsersService {
   async exportCsv({ q, role, status }: { q?: string; role?: string; status?: string }) {
     const { data } = await this.findAll({ page: 1, limit: 10000, q, role, status });
     const headers = [
-      "ID", "Email", "First Name", "Last Name", "Role", "Status",
+      "PAI ID", "ID", "Email", "First Name", "Last Name", "Role", "Status",
       "Phone", "Country", "Date of Birth", "Email Verified", "Registered", "Last Login",
     ];
     const rows = (data as any[]).map((u) => [
+      u.pai_id ?? "",
       u.id,
       u.email,
       u.first_name ?? "",
