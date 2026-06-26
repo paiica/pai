@@ -328,27 +328,29 @@ export default function CartPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <input
-                      value={promoCode}
-                      onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); if (promoResult && !promoResult.valid) setPromoResult(null); }}
-                      onKeyDown={(e) => e.key === "Enter" && validatePromo()}
-                      placeholder="Enter promo code"
-                      className={cn("input-base text-sm flex-1 !py-2", promoResult && !promoResult.valid && "border-red-300 focus:border-red-400")}
-                    />
-                    <button
-                      onClick={validatePromo}
-                      disabled={validatingPromo || !promoCode.trim()}
-                      className="btn-outline !py-2 !px-4 !text-xs font-bold disabled:opacity-40 flex-shrink-0"
-                    >
-                      {validatingPromo ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
-                    </button>
-                  </div>
-                  {promoResult && !promoResult.valid && (
-                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                      <X size={11} className="flex-shrink-0" /> {promoResult.message}
-                    </p>
-                  )}
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        value={promoCode}
+                        onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); if (promoResult && !promoResult.valid) setPromoResult(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && validatePromo()}
+                        placeholder="Enter promo code"
+                        className={cn("input-base text-sm flex-1 !py-2", promoResult && !promoResult.valid && "border-red-300 focus:border-red-400")}
+                      />
+                      <button
+                        onClick={validatePromo}
+                        disabled={validatingPromo || !promoCode.trim()}
+                        className="btn-outline !py-2 !px-4 !text-xs font-bold disabled:opacity-40 flex-shrink-0"
+                      >
+                        {validatingPromo ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
+                      </button>
+                    </div>
+                    {promoResult && !promoResult.valid && (
+                      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                        <X size={11} className="flex-shrink-0" /> {promoResult.message}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
