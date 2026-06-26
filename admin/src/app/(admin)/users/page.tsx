@@ -333,6 +333,7 @@ export default function UsersPage() {
                   />
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">PAI ID</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Country</th>
@@ -347,7 +348,7 @@ export default function UsersPage() {
               {isLoading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(10)].map((_, j) => (
+                    {[...Array(11)].map((_, j) => (
                       <td key={j} className="px-4 py-3.5">
                         <div className="h-3.5 bg-slate-100 rounded animate-pulse" style={{ width: `${55 + (j * 17) % 40}%` }} />
                       </td>
@@ -356,7 +357,7 @@ export default function UsersPage() {
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-16 text-center">
+                  <td colSpan={11} className="px-4 py-16 text-center">
                     <Users size={28} className="text-slate-200 mx-auto mb-3" />
                     <p className="text-slate-400 text-sm">No users found.</p>
                   </td>
@@ -385,11 +386,13 @@ export default function UsersPage() {
                         <div className="min-w-0">
                           <div className="font-semibold text-navy-900 text-sm truncate max-w-[160px]">{fullName(u)}</div>
                           <div className="text-xs text-slate-400 truncate max-w-[160px]">{u.email}</div>
-                          {u.pai_id && (
-                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">{u.pai_id}</div>
-                          )}
                         </div>
                       </div>
+                    </td>
+
+                    {/* PAI ID */}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className="text-xs font-mono text-slate-600">{u.pai_id ?? "—"}</span>
                     </td>
 
                     {/* Role */}
