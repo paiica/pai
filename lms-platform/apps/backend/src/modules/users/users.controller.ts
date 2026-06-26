@@ -52,8 +52,7 @@ export class UsersController {
   @Public()
   @ApiOperation({ summary: "Verify email change token (public)" })
   async verifyEmailChange(@Query("token") token: string, @Res() res: Response) {
-    const rawFrontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
-    const frontendUrl = rawFrontendUrl.split(",").map((u) => u.trim()).find((u) => u.includes("learn")) ?? rawFrontendUrl.split(",")[0].trim();
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
     try {
       await this.usersService.verifyEmailChange(token);
       return res.redirect(`${frontendUrl}/profile?emailChanged=true`);

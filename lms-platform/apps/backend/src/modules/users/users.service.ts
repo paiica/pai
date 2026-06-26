@@ -233,8 +233,7 @@ export class UsersService {
     );
     const firstName = rows[0]?.first_name ?? "there";
 
-    const rawFrontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3001");
-    const frontendUrl = rawFrontendUrl.split(",").map((u) => u.trim()).find((u) => u.includes("learn")) ?? rawFrontendUrl.split(",")[0].trim();
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3001");
     // /api/users/* is proxied by Next.js rewrites to the backend
     const verifyUrl = `${frontendUrl}/api/users/email-change/verify?token=${token}`;
 
