@@ -29,6 +29,7 @@ import { OnlineToolsModule } from "./modules/online-tools/online-tools.module";
 import { ExamSessionsModule } from "./modules/exam-sessions/exam-sessions.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { MailSchedulerModule } from "./modules/mail/mail-scheduler.module";
+import { AssignmentsModule } from "./modules/assignments/assignments.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -73,6 +74,7 @@ import { AppController } from "./app.controller";
     ExamSessionsModule,
     AiModule,
     MailSchedulerModule,
+    AssignmentsModule,
   ],
   controllers: [AppController],
   providers: [

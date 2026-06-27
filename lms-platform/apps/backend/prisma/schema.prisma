@@ -232,6 +232,8 @@ model User {
   uploaded_files      UploadedFile[]
   submissions              AssignmentSubmission[] @relation("student_submissions")
   graded_submissions       AssignmentSubmission[] @relation("graded_submissions")
+  assignment_entries        AssignmentEntry[] @relation("student_assignment_entries")
+  graded_assignment_entries AssignmentEntry[] @relation("graded_assignment_entries")
   application_documents    ApplicationDocument[]
   exam_bookings            ExamBooking[]
 
@@ -358,6 +360,7 @@ model Certification {
   min_years_experience  Int?
   min_training_hours    Int?
 
+  is_featured           Boolean  @default(false)
   sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -373,6 +376,7 @@ model Certification {
   prep_courses         Course[]
   structured_exams     StructuredExam[]
   course_recommendations CourseCertRecommendation[]
+  assignments            Assignment[]
 
   @@index([slug])
   @@index([status])
@@ -1319,6 +1323,56 @@ model PromoCode {
   redemptions      PromoRedemption[]
 
   @@map("promo_codes")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// STANDALONE ASSIGNMENTS
+// ─────────────────────────────────────────────
+
+model Assignment {
+  id               String    @id @default(uuid())
+  certification_id String
+  certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+  title            String
+  description      String?   @db.Text
+  instructions     String?   @db.Text
+  due_date         DateTime?
+  max_score        Int       @default(100)
+  status           String    @default("draft")
+  sort_order       Int       @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  entries          AssignmentEntry[]
+
+  @@index([certification_id])
+  @@map("assignments")
+  @@schema("lms")
+}
+
+model AssignmentEntry {
+  id            String     @id @default(uuid())
+  assignment_id String
+  assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  user_id       String
+  user          User       @relation("student_assignment_entries", fields: [user_id], references: [id], onDelete: Cascade)
+  text_content  String?    @db.Text
+  file_url      String?
+  file_name     String?
+  status        String     @default("submitted")
+  grade         Float?
+  feedback      String?    @db.Text
+  graded_by     String?
+  grader        User?      @relation("graded_assignment_entries", fields: [graded_by], references: [id], onDelete: SetNull)
+  graded_at     DateTime?
+  submitted_at  DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+
+  @@unique([assignment_id, user_id])
+  @@index([assignment_id])
+  @@index([user_id])
+  @@map("assignment_entries")
   @@schema("lms")
 }
 

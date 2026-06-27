@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award,
   ClipboardList, LogOut, Shield, Settings,
-  Paintbrush, LayoutTemplate, Navigation, PlusCircle, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail,
+  Paintbrush, LayoutTemplate, Navigation, PlusCircle, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -14,6 +14,7 @@ import { useAuthStore } from "@/store/auth.store";
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/applications", label: "Applications", icon: ClipboardList },
+  { href: "/assignments", label: "Assignments", icon: ListChecks },
   { href: "/exam-sessions", label: "Exam Sessions", icon: CalendarDays },
   { href: "/users", label: "Users", icon: Users },
   { href: "/blog", label: "Blog", icon: Rss },
