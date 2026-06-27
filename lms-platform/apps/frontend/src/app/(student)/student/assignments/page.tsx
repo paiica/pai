@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { FileText, Clock, Send, Loader2, CheckCircle } from "lucide-react";
+import { FileText, Clock, Send, Loader2, CheckCircle, ChevronRight, ClipboardList, FlaskConical, Briefcase, Award } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 function fetcher(url: string, token: string) {
-  return api.get<any>(url, token).then((r) => r.data ?? r);
+  return api.get<any>(url, token).then((r) => (r as any).data ?? r);
 }
+
+const TYPE_META: Record<string, { icon: any; color: string }> = {
+  assignment: { icon: ClipboardList, color: "bg-indigo-50 text-indigo-400" },
+  exam:       { icon: FlaskConical,  color: "bg-amber-50 text-amber-400"  },
+  case:       { icon: Briefcase,     color: "bg-purple-50 text-purple-400"},
+};
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -40,132 +45,10 @@ function getStandaloneStatus(a: any) {
   return { label: "Submitted · Pending", style: "badge bg-blue-100 text-blue-700" };
 }
 
-// ── Standalone assignment submit ──────────────────────────────────────────────
-
-function StandaloneSubmitPanel({ assignment, token, onDone }: {
-  assignment: any; token: string; onDone: () => void;
-}) {
-  const sections: any[] = Array.isArray(assignment.sections) ? assignment.sections : [];
-  const hasSections = sections.length > 0;
-  const existingResponses: any[] = assignment.entry?.section_responses ?? [];
-
-  // Section-based state
-  const [sectionTexts, setSectionTexts] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    sections.forEach((sec: any) => {
-      const existing = existingResponses.find((r: any) => r.section_id === sec.id);
-      init[sec.id] = existing?.text_content ?? "";
-    });
-    return init;
-  });
-
-  // Simple text state (no sections)
-  const [text, setText] = useState(assignment.entry?.text_content ?? "");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function submit() {
-    setSubmitting(true);
-    try {
-      if (hasSections) {
-        const section_responses = sections.map((sec: any) => ({
-          section_id: sec.id,
-          text_content: sectionTexts[sec.id] ?? "",
-        }));
-        await api.post(`/assignments/${assignment.id}/submit`, { section_responses }, token);
-      } else {
-        if (!text.trim()) { setSubmitting(false); return; }
-        await api.post(`/assignments/${assignment.id}/submit`, { text_content: text }, token);
-      }
-      onDone();
-    } catch { /* toast handled by api layer */ }
-    setSubmitting(false);
-  }
-
-  const alreadySubmitted = !!assignment.entry;
-  const canSubmit = hasSections
-    ? sections.some((sec: any) => (sectionTexts[sec.id] ?? "").trim())
-    : !!text.trim();
-
-  // Show released grades per section
-  const gradesReleased = assignment.grades_released;
-
-  return (
-    <div className="mt-3 space-y-3">
-      {assignment.instructions && (
-        <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap">{assignment.instructions}</p>
-      )}
-
-      {hasSections ? (
-        <div className="space-y-4">
-          {sections.map((sec: any, idx: number) => {
-            const resp = existingResponses.find((r: any) => r.section_id === sec.id);
-            const hasGrade = gradesReleased && resp?.grade != null;
-
-            return (
-              <div key={sec.id} className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
-                  <div>
-                    <span className="text-xs font-bold text-navy-800">
-                      {idx + 1}. {sec.title}
-                    </span>
-                    {sec.description && (
-                      <p className="text-xs text-slate-500 mt-0.5">{sec.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                    <span className="text-xs text-slate-400">{sec.points} pts</span>
-                    {hasGrade && (
-                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {resp.grade}/{sec.points}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="p-3 space-y-2">
-                  <textarea
-                    className="input-base text-sm h-24 resize-none"
-                    placeholder="Write your response for this section…"
-                    value={sectionTexts[sec.id] ?? ""}
-                    onChange={(e) => setSectionTexts((prev) => ({ ...prev, [sec.id]: e.target.value }))}
-                  />
-                  {hasGrade && resp?.feedback && (
-                    <p className="text-xs text-slate-500 italic bg-blue-50 rounded-lg px-3 py-2">
-                      Feedback: "{resp.feedback}"
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <textarea
-          className="input-base text-sm h-28 resize-none"
-          placeholder="Write your response here…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      )}
-
-      <button
-        onClick={submit}
-        disabled={submitting || !canSubmit}
-        className="btn-primary !py-2 !px-5 !text-xs disabled:opacity-50 inline-flex"
-      >
-        {submitting
-          ? <Loader2 size={12} className="animate-spin" />
-          : alreadySubmitted ? <CheckCircle size={12} /> : <Send size={12} />}
-        {alreadySubmitted ? "Update Submission" : "Submit"}
-      </button>
-    </div>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StudentAssignmentsPage() {
   const token = useAuthStore((s) => s.accessToken)!;
-  const [openSubmit, setOpenSubmit] = useState<string | null>(null);
 
   // Lesson-based assignments (existing)
   const { data: lessonAssignments, isLoading: loadingLesson } = useSWR(
@@ -173,8 +56,8 @@ export default function StudentAssignmentsPage() {
     ([url, t]) => fetcher(url, t)
   );
 
-  // Standalone assignments (new)
-  const { data: standaloneAssignments, isLoading: loadingStandalone, mutate: mutateStandalone } = useSWR(
+  // Standalone assignments
+  const { data: standaloneAssignments, isLoading: loadingStandalone } = useSWR(
     token ? ["/assignments", token] : null,
     ([url, t]) => fetcher(url, t)
   );
@@ -193,7 +76,6 @@ export default function StudentAssignmentsPage() {
     certification: a.certification,
     status: getLessonStatus(a),
     feedback: a.submission?.feedback ?? null,
-    submission: a.submission,
   }));
 
   // Normalize standalone items
@@ -201,15 +83,15 @@ export default function StudentAssignmentsPage() {
     _type: "standalone",
     key: `standalone-${a.id}`,
     id: a.id,
+    type: a.type ?? "assignment",
     title: a.title,
     description: a.description,
-    instructions: a.instructions,
     due_date: a.due_date,
     max_score: a.max_score,
     certification: a.certification,
     status: getStandaloneStatus(a),
-    feedback: a.entry?.feedback ?? null,
     entry: a.entry,
+    sections_count: Array.isArray(a.sections) ? a.sections.length : 0,
   }));
 
   const allItems = [...standaloneItems, ...lessonItems];
@@ -231,75 +113,101 @@ export default function StudentAssignmentsPage() {
 
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => <div key={i} className="card h-20 animate-pulse bg-slate-100" />)}
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl border border-slate-200 bg-white h-[76px] animate-pulse" />
+            ))}
           </div>
         ) : Object.keys(grouped).length === 0 ? (
-          <div className="card p-12 text-center text-slate-500">
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
             <FileText size={40} className="mx-auto mb-4 text-slate-300" />
-            <p className="font-semibold">No assignments yet</p>
-            <p className="text-sm mt-1">Assignments will appear here once your instructor creates them.</p>
+            <p className="font-semibold text-slate-500">No assignments yet</p>
+            <p className="text-sm mt-1 text-slate-400">Assignments will appear here once your instructor creates them.</p>
           </div>
         ) : (
           <div className="space-y-6">
             {Object.entries(grouped).map(([cert, items]) => (
               <div key={cert}>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">{cert}</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.1em] mb-3">{cert}</p>
                 <div className="space-y-2">
                   {(items as any[]).map((a) => {
                     const due = a.due_date ? new Date(a.due_date) : null;
                     const isStandalone = a._type === "standalone";
-                    const isOpen = openSubmit === a.key;
+                    const tm = TYPE_META[a.type] ?? TYPE_META.assignment;
+                    const TypeIcon = tm.icon;
+                    const isOverdue = due && due < new Date() && !a.entry && !a.submission;
 
-                    return (
-                      <div key={a.key} className="card p-4">
-                        <div className="flex items-center gap-4">
+                    if (isStandalone) {
+                      return (
+                        <Link
+                          key={a.key}
+                          href={`/student/assignments/${a.id}`}
+                          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all group"
+                        >
+                          <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0", tm.color)}>
+                            <TypeIcon size={16} />
+                          </div>
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold text-navy-900 text-sm">{a.title}</p>
+                              <p className="font-semibold text-navy-900 text-sm group-hover:text-navy-700">
+                                {a.title}
+                              </p>
                               <span className={a.status.style}>{a.status.label}</span>
-                              {isStandalone && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
-                                  Assignment
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
+                              {a.sections_count > 0 && (
+                                <span>{a.sections_count} section{a.sections_count !== 1 ? "s" : ""}</span>
+                              )}
+                              <span className="flex items-center gap-1"><Award size={10} />{a.max_score} pts</span>
+                              {due && (
+                                <span className={cn("flex items-center gap-1", isOverdue ? "text-red-500" : "")}>
+                                  <Clock size={10} />
+                                  {due.toLocaleDateString("en-CA", { dateStyle: "medium" })}
                                 </span>
                               )}
                             </div>
-                            {a.description && (
-                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{a.description}</p>
-                            )}
-                            {due && (
-                              <p className={cn("text-xs mt-0.5 flex items-center gap-1",
-                                due < new Date() && !a.entry && !a.submission ? "text-red-500" : "text-slate-400"
-                              )}>
-                                <Clock size={11} />
-                                Due {due.toLocaleDateString("en-CA", { dateStyle: "medium" })}
-                              </p>
-                            )}
-                            {a.feedback && (
-                              <p className="text-xs text-slate-500 mt-1 italic">"{a.feedback}"</p>
-                            )}
                           </div>
 
-                          {isStandalone && (
-                            <button
-                              onClick={() => setOpenSubmit(isOpen ? null : a.key)}
-                              className={cn(
-                                "btn-outline !py-1.5 !px-3 !text-xs flex-shrink-0",
-                                a.entry ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" : ""
-                              )}
-                            >
-                              {a.entry ? <CheckCircle size={11} /> : <Send size={11} />}
-                              {a.entry ? "Edit" : "Submit"}
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {a.entry ? (
+                              <CheckCircle size={15} className="text-emerald-500" />
+                            ) : (
+                              <Send size={14} className="text-slate-300 group-hover:text-navy-400 transition-colors" />
+                            )}
+                            <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+                          </div>
+                        </Link>
+                      );
+                    }
+
+                    // Lesson-based assignment (non-clickable card)
+                    return (
+                      <div key={a.key} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0">
+                          <ClipboardList size={16} className="text-slate-400" />
                         </div>
 
-                        {isStandalone && isOpen && (
-                          <StandaloneSubmitPanel
-                            assignment={a}
-                            token={token}
-                            onDone={() => { mutateStandalone(); setOpenSubmit(null); }}
-                          />
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-navy-900 text-sm">{a.title}</p>
+                            <span className={a.status.style}>{a.status.label}</span>
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">
+                              In-course
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+                            <span className="flex items-center gap-1"><Award size={10} />{a.max_score} pts</span>
+                            {due && (
+                              <span className={cn("flex items-center gap-1", isOverdue ? "text-red-500" : "")}>
+                                <Clock size={10} />
+                                {due.toLocaleDateString("en-CA", { dateStyle: "medium" })}
+                              </span>
+                            )}
+                          </div>
+                          {a.feedback && (
+                            <p className="text-xs text-slate-500 mt-1 italic">"{a.feedback}"</p>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

@@ -196,6 +196,47 @@ export class AssignmentsService {
 
   // ── Student ───────────────────────────────────────────────────────────────
 
+  async getMyAssignment(userId: string, assignmentId: string) {
+    const a = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        certification: { select: { id: true, acronym: true, title: true } },
+        entries: { where: { user_id: userId } },
+      },
+    });
+    if (!a || a.status !== "published") throw new NotFoundException("Assignment not found");
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { user_id: userId, certification_id: a.certification_id, status: "active" },
+    });
+    if (!enrollment) throw new ForbiddenException("You are not enrolled in this certification");
+
+    const entry = a.entries[0] ?? null;
+    const entryForStudent = entry
+      ? {
+          ...entry,
+          section_responses: a.grades_released
+            ? entry.section_responses
+            : (entry.section_responses as SectionResponse[]).map((r) => ({ ...r, grade: null, feedback: null })),
+          grade: a.grades_released ? entry.grade : null,
+        }
+      : null;
+
+    return {
+      id: a.id,
+      title: a.title,
+      type: a.type,
+      description: a.description,
+      instructions: a.instructions,
+      sections: a.sections,
+      due_date: a.due_date,
+      max_score: a.max_score,
+      grades_released: a.grades_released,
+      certification: a.certification,
+      entry: entryForStudent,
+    };
+  }
+
   async getMyAssignments(userId: string) {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { user_id: userId, status: "active" },

@@ -19,6 +19,15 @@ export class AssignmentsController {
     return this.service.getMyAssignments(userId);
   }
 
+  @Get(":id")
+  @ApiOperation({ summary: "Get a single published assignment with my entry" })
+  getMyAssignment(
+    @CurrentUser("id") userId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.service.getMyAssignment(userId, id);
+  }
+
   @Get(":id/entry")
   @ApiOperation({ summary: "Get my submission for a specific assignment" })
   getMyEntry(
