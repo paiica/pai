@@ -30,6 +30,12 @@ export class AdminAssignmentsController {
     return this.service.adminCreate(dto);
   }
 
+  @Get(":id")
+  @ApiOperation({ summary: "Get a single assignment" })
+  getOne(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminGetOne(id);
+  }
+
   @Patch(":id")
   @ApiOperation({ summary: "Update an assignment" })
   update(@Param("id", ParseUUIDPipe) id: string, @Body() dto: any) {
@@ -42,6 +48,12 @@ export class AdminAssignmentsController {
     return this.service.adminDelete(id);
   }
 
+  @Post(":id/release-grades")
+  @ApiOperation({ summary: "Release grades to students" })
+  releaseGrades(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminReleaseGrades(id);
+  }
+
   @Get(":id/entries")
   @ApiOperation({ summary: "List all student entries for an assignment" })
   getEntries(@Param("id", ParseUUIDPipe) id: string) {
@@ -49,11 +61,11 @@ export class AdminAssignmentsController {
   }
 
   @Put(":id/entries/:entryId/grade")
-  @ApiOperation({ summary: "Grade a student submission" })
+  @ApiOperation({ summary: "Grade a student submission (section-based)" })
   gradeEntry(
     @Param("id", ParseUUIDPipe) _id: string,
     @Param("entryId", ParseUUIDPipe) entryId: string,
-    @Body() dto: { grade: number; feedback?: string },
+    @Body() dto: { section_grades: { section_id: string; grade: number; feedback?: string }[]; overall_feedback?: string },
     @CurrentUser("id") adminId: string,
   ) {
     return this.service.adminGradeEntry(entryId, adminId, dto);

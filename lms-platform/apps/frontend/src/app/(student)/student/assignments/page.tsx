@@ -45,35 +45,111 @@ function getStandaloneStatus(a: any) {
 function StandaloneSubmitPanel({ assignment, token, onDone }: {
   assignment: any; token: string; onDone: () => void;
 }) {
+  const sections: any[] = Array.isArray(assignment.sections) ? assignment.sections : [];
+  const hasSections = sections.length > 0;
+  const existingResponses: any[] = assignment.entry?.section_responses ?? [];
+
+  // Section-based state
+  const [sectionTexts, setSectionTexts] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    sections.forEach((sec: any) => {
+      const existing = existingResponses.find((r: any) => r.section_id === sec.id);
+      init[sec.id] = existing?.text_content ?? "";
+    });
+    return init;
+  });
+
+  // Simple text state (no sections)
   const [text, setText] = useState(assignment.entry?.text_content ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
-    if (!text.trim()) return;
     setSubmitting(true);
     try {
-      await api.post(`/assignments/${assignment.id}/submit`, { text_content: text }, token);
+      if (hasSections) {
+        const section_responses = sections.map((sec: any) => ({
+          section_id: sec.id,
+          text_content: sectionTexts[sec.id] ?? "",
+        }));
+        await api.post(`/assignments/${assignment.id}/submit`, { section_responses }, token);
+      } else {
+        if (!text.trim()) { setSubmitting(false); return; }
+        await api.post(`/assignments/${assignment.id}/submit`, { text_content: text }, token);
+      }
       onDone();
     } catch { /* toast handled by api layer */ }
     setSubmitting(false);
   }
 
   const alreadySubmitted = !!assignment.entry;
+  const canSubmit = hasSections
+    ? sections.some((sec: any) => (sectionTexts[sec.id] ?? "").trim())
+    : !!text.trim();
+
+  // Show released grades per section
+  const gradesReleased = assignment.grades_released;
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-3 space-y-3">
       {assignment.instructions && (
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap">{assignment.instructions}</p>
       )}
-      <textarea
-        className="input-base text-sm h-28 resize-none"
-        placeholder="Write your response here…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+
+      {hasSections ? (
+        <div className="space-y-4">
+          {sections.map((sec: any, idx: number) => {
+            const resp = existingResponses.find((r: any) => r.section_id === sec.id);
+            const hasGrade = gradesReleased && resp?.grade != null;
+
+            return (
+              <div key={sec.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                  <div>
+                    <span className="text-xs font-bold text-navy-800">
+                      {idx + 1}. {sec.title}
+                    </span>
+                    {sec.description && (
+                      <p className="text-xs text-slate-500 mt-0.5">{sec.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                    <span className="text-xs text-slate-400">{sec.points} pts</span>
+                    {hasGrade && (
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {resp.grade}/{sec.points}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-3 space-y-2">
+                  <textarea
+                    className="input-base text-sm h-24 resize-none"
+                    placeholder="Write your response for this section…"
+                    value={sectionTexts[sec.id] ?? ""}
+                    onChange={(e) => setSectionTexts((prev) => ({ ...prev, [sec.id]: e.target.value }))}
+                  />
+                  {hasGrade && resp?.feedback && (
+                    <p className="text-xs text-slate-500 italic bg-blue-50 rounded-lg px-3 py-2">
+                      Feedback: "{resp.feedback}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <textarea
+          className="input-base text-sm h-28 resize-none"
+          placeholder="Write your response here…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      )}
+
       <button
         onClick={submit}
-        disabled={submitting || !text.trim()}
+        disabled={submitting || !canSubmit}
         className="btn-primary !py-2 !px-5 !text-xs disabled:opacity-50 inline-flex"
       >
         {submitting

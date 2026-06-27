@@ -1335,10 +1335,13 @@ model Assignment {
   certification_id String
   certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
   title            String
+  type             String    @default("assignment")
   description      String?   @db.Text
   instructions     String?   @db.Text
+  sections         Json      @default("[]")
   due_date         DateTime?
   max_score        Int       @default(100)
+  grades_released  Boolean   @default(false)
   status           String    @default("draft")
   sort_order       Int       @default(0)
   created_at       DateTime  @default(now())
@@ -1352,22 +1355,23 @@ model Assignment {
 }
 
 model AssignmentEntry {
-  id            String     @id @default(uuid())
-  assignment_id String
-  assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
-  user_id       String
-  user          User       @relation("student_assignment_entries", fields: [user_id], references: [id], onDelete: Cascade)
-  text_content  String?    @db.Text
-  file_url      String?
-  file_name     String?
-  status        String     @default("submitted")
-  grade         Float?
-  feedback      String?    @db.Text
-  graded_by     String?
-  grader        User?      @relation("graded_assignment_entries", fields: [graded_by], references: [id], onDelete: SetNull)
-  graded_at     DateTime?
-  submitted_at  DateTime   @default(now())
-  updated_at    DateTime   @updatedAt
+  id                String     @id @default(uuid())
+  assignment_id     String
+  assignment        Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  user_id           String
+  user              User       @relation("student_assignment_entries", fields: [user_id], references: [id], onDelete: Cascade)
+  section_responses Json       @default("[]")
+  text_content      String?    @db.Text
+  file_url          String?
+  file_name         String?
+  status            String     @default("submitted")
+  grade             Float?
+  feedback          String?    @db.Text
+  graded_by         String?
+  grader            User?      @relation("graded_assignment_entries", fields: [graded_by], references: [id], onDelete: SetNull)
+  graded_at         DateTime?
+  submitted_at      DateTime   @default(now())
+  updated_at        DateTime   @updatedAt
 
   @@unique([assignment_id, user_id])
   @@index([assignment_id])
