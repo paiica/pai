@@ -153,7 +153,6 @@ export class AuthService {
     }
 
     // Revoke old token and create new token pair atomically
-    const tokenHash = this.hashToken; // already have hashToken helper
     const newRefreshToken = this.jwtService.sign(
       { sub: user.id, email: user.email, role: user.role } as JwtPayload,
       { secret: this.config.get<string>("jwt.refreshSecret"), expiresIn: this.config.get("jwt.refreshExpiry", "7d") as any },

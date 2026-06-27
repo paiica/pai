@@ -342,7 +342,7 @@ export class PaymentsService {
     if (!user_id) return;
 
     // Idempotency guard — skip if this Stripe session was already processed
-    const existing = await this.prisma.payment.findFirst({ where: { stripe_session_id: session.id } });
+    const existing = await this.prisma.payment.findFirst({ where: { stripe_checkout_session_id: session.id } });
     if (existing) {
       this.logger.log(`Webhook idempotency: session ${session.id} already processed, skipping`);
       return;
