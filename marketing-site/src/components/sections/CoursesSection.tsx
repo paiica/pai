@@ -107,7 +107,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           featured: "true",
         })));
       })
-      .catch(() => {});
+      .catch(() => { setApiCourses([]); });
   }, []);
 
   const badge = cmsContent.badge ?? "Prep Courses";
@@ -118,9 +118,13 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
   const ctaCardDesc = cmsContent.cta_card_desc ?? "Browse all courses and find the right path for your goals.";
   const ctaCardLabel = cmsContent.cta_card_label ?? "Browse All Courses";
   const ctaCardHref = cmsContent.cta_card_href ?? "/courses";
-  const courses: CourseCard[] = apicourses !== null
-    ? apicourses
-    : ((cmsContent.courses as CourseCard[])?.length ? (cmsContent.courses as CourseCard[]) : DEFAULT_COURSES);
+
+  // Only use API data — never fall back to hardcoded defaults
+  const courses: CourseCard[] = apicourses ?? (cmsContent.courses as CourseCard[] | undefined) ?? [];
+
+  // Hide section entirely while loading or when no courses exist
+  if (apicourses === null) return null;
+  if (courses.length === 0) return null;
 
   function scroll(dir: "left" | "right") {
     scrollRef.current?.scrollBy({ left: dir === "left" ? -320 : 320, behavior: "smooth" });
