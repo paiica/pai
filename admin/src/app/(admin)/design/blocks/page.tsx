@@ -412,6 +412,111 @@ function TestimonialsEditor({ block, token, onSave }: { block: Block; token: str
   );
 }
 
+// ─── Identity editor ─────────────────────────────────────────────────────────
+
+function IdentityEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
+  const c = block.content;
+  const [badge,     setBadge]    = useState(c?.badge     ?? "");
+  const [headline,  setHeadline] = useState(c?.headline  ?? "");
+  const [highlight, setHighlight]= useState(c?.highlight ?? "");
+  const [body,      setBody]     = useState(c?.body      ?? "");
+
+  const [stat1Value,  setStat1Value]  = useState(c?.stat_1_value  ?? "");
+  const [stat1Label,  setStat1Label]  = useState(c?.stat_1_label  ?? "");
+  const [stat2Value,  setStat2Value]  = useState(c?.stat_2_value  ?? "");
+  const [stat2Label,  setStat2Label]  = useState(c?.stat_2_label  ?? "");
+  const [stat3Value,  setStat3Value]  = useState(c?.stat_3_value  ?? "");
+  const [stat3Label,  setStat3Label]  = useState(c?.stat_3_label  ?? "");
+  const [stat4Value,  setStat4Value]  = useState(c?.stat_4_value  ?? "");
+  const [stat4Label,  setStat4Label]  = useState(c?.stat_4_label  ?? "");
+
+  const [p1Icon,  setP1Icon]  = useState(c?.pillar_1_icon  ?? "");
+  const [p1Title, setP1Title] = useState(c?.pillar_1_title ?? "");
+  const [p1Desc,  setP1Desc]  = useState(c?.pillar_1_desc  ?? "");
+  const [p2Icon,  setP2Icon]  = useState(c?.pillar_2_icon  ?? "");
+  const [p2Title, setP2Title] = useState(c?.pillar_2_title ?? "");
+  const [p2Desc,  setP2Desc]  = useState(c?.pillar_2_desc  ?? "");
+  const [p3Icon,  setP3Icon]  = useState(c?.pillar_3_icon  ?? "");
+  const [p3Title, setP3Title] = useState(c?.pillar_3_title ?? "");
+  const [p3Desc,  setP3Desc]  = useState(c?.pillar_3_desc  ?? "");
+  const [p4Icon,  setP4Icon]  = useState(c?.pillar_4_icon  ?? "");
+  const [p4Title, setP4Title] = useState(c?.pillar_4_title ?? "");
+  const [p4Desc,  setP4Desc]  = useState(c?.pillar_4_desc  ?? "");
+
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch(`/page-blocks/${block.key}`, {
+        content: {
+          badge, headline, highlight, body,
+          stat_1_value: stat1Value, stat_1_label: stat1Label,
+          stat_2_value: stat2Value, stat_2_label: stat2Label,
+          stat_3_value: stat3Value, stat_3_label: stat3Label,
+          stat_4_value: stat4Value, stat_4_label: stat4Label,
+          pillar_1_icon: p1Icon, pillar_1_title: p1Title, pillar_1_desc: p1Desc,
+          pillar_2_icon: p2Icon, pillar_2_title: p2Title, pillar_2_desc: p2Desc,
+          pillar_3_icon: p3Icon, pillar_3_title: p3Title, pillar_3_desc: p3Desc,
+          pillar_4_icon: p4Icon, pillar_4_title: p4Title, pillar_4_desc: p4Desc,
+        },
+      }, token);
+      toast.success("Saved");
+      onSave();
+    } catch { toast.error("Failed to save"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Section header */}
+      <div className="space-y-3">
+        <Field label="Badge text" value={badge} onChange={setBadge} placeholder="The AI Credential Standard" />
+        <Field label="Headline (first line)" value={headline} onChange={setHeadline} placeholder="We don't teach AI." />
+        <Field label="Headline highlight (gradient, second line)" value={highlight} onChange={setHighlight} placeholder="We certify the people trusted to lead it." />
+        <Field label="Body paragraph" value={body} onChange={setBody} textarea />
+      </div>
+
+      {/* Stats */}
+      <div className="border-t border-slate-100 pt-4">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Stat cards (2 × 2 grid)</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Stat 1 — value" value={stat1Value} onChange={setStat1Value} placeholder="12,400+" />
+          <Field label="Stat 1 — label" value={stat1Label} onChange={setStat1Label} placeholder="Professionals Certified" />
+          <Field label="Stat 2 — value" value={stat2Value} onChange={setStat2Value} placeholder="48" />
+          <Field label="Stat 2 — label" value={stat2Label} onChange={setStat2Label} placeholder="Countries Represented" />
+          <Field label="Stat 3 — value" value={stat3Value} onChange={setStat3Value} placeholder="94%" />
+          <Field label="Stat 3 — label" value={stat3Label} onChange={setStat3Label} placeholder="Employer Recognition Rate" />
+          <Field label="Stat 4 — value" value={stat4Value} onChange={setStat4Value} placeholder="#1" />
+          <Field label="Stat 4 — label" value={stat4Label} onChange={setStat4Label} placeholder="AI Certification Body in Canada" />
+        </div>
+      </div>
+
+      {/* Pillars */}
+      <div className="border-t border-slate-100 pt-4 space-y-4">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Pillars (4-column row)</p>
+        {[
+          { icon: p1Icon, setIcon: setP1Icon, title: p1Title, setTitle: setP1Title, desc: p1Desc, setDesc: setP1Desc, n: 1, color: "blue" },
+          { icon: p2Icon, setIcon: setP2Icon, title: p2Title, setTitle: setP2Title, desc: p2Desc, setDesc: setP2Desc, n: 2, color: "amber" },
+          { icon: p3Icon, setIcon: setP3Icon, title: p3Title, setTitle: setP3Title, desc: p3Desc, setDesc: setP3Desc, n: 3, color: "purple" },
+          { icon: p4Icon, setIcon: setP4Icon, title: p4Title, setTitle: setP4Title, desc: p4Desc, setDesc: setP4Desc, n: 4, color: "teal" },
+        ].map(({ icon, setIcon, title, setTitle, desc, setDesc, n, color }) => (
+          <div key={n} className="rounded-xl border border-slate-100 p-3 space-y-2 bg-slate-50/50">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pillar {n} <span className={`text-${color}-500`}>●</span></p>
+            <div className="grid grid-cols-[80px_1fr] gap-2">
+              <Field label="Icon (emoji)" value={icon} onChange={setIcon} placeholder="🌐" />
+              <Field label="Title" value={title} onChange={setTitle} placeholder="Global Authority" />
+            </div>
+            <Field label="Description" value={desc} onChange={setDesc} textarea />
+          </div>
+        ))}
+      </div>
+
+      <SaveBtn saving={saving} onClick={save} />
+    </div>
+  );
+}
+
 // ─── CTA editor ──────────────────────────────────────────────────────────────
 
 function CTAEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
@@ -832,6 +937,7 @@ function VideoEditor({ block, token, onSave }: { block: Block; token: string; on
 
 function BlockEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   if (block.key === "hero")           return <HeroEditor block={block} token={token} onSave={onSave} />;
+  if (block.key === "identity")       return <IdentityEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "why_pai")        return <WhyPAIEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "testimonials")   return <TestimonialsEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "cta")            return <CTAEditor block={block} token={token} onSave={onSave} />;
@@ -862,6 +968,7 @@ function BlockEditor({ block, token, onSave }: { block: Block; token: string; on
 
 const BLOCK_TEMPLATES = [
   { key: "hero",          label: "Hero / Banner" },
+  { key: "identity",      label: "Identity / Who We Are" },
   { key: "certifications",label: "Certifications" },
   { key: "courses",       label: "Prep Courses" },
   { key: "video",         label: "Featured Video" },

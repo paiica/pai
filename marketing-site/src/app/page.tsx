@@ -7,12 +7,14 @@ import VideoSection from "@/components/sections/VideoSection";
 import BlogSection from "@/components/sections/BlogSection";
 import WhyPAISection from "@/components/sections/WhyPAISection";
 import TestimonialsSection from "@/components/sections/TestimonialsSection";
+import IdentitySection from "@/components/sections/IdentitySection";
 import CTASection from "@/components/sections/CTASection";
 
 type PageBlock = { key: string; is_visible: boolean; sort_order: number; content: Record<string, any> };
 
 const SECTION_MAP: Record<string, React.ComponentType<any>> = {
   hero:           HeroSection,
+  identity:       IdentitySection,
   certifications: CertificationsSection,
   courses:        CoursesSection,
   video:          VideoSection,
