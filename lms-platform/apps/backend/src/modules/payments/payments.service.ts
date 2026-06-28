@@ -182,9 +182,6 @@ export class PaymentsService {
 
     // Free after promo — treat as payment_submitted so admin still reviews
     if (price <= 0) {
-      // Search all in-progress statuses (same as webhook) to prevent double-invocation
-      // from creating a spurious enrollment on the second call when the first already moved
-      // the app out of pending_payment.
       const existingApp = await this.prisma.application.findFirst({
         where: {
           user_id: userId,
@@ -192,6 +189,8 @@ export class PaymentsService {
           status: { in: ["pending_payment", "payment_submitted", "pending_review"] },
         },
       });
+
+      let alreadyProcessed = false;
       if (existingApp) {
         if (existingApp.status === "pending_payment") {
           await this.prisma.application.update({
@@ -205,29 +204,40 @@ export class PaymentsService {
             },
           });
           if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
+        } else {
+          // Already at payment_submitted or pending_review — idempotent, skip email
+          alreadyProcessed = true;
         }
-        // Already moved (payment_submitted / pending_review) — idempotent, do nothing
-        return { checkout_url: null, enrolled: false };
+      } else {
+        // No application — cart purchase without /apply form
+        const fullName = user.profile
+          ? `${user.profile.first_name ?? ""} ${user.profile.last_name ?? ""}`.trim()
+          : user.email;
+        await this.prisma.application.create({
+          data: {
+            user_id: userId,
+            certification_id: cert.id,
+            status: "payment_submitted",
+            full_name: fullName || user.email,
+            email: user.email,
+            amount_paid: 0,
+            payment_status: "succeeded",
+            paid_at: new Date(),
+            promo_code: promoCode || null,
+          },
+        });
+        if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
       }
-      // No application at all — cart purchase without /apply form.
-      // Create a minimal application at payment_submitted so admin must still review.
-      const fullName = user.profile
-        ? `${user.profile.first_name ?? ""} ${user.profile.last_name ?? ""}`.trim()
-        : user.email;
-      await this.prisma.application.create({
-        data: {
-          user_id: userId,
-          certification_id: cert.id,
-          status: "payment_submitted",
-          full_name: fullName || user.email,
-          email: user.email,
-          amount_paid: 0,
-          payment_status: "succeeded",
-          paid_at: new Date(),
-          promo_code: promoCode || null,
-        },
-      });
-      if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
+
+      if (!alreadyProcessed) {
+        await this.mail.sendFreeEnrollmentConfirmation({
+          to: user.email,
+          firstName: user.profile?.first_name ?? "there",
+          itemName: `${cert.title} (${cert.acronym})`,
+          type: "certification",
+        });
+      }
+
       return { checkout_url: null, enrolled: false };
     }
 
