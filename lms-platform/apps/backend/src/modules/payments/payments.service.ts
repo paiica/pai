@@ -507,8 +507,112 @@ export class PaymentsService {
           currency: session.currency ?? "usd",
           receiptUrl,
         });
+
+        // Wire up affiliate commission on the actual amount paid (after discount)
+        await this._handleAffiliateCommission({
+          userId: user_id,
+          userEmail: user.email,
+          certificationId: certification_id || undefined,
+          courseId: course_id || undefined,
+          promoId: promo_id || undefined,
+          saleAmount: amount,
+        });
       }
     }
+  }
+
+  private async _handleAffiliateCommission(opts: {
+    userId: string;
+    userEmail: string;
+    certificationId?: string;
+    courseId?: string;
+    promoId?: string;
+    saleAmount: number;
+  }) {
+    if (opts.saleAmount <= 0) return;
+
+    let affiliateProfileId: string | null = null;
+    let leadId: string | null = null;
+
+    // Promo code takes priority — it directly influenced the purchase decision
+    if (opts.promoId) {
+      const promo = await this.prisma.affiliatePromoCode.findUnique({
+        where: { id: opts.promoId },
+        select: { affiliate_id: true },
+      });
+      if (promo?.affiliate_id) affiliateProfileId = promo.affiliate_id;
+    }
+
+    // Also check for a referral lead — use it regardless of promo (same or different affiliate)
+    const lead = await this.prisma.affiliateLead.findFirst({
+      where: { email: opts.userEmail, status: { in: ["registered" as any, "invited" as any] } },
+      orderBy: { created_at: "desc" },
+    });
+    if (lead) {
+      leadId = lead.id;
+      // Only use lead's affiliate if no promo code affiliate was found
+      if (!affiliateProfileId) affiliateProfileId = lead.affiliate_id;
+    }
+
+    if (!affiliateProfileId) return;
+
+    // Get base commission rate from affiliate profile
+    const affiliateProfile = await this.prisma.affiliateProfile.findUnique({
+      where: { id: affiliateProfileId },
+      select: { commission_rate: true },
+    });
+    if (!affiliateProfile) return;
+
+    let commissionRate = Number(affiliateProfile.commission_rate);
+
+    // Check for per-product commission override
+    const assignment = await this.prisma.affiliateProductAssignment.findFirst({
+      where: {
+        affiliate_id: affiliateProfileId,
+        ...(opts.certificationId ? { certification_id: opts.certificationId } : {}),
+        ...(opts.courseId ? { course_id: opts.courseId } : {}),
+      },
+      select: { commission_override: true },
+    });
+    if (assignment?.commission_override != null) {
+      commissionRate = Number(assignment.commission_override);
+    }
+
+    const commissionAmount = Math.round(opts.saleAmount * commissionRate) / 100;
+
+    await this.prisma.affiliateCommission.create({
+      data: {
+        affiliate_id: affiliateProfileId,
+        user_id: opts.userId,
+        lead_id: leadId,
+        certification_id: opts.certificationId ?? null,
+        course_id: opts.courseId ?? null,
+        sale_amount: opts.saleAmount,
+        amount: commissionAmount,
+        commission_rate: commissionRate,
+        status: "pending" as any,
+      },
+    });
+
+    // Advance lead status to purchased
+    if (leadId) {
+      await this.prisma.affiliateLead.update({
+        where: { id: leadId },
+        data: { status: "purchased" as any },
+      });
+    }
+
+    // Advance the matching invite to converted
+    if (lead) {
+      await this.prisma.affiliateInvite.updateMany({
+        where: { affiliate_id: affiliateProfileId, email: opts.userEmail, status: { in: ["pending" as any, "registered" as any] } },
+        data: { status: "converted" as any },
+      });
+    }
+
+    this.logger.log(
+      `Affiliate commission: affiliate=${affiliateProfileId} sale=${opts.saleAmount} rate=${commissionRate}% commission=${commissionAmount}`,
+    );
   }
 
   async issueRefund(paymentIntentId: string) {

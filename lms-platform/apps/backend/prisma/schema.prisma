@@ -34,6 +34,7 @@ enum AffiliateCommissionStatus {
   pending
   approved
   paid
+  voided
 
   @@schema("lms")
 }
@@ -271,6 +272,7 @@ model User {
   application_documents    ApplicationDocument[]
   exam_bookings            ExamBooking[]
   affiliate_profile        AffiliateProfile?
+  affiliate_commissions_as_buyer AffiliateCommission[]
 
   @@index([email])
   @@map("users")
@@ -1526,6 +1528,8 @@ model AffiliateCommission {
   id               String                    @id @default(uuid())
   affiliate_id     String
   affiliate        AffiliateProfile          @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  user_id          String?
+  user             User?                     @relation(fields: [user_id], references: [id], onDelete: SetNull)
   lead_id          String?
   lead             AffiliateLead?            @relation(fields: [lead_id], references: [id], onDelete: SetNull)
   certification_id String?
@@ -1537,10 +1541,13 @@ model AffiliateCommission {
   commission_rate  Decimal                   @db.Decimal(5, 2)
   status           AffiliateCommissionStatus @default(pending)
   paid_at          DateTime?
+  voided_at        DateTime?
+  void_reason      String?
   created_at       DateTime                  @default(now())
   updated_at       DateTime                  @updatedAt
 
   @@index([affiliate_id, status])
+  @@index([user_id, certification_id])
   @@map("affiliate_commissions")
   @@schema("lms")
 }

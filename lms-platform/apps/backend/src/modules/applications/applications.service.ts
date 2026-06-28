@@ -233,12 +233,52 @@ export class ApplicationsService {
         },
       });
 
-      // Always suspend any active enrollment when rejecting — covers both approval reversals
-      // and enrollments created incorrectly (e.g. via auto-enrollment bugs)
+      // Always suspend any active enrollment when rejecting
       await tx.enrollment.updateMany({
         where: { user_id: app.user_id, certification_id: app.certification_id, status: "active" },
         data: { status: "suspended" },
       });
+
+      // Void any pending affiliate commission for this buyer + certification
+      const voidedCommissions = await tx.affiliateCommission.findMany({
+        where: {
+          user_id: app.user_id,
+          certification_id: app.certification_id,
+          status: "pending" as any,
+        },
+        select: { id: true, lead_id: true, affiliate_id: true },
+      });
+
+      if (voidedCommissions.length > 0) {
+        await tx.affiliateCommission.updateMany({
+          where: { id: { in: voidedCommissions.map((c) => c.id) } },
+          data: {
+            status: "voided" as any,
+            voided_at: new Date(),
+            void_reason: "Application rejected",
+          },
+        });
+
+        // Revert lead status from purchased → registered
+        const leadIds = voidedCommissions.map((c) => c.lead_id).filter(Boolean) as string[];
+        if (leadIds.length > 0) {
+          await tx.affiliateLead.updateMany({
+            where: { id: { in: leadIds }, status: "purchased" as any },
+            data: { status: "registered" as any },
+          });
+        }
+
+        // Revert invite status from converted → registered
+        const affiliateIds = [...new Set(voidedCommissions.map((c) => c.affiliate_id))];
+        await tx.affiliateInvite.updateMany({
+          where: {
+            affiliate_id: { in: affiliateIds },
+            email: app.user.email,
+            status: "converted" as any,
+          },
+          data: { status: "registered" as any },
+        });
+      }
     });
 
     this.logger.log(`Application ${applicationId} rejected by ${adminId}`);
