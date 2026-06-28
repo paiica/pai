@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Package, Tag, Mail, Users, DollarSign,
-  BarChart3, Bell, User, LogOut, Shield, ChevronLeft, ChevronRight, Zap,
+  BarChart3, Bell, User, LogOut, Shield, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -45,9 +46,14 @@ export default function AffiliateSidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-navy-700/50">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Zap size={16} className="text-white" />
-          </div>
+          <Image
+            src="/paii.logo.png"
+            alt="PAI"
+            width={32}
+            height={32}
+            className="rounded-lg object-contain flex-shrink-0"
+            style={{ background: "rgba(255,255,255,0.08)", padding: "3px" }}
+          />
           {!collapsed && (
             <div>
               <div className="text-xs font-display font-black text-white">Affiliate Portal</div>
