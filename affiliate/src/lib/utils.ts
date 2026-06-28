@@ -71,10 +71,8 @@ export function getQRCodeUrl(text: string, size = 200): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=0e1e3d`;
 }
 
-const MARKETING_URL =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"
-    : process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+const FRONTEND_URL  = process.env.NEXT_PUBLIC_FRONTEND_URL  || "http://localhost:3001";
 
 export function buildReferralLink(slug: string, referralCode: string): string {
   const base = slug ? `${MARKETING_URL}/${slug}` : MARKETING_URL;
@@ -82,7 +80,7 @@ export function buildReferralLink(slug: string, referralCode: string): string {
 }
 
 export function buildInviteLink(referralCode: string): string {
-  return `${MARKETING_URL}/invite?ref=${referralCode}`;
+  return `${FRONTEND_URL}/register?ref=${referralCode}`;
 }
 
 export function buildCheckoutLink(promoCode: string): string {
