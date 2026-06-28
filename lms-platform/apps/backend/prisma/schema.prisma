@@ -17,6 +17,39 @@ enum Role {
   admin
   professor
   student
+  sales_rep
+
+  @@schema("lms")
+}
+
+enum AffiliateStatus {
+  pending
+  approved
+  suspended
+
+  @@schema("lms")
+}
+
+enum AffiliateCommissionStatus {
+  pending
+  approved
+  paid
+
+  @@schema("lms")
+}
+
+enum AffiliateLeadStatus {
+  invited
+  registered
+  purchased
+
+  @@schema("lms")
+}
+
+enum AffiliateInviteStatus {
+  pending
+  registered
+  converted
 
   @@schema("lms")
 }
@@ -209,6 +242,7 @@ model User {
   email_change_token_hash    String?   @unique
   email_change_expires_at    DateTime?
   password_hash              String
+  pending_referral_code      String?
   role               Role      @default(student)
   is_active          Boolean   @default(true)
   last_login_at      DateTime?
@@ -236,6 +270,7 @@ model User {
   graded_assignment_entries AssignmentEntry[] @relation("graded_assignment_entries")
   application_documents    ApplicationDocument[]
   exam_bookings            ExamBooking[]
+  affiliate_profile        AffiliateProfile?
 
   @@index([email])
   @@map("users")
@@ -377,6 +412,9 @@ model Certification {
   structured_exams     StructuredExam[]
   course_recommendations CourseCertRecommendation[]
   assignments            Assignment[]
+  affiliate_assignments  AffiliateProductAssignment[]
+  affiliate_leads        AffiliateLead[]
+  affiliate_commissions  AffiliateCommission[]
 
   @@index([slug])
   @@index([status])
@@ -563,6 +601,9 @@ model Course {
   instructors      CourseTeacher[]
   enrollments      CourseEnrollment[]
   cert_recommendations CourseCertRecommendation[]
+  affiliate_assignments  AffiliateProductAssignment[]
+  affiliate_leads        AffiliateLead[]
+  affiliate_commissions  AffiliateCommission[]
 
   @@index([slug])
   @@index([status])
@@ -1389,5 +1430,132 @@ model PromoRedemption {
 
   @@index([promo_id, user_id])
   @@map("promo_redemptions")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// AFFILIATE / SALES REP
+// ─────────────────────────────────────────────
+
+model AffiliateProfile {
+  id               String          @id @default(uuid())
+  user_id          String          @unique
+  user             User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  referral_code    String          @unique
+  commission_rate  Decimal         @db.Decimal(5, 2) @default(10)
+  status           AffiliateStatus @default(pending)
+  payout_method    String?
+  payout_details   String?
+  notes            String?
+  approved_at      DateTime?
+  approved_by      String?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  product_assignments AffiliateProductAssignment[]
+  leads               AffiliateLead[]
+  commissions         AffiliateCommission[]
+  promo_codes         AffiliatePromoCode[]
+  invites             AffiliateInvite[]
+
+  @@map("affiliate_profiles")
+  @@schema("lms")
+}
+
+model AffiliateProductAssignment {
+  id                  String           @id @default(uuid())
+  affiliate_id        String
+  affiliate           AffiliateProfile @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  certification_id    String?
+  certification       Certification?   @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+  course_id           String?
+  course              Course?          @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  commission_override Decimal?         @db.Decimal(5, 2)
+  assigned_at         DateTime         @default(now())
+
+  @@index([affiliate_id])
+  @@map("affiliate_product_assignments")
+  @@schema("lms")
+}
+
+model AffiliatePromoCode {
+  id               String              @id @default(uuid())
+  affiliate_id     String
+  affiliate        AffiliateProfile    @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  code             String              @unique
+  discount_type    String              @default("percent")
+  discount_value   Decimal             @db.Decimal(10, 2)
+  description      String?
+  min_order_value  Decimal?            @db.Decimal(10, 2)
+  is_stackable     Boolean             @default(false)
+  expires_at       DateTime?
+  max_uses         Int?
+  uses_count       Int                 @default(0)
+  is_active        Boolean             @default(true)
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  @@index([affiliate_id])
+  @@map("affiliate_promo_codes")
+  @@schema("lms")
+}
+
+model AffiliateLead {
+  id               String              @id @default(uuid())
+  affiliate_id     String
+  affiliate        AffiliateProfile    @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  certification_id String?
+  certification    Certification?      @relation(fields: [certification_id], references: [id], onDelete: SetNull)
+  course_id        String?
+  course           Course?             @relation(fields: [course_id], references: [id], onDelete: SetNull)
+  email            String
+  name             String?
+  source           String?
+  status           AffiliateLeadStatus @default(invited)
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  commissions AffiliateCommission[]
+
+  @@index([affiliate_id])
+  @@map("affiliate_leads")
+  @@schema("lms")
+}
+
+model AffiliateCommission {
+  id               String                    @id @default(uuid())
+  affiliate_id     String
+  affiliate        AffiliateProfile          @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  lead_id          String?
+  lead             AffiliateLead?            @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  certification_id String?
+  certification    Certification?            @relation(fields: [certification_id], references: [id], onDelete: SetNull)
+  course_id        String?
+  course           Course?                   @relation(fields: [course_id], references: [id], onDelete: SetNull)
+  sale_amount      Decimal                   @db.Decimal(10, 2)
+  amount           Decimal                   @db.Decimal(10, 2)
+  commission_rate  Decimal                   @db.Decimal(5, 2)
+  status           AffiliateCommissionStatus @default(pending)
+  paid_at          DateTime?
+  created_at       DateTime                  @default(now())
+  updated_at       DateTime                  @updatedAt
+
+  @@index([affiliate_id, status])
+  @@map("affiliate_commissions")
+  @@schema("lms")
+}
+
+model AffiliateInvite {
+  id           String                @id @default(uuid())
+  affiliate_id String
+  affiliate    AffiliateProfile      @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
+  email        String
+  name         String?
+  status       AffiliateInviteStatus @default(pending)
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+
+  @@index([affiliate_id])
+  @@map("affiliate_invites")
   @@schema("lms")
 }

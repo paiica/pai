@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award,
   ClipboardList, LogOut, Shield, Settings,
-  Paintbrush, LayoutTemplate, Navigation, PlusCircle, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks,
+  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -20,7 +20,12 @@ const NAV = [
   { href: "/blog", label: "Blog", icon: Rss },
   { href: "/pages", label: "Pages", icon: FileText },
   { href: "/online-tools", label: "Online Tools", icon: Wrench },
-  { href: "/promo-codes", label: "Promo Codes", icon: Tag },
+];
+
+const SALES_NAV = [
+  { href: "/affiliates",   label: "Sales Reps",   icon: UserCheck  },
+  { href: "/commissions",  label: "Commissions",  icon: DollarSign },
+  { href: "/promo-codes",  label: "Promo Codes",  icon: Tag        },
 ];
 
 const PAYMENTS_NAV = [
@@ -60,6 +65,7 @@ export default function AdminSidebar() {
   const [certOpen,     setCertOpen]     = useState(pathname.startsWith("/certificates") || pathname.startsWith("/certifications"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
   const [paymentsOpen, setPaymentsOpen] = useState(pathname.startsWith("/payments"));
+  const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes"));
 
   async function handleLogout() {
     await logout();
@@ -110,6 +116,43 @@ export default function AdminSidebar() {
             {label}
           </Link>
         ))}
+
+        {/* Sales collapsible */}
+        <div>
+          <button
+            onClick={() => setSalesOpen(!salesOpen)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors w-full",
+              (pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes"))
+                ? "bg-gold-500/20 text-gold-300"
+                : "text-navy-300 hover:bg-navy-800 hover:text-white"
+            )}
+          >
+            <TrendingUp size={17} />
+            <span className="flex-1 text-left">Sales</span>
+            <ChevronDown size={14} className={cn("transition-transform", salesOpen && "rotate-180")} />
+          </button>
+
+          {salesOpen && (
+            <div className="ml-3 mt-1 space-y-0.5 pl-3 border-l border-navy-700/50">
+              {SALES_NAV.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+                    isActive(href)
+                      ? "bg-gold-500/20 text-gold-300"
+                      : "text-navy-400 hover:bg-navy-800 hover:text-white"
+                  )}
+                >
+                  <Icon size={14} />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Payments collapsible */}
         <div>

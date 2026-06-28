@@ -6,6 +6,7 @@ import {
   IsOptional,
   Matches,
   IsDateString,
+  IsIn,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -51,4 +52,16 @@ export class RegisterDto {
   @IsOptional()
   @IsDateString()
   date_of_birth?: string;
+
+  @ApiPropertyOptional({ example: "student", enum: ["student", "sales_rep"] })
+  @IsOptional()
+  @IsString()
+  @IsIn(["student", "sales_rep"])
+  role?: string;
+
+  @ApiPropertyOptional({ example: "A1B2C3D4" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  referral_code?: string;
 }

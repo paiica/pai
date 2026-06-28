@@ -25,7 +25,7 @@ interface AuthState {
 
   setHasHydrated: (v: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string; first_name: string; last_name: string; phone?: string; country?: string; date_of_birth?: string }) => Promise<void>;
+  register: (data: { email: string; password: string; first_name: string; last_name: string; phone?: string; country?: string; date_of_birth?: string; referral_code?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<boolean>;
   fetchMe: () => Promise<void>;

@@ -72,20 +72,20 @@ export class MailService {
 
   // ─── Send methods ─────────────────────────────────────────────────────────────
 
-  async sendVerificationEmail(to: string, firstName: string, token: string) {
+  async sendVerificationEmail(to: string, firstName: string, token: string, baseUrl?: string) {
     const { subject, enabled, html: customHtml } = await this.tpl("verification");
     if (!enabled) return;
-    const link = `${this.frontendUrl}/verify-email?token=${token}`;
+    const link = `${baseUrl ?? this.frontendUrl}/verify-email?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.verificationBody(firstName, link));
     await this.send({ to, subject: subject ?? "Verify your PAI email address", html });
   }
 
-  async sendPasswordResetEmail(to: string, firstName: string, token: string) {
+  async sendPasswordResetEmail(to: string, firstName: string, token: string, baseUrl?: string) {
     const { subject, enabled, html: customHtml } = await this.tpl("reset");
     if (!enabled) return;
-    const link = `${this.frontendUrl}/reset-password?token=${token}`;
+    const link = `${baseUrl ?? this.frontendUrl}/reset-password?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.resetBody(firstName, link));
@@ -255,6 +255,19 @@ export class MailService {
       this.logger.error(`Test email failed: ${err?.message}`);
       return { sent: false, reason: err?.message ?? "Unknown error" };
     }
+  }
+
+  async sendAffiliateInvite(opts: {
+    to: string; recipientName: string | undefined;
+    senderName: string; inviteLink: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("affiliate_invite");
+    if (!enabled) return;
+    const firstName = opts.recipientName || "there";
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName, senderName: opts.senderName, inviteLink: opts.inviteLink })
+      : this.wrapper(this.affiliateInviteBody(opts.senderName, firstName, opts.inviteLink));
+    await this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAI`, html });
   }
 
   async sendApplicationRejected(opts: {
@@ -571,6 +584,21 @@ export class MailService {
       <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">After careful review, we are unable to approve your application for the <strong>${opts.certAcronym} — ${opts.certTitle}</strong> certification at this time.</p>
       ${reasonSection}
       <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">If you have questions about this decision or believe you meet the eligibility requirements, please contact us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>. You may reapply once the noted requirements are met.</p>
+    `;
+  }
+
+  private affiliateInviteBody(senderName: string, recipientName: string, inviteLink: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${recipientName},</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>${senderName}</strong> has personally invited you to join the Professional AI Institute (PAI) — where professionals earn industry-recognized AI certifications that set them apart.</p>
+      <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px">You're Invited</p>
+        <p style="margin:0;font-size:15px;color:#78350f;line-height:1.5">Create your free account and start your AI certification journey today.</p>
+      </div>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${inviteLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Create My Account →</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by ${senderName}. If you didn't expect this email, you can safely ignore it.</p>
     `;
   }
 

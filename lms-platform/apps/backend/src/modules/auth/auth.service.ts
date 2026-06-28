@@ -47,12 +47,19 @@ export class AuthService {
 
     const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
+    const isSalesRep = dto.role === "sales_rep";
+    const referralCode = isSalesRep
+      ? randomBytes(4).toString("hex").toUpperCase()
+      : undefined;
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         password_hash: passwordHash,
         email_verify_token: emailVerifyToken,
         email_verify_token_expires_at: emailVerifyTokenExpiresAt,
+        pending_referral_code: (!isSalesRep && dto.referral_code) ? dto.referral_code : undefined,
+        role: isSalesRep ? ("sales_rep" as any) : undefined,
         profile: {
           create: {
             first_name: dto.first_name,
@@ -64,24 +71,40 @@ export class AuthService {
             ...(dto.date_of_birth ? { date_of_birth: new Date(dto.date_of_birth) } : {}),
           },
         },
+        ...(isSalesRep
+          ? {
+              affiliate_profile: {
+                create: {
+                  referral_code: referralCode!,
+                  status: "pending",
+                },
+              },
+            }
+          : {}),
       },
       include: { profile: true },
     });
 
-    this.logger.log(`New user registered: ${user.email}`);
+    this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"})`);
 
-    await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken);
+    const verifyBaseUrl = isSalesRep
+      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
+      : undefined;
+
+    await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken, verifyBaseUrl);
 
     return {
       user: this.sanitizeUser(user),
-      message: "Account created. Please verify your email to continue.",
+      message: isSalesRep
+        ? "Application submitted! Your account will be reviewed and approved by our team."
+        : "Account created. Please verify your email to continue.",
     };
   }
 
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { profile: true },
+      include: { profile: true, affiliate_profile: true },
     });
 
     if (!user) {
@@ -194,7 +217,7 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      include: { profile: true },
+      include: { profile: true, affiliate_profile: true },
     });
 
     // Always return success to prevent user enumeration
@@ -208,7 +231,11 @@ export class AuthService {
       data: { user_id: user.id, token_hash: tokenHash, expires_at: expiresAt },
     });
 
-    await this.mail.sendPasswordResetEmail(user.email, user.profile?.first_name ?? "there", token);
+    const resetBaseUrl = user.role === "sales_rep"
+      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
+      : undefined;
+
+    await this.mail.sendPasswordResetEmail(user.email, user.profile?.first_name ?? "there", token, resetBaseUrl);
 
     return { message: "If that email is registered, you will receive a reset link." };
   }
@@ -259,8 +286,35 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { email_verified: true, email_verify_token: null, email_verify_token_expires_at: null } as any,
+      data: { email_verified: true, email_verify_token: null, email_verify_token_expires_at: null, pending_referral_code: null } as any,
     });
+
+    // Wire up affiliate lead now that the email address is confirmed
+    if ((user as any).pending_referral_code) {
+      const referralCode = (user as any).pending_referral_code as string;
+      const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
+        where: { referral_code: referralCode },
+        include: { user: { include: { profile: true } } },
+      });
+      if (affiliateProfile) {
+        const userProfile = await this.prisma.profile.findUnique({ where: { user_id: user.id } });
+        const name = userProfile
+          ? `${userProfile.first_name ?? ""} ${userProfile.last_name ?? ""}`.trim()
+          : undefined;
+        await this.prisma.affiliateLead.create({
+          data: {
+            affiliate_id: affiliateProfile.id,
+            email: user.email,
+            name: name || undefined,
+            status: "registered" as any,
+          },
+        });
+        await this.prisma.affiliateInvite.updateMany({
+          where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
+          data: { status: "registered" as any },
+        });
+      }
+    }
 
     return { message: "Email verified successfully" };
   }
@@ -268,7 +322,7 @@ export class AuthService {
   async resendVerificationEmail(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      include: { profile: true },
+      include: { profile: true, affiliate_profile: true },
     });
 
     // Always return success to prevent user enumeration
@@ -283,14 +337,18 @@ export class AuthService {
       data: { email_verify_token: emailVerifyToken, email_verify_token_expires_at: emailVerifyTokenExpiresAt } as any,
     });
 
-    await this.mail.sendVerificationEmail(user.email, user.profile?.first_name ?? "there", emailVerifyToken);
+    const verifyBaseUrl = user.role === "sales_rep"
+      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
+      : undefined;
+
+    await this.mail.sendVerificationEmail(user.email, user.profile?.first_name ?? "there", emailVerifyToken, verifyBaseUrl);
     return { message: "If that email is registered and unverified, a new email has been sent." };
   }
 
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true },
+      include: { profile: true, affiliate_profile: true },
     });
 
     if (!user) throw new NotFoundException("User not found");
@@ -624,7 +682,24 @@ export class AuthService {
   }
 
   private sanitizeUser(user: any) {
-    const { password_hash, email_verify_token, ...safe } = user;
+    const { password_hash, email_verify_token, affiliate_profile, ...safe } = user;
+
+    // For sales_rep users, flatten affiliate_profile fields onto the user object
+    if (user.role === "sales_rep" && affiliate_profile) {
+      return {
+        ...safe,
+        first_name: user.profile?.first_name ?? null,
+        last_name: user.profile?.last_name ?? null,
+        phone: user.profile?.phone ?? null,
+        avatar_url: user.profile?.avatar_url ?? null,
+        status: affiliate_profile.status,
+        referral_code: affiliate_profile.referral_code,
+        commission_rate: Number(affiliate_profile.commission_rate),
+        payout_method: affiliate_profile.payout_method ?? null,
+        payout_details: affiliate_profile.payout_details ?? null,
+      };
+    }
+
     return safe;
   }
 }

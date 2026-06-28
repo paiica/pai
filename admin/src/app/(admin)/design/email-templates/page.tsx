@@ -332,6 +332,26 @@ const TEMPLATES: TemplateDef[] = [
           </div>
           <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">If you have questions or believe you meet the eligibility requirements, please contact us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>.</p>`),
   },
+  {
+    key: "affiliate_invite",
+    name: "Sales Rep Invite",
+    description: "Sent when a sales rep invites someone to join PAI as a student via the affiliate portal.",
+    category: "Sales",
+    categoryColor: "teal",
+    defaultSubject: "{{senderName}} invited you to join PAI",
+    variables: ["{{firstName}}", "{{senderName}}", "{{inviteLink}}"],
+    note: "{{firstName}} → recipient name, {{senderName}} → rep's full name, {{inviteLink}} → student registration URL with referral code.",
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi {{firstName}},</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>{{senderName}}</strong> has personally invited you to join the Professional AI Institute (PAI) — where professionals earn industry-recognized AI certifications that set them apart.</p>
+          <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px">You're Invited</p>
+            <p style="margin:0;font-size:15px;color:#78350f;line-height:1.5">Create your free account and start your AI certification journey today.</p>
+          </div>
+          <div style="text-align:center;margin:32px 0">
+            <a href="{{inviteLink}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Create My Account →</a>
+          </div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by {{senderName}}. If you didn't expect this email, you can safely ignore it.</p>`),
+  },
 ];
 
 // ─── Category styling ─────────────────────────────────────────────────────────
@@ -344,6 +364,7 @@ const CATEGORY_STYLES: Record<string, { border: string; chip: string }> = {
   purple:  { border: "border-l-purple-400",  chip: "bg-purple-50 text-purple-600 border-purple-200" },
   red:     { border: "border-l-red-400",     chip: "bg-red-50 text-red-600 border-red-200" },
   indigo:  { border: "border-l-indigo-400",  chip: "bg-indigo-50 text-indigo-600 border-indigo-200" },
+  teal:    { border: "border-l-teal-400",    chip: "bg-teal-50 text-teal-600 border-teal-200" },
 };
 
 // ─── API helper ───────────────────────────────────────────────────────────────
@@ -599,7 +620,7 @@ export default function EmailTemplatesPage() {
       {/* Legend */}
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs text-slate-400 font-medium">Categories:</span>
-        {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo" }).map(([label, color]) => (
+        {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo", Sales: "teal" }).map(([label, color]) => (
           <span key={label} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${CATEGORY_STYLES[color].chip}`}>{label}</span>
         ))}
       </div>

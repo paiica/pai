@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { ApiError } from "@/lib/api";
@@ -37,6 +38,8 @@ const COUNTRIES = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref") ?? undefined;
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [showPw, setShowPw] = useState(false);
@@ -74,6 +77,7 @@ export default function RegisterPage() {
         phone: payload.phone || undefined,
         country: payload.country || undefined,
         date_of_birth: payload.date_of_birth || undefined,
+        referral_code: referralCode,
       });
       setDone(true);
     } catch (err) {

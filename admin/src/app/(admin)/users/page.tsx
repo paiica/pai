@@ -12,7 +12,7 @@ import { api } from "@/lib/api";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const ROLES = ["student", "professor", "admin", "super_admin"] as const;
+const ROLES = ["student", "professor", "admin", "super_admin", "sales_rep"] as const;
 type RoleKey = typeof ROLES[number];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -20,6 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin:       "Admin",
   professor:   "Professor",
   student:     "Student",
+  sales_rep:   "Sales Rep",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -27,6 +28,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin:       "bg-purple-100 text-purple-700",
   professor:   "bg-blue-100 text-blue-700",
   student:     "bg-slate-100 text-slate-600",
+  sales_rep:   "bg-teal-100 text-teal-700",
 };
 
 interface User {
