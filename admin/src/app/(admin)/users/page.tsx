@@ -199,13 +199,14 @@ export default function UsersPage() {
   // Clear selection on any filter/page change
   useEffect(() => { setSelectedIds(new Set()); }, [page, roleFilter, statusFilter, debouncedQ]);
 
-  // Close row menu on any document click (allows page scroll while menu is open)
+  // Close row menu when clicking outside — uses data-menu attribute to detect inside clicks
   useEffect(() => {
-    if (!openMenu) return;
-    const handler = () => setOpenMenu(null);
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as Element).closest("[data-menu]")) setOpenMenu(null);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [openMenu]);
+  }, []);
 
   const qs = new URLSearchParams({ limit: String(LIMIT), page: String(page) });
   if (debouncedQ)  qs.set("q", debouncedQ);
@@ -463,8 +464,7 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
+      <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
                 <th className="px-4 py-3 w-10">
@@ -570,16 +570,14 @@ export default function UsersPage() {
                     {/* Row actions */}
                     <td className="px-4 py-3 relative" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenu(openMenu === u.id ? null : u.id);
-                        }}
+                        data-menu
+                        onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
                       >
                         <MoreHorizontal size={15} />
                       </button>
                       {openMenu === u.id && (
-                        <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm" onMouseDown={(e) => e.stopPropagation()}>
+                        <div data-menu className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
                           {isSuperAdmin && (
                             <button onClick={() => {
                               const primaryRole = u.role === "sales_rep" && !u.has_affiliate ? "sales_rep" : u.role;
@@ -626,7 +624,6 @@ export default function UsersPage() {
               })}
             </tbody>
           </table>
-      </div>
 
       {/* Pagination */}
       {meta.totalPages > 1 && (
@@ -657,8 +654,8 @@ export default function UsersPage() {
           {isSuperAdmin && (
             <button
               onClick={() => { setBulkRole(""); setBulkAffiliate(false); setBulkRoleModal(true); }}
-              disabled={bulkActing}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+              disabled={bulkActing || selectedCount !== 1}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Shield size={13} /> Change Role
             </button>
