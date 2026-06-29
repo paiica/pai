@@ -46,6 +46,14 @@ export class AffiliateController {
     });
   }
 
+  @Delete("leads/:id")
+  deleteLead(
+    @CurrentUser("id") userId: string,
+    @Param("id", ParseUUIDPipe) leadId: string,
+  ) {
+    return this.service.deleteLead(userId, leadId);
+  }
+
   @Get("commissions/summary")
   commissionSummary(@CurrentUser("id") userId: string) {
     return this.service.getMyCommissionSummary(userId);

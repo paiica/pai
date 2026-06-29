@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Search, Download, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useLeads } from "@/hooks/useLeads";
 import { LeadBadge } from "@/components/ui/StatusBadge";
 import { TableRowSkeleton } from "@/components/ui/LoadingSkeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatDate, exportToCSV } from "@/lib/utils";
 
-const STATUS_OPTIONS = ["", "invited", "registered", "purchased"] as const;
+const STATUS_OPTIONS = ["", "invited", "registered", "logged_in", "purchased"] as const;
 
 export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { leads, total, totalPages, isLoading } = useLeads({ page, limit: 20, status, search });
+  const { leads, total, totalPages, isLoading, deleteLead } = useLeads({ page, limit: 20, status, search });
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -93,15 +94,16 @@ export default function LeadsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Source</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading
-                ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={6} />)
+                ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={7} />)
                 : leads.length === 0
                 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <EmptyState icon={Users} title="No leads found" description="Try adjusting your filters." className="py-12" />
                     </td>
                   </tr>
@@ -114,6 +116,33 @@ export default function LeadsPage() {
                     <td className="px-4 py-3 text-slate-500 capitalize">{lead.source ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-500">{lead.product_name ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-500">{formatDate(lead.created_at)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {deletingId === lead.id ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-slate-500">Delete?</span>
+                          <button
+                            onClick={async () => { await deleteLead(lead.id); setDeletingId(null); }}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(null)}
+                            className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeletingId(lead.id)}
+                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                          title="Delete lead"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
             </tbody>

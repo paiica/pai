@@ -30,6 +30,11 @@ export function useLeads(params: LeadsParams = {}) {
     { revalidateOnFocus: false }
   );
 
+  async function deleteLead(leadId: string) {
+    await api.delete(`/affiliate/leads/${leadId}`);
+    await mutate();
+  }
+
   return {
     leads: data?.data ?? [],
     total: data?.total ?? 0,
@@ -37,5 +42,6 @@ export function useLeads(params: LeadsParams = {}) {
     isLoading,
     error,
     refresh: mutate,
+    deleteLead,
   };
 }

@@ -681,6 +681,15 @@ export class AffiliateService {
 
   // ── affiliate portal: leads ───────────────────────────────────────────────────
 
+  async deleteLead(userId: string, leadId: string) {
+    const ap = await this.prisma.affiliateProfile.findUnique({ where: { user_id: userId } });
+    if (!ap) throw new NotFoundException("Affiliate profile not found");
+    await this.prisma.affiliateLead.deleteMany({
+      where: { id: leadId, affiliate_id: ap.id },
+    });
+    return { message: "Lead deleted" };
+  }
+
   async getMyLeads(userId: string, { page = 1, limit = 20, status, search }: {
     page: number; limit: number; status?: string; search?: string;
   }) {
