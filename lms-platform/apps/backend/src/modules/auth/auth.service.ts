@@ -21,6 +21,18 @@ import { JwtPayload } from "./strategies/jwt.strategy";
 
 const BCRYPT_ROUNDS = 12;
 
+const FREE_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "outlook.com", "hotmail.com", "hotmail.co.uk", "hotmail.fr", "hotmail.de",
+  "live.com", "live.co.uk", "live.fr", "live.ca",
+  "msn.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.fr", "yahoo.ca", "yahoo.com.au",
+  "icloud.com", "me.com", "mac.com",
+  "aol.com", "aim.com",
+  "protonmail.com", "proton.me",
+  "mail.com", "inbox.com", "zoho.com",
+]);
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -42,8 +54,12 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-    const emailVerifyToken = randomBytes(32).toString("hex");
-    const emailVerifyTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+    const emailDomain = dto.email.toLowerCase().split("@")[1] ?? "";
+    const skipVerification = !FREE_EMAIL_DOMAINS.has(emailDomain);
+
+    const emailVerifyToken = skipVerification ? null : randomBytes(32).toString("hex");
+    const emailVerifyTokenExpiresAt = skipVerification ? null : new Date(Date.now() + 48 * 60 * 60 * 1000);
 
     const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
@@ -56,6 +72,7 @@ export class AuthService {
       data: {
         email: dto.email.toLowerCase(),
         password_hash: passwordHash,
+        email_verified: skipVerification,
         email_verify_token: emailVerifyToken,
         email_verify_token_expires_at: emailVerifyTokenExpiresAt,
         role: isSalesRep ? ("sales_rep" as any) : undefined,
@@ -84,27 +101,50 @@ export class AuthService {
       include: { profile: true },
     });
 
-    this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"})`);
+    this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"}, verified: ${skipVerification})`);
 
-    // Store referral code via raw SQL — Prisma client may not include this column
-    // if it was added after the client was generated (--skip-generate constraint)
-    if (!isSalesRep && dto.referral_code) {
-      await this.prisma.$executeRawUnsafe(
-        `UPDATE lms.users SET pending_referral_code = $1 WHERE id = $2`,
-        dto.referral_code,
-        user.id,
-      );
+    if (skipVerification) {
+      // Custom domain — auto-verified, wire up affiliate lead immediately if referred
+      if (!isSalesRep && dto.referral_code) {
+        const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
+          where: { referral_code: dto.referral_code },
+        });
+        if (affiliateProfile) {
+          const name = `${dto.first_name} ${dto.last_name}`.trim();
+          await this.prisma.affiliateLead.create({
+            data: {
+              affiliate_id: affiliateProfile.id,
+              email: user.email,
+              name: name || undefined,
+              status: "registered" as any,
+            },
+          });
+          await this.prisma.affiliateInvite.updateMany({
+            where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
+            data: { status: "registered" as any },
+          });
+        }
+      }
+    } else {
+      // Free email provider — store referral code via raw SQL and send verification email
+      if (!isSalesRep && dto.referral_code) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE lms.users SET pending_referral_code = $1 WHERE id = $2`,
+          dto.referral_code,
+          user.id,
+        );
+      }
+      const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
+      await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken!, verifyBaseUrl);
     }
-
-    const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
-
-    await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken, verifyBaseUrl);
 
     return {
       user: this.sanitizeUser(user),
       message: isSalesRep
         ? "Application submitted! Your account will be reviewed and approved by our team."
-        : "Account created. Please verify your email to continue.",
+        : skipVerification
+          ? "Account created successfully. You can now log in."
+          : "Account created. Please verify your email to continue.",
     };
   }
 
