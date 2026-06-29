@@ -48,8 +48,7 @@ export class AffiliateService {
   }) {
     const skip = (page - 1) * limit;
     const where: any = {
-      role: "sales_rep" as any,
-      ...(status ? { affiliate_profile: { status: status as AffiliateStatus } } : {}),
+      affiliate_profile: status ? { status: status as AffiliateStatus } : { isNot: null },
       ...(search ? {
         OR: [
           { email: { contains: search, mode: "insensitive" } },
