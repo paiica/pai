@@ -131,8 +131,8 @@ export class UsersController {
   @Patch("bulk/role")
   @Roles(Role.super_admin)
   @ApiOperation({ summary: "Bulk change role (super_admin)" })
-  bulkRole(@Body("ids") ids: string[], @Body("role") role: Role) {
-    return this.usersService.bulkChangeRole(ids, role);
+  bulkRole(@Body() body: { ids: string[]; role: Role; affiliate_access?: boolean }) {
+    return this.usersService.bulkChangeRole(body.ids, body.role, body.affiliate_access);
   }
 
   @Post("bulk/require-password-reset")

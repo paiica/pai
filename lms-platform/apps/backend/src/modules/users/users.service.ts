@@ -318,11 +318,30 @@ export class UsersService {
     return { updated: result.count };
   }
 
-  async bulkChangeRole(ids: string[], role: Role) {
+  async bulkChangeRole(ids: string[], role: Role, affiliateAccess?: boolean) {
     const result = await this.prisma.user.updateMany({
       where: { id: { in: ids } },
       data: { role },
     });
+
+    if (affiliateAccess) {
+      const existing = await this.prisma.affiliateProfile.findMany({
+        where: { user_id: { in: ids } },
+        select: { user_id: true },
+      });
+      const existingIds = new Set(existing.map((a) => a.user_id));
+      const toCreate = ids.filter((id) => !existingIds.has(id));
+      if (toCreate.length > 0) {
+        await this.prisma.affiliateProfile.createMany({
+          data: toCreate.map((user_id) => ({
+            user_id,
+            referral_code: randomBytes(4).toString("hex").toUpperCase(),
+            status: "pending" as any,
+          })),
+        });
+      }
+    }
+
     return { updated: result.count };
   }
 
