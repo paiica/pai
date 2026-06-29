@@ -170,6 +170,20 @@ export class AuthService {
       data: { last_login_at: new Date() },
     });
 
+    // Advance lead status from registered → logged_in on first login
+    if (user.role === "student" as any || user.role === "professor" as any) {
+      const ap = await this.prisma.affiliateProfile.findFirst({
+        where: { leads: { some: { email: user.email, status: "registered" as any } } },
+        select: { id: true },
+      });
+      if (ap) {
+        await this.prisma.affiliateLead.updateMany({
+          where: { affiliate_id: ap.id, email: user.email, status: "registered" as any },
+          data: { status: "logged_in" as any },
+        });
+      }
+    }
+
     this.logger.log(`User logged in: ${user.email}`);
 
     return {

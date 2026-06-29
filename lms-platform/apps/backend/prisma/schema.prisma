@@ -42,6 +42,7 @@ enum AffiliateCommissionStatus {
 enum AffiliateLeadStatus {
   invited
   registered
+  logged_in
   purchased
 
   @@schema("lms")
