@@ -103,37 +103,29 @@ export class AuthService {
 
     this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"}, verified: ${skipVerification})`);
 
-    if (skipVerification) {
-      // Custom domain — auto-verified, wire up affiliate lead immediately if referred
-      if (!isSalesRep && dto.referral_code) {
-        const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
-          where: { referral_code: dto.referral_code },
+    // Wire up affiliate lead immediately for any referred registration
+    if (!isSalesRep && dto.referral_code) {
+      const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
+        where: { referral_code: dto.referral_code },
+      });
+      if (affiliateProfile) {
+        const name = `${dto.first_name} ${dto.last_name}`.trim();
+        await this.prisma.affiliateLead.create({
+          data: {
+            affiliate_id: affiliateProfile.id,
+            email: user.email,
+            name: name || undefined,
+            status: "registered" as any,
+          },
         });
-        if (affiliateProfile) {
-          const name = `${dto.first_name} ${dto.last_name}`.trim();
-          await this.prisma.affiliateLead.create({
-            data: {
-              affiliate_id: affiliateProfile.id,
-              email: user.email,
-              name: name || undefined,
-              status: "registered" as any,
-            },
-          });
-          await this.prisma.affiliateInvite.updateMany({
-            where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
-            data: { status: "registered" as any },
-          });
-        }
+        await this.prisma.affiliateInvite.updateMany({
+          where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
+          data: { status: "registered" as any },
+        });
       }
-    } else {
-      // Free email provider — store referral code via raw SQL and send verification email
-      if (!isSalesRep && dto.referral_code) {
-        await this.prisma.$executeRawUnsafe(
-          `UPDATE lms.users SET pending_referral_code = $1 WHERE id = $2`,
-          dto.referral_code,
-          user.id,
-        );
-      }
+    }
+
+    if (!skipVerification) {
       const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
       await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken!, verifyBaseUrl);
     }
@@ -329,43 +321,58 @@ export class AuthService {
       throw new BadRequestException("Verification link has expired. Please request a new one.");
     }
 
-    // Read pending_referral_code via raw SQL before clearing it
-    const [refRow] = await this.prisma.$queryRawUnsafe<{ pending_referral_code: string | null }[]>(
-      `SELECT pending_referral_code FROM lms.users WHERE id = $1`,
-      user.id,
-    );
-    const pendingReferralCode = refRow?.pending_referral_code ?? null;
+    // Read pending_referral_code via raw SQL (fallback for users who registered before immediate-lead fix)
+    let pendingReferralCode: string | null = null;
+    try {
+      const [refRow] = await this.prisma.$queryRawUnsafe<{ pending_referral_code: string | null }[]>(
+        `SELECT pending_referral_code FROM lms.users WHERE id = $1`,
+        user.id,
+      );
+      pendingReferralCode = refRow?.pending_referral_code ?? null;
+    } catch {
+      // Column may not exist in older DB versions; safe to ignore
+    }
 
     await this.prisma.$executeRawUnsafe(
       `UPDATE lms.users SET email_verified = true, email_verify_token = NULL,
-       email_verify_token_expires_at = NULL, pending_referral_code = NULL WHERE id = $1`,
+       email_verify_token_expires_at = NULL WHERE id = $1`,
       user.id,
     );
 
-    // Wire up affiliate lead now that the email address is confirmed
+    // Fallback: create lead if not already created during registration
     if (pendingReferralCode) {
-      const referralCode = pendingReferralCode;
       const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
-        where: { referral_code: referralCode },
-        include: { user: { include: { profile: true } } },
+        where: { referral_code: pendingReferralCode },
       });
       if (affiliateProfile) {
-        const userProfile = await this.prisma.profile.findUnique({ where: { user_id: user.id } });
-        const name = userProfile
-          ? `${userProfile.first_name ?? ""} ${userProfile.last_name ?? ""}`.trim()
-          : undefined;
-        await this.prisma.affiliateLead.create({
-          data: {
-            affiliate_id: affiliateProfile.id,
-            email: user.email,
-            name: name || undefined,
-            status: "registered" as any,
-          },
+        const existing = await this.prisma.affiliateLead.findFirst({
+          where: { affiliate_id: affiliateProfile.id, email: user.email },
         });
-        await this.prisma.affiliateInvite.updateMany({
-          where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
-          data: { status: "registered" as any },
-        });
+        if (!existing) {
+          const userProfile = await this.prisma.profile.findUnique({ where: { user_id: user.id } });
+          const name = userProfile
+            ? `${userProfile.first_name ?? ""} ${userProfile.last_name ?? ""}`.trim()
+            : undefined;
+          await this.prisma.affiliateLead.create({
+            data: {
+              affiliate_id: affiliateProfile.id,
+              email: user.email,
+              name: name || undefined,
+              status: "registered" as any,
+            },
+          });
+          await this.prisma.affiliateInvite.updateMany({
+            where: { affiliate_id: affiliateProfile.id, email: user.email, status: "pending" as any },
+            data: { status: "registered" as any },
+          });
+        }
+        // Clean up pending_referral_code
+        try {
+          await this.prisma.$executeRawUnsafe(
+            `UPDATE lms.users SET pending_referral_code = NULL WHERE id = $1`,
+            user.id,
+          );
+        } catch { /* ignore */ }
       }
     }
 
