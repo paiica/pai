@@ -167,10 +167,11 @@ export default function UsersPage() {
 
   // Bulk selection
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
-  const [bulkRoleModal, setBulkRoleModal] = useState(false);
+  const [bulkRoleModal, setBulkRoleModal]     = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
-  const [bulkRole, setBulkRole]           = useState<string>("");
-  const [bulkActing, setBulkActing]       = useState(false);
+  const [bulkRole, setBulkRole]               = useState<string>("");
+  const [bulkAffiliate, setBulkAffiliate]     = useState(false);
+  const [bulkActing, setBulkActing]           = useState(false);
 
   // Permissions modal
   const [permissionsModal, setPermissionsModal] = useState<User | null>(null);
@@ -341,7 +342,7 @@ export default function UsersPage() {
     if (!bulkRole) return;
     setBulkActing(true);
     try {
-      const r = await api.patch<any>("/users/bulk/role", { ids: [...selectedIds], role: bulkRole }, accessToken!);
+      const r = await api.patch<any>("/users/bulk/role", { ids: [...selectedIds], role: bulkRole, affiliate_access: bulkAffiliate }, accessToken!);
       toast.success(`Role updated for ${(r as any)?.data?.updated ?? selectedCount} users`);
       setBulkRoleModal(false); setSelectedIds(new Set()); mutate();
     } catch (e: any) { toast.error(e.message ?? "Failed"); }
@@ -648,7 +649,7 @@ export default function UsersPage() {
 
           {isSuperAdmin && (
             <button
-              onClick={() => { setBulkRole(""); setBulkRoleModal(true); }}
+              onClick={() => { setBulkRole(""); setBulkAffiliate(false); setBulkRoleModal(true); }}
               disabled={bulkActing}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
             >
@@ -734,9 +735,9 @@ export default function UsersPage() {
             <p className="text-sm text-slate-500 mb-5">Apply to {selectedCount} selected users</p>
             <RoleMultiSelector
               primaryRole={bulkRole}
-              affiliateAccess={false}
+              affiliateAccess={bulkAffiliate}
               onPrimaryChange={setBulkRole}
-              onAffiliateChange={() => {}}
+              onAffiliateChange={setBulkAffiliate}
             />
             {!bulkRole && (
               <p className="text-xs text-amber-600 mt-3 font-medium">Select a role above to continue.</p>
