@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -10,10 +11,16 @@ import {
   Globe, Archive, Users, Layers, ArrowUp, ArrowDown,
   CheckCircle, Star, Lock, Unlock, ChevronDown, ChevronUp,
   ClipboardList, FlaskConical, Briefcase, BookOpen,
+  Code2, Eye,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const MonacoEditor = dynamic(
+  () => import("@monaco-editor/react").then((m) => m.default),
+  { ssr: false, loading: () => <div className="h-40 bg-slate-50 animate-pulse rounded-lg" /> }
+);
 
 type Tab = "overview" | "build" | "submissions";
 
@@ -260,6 +267,9 @@ function OverviewTab({ assignment, form, setField, saving, onSave }: {
   saving: boolean;
   onSave: () => void;
 }) {
+  const [htmlMode, setHtmlMode] = useState(false);
+  const [preview, setPreview] = useState(false);
+
   return (
     <div className="space-y-5 max-w-2xl">
       {/* Cert info (read-only) */}
@@ -329,13 +339,82 @@ function OverviewTab({ assignment, form, setField, saving, onSave }: {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Instructions</label>
-          <textarea
-            className="input-base h-32 resize-none"
-            placeholder="Detailed instructions shown to students when they open the assignment…"
-            value={form.instructions}
-            onChange={(e) => setField("instructions", e.target.value)}
-          />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-slate-700">Instructions</label>
+            <div className="flex items-center gap-1">
+              {htmlMode && (
+                <button
+                  type="button"
+                  onClick={() => setPreview((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                    preview
+                      ? "bg-navy-100 text-navy-700"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  )}
+                >
+                  <Eye size={11} />
+                  Preview
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setHtmlMode((v) => !v); setPreview(false); }}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                  htmlMode
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                )}
+              >
+                <Code2 size={11} />
+                {htmlMode ? "HTML" : "Plain text"}
+              </button>
+            </div>
+          </div>
+
+          {htmlMode ? (
+            preview ? (
+              <div
+                className="min-h-[200px] rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700 leading-relaxed [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-3 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1 [&_strong]:font-semibold [&_a]:text-navy-600 [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: form.instructions }}
+              />
+            ) : (
+              <div className="rounded-lg overflow-hidden border border-slate-200">
+                <MonacoEditor
+                  height={280}
+                  language="html"
+                  value={form.instructions}
+                  onChange={(v) => setField("instructions", v ?? "")}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: "off",
+                    wordWrap: "on",
+                    scrollBeyondLastLine: false,
+                    padding: { top: 10, bottom: 10 },
+                    folding: false,
+                    glyphMargin: false,
+                    lineDecorationsWidth: 8,
+                    renderLineHighlight: "none",
+                    overviewRulerLanes: 0,
+                  }}
+                />
+              </div>
+            )
+          ) : (
+            <textarea
+              className="input-base h-40 resize-y"
+              placeholder="Detailed instructions shown to students when they open the assignment…"
+              value={form.instructions}
+              onChange={(e) => setField("instructions", e.target.value)}
+            />
+          )}
+          <p className="text-[11px] text-slate-400 mt-1">
+            {htmlMode
+              ? "Write HTML. Use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;strong&gt;, etc."
+              : "Switch to HTML mode for rich formatting."}
+          </p>
         </div>
       </div>
 

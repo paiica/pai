@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -102,6 +103,15 @@ export class UsersController {
     res.send(csv);
   }
 
+  // ── Admin invitation (static route — must be before /:id) ────────────────────
+
+  @Post("invite-admin")
+  @Roles(Role.super_admin)
+  @ApiOperation({ summary: "Invite a new admin user with tab permissions (super_admin)" })
+  inviteAdmin(@Body() dto: { email: string; first_name: string; last_name: string; tabs: string[] }) {
+    return this.usersService.inviteAdmin(dto);
+  }
+
   // ── Bulk endpoints (must be before /:id to avoid NestJS route conflicts) ──────
 
   @Patch("bulk/activate")
@@ -182,5 +192,24 @@ export class UsersController {
   @ApiOperation({ summary: "Hard delete a user (super_admin only)" })
   deleteUser(@Param("id", ParseUUIDPipe) id: string) {
     return this.usersService.deleteUser(id);
+  }
+
+  // ── Admin Permissions ────────────────────────────────────────────────────────
+
+  @Get(":id/admin-permissions")
+  @Roles(Role.super_admin)
+  @ApiOperation({ summary: "Get admin tab permissions for a user (super_admin)" })
+  getAdminPermissions(@Param("id", ParseUUIDPipe) id: string) {
+    return this.usersService.getAdminPermissions(id);
+  }
+
+  @Put(":id/admin-permissions")
+  @Roles(Role.super_admin)
+  @ApiOperation({ summary: "Set admin tab permissions for a user (super_admin)" })
+  setAdminPermissions(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body("tabs") tabs: string[],
+  ) {
+    return this.usersService.setAdminPermissions(id, tabs);
   }
 }

@@ -6,9 +6,11 @@ import toast from "react-hot-toast";
 import {
   Users, Search, Download, MoreHorizontal, Shield, Ban, KeyRound,
   Trash2, Check, ChevronLeft, ChevronRight, Loader2, UserCheck, X,
+  ShieldCheck, UserPlus, Lock,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
+import { ADMIN_TAB_KEYS, ADMIN_TAB_META } from "@/components/layout/AdminSidebar";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -86,10 +88,65 @@ function Checkbox({ checked, indeterminate, onChange, className = "" }: {
   );
 }
 
+// ── Tab Permission Picker ─────────────────────────────────────────────────────
+
+function TabPermissionPicker({ value, onChange }: {
+  value: string[];
+  onChange: (tabs: string[]) => void;
+}) {
+  function toggle(key: string) {
+    onChange(value.includes(key) ? value.filter((k) => k !== key) : [...value, key]);
+  }
+  function selectAll() { onChange([...ADMIN_TAB_KEYS]); }
+  function clearAll() { onChange([]); }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-slate-500">Select which sections this admin can access</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={selectAll} className="text-xs text-navy-600 hover:underline">All</button>
+          <span className="text-xs text-slate-300">|</span>
+          <button type="button" onClick={clearAll} className="text-xs text-slate-500 hover:underline">None</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+        {ADMIN_TAB_KEYS.map((key) => {
+          const meta = ADMIN_TAB_META[key];
+          const selected = value.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggle(key)}
+              className={`flex items-start gap-2.5 p-2.5 rounded-xl border-2 text-left transition-all ${
+                selected ? "border-navy-700 bg-navy-50" : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className={`w-4 h-4 rounded shrink-0 mt-0.5 flex items-center justify-center border-2 ${
+                selected ? "border-navy-700 bg-navy-700" : "border-slate-300"
+              }`}>
+                {selected && <Check size={10} className="text-white" />}
+              </div>
+              <div className="min-w-0">
+                <div className={`text-xs font-semibold truncate ${selected ? "text-navy-900" : "text-slate-700"}`}>
+                  {meta.label}
+                </div>
+                <div className="text-[10px] text-slate-400 truncate">{meta.description}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { accessToken } = useAuthStore();
+  const { accessToken, user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === "super_admin";
 
   // Filters & pagination
   const [q, setQ]                 = useState("");
@@ -112,6 +169,20 @@ export default function UsersPage() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
   const [bulkRole, setBulkRole]           = useState<string>("");
   const [bulkActing, setBulkActing]       = useState(false);
+
+  // Permissions modal
+  const [permissionsModal, setPermissionsModal] = useState<User | null>(null);
+  const [permTabs, setPermTabs]                 = useState<string[]>([]);
+  const [permLoading, setPermLoading]           = useState(false);
+  const [permSaving, setPermSaving]             = useState(false);
+
+  // Invite admin modal
+  const [inviteModal, setInviteModal]   = useState(false);
+  const [inviteEmail, setInviteEmail]   = useState("");
+  const [inviteFirst, setInviteFirst]   = useState("");
+  const [inviteLast, setInviteLast]     = useState("");
+  const [inviteTabs, setInviteTabs]     = useState<string[]>([]);
+  const [inviting, setInviting]         = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -285,6 +356,57 @@ export default function UsersPage() {
     finally { setBulkActing(false); }
   }
 
+  // ── Permissions modal ──────────────────────────────────────────────────────
+  async function openPermissions(u: User) {
+    setOpenMenu(null);
+    setPermissionsModal(u);
+    setPermTabs([]);
+    setPermLoading(true);
+    try {
+      const r = await api.get<any>(`/users/${u.id}/admin-permissions`, accessToken!);
+      setPermTabs((r as any)?.data?.tabs ?? []);
+    } catch { toast.error("Could not load permissions"); }
+    finally { setPermLoading(false); }
+  }
+
+  async function savePermissions() {
+    if (!permissionsModal) return;
+    setPermSaving(true);
+    try {
+      await api.put(`/users/${permissionsModal.id}/admin-permissions`, { tabs: permTabs }, accessToken!);
+      toast.success("Permissions saved");
+      setPermissionsModal(null);
+    } catch (e: any) { toast.error(e.message ?? "Failed to save permissions"); }
+    finally { setPermSaving(false); }
+  }
+
+  // ── Invite admin modal ─────────────────────────────────────────────────────
+  function openInvite() {
+    setInviteEmail(""); setInviteFirst(""); setInviteLast(""); setInviteTabs([]);
+    setInviteModal(true);
+  }
+
+  async function handleInviteAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !inviteFirst.trim() || !inviteLast.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    setInviting(true);
+    try {
+      await api.post("/users/invite-admin", {
+        email: inviteEmail.trim(),
+        first_name: inviteFirst.trim(),
+        last_name: inviteLast.trim(),
+        tabs: inviteTabs,
+      }, accessToken!);
+      toast.success("Admin invited — password setup email sent");
+      setInviteModal(false);
+      mutate();
+    } catch (e: any) { toast.error(e.message ?? "Failed to invite admin"); }
+    finally { setInviting(false); }
+  }
+
   return (
     <div className="p-6 lg:p-8 max-w-[1400px]">
 
@@ -294,10 +416,18 @@ export default function UsersPage() {
           <h1 className="text-2xl font-display font-black text-navy-900">Users</h1>
           <p className="text-slate-500 text-sm mt-0.5">{meta.total} accounts in the system</p>
         </div>
-        <button onClick={handleExport} disabled={exporting} className="btn-outline disabled:opacity-60">
-          {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-          Export to Excel
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isSuperAdmin && (
+            <button onClick={openInvite} className="btn-primary">
+              <UserPlus size={15} />
+              Invite Admin
+            </button>
+          )}
+          <button onClick={handleExport} disabled={exporting} className="btn-outline disabled:opacity-60">
+            {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            Export to Excel
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -399,9 +529,14 @@ export default function UsersPage() {
 
                     {/* Role */}
                     <td className="px-4 py-3">
-                      <span className={`badge ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}>
-                        {ROLE_LABELS[u.role] ?? u.role}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`badge ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}>
+                          {ROLE_LABELS[u.role] ?? u.role}
+                        </span>
+                        {u.role === "admin" && (
+                          <ShieldCheck size={13} className="text-purple-400" />
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{u.phone || "—"}</td>
@@ -428,11 +563,19 @@ export default function UsersPage() {
                         <MoreHorizontal size={15} />
                       </button>
                       {openMenu === u.id && (
-                        <div className="absolute right-4 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
-                          <button onClick={() => { setRoleModal(u); setNewRole(u.role); setOpenMenu(null); }}
-                            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
-                            <Shield size={14} className="text-purple-500 shrink-0" /> Change Role
-                          </button>
+                        <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
+                          {isSuperAdmin && (
+                            <button onClick={() => { setRoleModal(u); setNewRole(u.role); setOpenMenu(null); }}
+                              className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
+                              <Shield size={14} className="text-purple-500 shrink-0" /> Change Role
+                            </button>
+                          )}
+                          {isSuperAdmin && u.role === "admin" && (
+                            <button onClick={() => openPermissions(u)}
+                              className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
+                              <Lock size={14} className="text-indigo-500 shrink-0" /> Manage Permissions
+                            </button>
+                          )}
                           <button onClick={() => toggleActive(u)}
                             className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
                             {u.is_active
@@ -444,11 +587,15 @@ export default function UsersPage() {
                             className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
                             <KeyRound size={14} className="text-blue-500 shrink-0" /> Require Password Reset
                           </button>
-                          <div className="mx-3 my-1 border-t border-slate-100" />
-                          <button onClick={() => { setDeleteModal(u); setOpenMenu(null); }}
-                            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-red-600">
-                            <Trash2 size={14} className="shrink-0" /> Delete User
-                          </button>
+                          {isSuperAdmin && (
+                            <>
+                              <div className="mx-3 my-1 border-t border-slate-100" />
+                              <button onClick={() => { setDeleteModal(u); setOpenMenu(null); }}
+                                className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-red-600">
+                                <Trash2 size={14} className="shrink-0" /> Delete User
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </td>
@@ -488,13 +635,15 @@ export default function UsersPage() {
           </span>
           <div className="w-px h-5 bg-white/20 mx-1" />
 
-          <button
-            onClick={() => { setBulkRole(""); setBulkRoleModal(true); }}
-            disabled={bulkActing}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
-          >
-            <Shield size={13} /> Change Role
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => { setBulkRole(""); setBulkRoleModal(true); }}
+              disabled={bulkActing}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+            >
+              <Shield size={13} /> Change Role
+            </button>
+          )}
 
           <button
             onClick={bulkActivate}
@@ -520,13 +669,15 @@ export default function UsersPage() {
             <KeyRound size={13} /> Send Reset
           </button>
 
-          <button
-            onClick={() => setBulkDeleteModal(true)}
-            disabled={bulkActing}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 text-red-300"
-          >
-            <Trash2 size={13} /> Delete
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setBulkDeleteModal(true)}
+              disabled={bulkActing}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 text-red-300"
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
 
           {bulkActing && <Loader2 size={14} className="animate-spin text-white/60" />}
 
@@ -610,6 +761,123 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* ── Manage Permissions Modal ───────────────────────────────────────────── */}
+      {permissionsModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div className="flex items-start justify-between mb-1">
+              <h3 className="font-display font-black text-navy-900 text-lg">Admin Permissions</h3>
+              <button onClick={() => setPermissionsModal(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5 truncate">{permissionsModal.email}</p>
+
+            {permLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-navy-400" />
+              </div>
+            ) : (
+              <TabPermissionPicker value={permTabs} onChange={setPermTabs} />
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setPermissionsModal(null)} className="btn-outline flex-1 justify-center">Cancel</button>
+              <button
+                onClick={savePermissions}
+                disabled={permSaving || permLoading}
+                className="btn-primary flex-1 justify-center disabled:opacity-60"
+              >
+                {permSaving && <Loader2 size={15} className="animate-spin" />}
+                Save Permissions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invite Admin Modal ─────────────────────────────────────────────────── */}
+      {inviteModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-1">
+              <h3 className="font-display font-black text-navy-900 text-lg">Invite Admin</h3>
+              <button onClick={() => setInviteModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">
+              Create a new admin account. They'll receive an email to set their password.
+            </p>
+
+            <form onSubmit={handleInviteAdmin} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={inviteFirst}
+                    onChange={(e) => setInviteFirst(e.target.value)}
+                    placeholder="Jane"
+                    required
+                    className="input-base text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={inviteLast}
+                    onChange={(e) => setInviteLast(e.target.value)}
+                    placeholder="Smith"
+                    required
+                    className="input-base text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  required
+                  className="input-base text-sm"
+                />
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-xs font-semibold text-slate-700 mb-3">Tab Permissions</p>
+                <TabPermissionPicker value={inviteTabs} onChange={setInviteTabs} />
+              </div>
+
+              {inviteTabs.length === 0 && (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                  <p className="text-xs text-amber-700 font-medium">
+                    No tabs selected — this admin will only see the dashboard.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setInviteModal(false)} className="btn-outline flex-1 justify-center">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  className="btn-primary flex-1 justify-center disabled:opacity-60"
+                >
+                  {inviting ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />}
+                  Send Invite
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -634,6 +902,9 @@ function RoleSelector({ value, onChange }: { value: string; onChange: (r: string
             </span>
             {r === "super_admin" && (
               <span className="ml-2 text-[10px] text-red-500 font-semibold">Full access</span>
+            )}
+            {r === "admin" && (
+              <span className="ml-2 text-[10px] text-indigo-500 font-semibold">Restricted access</span>
             )}
           </div>
         </button>

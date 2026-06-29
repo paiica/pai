@@ -352,7 +352,17 @@ export class AuthService {
     });
 
     if (!user) throw new NotFoundException("User not found");
-    return this.sanitizeUser(user);
+    const sanitized = this.sanitizeUser(user);
+
+    if (user.role === "admin") {
+      const rows = await this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT tabs FROM lms.admin_permissions WHERE user_id = $1`,
+        userId,
+      );
+      return { ...sanitized, admin_tabs: rows[0]?.tabs ?? [] };
+    }
+
+    return sanitized;
   }
 
   async verifyExamLink(linkToken: string) {

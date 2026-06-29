@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -11,11 +12,16 @@ import {
   ChevronDown, ChevronRight, Save, Upload, GripVertical,
   BookOpen, Clock, Search, AlertCircle, Loader2, Settings,
   ArrowLeft, ArrowRight, CheckCircle, FileQuestion, Paperclip,
-  Sparkles,
+  Sparkles, Code2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const MonacoEditor = dynamic(
+  () => import("@monaco-editor/react").then((m) => m.default),
+  { ssr: false, loading: () => <div className="h-48 bg-slate-50 animate-pulse rounded-lg" /> }
+);
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -601,6 +607,8 @@ function AssignmentEditor({ lesson, courseId, moduleId, token, onSaved }: { less
   const [allowText, setAllowText] = useState(lesson.allow_text_response ?? true);
   const [wordLimit, setWordLimit] = useState<number | "">(lesson.text_word_limit ?? "");
   const [saving, setSaving] = useState(false);
+  const [htmlMode, setHtmlMode] = useState(() => (lesson.content ?? "").trim().startsWith("<"));
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
     setDesc(lesson.content ?? "");
@@ -608,6 +616,8 @@ function AssignmentEditor({ lesson, courseId, moduleId, token, onSaved }: { less
     setDueDate(lesson.due_date ? lesson.due_date.split("T")[0] : "");
     setAllowText(lesson.allow_text_response ?? true);
     setWordLimit(lesson.text_word_limit ?? "");
+    setHtmlMode((lesson.content ?? "").trim().startsWith("<"));
+    setPreview(false);
   }, [lesson.id, lesson.content]);
 
   async function save() {
@@ -628,8 +638,84 @@ function AssignmentEditor({ lesson, courseId, moduleId, token, onSaved }: { less
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Assignment Instructions</label>
-        <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full h-40 input-base resize-none text-sm leading-relaxed" placeholder="Describe what students need to do…" />
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Assignment Instructions</label>
+          <div className="flex items-center gap-1">
+            {htmlMode && (
+              <button
+                type="button"
+                onClick={() => setPreview((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                  preview ? "bg-navy-100 text-navy-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                )}
+              >
+                <Eye size={11} /> {preview ? "Editor" : "Preview"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setHtmlMode((v) => !v); setPreview(false); }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                htmlMode ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              )}
+            >
+              <Code2 size={11} /> {htmlMode ? "HTML" : "Plain text"}
+            </button>
+          </div>
+        </div>
+
+        {/* Editor */}
+        {htmlMode ? (
+          preview ? (
+            <div
+              className="min-h-[180px] rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 leading-relaxed
+                [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-2
+                [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-4
+                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-3
+                [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1
+                [&_strong]:font-semibold [&_a]:text-navy-600 [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: desc }}
+            />
+          ) : (
+            <div className="rounded-xl overflow-hidden border border-slate-200">
+              <MonacoEditor
+                height={260}
+                language="html"
+                value={desc}
+                onChange={(v) => setDesc(v ?? "")}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  lineNumbers: "off",
+                  wordWrap: "on",
+                  scrollBeyondLastLine: false,
+                  padding: { top: 10, bottom: 10 },
+                  folding: false,
+                  glyphMargin: false,
+                  lineDecorationsWidth: 8,
+                  renderLineHighlight: "none",
+                  overviewRulerLanes: 0,
+                }}
+              />
+            </div>
+          )
+        ) : (
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            className="w-full h-40 input-base resize-y text-sm leading-relaxed"
+            placeholder="Describe what students need to do…"
+          />
+        )}
+        <p className="text-[11px] text-slate-400 mt-1">
+          {htmlMode
+            ? "HTML mode — use <h2>, <p>, <ul>, <ol>, <li>, <strong> tags for rich formatting."
+            : "Switch to HTML mode for rich formatting with headings, lists, and bold text."}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -984,7 +1070,14 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
                 {lesson.content && (
                   <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl">
                     <p className="font-semibold text-amber-800 text-sm mb-2">Instructions</p>
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
+                    {(lesson.content as string).trim().startsWith("<") ? (
+                      <div
+                        className="text-sm text-slate-700 leading-relaxed [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-1 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:font-semibold"
+                        dangerouslySetInnerHTML={{ __html: lesson.content as string }}
+                      />
+                    ) : (
+                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
+                    )}
                   </div>
                 )}
                 {(lesson.max_score || lesson.due_date) && (

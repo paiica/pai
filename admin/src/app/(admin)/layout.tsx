@@ -1,12 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import AdminSidebar from "@/components/layout/AdminSidebar";
 import { useAuthStore } from "@/store/auth.store";
+import { type AdminTabKey } from "@/components/layout/AdminSidebar";
+
+// Map each admin route prefix → tab key
+const ROUTE_TAB_MAP: Array<{ prefix: string; tab: AdminTabKey }> = [
+  { prefix: "/applications",  tab: "applications"   },
+  { prefix: "/assignments",   tab: "assignments"    },
+  { prefix: "/exam-sessions", tab: "exam_sessions"  },
+  { prefix: "/users",         tab: "users"          },
+  { prefix: "/blog",          tab: "blog"           },
+  { prefix: "/pages",         tab: "pages"          },
+  { prefix: "/online-tools",  tab: "online_tools"   },
+  { prefix: "/affiliates",    tab: "sales"          },
+  { prefix: "/commissions",   tab: "sales"          },
+  { prefix: "/promo-codes",   tab: "sales"          },
+  { prefix: "/payments",      tab: "payments"       },
+  { prefix: "/courses",       tab: "prep_courses"   },
+  { prefix: "/certifications",tab: "certificates"   },
+  { prefix: "/certificates",  tab: "certificates"   },
+  { prefix: "/design",        tab: "design"         },
+  { prefix: "/settings",      tab: "settings"       },
+];
+
+function getTabForPath(pathname: string): AdminTabKey | null {
+  for (const { prefix, tab } of ROUTE_TAB_MAP) {
+    if (pathname === prefix || pathname.startsWith(prefix + "/")) return tab;
+  }
+  return null;
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { accessToken, _hasHydrated, fetchMe, user } = useAuthStore();
 
   useEffect(() => {
@@ -19,8 +48,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!user) return;
     if (user.role !== "admin" && user.role !== "super_admin") {
       router.replace("/dashboard");
+      return;
     }
-  }, [user, router]);
+
+    // Tab-level access guard for non-super-admins
+    if (user.role === "admin") {
+      const tabForPath = getTabForPath(pathname);
+      if (tabForPath) {
+        const allowed = user.admin_tabs ?? [];
+        if (!allowed.includes(tabForPath)) {
+          router.replace("/dashboard");
+        }
+      }
+    }
+  }, [user, router, pathname]);
 
   if (!_hasHydrated || !accessToken) {
     return (

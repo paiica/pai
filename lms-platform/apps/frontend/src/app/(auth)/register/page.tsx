@@ -88,13 +88,13 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 size={28} className="text-emerald-500" />
+      <div className="bg-white p-8 text-center" style={{ borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#f0fdfa", border: "1px solid #ccfbf1" }}>
+          <CheckCircle2 size={28} style={{ color: "#14b8a6" }} />
         </div>
-        <h2 className="text-xl font-display font-black text-navy-900 mb-2">Account Created!</h2>
-        <p className="text-slate-500 text-sm mb-5">
-          We&apos;ve sent a verification email to <strong>{form.email}</strong>.
+        <h2 className="text-xl font-display font-black mb-2" style={{ color: "#171527" }}>Account Created!</h2>
+        <p className="text-sm mb-5" style={{ color: "#948e84" }}>
+          We&apos;ve sent a verification email to <strong style={{ color: "#171527" }}>{form.email}</strong>.
           Please verify your email to access your learning portal.
         </p>
         <Link href="/login" className="btn-primary !py-3 w-full justify-center">
@@ -105,9 +105,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl p-8">
-      <h1 className="text-2xl font-display font-black text-navy-900 mb-1">Create Account</h1>
-      <p className="text-slate-500 text-sm mb-6">Join the PAI learning community</p>
+    <div className="bg-white p-8" style={{ borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.05)" }}>
+      <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>Create Account</h1>
+      <p className="text-sm mb-6" style={{ color: "#948e84" }}>Join the PAI learning community</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name */}

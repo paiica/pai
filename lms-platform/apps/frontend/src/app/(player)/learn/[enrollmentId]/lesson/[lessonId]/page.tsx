@@ -431,9 +431,17 @@ function AssignmentLesson({
       {(lesson.content_body || lesson.description) && (
         <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl">
           <p className="font-semibold text-amber-800 text-sm mb-2">Instructions</p>
-          <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-            {lesson.content_body || lesson.description}
-          </div>
+          {(() => {
+            const body: string = lesson.content_body || lesson.description || "";
+            return body.trim().startsWith("<") ? (
+              <div
+                className="text-sm text-slate-700 leading-relaxed [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-1 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:font-semibold"
+                dangerouslySetInnerHTML={{ __html: body }}
+              />
+            ) : (
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{body}</div>
+            );
+          })()}
         </div>
       )}
 

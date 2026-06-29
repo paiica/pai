@@ -7,7 +7,8 @@ import { Eye, EyeOff, Loader2, ArrowRight, CheckCircle2, ShieldCheck } from "luc
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/auth.store";
 
-const inputCls = "w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-navy-500 focus:bg-white focus:ring-4 focus:ring-navy-500/10 transition-all";
+const inputCls =
+  "w-full h-12 px-4 rounded-lg border border-sand-300 bg-white text-ink-900 placeholder:text-sand-500 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all text-sm";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -53,21 +54,19 @@ export default function RegisterPage() {
   if (done) {
     return (
       <div className="text-center py-4">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: "linear-gradient(135deg, #d1fae5, #a7f3d0)" }}>
-          <CheckCircle2 size={32} className="text-emerald-600" />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 bg-teal-50 border border-teal-100">
+          <CheckCircle2 size={32} className="text-teal-500" />
         </div>
-        <h2 className="text-xl font-black text-navy-900 mb-2">Application Submitted!</h2>
-        <p className="text-sm text-slate-500 mb-2">
-          We've sent a verification email to <strong className="text-slate-700">{form.email}</strong>.
+        <h2 className="text-xl font-extrabold text-ink-900 mb-2">Application Submitted!</h2>
+        <p className="text-sm text-sand-500 mb-2">
+          We&rsquo;ve sent a verification email to <strong className="text-ink-700">{form.email}</strong>.
         </p>
-        <p className="text-sm text-slate-500 mb-8">
+        <p className="text-sm text-sand-500 mb-8">
           Once verified, our team will review your application and notify you upon approval.
         </p>
         <Link
           href="/login"
-          className="w-full h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all"
-          style={{ background: "linear-gradient(135deg, #0f2347, #1a3a6b)" }}
+          className="w-full h-12 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all bg-teal-500 hover:bg-teal-400 shadow-teal no-underline"
         >
           Go to Sign In <ArrowRight size={16} />
         </Link>
@@ -77,74 +76,65 @@ export default function RegisterPage() {
 
   return (
     <>
-      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-navy-900 tracking-tight mb-1">Become an Affiliate</h1>
-        <p className="text-sm text-slate-500">Apply to join the PAI sales partner program</p>
+        <h1 className="text-2xl font-extrabold text-ink-900 tracking-tight mb-1">Become an Affiliate</h1>
+        <p className="text-sm text-sand-500">Apply to join the PAI sales partner program</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Name row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">First Name</label>
+            <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">First Name</label>
             <input className={inputCls} placeholder="John" value={form.first_name} onChange={(e) => setField("first_name", e.target.value)} required />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Last Name</label>
+            <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">Last Name</label>
             <input className={inputCls} placeholder="Smith" value={form.last_name} onChange={(e) => setField("last_name", e.target.value)} required />
           </div>
         </div>
 
-        {/* Email */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Email Address</label>
+          <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">Email Address</label>
           <input className={inputCls} type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setField("email", e.target.value)} required autoComplete="email" />
         </div>
 
-        {/* Phone */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">
-            Phone <span className="normal-case font-normal text-slate-400">(optional)</span>
+          <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">
+            Phone <span className="normal-case font-normal text-sand-400">(optional)</span>
           </label>
           <input className={inputCls} type="tel" placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
         </div>
 
-        {/* Password */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Password</label>
+          <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">Password</label>
           <div className="relative">
             <input className={`${inputCls} pr-12`} type={showPw ? "text" : "password"} placeholder="Min. 8 characters" value={form.password} onChange={(e) => setField("password", e.target.value)} required autoComplete="new-password" />
-            <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1">
+            <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sand-400 hover:text-ink-600 transition-colors p-1">
               {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
 
-        {/* Confirm password */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Confirm Password</label>
+          <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wide">Confirm Password</label>
           <input className={inputCls} type={showPw ? "text" : "password"} placeholder="Re-enter password" value={form.confirm_password} onChange={(e) => setField("confirm_password", e.target.value)} required autoComplete="new-password" />
           {form.confirm_password && form.password !== form.confirm_password && (
             <p className="text-xs text-red-500 font-medium">Passwords do not match</p>
           )}
         </div>
 
-        {/* Review notice */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-navy-50 border border-navy-100">
-          <ShieldCheck size={16} className="text-navy-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-navy-700 leading-relaxed">
-            Your application will be reviewed by our team. You'll receive an email once approved — typically within 1–2 business days.
+        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-teal-50 border border-teal-100">
+          <ShieldCheck size={16} className="text-teal-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-teal-800 leading-relaxed">
+            Your application will be reviewed by our team. You&rsquo;ll receive an email once approved — typically within 1–2 business days.
           </p>
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-70"
-          style={{ background: isLoading ? "#374151" : "linear-gradient(135deg, #0f2347, #1a3a6b)" }}
+          className="w-full h-12 rounded-lg font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all shadow-teal disabled:opacity-60 bg-teal-500 hover:bg-teal-400 disabled:bg-ink-400"
         >
           {isLoading
             ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
@@ -152,16 +142,15 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      {/* Divider */}
       <div className="flex items-center gap-3 my-5">
-        <div className="flex-1 h-px bg-slate-100" />
-        <span className="text-xs text-slate-400 font-medium">Already a member?</span>
-        <div className="flex-1 h-px bg-slate-100" />
+        <div className="flex-1 h-px bg-sand-200" />
+        <span className="text-xs text-sand-400 font-medium">Already a member?</span>
+        <div className="flex-1 h-px bg-sand-200" />
       </div>
 
       <Link
         href="/login"
-        className="w-full h-12 rounded-xl font-bold text-sm text-navy-800 border-2 border-slate-200 flex items-center justify-center gap-2 hover:border-navy-300 hover:bg-navy-50 transition-all"
+        className="w-full h-12 rounded-lg font-semibold text-sm text-ink-800 border-2 border-sand-300 flex items-center justify-center gap-2 hover:border-teal-400 hover:text-teal-700 transition-all no-underline"
       >
         Sign In to Dashboard
       </Link>

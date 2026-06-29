@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 
+const cardCls = { borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" };
+
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -19,11 +21,11 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+      <div className="bg-white p-8 text-center" style={cardCls}>
         <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <AlertCircle size={28} className="text-red-400" />
         </div>
-        <h2 className="text-xl font-display font-black text-navy-900 mb-2">Invalid link</h2>
+        <h2 className="text-xl font-display font-black text-ink-900 mb-2">Invalid link</h2>
         <p className="text-slate-500 text-sm mb-6">This password reset link is missing or malformed.</p>
         <Link href="/forgot-password" className="btn-primary !py-3 w-full justify-center">
           Request a new link
@@ -34,11 +36,11 @@ function ResetPasswordContent() {
 
   if (done) {
     return (
-      <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 size={28} className="text-emerald-500" />
+      <div className="bg-white p-8 text-center" style={cardCls}>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#f0fdfa", border: "1px solid #ccfbf1" }}>
+          <CheckCircle2 size={28} style={{ color: "#14b8a6" }} />
         </div>
-        <h2 className="text-xl font-display font-black text-navy-900 mb-2">Password updated</h2>
+        <h2 className="text-xl font-display font-black text-ink-900 mb-2">Password updated</h2>
         <p className="text-slate-500 text-sm mb-6">Your password has been reset. You can now sign in.</p>
         <Link href="/login" className="btn-primary !py-3 w-full justify-center">
           Sign In
@@ -63,8 +65,8 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl p-8">
-      <h1 className="text-2xl font-display font-black text-navy-900 mb-1">Set new password</h1>
+    <div className="bg-white p-8" style={cardCls}>
+      <h1 className="text-2xl font-display font-black text-ink-900 mb-1">Set new password</h1>
       <p className="text-slate-500 text-sm mb-6">Choose a strong password for your PAI account.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">

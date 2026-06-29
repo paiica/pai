@@ -8,6 +8,7 @@ interface UserProfile {
   id: string;
   email: string;
   role: "super_admin" | "admin";
+  admin_tabs?: string[];
   profile?: {
     first_name: string;
     last_name: string;

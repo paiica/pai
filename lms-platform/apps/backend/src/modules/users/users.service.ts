@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ConflictException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
@@ -346,5 +346,62 @@ export class UsersService {
       }
       throw err;
     }
+  }
+
+  // ── Admin Permissions ────────────────────────────────────────────────────────
+
+  async getAdminPermissions(userId: string) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT tabs FROM lms.admin_permissions WHERE user_id = $1`,
+      userId,
+    );
+    return { tabs: rows[0]?.tabs ?? [] };
+  }
+
+  async setAdminPermissions(userId: string, tabs: string[]) {
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO lms.admin_permissions (user_id, tabs)
+       VALUES ($1, $2::text[])
+       ON CONFLICT (user_id) DO UPDATE SET tabs = $2::text[], updated_at = NOW()`,
+      userId,
+      tabs,
+    );
+    return { tabs };
+  }
+
+  async inviteAdmin(dto: { email: string; first_name: string; last_name: string; tabs: string[] }) {
+    const { email, first_name, last_name, tabs } = dto;
+    const normalized = email.toLowerCase().trim();
+
+    const existing = await this.prisma.user.findUnique({ where: { email: normalized } });
+    if (existing) {
+      throw new ConflictException(
+        "A user with this email already exists. Change their role to Admin instead.",
+      );
+    }
+
+    const tempPassword = randomBytes(16).toString("hex");
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: normalized,
+        password_hash: passwordHash,
+        role: Role.admin,
+        email_verified: true,
+        profile: {
+          create: { first_name, last_name, display_name: `${first_name} ${last_name}`, pai_id: paiId },
+        },
+      },
+    });
+
+    if (tabs.length > 0) {
+      await this.setAdminPermissions(user.id, tabs);
+    }
+
+    await this.requirePasswordReset(user.id);
+
+    return { id: user.id, email: user.email, message: "Admin invited — password setup email sent." };
   }
 }
