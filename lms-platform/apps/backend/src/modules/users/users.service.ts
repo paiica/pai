@@ -61,7 +61,8 @@ export class UsersService {
     const [rows, countRows] = await Promise.all([
       this.prisma.$queryRawUnsafe<any[]>(`
         SELECT u.id, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
-               p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth, p.pai_id
+               p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth, p.pai_id,
+               EXISTS (SELECT 1 FROM lms.affiliate_profiles ap WHERE ap.user_id = u.id) AS has_affiliate
         FROM lms.users u
         LEFT JOIN lms.profiles p ON p.user_id = u.id
         ${where}
@@ -277,15 +278,15 @@ export class UsersService {
     return { message: "Password changed successfully" };
   }
 
-  async changeRole(userId: string, role: Role) {
+  async changeRole(userId: string, role: Role, affiliateAccess?: boolean) {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
       select: { id: true, email: true, role: true },
     });
 
-    // When promoting to sales_rep, ensure an affiliate_profile exists
-    if (role === ("sales_rep" as Role)) {
+    const wantsAffiliate = affiliateAccess ?? (role === ("sales_rep" as Role));
+    if (wantsAffiliate) {
       const existing = await this.prisma.affiliateProfile.findUnique({ where: { user_id: userId } });
       if (!existing) {
         await this.prisma.affiliateProfile.create({

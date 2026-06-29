@@ -162,8 +162,8 @@ export class UsersController {
   @Patch(":id/role")
   @Roles(Role.super_admin)
   @ApiOperation({ summary: "Change user role (super_admin)" })
-  changeRole(@Param("id", ParseUUIDPipe) id: string, @Body("role") role: Role) {
-    return this.usersService.changeRole(id, role);
+  changeRole(@Param("id", ParseUUIDPipe) id: string, @Body() body: { role: Role; affiliate_access?: boolean }) {
+    return this.usersService.changeRole(id, body.role, body.affiliate_access);
   }
 
   @Patch(":id/deactivate")
