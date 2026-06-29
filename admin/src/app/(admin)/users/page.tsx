@@ -463,8 +463,7 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="card">
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -627,25 +626,24 @@ export default function UsersPage() {
               })}
             </tbody>
           </table>
-        </div>
-
-        {/* Pagination */}
-        {meta.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">Page {page} of {meta.totalPages} · {meta.total} users</p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
-                <ChevronLeft size={14} />
-              </button>
-              <button onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page >= meta.totalPages}
-                className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Pagination */}
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 mt-2">
+          <p className="text-xs text-slate-500">Page {page} of {meta.totalPages} · {meta.total} users</p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+              className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
+              <ChevronLeft size={14} />
+            </button>
+            <button onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page >= meta.totalPages}
+              className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
 
       {/* ── Bulk Action Bar ────────────────────────────────────────────────────── */}
