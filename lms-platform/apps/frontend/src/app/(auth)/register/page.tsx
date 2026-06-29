@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
@@ -36,10 +36,9 @@ const COUNTRIES = [
   "Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe",
 ];
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const referralCode = searchParams.get("ref") ?? undefined;
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [showPw, setShowPw] = useState(false);
@@ -57,6 +56,18 @@ export default function RegisterPage() {
     confirm_password: "",
   });
 
+  // Persist referral code to sessionStorage so it survives any navigation
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      sessionStorage.setItem("paii_ref", ref);
+    }
+  }, [searchParams]);
+
+  function getReferralCode(): string | undefined {
+    return searchParams.get("ref") ?? sessionStorage.getItem("paii_ref") ?? undefined;
+  }
+
   function update(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -72,6 +83,7 @@ export default function RegisterPage() {
 
     try {
       const { confirm_password, ...payload } = form;
+      const referralCode = getReferralCode();
       await register({
         ...payload,
         phone: payload.phone || undefined,
@@ -79,6 +91,7 @@ export default function RegisterPage() {
         date_of_birth: payload.date_of_birth || undefined,
         referral_code: referralCode,
       });
+      sessionStorage.removeItem("paii_ref");
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -272,5 +285,13 @@ export default function RegisterPage() {
         <Link href="/login" className="text-navy-700 font-semibold hover:text-navy-900">Sign in</Link>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }
