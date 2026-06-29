@@ -648,7 +648,7 @@ export default function UsersPage() {
 
           {isSuperAdmin && (
             <button
-              onClick={() => { setBulkRole(""); setBulkRoleModal(true); }}
+              onClick={() => { setBulkRole("student"); setBulkRoleModal(true); }}
               disabled={bulkActing}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
             >
