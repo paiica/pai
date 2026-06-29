@@ -47,6 +47,7 @@ interface User {
   phone: string | null;
   country: string | null;
   date_of_birth: string | null;
+  has_affiliate: boolean;
 }
 
 const LIMIT = 25;
@@ -156,11 +157,12 @@ export default function UsersPage() {
   const [page, setPage]           = useState(1);
 
   // Per-row actions
-  const [openMenu, setOpenMenu]       = useState<string | null>(null);
-  const [roleModal, setRoleModal]     = useState<User | null>(null);
-  const [newRole, setNewRole]         = useState<string>("");
-  const [deleteModal, setDeleteModal] = useState<User | null>(null);
-  const [acting, setActing]           = useState(false);
+  const [openMenu, setOpenMenu]         = useState<string | null>(null);
+  const [roleModal, setRoleModal]       = useState<User | null>(null);
+  const [newRole, setNewRole]           = useState<string>("");
+  const [newAffiliate, setNewAffiliate] = useState<boolean>(false);
+  const [deleteModal, setDeleteModal]   = useState<User | null>(null);
+  const [acting, setActing]             = useState(false);
   const [exporting, setExporting]     = useState(false);
 
   // Bulk selection
@@ -262,10 +264,10 @@ export default function UsersPage() {
 
   // ── Single-user actions ────────────────────────────────────────────────────
   async function handleRoleChange() {
-    if (!roleModal || !newRole || newRole === roleModal.role) return;
+    if (!roleModal || !newRole) return;
     setActing(true);
     try {
-      await api.patch(`/users/${roleModal.id}/role`, { role: newRole }, accessToken!);
+      await api.patch(`/users/${roleModal.id}/role`, { role: newRole, affiliate_access: newAffiliate }, accessToken!);
       toast.success("Role updated");
       setRoleModal(null);
       mutate();
@@ -529,12 +531,15 @@ export default function UsersPage() {
 
                     {/* Role */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <span className={`badge ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}>
                           {ROLE_LABELS[u.role] ?? u.role}
                         </span>
                         {u.role === "admin" && (
                           <ShieldCheck size={13} className="text-purple-400" />
+                        )}
+                        {u.has_affiliate && u.role !== "sales_rep" && (
+                          <span className="badge bg-teal-100 text-teal-700">Sales Rep</span>
                         )}
                       </div>
                     </td>
@@ -565,7 +570,13 @@ export default function UsersPage() {
                       {openMenu === u.id && (
                         <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
                           {isSuperAdmin && (
-                            <button onClick={() => { setRoleModal(u); setNewRole(u.role); setOpenMenu(null); }}
+                            <button onClick={() => {
+                              const primaryRole = u.role === "sales_rep" && !u.has_affiliate ? "sales_rep" : u.role;
+                              setRoleModal(u);
+                              setNewRole(u.role === "sales_rep" ? "sales_rep" : u.role);
+                              setNewAffiliate(u.has_affiliate || u.role === "sales_rep");
+                              setOpenMenu(null);
+                            }}
                               className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
                               <Shield size={14} className="text-purple-500 shrink-0" /> Change Role
                             </button>
@@ -698,10 +709,15 @@ export default function UsersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="font-display font-black text-navy-900 text-lg mb-1">Change Role</h3>
             <p className="text-sm text-slate-500 mb-5 truncate">{roleModal.email}</p>
-            <RoleSelector value={newRole} onChange={setNewRole} />
+            <RoleMultiSelector
+              primaryRole={newRole}
+              affiliateAccess={newAffiliate}
+              onPrimaryChange={setNewRole}
+              onAffiliateChange={setNewAffiliate}
+            />
             <div className="flex gap-3 mt-6">
               <button onClick={() => setRoleModal(null)} className="btn-outline flex-1 justify-center">Cancel</button>
-              <button onClick={handleRoleChange} disabled={acting || newRole === roleModal.role}
+              <button onClick={handleRoleChange} disabled={acting || !newRole}
                 className="btn-primary flex-1 justify-center disabled:opacity-60">
                 {acting && <Loader2 size={15} className="animate-spin" />} Save Role
               </button>
@@ -884,31 +900,72 @@ export default function UsersPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function RoleSelector({ value, onChange }: { value: string; onChange: (r: string) => void }) {
+const PRIMARY_ROLES = ["student", "professor", "admin", "super_admin"] as const;
+const ROLE_DESCRIPTIONS: Partial<Record<string, string>> = {
+  super_admin: "Full unrestricted access",
+  admin: "Restricted access (tab permissions apply)",
+  professor: "Can manage courses and grade students",
+  student: "Can enrol in courses and take exams",
+};
+
+function RoleMultiSelector({
+  primaryRole, affiliateAccess, onPrimaryChange, onAffiliateChange,
+}: {
+  primaryRole: string;
+  affiliateAccess: boolean;
+  onPrimaryChange: (r: string) => void;
+  onAffiliateChange: (v: boolean) => void;
+}) {
   return (
     <div className="space-y-2">
-      {ROLES.map((r) => (
-        <button key={r} type="button" onClick={() => onChange(r)}
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Primary Role</p>
+      {PRIMARY_ROLES.map((r) => {
+        const active = primaryRole === r;
+        return (
+          <button key={r} type="button" onClick={() => onPrimaryChange(r)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
+              active ? "border-navy-700 bg-navy-50" : "border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            <div className={`w-4 h-4 rounded-full shrink-0 border-2 flex items-center justify-center ${
+              active ? "border-navy-700" : "border-slate-300"
+            }`}>
+              {active && <div className="w-2 h-2 rounded-full bg-navy-700" />}
+            </div>
+            <div>
+              <span className={`text-sm font-semibold ${active ? "text-navy-900" : "text-slate-700"}`}>
+                {ROLE_LABELS[r]}
+              </span>
+              {ROLE_DESCRIPTIONS[r] && (
+                <span className="ml-2 text-[10px] text-slate-400">{ROLE_DESCRIPTIONS[r]}</span>
+              )}
+            </div>
+          </button>
+        );
+      })}
+
+      <div className="border-t border-slate-100 pt-3 mt-1">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Additional Access</p>
+        <button
+          type="button"
+          onClick={() => onAffiliateChange(!affiliateAccess)}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
-            value === r ? "border-navy-700 bg-navy-50" : "border-slate-200 hover:border-slate-300"
+            affiliateAccess ? "border-teal-600 bg-teal-50" : "border-slate-200 hover:border-slate-300"
           }`}
         >
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-            {value === r && <Check size={14} className="text-navy-700" />}
+          <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center ${
+            affiliateAccess ? "border-teal-600 bg-teal-600" : "border-slate-300"
+          }`}>
+            {affiliateAccess && <Check size={10} className="text-white" />}
           </div>
           <div>
-            <span className={`text-sm font-semibold ${value === r ? "text-navy-900" : "text-slate-700"}`}>
-              {ROLE_LABELS[r]}
+            <span className={`text-sm font-semibold ${affiliateAccess ? "text-teal-800" : "text-slate-700"}`}>
+              Sales Rep / Affiliate Portal
             </span>
-            {r === "super_admin" && (
-              <span className="ml-2 text-[10px] text-red-500 font-semibold">Full access</span>
-            )}
-            {r === "admin" && (
-              <span className="ml-2 text-[10px] text-indigo-500 font-semibold">Restricted access</span>
-            )}
+            <span className="ml-2 text-[10px] text-slate-400">Can log into sales.paii.ca</span>
           </div>
         </button>
-      ))}
+      </div>
     </div>
   );
 }
