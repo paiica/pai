@@ -87,9 +87,7 @@ export class AuthService {
 
     this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"})`);
 
-    const verifyBaseUrl = isSalesRep
-      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
-      : undefined;
+    const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
 
     await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken, verifyBaseUrl);
 
@@ -231,9 +229,7 @@ export class AuthService {
       data: { user_id: user.id, token_hash: tokenHash, expires_at: expiresAt },
     });
 
-    const resetBaseUrl = user.role === "sales_rep"
-      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
-      : undefined;
+    const resetBaseUrl = this.getBaseUrlForRole(user.role);
 
     await this.mail.sendPasswordResetEmail(user.email, user.profile?.first_name ?? "there", token, resetBaseUrl);
 
@@ -337,9 +333,7 @@ export class AuthService {
       data: { email_verify_token: emailVerifyToken, email_verify_token_expires_at: emailVerifyTokenExpiresAt } as any,
     });
 
-    const verifyBaseUrl = user.role === "sales_rep"
-      ? this.config.get<string>("AFFILIATE_URL", "http://localhost:3006")
-      : undefined;
+    const verifyBaseUrl = this.getBaseUrlForRole(user.role);
 
     await this.mail.sendVerificationEmail(user.email, user.profile?.first_name ?? "there", emailVerifyToken, verifyBaseUrl);
     return { message: "If that email is registered and unverified, a new email has been sent." };
@@ -685,6 +679,16 @@ export class AuthService {
     });
 
     return { access_token: accessToken, refresh_token: refreshToken };
+  }
+
+  private getBaseUrlForRole(role: string): string | undefined {
+    switch (role) {
+      case "sales_rep":   return this.config.get<string>("AFFILIATE_URL",  "http://localhost:3006");
+      case "admin":
+      case "super_admin": return this.config.get<string>("ADMIN_URL",      "http://localhost:3002");
+      case "professor":   return this.config.get<string>("PROFESSOR_URL",  "http://localhost:3003");
+      default:            return undefined; // students fall back to FRONTEND_URL in mail.service
+    }
   }
 
   private hashToken(token: string): string {

@@ -96,6 +96,12 @@ export default function AdminLoginPage() {
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Sign In"}
             </button>
           </form>
+
+          <div className="mt-5 pt-5 border-t border-slate-100 text-center">
+            <a href="/forgot-password" className="text-xs text-slate-500 hover:text-navy-700">
+              Forgot your password?
+            </a>
+          </div>
         </div>
 
         <p className="text-center text-navy-400 text-xs mt-6">
