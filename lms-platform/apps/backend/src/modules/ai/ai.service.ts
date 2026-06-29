@@ -299,6 +299,9 @@ All option objects must have sort_order (0-indexed integer) and is_correct (bool
     course_title?: string;
     module_title?: string;
     num_questions?: number;
+    word_count?: number;
+    tone?: string;
+    level?: string;
   }) {
     const { client, model, provider } = await this.getClientAndModel();
 
@@ -358,7 +361,7 @@ Module: ${params.module_title || "(unspecified)"}
 Lesson: ${params.lesson_title}
 Topic/Focus: ${params.topic || params.lesson_title}
 
-Requirements: professional tone, 350–600 words, well-structured, HTML formatted.
+Requirements: ${params.tone ?? "professional"} tone, approximately ${params.word_count ?? 500} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.
 
 Required format: {"content":"<h2>...</h2><p>...</p>"}`;
 

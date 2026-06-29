@@ -59,6 +59,9 @@ export class AiController {
       course_title?: string;
       module_title?: string;
       num_questions?: number;
+      word_count?: number;
+      tone?: string;
+      level?: string;
     },
   ) {
     return this.aiService.generateCourseContent(body);

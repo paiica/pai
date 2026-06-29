@@ -1170,7 +1170,10 @@ function AiAssistantPanel({
 
   // ── Lesson tab ────────────────────────────────────────────────────────────
   const [lessonTopic, setLessonTopic] = useState("");
-  const [numQ, setNumQ] = useState(5);
+  const [numQ,        setNumQ]        = useState(5);
+  const [wordCount,   setWordCount]   = useState(600);
+  const [tone,        setTone]        = useState("professional");
+  const [level,       setLevel]       = useState("intermediate");
   const [lessonBusy, setLessonBusy] = useState(false);
 
   // ── Module tab ────────────────────────────────────────────────────────────
@@ -1221,7 +1224,8 @@ function AiAssistantPanel({
       const res = await api.post<any>("/ai/generate-course-content", {
         lesson_title: lesson.title, lesson_type: lesson.type,
         topic: topicStr || lesson.title, course_title: course.title,
-        module_title: modTitle,
+        module_title: modTitle, word_count: wordCount,
+        tone, level,
       }, token) as any;
       await api.patch(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`, {
         content_body: res?.data?.content ?? res?.content ?? "",
@@ -1478,12 +1482,41 @@ function AiAssistantPanel({
                     />
                   </div>
 
-                  {selectedLesson.lesson.type === "quiz" && (
+                  {selectedLesson.lesson.type === "quiz" ? (
                     <div>
                       <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Questions to Generate</label>
                       <input type="number" min={1} max={20} value={numQ}
                         onChange={e => setNumQ(Math.max(1, Math.min(20, +e.target.value)))}
                         className="input-base w-24 text-sm" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Word Count</label>
+                        <input
+                          type="number" min={100} max={5000} step={50}
+                          value={wordCount}
+                          onChange={e => setWordCount(Math.max(100, Math.min(5000, +e.target.value)))}
+                          className="input-base text-sm w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Tone</label>
+                        <select value={tone} onChange={e => setTone(e.target.value)} className="input-base text-sm w-full">
+                          <option value="professional">Professional</option>
+                          <option value="academic">Academic</option>
+                          <option value="conversational">Conversational</option>
+                          <option value="technical">Technical</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Level</label>
+                        <select value={level} onChange={e => setLevel(e.target.value)} className="input-base text-sm w-full">
+                          <option value="beginner">Beginner</option>
+                          <option value="intermediate">Intermediate</option>
+                          <option value="advanced">Advanced</option>
+                        </select>
+                      </div>
                     </div>
                   )}
 
