@@ -58,7 +58,6 @@ export class AuthService {
         password_hash: passwordHash,
         email_verify_token: emailVerifyToken,
         email_verify_token_expires_at: emailVerifyTokenExpiresAt,
-        pending_referral_code: (!isSalesRep && dto.referral_code) ? dto.referral_code : undefined,
         role: isSalesRep ? ("sales_rep" as any) : undefined,
         profile: {
           create: {
@@ -86,6 +85,16 @@ export class AuthService {
     });
 
     this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"})`);
+
+    // Store referral code via raw SQL — Prisma client may not include this column
+    // if it was added after the client was generated (--skip-generate constraint)
+    if (!isSalesRep && dto.referral_code) {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE lms.users SET pending_referral_code = $1 WHERE id = $2`,
+        dto.referral_code,
+        user.id,
+      );
+    }
 
     const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
 
@@ -280,14 +289,22 @@ export class AuthService {
       throw new BadRequestException("Verification link has expired. Please request a new one.");
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { email_verified: true, email_verify_token: null, email_verify_token_expires_at: null, pending_referral_code: null } as any,
-    });
+    // Read pending_referral_code via raw SQL before clearing it
+    const [refRow] = await this.prisma.$queryRawUnsafe<{ pending_referral_code: string | null }[]>(
+      `SELECT pending_referral_code FROM lms.users WHERE id = $1`,
+      user.id,
+    );
+    const pendingReferralCode = refRow?.pending_referral_code ?? null;
+
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE lms.users SET email_verified = true, email_verify_token = NULL,
+       email_verify_token_expires_at = NULL, pending_referral_code = NULL WHERE id = $1`,
+      user.id,
+    );
 
     // Wire up affiliate lead now that the email address is confirmed
-    if ((user as any).pending_referral_code) {
-      const referralCode = (user as any).pending_referral_code as string;
+    if (pendingReferralCode) {
+      const referralCode = pendingReferralCode;
       const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
         where: { referral_code: referralCode },
         include: { user: { include: { profile: true } } },
