@@ -463,7 +463,7 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
+      <div className="card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead>
@@ -580,7 +580,7 @@ export default function UsersPage() {
                         <MoreHorizontal size={15} />
                       </button>
                       {openMenu === u.id && (
-                        <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm" onMouseDown={(e) => e.stopPropagation()}>
                           {isSuperAdmin && (
                             <button onClick={() => {
                               const primaryRole = u.role === "sales_rep" && !u.has_affiliate ? "sales_rep" : u.role;
