@@ -698,8 +698,8 @@ export class AuthService {
   private sanitizeUser(user: any) {
     const { password_hash, email_verify_token, affiliate_profile, ...safe } = user;
 
-    // For sales_rep users, flatten affiliate_profile fields onto the user object
-    if (user.role === "sales_rep" && affiliate_profile) {
+    // Flatten affiliate_profile fields for any user who has one (sales_rep or multi-role)
+    if (affiliate_profile) {
       return {
         ...safe,
         first_name: user.profile?.first_name ?? null,

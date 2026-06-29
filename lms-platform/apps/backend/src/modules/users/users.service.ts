@@ -278,11 +278,27 @@ export class UsersService {
   }
 
   async changeRole(userId: string, role: Role) {
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
       select: { id: true, email: true, role: true },
     });
+
+    // When promoting to sales_rep, ensure an affiliate_profile exists
+    if (role === ("sales_rep" as Role)) {
+      const existing = await this.prisma.affiliateProfile.findUnique({ where: { user_id: userId } });
+      if (!existing) {
+        await this.prisma.affiliateProfile.create({
+          data: {
+            user_id: userId,
+            referral_code: randomBytes(4).toString("hex").toUpperCase(),
+            status: "pending" as any,
+          },
+        });
+      }
+    }
+
+    return updated;
   }
 
   async setActive(userId: string, is_active: boolean) {

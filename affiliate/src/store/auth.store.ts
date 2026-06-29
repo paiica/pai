@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>()(
             refresh_token: string;
           }>("/auth/login", { email, password });
 
-          if (result.user.role !== "sales_rep") {
+          if (result.user.role !== "sales_rep" && !result.user.referral_code) {
             throw new Error("Access denied. This portal is for sales affiliates only.");
           }
 
