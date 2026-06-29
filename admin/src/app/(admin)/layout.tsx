@@ -78,8 +78,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen">
       <AdminSidebar />
-      <div className="flex-1 min-w-0 overflow-x-hidden">
-        {children}
+      <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col">
+        <div className="h-9 bg-navy-900 border-b border-navy-700/50 flex items-center justify-end px-5 flex-shrink-0">
+          <a
+            href="https://webmail.public.paii.ca"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[11px] font-medium text-gold-400 hover:text-gold-300 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            Webmail
+          </a>
+        </div>
+        <div className="flex-1 min-w-0">
+          {children}
+        </div>
       </div>
     </div>
   );
