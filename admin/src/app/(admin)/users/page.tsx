@@ -732,7 +732,12 @@ export default function UsersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="font-display font-black text-navy-900 text-lg mb-1">Change Role</h3>
             <p className="text-sm text-slate-500 mb-5">Apply to {selectedCount} selected users</p>
-            <RoleSelector value={bulkRole} onChange={setBulkRole} />
+            <RoleMultiSelector
+              primaryRole={bulkRole}
+              affiliateAccess={false}
+              onPrimaryChange={setBulkRole}
+              onAffiliateChange={() => {}}
+            />
             <div className="flex gap-3 mt-6">
               <button onClick={() => setBulkRoleModal(false)} className="btn-outline flex-1 justify-center">Cancel</button>
               <button onClick={handleBulkRoleChange} disabled={bulkActing || !bulkRole}
