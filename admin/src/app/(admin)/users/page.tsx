@@ -199,6 +199,14 @@ export default function UsersPage() {
   // Clear selection on any filter/page change
   useEffect(() => { setSelectedIds(new Set()); }, [page, roleFilter, statusFilter, debouncedQ]);
 
+  // Close row menu on any document click (allows page scroll while menu is open)
+  useEffect(() => {
+    if (!openMenu) return;
+    const handler = () => setOpenMenu(null);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openMenu]);
+
   const qs = new URLSearchParams({ limit: String(LIMIT), page: String(page) });
   if (debouncedQ)  qs.set("q", debouncedQ);
   if (roleFilter)  qs.set("role", roleFilter);
@@ -563,13 +571,16 @@ export default function UsersPage() {
                     {/* Row actions */}
                     <td className="px-4 py-3 relative" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(openMenu === u.id ? null : u.id);
+                        }}
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
                       >
                         <MoreHorizontal size={15} />
                       </button>
                       {openMenu === u.id && (
-                        <div className="absolute right-4 bottom-full mb-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
+                        <div className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm" onClick={(e) => e.stopPropagation()}>
                           {isSuperAdmin && (
                             <button onClick={() => {
                               const primaryRole = u.role === "sales_rep" && !u.has_affiliate ? "sales_rep" : u.role;
@@ -636,8 +647,6 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Click-away for row menus */}
-      {openMenu && <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />}
 
       {/* ── Bulk Action Bar ────────────────────────────────────────────────────── */}
       {selectedCount > 0 && (
