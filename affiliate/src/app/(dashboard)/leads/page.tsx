@@ -136,7 +136,7 @@ export default function LeadsPage() {
                       ) : (
                         <button
                           onClick={() => setDeletingId(lead.id)}
-                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                          className="text-slate-400 hover:text-red-500 transition-colors p-1"
                           title="Delete lead"
                         >
                           <Trash2 size={14} />
