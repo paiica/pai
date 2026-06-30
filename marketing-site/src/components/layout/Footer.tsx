@@ -59,7 +59,8 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
       { label: "Corporate Training", href: "/corporate" },
       { label: "Group Enrollment", href: "/corporate#group" },
       { label: "Volume Pricing", href: "/corporate#pricing" },
-      { label: "Become a Partner", href: "/partners" },
+      { label: "Educator Partner Program", href: "/educator" },
+      { label: "Become an Affiliate", href: "https://sales.paii.ca" },
     ],
   },
 ];

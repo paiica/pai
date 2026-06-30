@@ -21,7 +21,8 @@ const FALLBACK_NAV: NavItem[] = [
   { id: "2", label: "Learning",          href: "/blog",      open_new_tab: false, children: [] },
   { id: "3", label: "Resources",         href: "/faq",       open_new_tab: false, children: [] },
   { id: "4", label: "For Organizations", href: "/corporate", open_new_tab: false, children: [] },
-  { id: "5", label: "About PAI",         href: "/about",     open_new_tab: false, children: [] },
+  { id: "5", label: "For Educators",     href: "/educator",  open_new_tab: false, children: [] },
+  { id: "6", label: "About PAI",         href: "/about",     open_new_tab: false, children: [] },
 ];
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
