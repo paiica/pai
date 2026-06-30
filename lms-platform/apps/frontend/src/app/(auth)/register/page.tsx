@@ -1,9 +1,10 @@
 import RegisterForm from "./RegisterForm";
 
-export default function RegisterPage({
+export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: { ref?: string };
+  searchParams: Promise<{ ref?: string }>;
 }) {
-  return <RegisterForm initialRef={searchParams.ref} />;
+  const params = await searchParams;
+  return <RegisterForm initialRef={params.ref} />;
 }
