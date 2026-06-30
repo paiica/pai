@@ -696,36 +696,56 @@ export class AffiliateService {
     const ap = await this.prisma.affiliateProfile.findUnique({ where: { user_id: userId } });
     if (!ap) return { data: [], total: 0, totalPages: 1 };
 
-    const skip = (page - 1) * limit;
-    const where: any = {
-      affiliate_id: ap.id,
-      ...(status ? { status: status as any } : {}),
-      ...(search ? {
-        OR: [
-          { email: { contains: search, mode: "insensitive" } },
-          { name: { contains: search, mode: "insensitive" } },
-        ],
-      } : {}),
-    };
+    const offset = (page - 1) * limit;
+    const params: any[] = [ap.id];
+    const conditions: string[] = [`l.affiliate_id = $1`];
 
-    const [leads, total] = await Promise.all([
-      this.prisma.affiliateLead.findMany({
-        where, skip, take: limit,
-        include: {
-          certification: { select: { title: true, acronym: true } },
-          course: { select: { title: true } },
-        },
-        orderBy: { created_at: "desc" },
-      }),
-      this.prisma.affiliateLead.count({ where }),
+    if (status) {
+      params.push(status);
+      conditions.push(`l.status::text = $${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      const idx = params.length;
+      conditions.push(`(l.email ILIKE $${idx} OR l.name ILIKE $${idx})`);
+    }
+
+    const whereClause = conditions.join(" AND ");
+
+    const [leads, countRows] = await Promise.all([
+      this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT l.id, l.affiliate_id, l.email, l.name, l.status::text AS status,
+                l.source::text AS source, l.certification_id, l.course_id, l.created_at,
+                cert.title AS cert_title, cert.acronym AS cert_acronym,
+                crs.title AS course_title
+         FROM lms.affiliate_leads l
+         LEFT JOIN lms.certifications cert ON l.certification_id = cert.id
+         LEFT JOIN lms.courses crs ON l.course_id = crs.id
+         WHERE ${whereClause}
+         ORDER BY l.created_at DESC
+         LIMIT ${limit} OFFSET ${offset}`,
+        ...params,
+      ),
+      this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT COUNT(*)::int AS count FROM lms.affiliate_leads l WHERE ${whereClause}`,
+        ...params,
+      ),
     ]);
+
+    const total = Number(countRows[0]?.count ?? 0);
 
     return {
       data: leads.map((l) => ({
-        ...l,
-        product_name: l.certification
-          ? `${l.certification.acronym} – ${l.certification.title}`
-          : l.course?.title ?? null,
+        id: l.id,
+        affiliate_id: l.affiliate_id,
+        email: l.email,
+        name: l.name,
+        status: l.status,
+        source: l.source,
+        created_at: l.created_at,
+        product_name: l.cert_title
+          ? `${l.cert_acronym} – ${l.cert_title}`
+          : l.course_title ?? null,
       })),
       total,
       totalPages: Math.ceil(total / limit),
