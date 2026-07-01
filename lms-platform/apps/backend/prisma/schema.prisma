@@ -591,6 +591,10 @@ model Course {
   duration_hours       Decimal      @db.Decimal(5, 1) @default(0)
   total_lessons        Int          @default(0)
 
+  // Marketing content shown on the public course detail page (overview,
+  // learning outcomes, how-it-works steps, exam prep, related courses)
+  content              Json?
+
   // Optional link to the certification this course prepares for
   certification_id     String?
   certification        Certification? @relation(fields: [certification_id], references: [id], onDelete: SetNull)
