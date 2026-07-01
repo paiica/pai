@@ -1,6 +1,6 @@
 import {
   Controller, Post, Get, Delete, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus,
-  UseInterceptors, UploadedFile, Query, BadRequestException,
+  UseInterceptors, UploadedFile, Query, BadRequestException, Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -11,6 +11,8 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { PresignDto } from "./dto/presign.dto";
 import { ConfirmUploadDto } from "./dto/confirm-upload.dto";
+
+const localUploadLogger = new Logger("LocalUploadFallback");
 
 // Custom in-memory storage that avoids importing multer v2 directly (ESM-only package).
 // Implements the multer StorageEngine contract: _handleFile buffers the stream,
@@ -25,15 +27,25 @@ const RAM_STORAGE: any = {
   _removeFile(_req: any, _file: any, cb: any) { cb(null); },
 };
 
-function saveToJustTesting(file: Express.Multer.File): { filename: string; fileUrl: string } {
-  const dir = join(process.cwd(), "uploads", "just testing");
+// Disk fallback used only when S3 credentials aren't configured (see uploads.service.ts
+// createPresignedUrl). Writes to the server's local filesystem, which does NOT persist
+// across restarts/redeploys and does NOT work across multiple instances — it exists so
+// upload flows don't hard-crash in dev, not as a production storage strategy.
+function saveLocally(file: Express.Multer.File): { filename: string; fileUrl: string } {
+  if (process.env.NODE_ENV === "production") {
+    localUploadLogger.warn(
+      "Saving an upload to local disk in production — configure S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY " +
+      "or this file will be lost on the next restart/redeploy.",
+    );
+  }
+  const dir = join(process.cwd(), "uploads", "local");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
   const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
   writeFileSync(join(dir, filename), file.buffer);
 
   const baseUrl = process.env.API_URL || "http://localhost:4000";
-  return { filename, fileUrl: `${baseUrl}/uploads/just%20testing/${filename}` };
+  return { filename, fileUrl: `${baseUrl}/uploads/local/${filename}` };
 }
 
 @ApiTags("Uploads")
@@ -79,7 +91,7 @@ export class UploadsController {
     @Query("purpose") purpose = "document",
   ) {
     if (!file) throw new BadRequestException("No file received");
-    const { filename, fileUrl } = saveToJustTesting(file);
+    const { filename, fileUrl } = saveLocally(file);
     return {
       url: fileUrl,
       filename,
@@ -96,11 +108,11 @@ export class UploadsController {
   uploadDocument(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file received");
     try {
-      const { fileUrl } = saveToJustTesting(file);
+      const { fileUrl } = saveLocally(file);
       return {
         file_url: fileUrl,
         public_url: fileUrl,
-        s3_key: `just-testing/${Date.now()}`,
+        s3_key: `local/${Date.now()}`,
         file_name: file.originalname,
         mime_type: file.mimetype,
         file_size: file.size,

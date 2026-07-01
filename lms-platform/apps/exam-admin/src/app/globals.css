@@ -3,12 +3,14 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-fraunces), system-ui, sans-serif; }
+:focus-visible { outline: 2px solid #14b8a6; outline-offset: 2px; }
 
 :root {
   --sidebar-width: 248px;
-  --brand: #4f46e5;
-  --brand-hover: #6366e8;
-  --brand-glow: rgba(99, 102, 232, 0.20);
+  --brand: #14b8a6;
+  --brand-hover: #2dd4bf;
+  --brand-glow: rgba(20, 184, 166, 0.20);
 
   /* Theme tokens — dark defaults */
   --bg-page: #0f172a;
@@ -123,8 +125,8 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #64748b; }
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
   .input:focus {
-    border-color: rgba(99, 102, 232, 0.65);
-    box-shadow: 0 0 0 3px rgba(99, 102, 232, 0.15);
+    border-color: rgba(20, 184, 166, 0.65);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
   }
 
   /* Card */

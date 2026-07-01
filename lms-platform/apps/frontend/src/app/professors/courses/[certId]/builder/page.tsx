@@ -97,8 +97,9 @@ function LessonRow({ lesson, moduleId, certId, token, onRefresh }: { lesson: Les
   );
 }
 
-function ModuleSection({ module, certId, token, onRefresh, index, total }: {
+function ModuleSection({ module, certId, token, onRefresh, index, total, onMove }: {
   module: Module; certId: string; token: string; onRefresh: () => void; index: number; total: number;
+  onMove: (index: number, direction: "up" | "down") => void;
 }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -156,12 +157,12 @@ function ModuleSection({ module, certId, token, onRefresh, index, total }: {
         <span className="text-xs text-slate-400">{module.lessons.length} lessons</span>
         <div className="flex items-center gap-1">
           {index > 0 && (
-            <button onClick={() => toast("Drag-and-drop reorder coming soon.")} className="p-1 rounded hover:bg-slate-200 text-slate-400">
+            <button onClick={() => onMove(index, "up")} className="p-1 rounded hover:bg-slate-200 text-slate-400" title="Move up">
               <ArrowUp size={13} />
             </button>
           )}
           {index < total - 1 && (
-            <button onClick={() => toast("Drag-and-drop reorder coming soon.")} className="p-1 rounded hover:bg-slate-200 text-slate-400">
+            <button onClick={() => onMove(index, "down")} className="p-1 rounded hover:bg-slate-200 text-slate-400" title="Move down">
               <ArrowDown size={13} />
             </button>
           )}
@@ -249,6 +250,21 @@ export default function CourseBuilderPage() {
     );
   }
 
+  async function moveModule(index: number, direction: "up" | "down") {
+    const modules: Module[] = cert?.modules ?? [];
+    const swapWith = direction === "up" ? index - 1 : index + 1;
+    if (swapWith < 0 || swapWith >= modules.length) return;
+
+    const reordered = [...modules];
+    [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
+    const ordered_ids = reordered.map((m) => m.id);
+
+    await toast.promise(
+      api.post<any>(`/prof/certifications/${certId}/modules/reorder`, { ordered_ids }, token).then(() => mutate()),
+      { loading: "Reordering…", success: "Order updated", error: "Failed to reorder" }
+    );
+  }
+
   if (!cert) {
     return (
       <div className="p-8">
@@ -291,6 +307,7 @@ export default function CourseBuilderPage() {
             onRefresh={mutate}
             index={i}
             total={modules.length}
+            onMove={moveModule}
           />
         ))}
 

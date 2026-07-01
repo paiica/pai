@@ -573,7 +573,7 @@ function CTAEditor({ block, token, onSave }: { block: Block; token: string; onSa
 
 // ─── Certifications editor ───────────────────────────────────────────────────
 
-const CERT_THEME_COLORS = ["#c9913a", "#38bdf8", "#a78bfa", "#059669"];
+const CERT_THEME_COLORS = ["#134e4a", "#38bdf8", "#a78bfa", "#059669"];
 
 function CertificationsEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   const c = block.content;
@@ -933,6 +933,136 @@ function VideoEditor({ block, token, onSave }: { block: Block; token: string; on
   );
 }
 
+// ─── Logo strip editor ────────────────────────────────────────────────────────
+
+type LogoItem = { image_url: string; alt: string; href: string; highlighted: boolean };
+
+const EMPTY_LOGO: LogoItem = { image_url: "", alt: "", href: "", highlighted: false };
+
+function LogosEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
+  const c = block.content;
+  const [badge, setBadge] = useState(c?.badge ?? "");
+  const [title, setTitle] = useState(c?.title ?? "");
+  const [items, setItems] = useState<LogoItem[]>(
+    Array.isArray(c?.items) && c.items.length
+      ? c.items.map((i: any) => ({ ...EMPTY_LOGO, ...i }))
+      : [{ ...EMPTY_LOGO }]
+  );
+  const [saving,       setSaving]       = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+
+  function updItem(idx: number, key: keyof LogoItem, val: string | boolean) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [key]: val } : it));
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, { ...EMPTY_LOGO }]);
+  }
+
+  function removeItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function uploadLogo(idx: number, file: File) {
+    setUploadingIdx(idx);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/uploads/local?purpose=logo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const url: string = data?.url ?? data?.data?.url;
+      if (!url) throw new Error();
+      updItem(idx, "image_url", url);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploadingIdx(null);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch(`/page-blocks/${block.key}`, { content: { badge, title, items } }, token);
+      toast.success("Saved");
+      onSave();
+    } catch { toast.error("Failed to save"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Badge (optional)" value={badge} onChange={setBadge} placeholder="Recognized By" />
+        <Field label="Title (optional)" value={title} onChange={setTitle} placeholder="Aligned With Industry-Leading Standards" />
+      </div>
+
+      <div className="border-t border-slate-100 pt-3 space-y-3">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Logos ({items.length})</p>
+        {items.map((it, i) => (
+          <div key={i} className="bg-slate-50 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-500">Logo {i + 1}</p>
+              <button onClick={() => removeItem(i)} className="p-1 text-red-400 hover:bg-red-50 rounded">
+                <Trash2 size={11} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className={cn(
+                "flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed cursor-pointer transition-colors flex-shrink-0 overflow-hidden bg-white",
+                uploadingIdx === i ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:border-navy-300"
+              )}>
+                {uploadingIdx === i ? (
+                  <Loader2 size={16} className="animate-spin text-blue-500" />
+                ) : it.image_url ? (
+                  <img src={it.image_url} alt="" className="max-w-full max-h-full object-contain p-1" />
+                ) : (
+                  <ImageIcon size={18} className="text-slate-300" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingIdx !== null}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) uploadLogo(i, file);
+                  }}
+                />
+              </label>
+              <div className="flex-1 space-y-2">
+                <Field label="Name / alt text" value={it.alt} onChange={(v) => updItem(i, "alt", v)} placeholder="PMI, ISO 17024…" />
+                <Field label="Link (optional)" value={it.href} onChange={(v) => updItem(i, "href", v)} placeholder="https://…" />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+              <input type="checkbox" checked={it.highlighted} onChange={(e) => updItem(i, "highlighted", e.target.checked)} />
+              Highlight this badge (accent border)
+            </label>
+          </div>
+        ))}
+        <button
+          onClick={addItem}
+          className="text-xs text-slate-500 hover:text-navy-700 flex items-center gap-1 px-3 py-1.5 border border-dashed border-slate-200 rounded-lg"
+        >
+          <Plus size={11} /> Add logo
+        </button>
+      </div>
+
+      <SaveBtn saving={saving} onClick={save} />
+    </div>
+  );
+}
+
 // ─── Block editor router ─────────────────────────────────────────────────────
 
 function BlockEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
@@ -944,6 +1074,7 @@ function BlockEditor({ block, token, onSave }: { block: Block; token: string; on
   if (block.key === "certifications") return <CertificationsEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "courses")        return <CoursesEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "video")          return <VideoEditor block={block} token={token} onSave={onSave} />;
+  if (block.key === "logos")          return <LogosEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "footer") return (
     <div className="py-2">
       <p className="text-sm text-slate-500 mb-4">The footer has a dedicated editor with full column, social link, and trust bar management.</p>
@@ -976,6 +1107,7 @@ const BLOCK_TEMPLATES = [
   { key: "testimonials",  label: "Testimonials" },
   { key: "blog",          label: "Latest Articles" },
   { key: "cta",           label: "Call to Action" },
+  { key: "logos",         label: "Logo Strip / Partners" },
 ];
 
 // ─── Page ────────────────────────────────────────────────────────────────────

@@ -47,7 +47,7 @@ export class AuthController {
   @Public()
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({ summary: "Exchange refresh token for new token pair (rotation)" })
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
     return this.authService.refreshTokens(dto.refresh_token, req.ip, req.headers["user-agent"]);

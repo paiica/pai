@@ -21,7 +21,7 @@ export default function TestimonialsSection({ cmsContent = {} }: { cmsContent?: 
     <section className="section-padding bg-white">
       <div className="container-lg">
         <div className="text-center mb-14">
-          <span className="badge-gold mb-4">{badge}</span>
+          <span className="badge-teal mb-4">{badge}</span>
           <h2 className="section-title mb-4">{title}</h2>
           <p className="section-subtitle max-w-xl mx-auto">{subtitle}</p>
         </div>

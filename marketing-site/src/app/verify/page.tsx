@@ -23,11 +23,6 @@ export default async function VerifyPage({
               Enter a certificate ID to verify its authenticity and check its validity status.
             </p>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
-          </div>
         </section>
 
         <section className="section-padding bg-white">

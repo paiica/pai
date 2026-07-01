@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Required for the Dockerfile's production stage, which copies .next/standalone
+  output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../.."),
   images: {
     remotePatterns: [

@@ -106,7 +106,10 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
   const Icon  = SLIDE_ICONS[current % SLIDE_ICONS.length];
 
   return (
-    <section className="relative min-h-screen flex flex-col overflow-hidden pt-[68px]">
+    <section
+      className="relative min-h-screen flex flex-col overflow-hidden"
+      style={{ paddingTop: "var(--header-height, 88px)" }}
+    >
 
       {/* Backgrounds — one per slide, cross-fade */}
       {slides.map((s, i) => (
@@ -128,23 +131,38 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
         </div>
       ))}
 
-      {/* Dot grid */}
-      <div
-        className="absolute inset-0 opacity-[0.06] pointer-events-none"
-        style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(20,184,166,0.8) 1px, transparent 0)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      {/* Glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Geometric accent */}
-      <div className="absolute right-0 top-0 bottom-0 w-[45%] pointer-events-none overflow-hidden hidden lg:block">
-        <div className="absolute top-1/2 -translate-y-1/2 right-[-80px] w-[500px] h-[500px] border-2 border-white/5 rounded-full" />
-        <div className="absolute top-1/2 -translate-y-1/2 right-[40px] w-[360px] h-[360px] border border-white/5 rounded-full" />
-        <div className="absolute top-1/2 -translate-y-1/2 right-[120px] w-[220px] h-[220px] bg-white/[0.02] rounded-full" />
+      {/* Credential signature — a verification card standing in for the abstract decoration */}
+      <div className="absolute right-[6%] top-1/2 -translate-y-1/2 w-[340px] pointer-events-none hidden lg:block">
+        <div
+          className={cn(
+            "relative rounded-2xl border border-teal-400/40 bg-white/[0.04] backdrop-blur-sm p-6 shadow-2xl",
+            "transition-opacity duration-700",
+          )}
+          style={{ transform: "rotate(4deg)" }}
+        >
+          <div className="flex items-center justify-between mb-8">
+            <span className="text-[10px] font-mono font-semibold text-teal-300 uppercase tracking-[0.2em]">Verified Credential</span>
+            <div className="w-7 h-7 rounded-full border border-teal-400/60 flex items-center justify-center">
+              <Icon size={13} className="text-teal-300" />
+            </div>
+          </div>
+          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1.5">Professional AI Institute</div>
+          <div className="font-display font-semibold text-2xl text-white mb-6 italic">{slide.badge}</div>
+          <div className="flex items-end justify-between pt-4 border-t border-dashed border-white/15">
+            <div>
+              <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Credential ID</div>
+              <div className="text-xs font-mono text-white/70">PAI—2026—{String(current + 1).padStart(4, "0")}</div>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-mono text-teal-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-300" /> LIVE
+            </div>
+          </div>
+        </div>
+        {/* Stacked card behind, hinting at a registry */}
+        <div
+          className="absolute inset-0 -z-10 rounded-2xl border border-white/10 bg-white/[0.02]"
+          style={{ transform: "rotate(4deg) translate(14px, 14px)" }}
+        />
       </div>
 
       {/* Content */}
@@ -152,7 +170,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
         <div className={cn("transition-opacity duration-[220ms] max-w-3xl", animating ? "opacity-0" : "opacity-100")}>
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 rounded-full uppercase tracking-widest mb-7">
+          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-300 pl-3 border-l-2 border-teal-400 uppercase tracking-[0.15em] mb-7">
             {slide.badge}
           </div>
 
@@ -163,7 +181,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             min-h-[90px] sm:min-h-[120px] lg:min-h-[150px] xl:min-h-[190px]
           ">
             {slide.headline}{" "}
-            <span className="text-teal-300">{slide.highlight}</span>
+            <span className="text-gradient">{slide.highlight}</span>
           </h1>
 
           {/* Sub */}
@@ -190,7 +208,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
               { value: slide.stat4_value, label: slide.stat4_label },
             ].map(({ value, label }) => (
               <div key={label} className="flex flex-col items-center justify-center py-5 px-4">
-                <div className="text-2xl sm:text-3xl font-display font-black text-white">{value}</div>
+                <div className="text-2xl sm:text-3xl font-mono font-semibold text-white">{value}</div>
                 <div className="text-xs text-white mt-1 text-center">{label}</div>
               </div>
             ))}
@@ -225,13 +243,6 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             <div key={current} className="h-full bg-teal-400 rounded-full animate-hero-progress" />
           </div>
         </div>
-      </div>
-
-      {/* Wave divider */}
-      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-        <svg viewBox="0 0 1440 80" fill="none" className="w-full">
-          <path d="M0 80L1440 80V40C1440 40 1080 0 720 0C360 0 0 40 0 40V80Z" fill="#ffffff" />
-        </svg>
       </div>
 
     </section>

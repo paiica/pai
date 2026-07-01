@@ -7,6 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
@@ -230,7 +231,7 @@ export class AuthService {
 
     // Revoke old token and create new token pair atomically
     const newRefreshToken = this.jwtService.sign(
-      { sub: user.id, email: user.email, role: user.role } as JwtPayload,
+      { sub: user.id, email: user.email, role: user.role, jti: uuidv4() } as JwtPayload,
       { secret: this.config.get<string>("jwt.refreshSecret"), expiresIn: this.config.get("jwt.refreshExpiry", "7d") as any },
     );
     const newAccessToken = this.jwtService.sign(
@@ -719,6 +720,31 @@ export class AuthService {
     return { saved: true, filename, path: filepath };
   }
 
+  // Proctoring photos are biometric data with no business need to exist past the exam
+  // window. STUDENT_PHOTO_RETENTION_DAYS defaults to 30 as a placeholder — confirm the
+  // real retention period with legal/compliance (PIPEDA governs this for a Canada-based
+  // institute) and set the env var accordingly.
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async purgeExpiredStudentPhotos() {
+    const retentionDays = Number(this.config.get("STUDENT_PHOTO_RETENTION_DAYS", 30));
+    const photosDir = path.join(process.cwd(), "students-photos");
+    if (!fs.existsSync(photosDir)) return;
+
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    let deleted = 0;
+    for (const filename of fs.readdirSync(photosDir)) {
+      const filepath = path.join(photosDir, filename);
+      const stat = fs.statSync(filepath);
+      if (stat.mtimeMs < cutoff) {
+        fs.unlinkSync(filepath);
+        deleted++;
+      }
+    }
+    if (deleted > 0) {
+      this.logger.log(`Purged ${deleted} student proctoring photo(s) older than ${retentionDays} days`);
+    }
+  }
+
   // ─────────────────────────────────────────────
   // Private helpers
   // ─────────────────────────────────────────────
@@ -731,14 +757,15 @@ export class AuthService {
     userAgent?: string,
     deviceInfo?: string,
   ) {
-    const payload: JwtPayload = { sub: userId, email, role };
-
-    const accessToken = this.jwtService.sign(payload, {
+    const accessToken = this.jwtService.sign({ sub: userId, email, role } as JwtPayload, {
       secret: this.config.get<string>("jwt.accessSecret"),
       expiresIn: this.config.get("jwt.accessExpiry", "15m") as any,
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
+    // jti ensures concurrent token generations for the same user never collide
+    // on the refresh_token table's unique token_hash constraint (same payload +
+    // same-second iat would otherwise sign to the byte-identical JWT).
+    const refreshToken = this.jwtService.sign({ sub: userId, email, role, jti: uuidv4() } as JwtPayload, {
       secret: this.config.get<string>("jwt.refreshSecret"),
       expiresIn: this.config.get("jwt.refreshExpiry", "7d") as any,
     });

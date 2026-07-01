@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const TIERS = [
   {
     name: "Team",
-    seats: "3â€“9 seats",
+    seats: "3–9 seats",
     discount: "15% off",
     price: "From $1,101/seat",
     features: ["All certification programs", "Team dashboard", "Bulk enrollment", "Email support"],
@@ -39,7 +39,7 @@ const TIERS = [
   },
   {
     name: "Organization",
-    seats: "10â€“49 seats",
+    seats: "10–49 seats",
     discount: "25% off",
     price: "From $971/seat",
     features: ["All certification programs", "Admin analytics dashboard", "Custom onboarding", "Dedicated account manager", "Quarterly progress reports"],
@@ -64,7 +64,7 @@ export default async function CorporatePage() {
     <>
       <Navbar />
       <main>
-        {/* Hero â€” always hardcoded */}
+        {/* Hero — always hardcoded */}
         <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">For Organizations</span>
@@ -80,18 +80,13 @@ export default async function CorporatePage() {
                 <Mail size={16} /> Get a Custom Quote
               </a>
               <Link href="#pricing" className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors">
-                View pricing tiers â†’
+                View pricing tiers →
               </Link>
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
-          </div>
         </section>
 
-        {/* Content â€” CMS if available, otherwise hardcoded */}
+        {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />
         ) : (
@@ -122,7 +117,7 @@ export default async function CorporatePage() {
             <section id="pricing" className="section-padding bg-sand-100">
               <div className="container-lg">
                 <div className="text-center mb-12">
-                  <span className="badge-gold mb-4">Group Pricing</span>
+                  <span className="badge-teal mb-4">Group Pricing</span>
                   <h2 className="section-title mb-4">Volume Pricing Tiers</h2>
                   <p className="section-subtitle max-w-xl mx-auto">
                     All programs available. Mix and match certifications across your team.
@@ -134,7 +129,7 @@ export default async function CorporatePage() {
                       key={tier.name}
                       className={`bg-white rounded-2xl border p-7 flex flex-col ${
                         tier.popular
-                          ? "border-teal-200 ring-2 ring-teal-200/60 shadow-gold"
+                          ? "border-teal-200 ring-2 ring-teal-200/60 shadow-teal"
                           : "border-sand-200 shadow-card"
                       }`}
                     >
@@ -157,7 +152,7 @@ export default async function CorporatePage() {
                         href="mailto:corporate@paii.ca"
                         className={`w-full flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm transition-all ${
                           tier.popular
-                            ? "bg-teal-500 hover:bg-teal-400 text-white shadow-gold"
+                            ? "bg-teal-500 hover:bg-teal-400 text-white shadow-teal"
                             : "bg-ink-800 hover:bg-ink-700 text-white"
                         }`}
                       >

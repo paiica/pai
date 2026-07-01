@@ -3,10 +3,21 @@ import { ExamAttemptStatus } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { CertificatesService } from "../certificates/certificates.service";
+
+// Buffer added on top of the stored time limit to absorb network/render latency
+// around the moment a client submits — NOT extra thinking time. The deadline is
+// derived from `started_at` (server-set, immutable), so it cannot be extended by
+// tampering with the client-side countdown.
+const EXAM_GRACE_SECONDS = 60;
 
 @Injectable()
 export class ExamsService {
-  constructor(private prisma: PrismaService, private mail: MailService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+    private certificates: CertificatesService,
+  ) {}
 
   async startExam(userId: string, enrollmentId: string) {
     const enrollment = await this.prisma.enrollment.findFirst({
@@ -25,7 +36,18 @@ export class ExamsService {
     const inProgress = await this.prisma.examAttempt.findFirst({
       where: { enrollment_id: enrollmentId, status: ExamAttemptStatus.in_progress },
     });
-    if (inProgress) return inProgress;
+    if (inProgress) {
+      const limitSeconds = inProgress.time_limit_seconds;
+      const deadlineMs = limitSeconds != null
+        ? inProgress.started_at.getTime() + limitSeconds * 1000 + EXAM_GRACE_SECONDS * 1000
+        : Infinity;
+      if (Date.now() <= deadlineMs) return inProgress;
+      // Time ran out and it was never submitted — close it out so the student can start a fresh attempt.
+      await this.prisma.examAttempt.update({
+        where: { id: inProgress.id },
+        data: { status: ExamAttemptStatus.abandoned, submitted_at: new Date() },
+      });
+    }
 
     const maxAttempts = enrollment.certification.max_retakes_included + 1;
     if (existingAttempts >= maxAttempts) {
@@ -73,6 +95,13 @@ export class ExamsService {
     const attemptData = attempt.answers as any;
     const questions = attemptData.questions as any[];
 
+    // Server-side deadline, derived from the immutable started_at + time_limit_seconds
+    // stored at attempt creation — the client's own countdown is never trusted.
+    const elapsedSeconds = Math.floor((Date.now() - attempt.started_at.getTime()) / 1000);
+    const limitSeconds = attempt.time_limit_seconds;
+    const timedOut = limitSeconds != null && elapsedSeconds > limitSeconds + EXAM_GRACE_SECONDS;
+    const timeUsedSeconds = limitSeconds != null ? Math.min(elapsedSeconds, limitSeconds) : elapsedSeconds;
+
     // Grade
     const bankQuestions = await this.prisma.examBank.findMany({
       where: { id: { in: questions.map((q: any) => q.id) } },
@@ -89,9 +118,11 @@ export class ExamsService {
     }
 
     const scorePercentage = Math.round((correct / questions.length) * 100);
-    const passed = scorePercentage >= attempt.passing_score;
+    // A submission that arrives after the time limit (+ grace) always fails, regardless
+    // of score, so a manipulated client-side timer can never buy extra attempt time.
+    const passed = !timedOut && scorePercentage >= attempt.passing_score;
 
-    const updated = await this.prisma.examAttempt.update({
+    await this.prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         status: passed ? ExamAttemptStatus.passed : ExamAttemptStatus.failed,
@@ -99,14 +130,21 @@ export class ExamsService {
         score_percentage: scorePercentage,
         passed,
         submitted_at: new Date(),
-        answers: { questions, submitted_answers: answers },
+        time_used_seconds: timeUsedSeconds,
+        answers: { questions, submitted_answers: answers, timed_out: timedOut },
       },
     });
+
+    if (passed) {
+      await this.certificates.issue(attempt.enrollment_id, scorePercentage).catch(() => {
+        // Already issued (e.g. duplicate submit race) — safe to ignore, the certificate exists.
+      });
+    }
 
     // Send exam result email (fire-and-forget)
     this.sendExamResultEmail(userId, attempt.enrollment_id, scorePercentage, passed).catch(() => {});
 
-    return { passed, score: scorePercentage, correct_answers: correct, total_questions: questions.length };
+    return { passed, score: scorePercentage, correct_answers: correct, total_questions: questions.length, timed_out: timedOut };
   }
 
   private async sendExamResultEmail(userId: string, enrollmentId: string, score: number, passed: boolean) {
@@ -322,7 +360,7 @@ export class ExamsService {
   async adminOverrideScore(attemptId: string, dto: { score_percentage: number; passed: boolean }) {
     const attempt = await this.prisma.examAttempt.findUnique({ where: { id: attemptId } });
     if (!attempt) throw new NotFoundException("Attempt not found");
-    return this.prisma.examAttempt.update({
+    const updated = await this.prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         score_percentage: dto.score_percentage,
@@ -330,6 +368,16 @@ export class ExamsService {
         status: dto.passed ? ExamAttemptStatus.passed : ExamAttemptStatus.failed,
       },
     });
+
+    // An override to "passed" must still result in a certificate — same
+    // contract as a normal passing submission in submitExam().
+    if (dto.passed) {
+      await this.certificates.issue(attempt.enrollment_id, dto.score_percentage).catch(() => {
+        // Already issued — safe to ignore.
+      });
+    }
+
+    return updated;
   }
 
   async adminGetAllAttempts() {

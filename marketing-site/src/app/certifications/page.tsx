@@ -13,11 +13,11 @@ export const metadata: Metadata = {
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 const THEMES = [
-  { dark: false, bg: "#f5ede0", shape: "#c9913a" },
+  { dark: false, bg: "#f5f0eb", shape: "#134e4a" },
   { dark: true,  bg: "#0f2a5c", shape: "#38bdf8" },
   { dark: true,  bg: "#2d1b69", shape: "#a78bfa" },
   { dark: false, bg: "#eaf5ef", shape: "#059669" },
-  { dark: false, bg: "#fef3c7", shape: "#d97706" },
+  { dark: false, bg: "#fce7f3", shape: "#db2777" },
   { dark: true,  bg: "#1e3a5f", shape: "#60a5fa" },
 ];
 
@@ -107,16 +107,11 @@ export default async function CertificationsListPage() {
             <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-tight">
               Become a Certified
               <br />
-              <span className="text-gold-400">AI Professional.</span>
+              <span className="text-gradient">AI Professional.</span>
             </h1>
             <p className="text-lg text-white/80 max-w-2xl">
               Globally recognized credentials for every career stage. From core practitioner to domain expert — your AI career starts here.
             </p>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
           </div>
         </section>
 

@@ -149,7 +149,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                   </div>
                 </div>
                 <div className="flex items-start gap-5 mb-5">
-                  <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 shadow-gold">
+                  <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 shadow-teal">
                     {cert.badge_icon || "🎓"}
                   </div>
                   <div>
@@ -241,11 +241,6 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                 </div>
               )}
             </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
           </div>
         </section>
 

@@ -32,7 +32,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         errors = res.errors;
       }
     } else if (exception instanceof Error) {
-      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
+      const requestId = (request as any).requestId;
+      this.logger.error(`[${requestId ?? "-"}] Unhandled error: ${exception.message}`, exception.stack);
+      this.reportToErrorTracker(exception, request);
     }
 
     response.status(status).json({
@@ -43,5 +45,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.url,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  // Reports unexpected (non-HttpException) errors to Sentry if it's installed
+  // and SENTRY_DSN is configured — inert otherwise, so this never affects
+  // behavior or requires the dependency until someone opts in.
+  private async reportToErrorTracker(exception: Error, request: Request) {
+    if (!process.env.SENTRY_DSN) return;
+    try {
+      // Indirected through a variable so TypeScript doesn't require this
+      // genuinely-optional package to be installed just to compile.
+      const moduleName = "@sentry/node";
+      const Sentry = await import(moduleName);
+      Sentry.captureException(exception, {
+        tags: { requestId: (request as any).requestId },
+        extra: { url: request.url, method: request.method },
+      });
+    } catch {
+      this.logger.warn("SENTRY_DSN is set but @sentry/node isn't installed — run `npm install @sentry/node` to enable error reporting.");
+    }
   }
 }

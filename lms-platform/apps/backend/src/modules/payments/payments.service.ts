@@ -321,11 +321,23 @@ export class PaymentsService {
         this.logger.log(`Charge refunded: ${charge.id}`);
         break;
       }
-      case "checkout.session.expired": {
+      case "checkout.session.expired":
+      case "checkout.session.async_payment_failed": {
+        // Both mean the customer never completed payment — same "you weren't charged,
+        // here's what to do" notification applies to a timed-out session and a
+        // delayed payment method (e.g. bank debit) that came back declined.
         const session = event.data.object as Stripe.Checkout.Session;
         await this.handleCheckoutExpired(session);
         break;
       }
+      case "charge.failed":
+      case "payment_intent.payment_failed": {
+        const obj = event.data.object as Stripe.Charge | Stripe.PaymentIntent;
+        this.logger.warn(`${event.type}: ${obj.id} — ${(obj as any).last_payment_error?.message ?? "no reason given"}`);
+        break;
+      }
+      default:
+        this.logger.debug(`Unhandled Stripe event type: ${event.type}`);
     }
 
     return { received: true };

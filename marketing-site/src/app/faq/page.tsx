@@ -40,9 +40,9 @@ const FAQS = [
   {
     category: "Application & Enrollment",
     items: [
-      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3â€“5 business days. You receive your LMS access credentials via email upon approval." },
-      { q: "Why do I need to apply? Can't I just enroll?", a: "PAI's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined â€” it's not an exclusionary process." },
-      { q: "What if my application is rejected?", a: "You'll receive a full refund within 5â€“7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways." },
+      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval." },
+      { q: "Why do I need to apply? Can't I just enroll?", a: "PAI's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined — it's not an exclusionary process." },
+      { q: "What if my application is rejected?", a: "You'll receive a full refund within 5–7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways." },
     ],
   },
   {
@@ -51,7 +51,7 @@ const FAQS = [
       { q: "How is the exam delivered?", a: "Online, proctored through our secure testing platform. You can take it from home or office. You'll need a webcam, government ID, and a quiet space." },
       { q: "What happens if I fail?", a: "Two retakes are included in your enrollment fee. If you fail a third time, additional retakes are $99 each. Detailed score reports guide your preparation." },
       { q: "How long is the exam?", a: "CAIP, CAIM, and CAIDA: 90 minutes, 75 questions. CAIE: 75 minutes, 60 questions. All are multiple-choice." },
-      { q: "When can I take the exam?", a: "You can schedule your exam at any time after completing all required modules. No cohort deadlines â€” take it when you're ready." },
+      { q: "When can I take the exam?", a: "You can schedule your exam at any time after completing all required modules. No cohort deadlines — take it when you're ready." },
     ],
   },
   {
@@ -79,7 +79,7 @@ export default async function FAQPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero â€” always hardcoded */}
+        {/* Hero — always hardcoded */}
         <section className="pt-[148px] pb-20 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">FAQ</span>
@@ -88,12 +88,9 @@ export default async function FAQPage() {
               Everything you need to know about PAI certifications, exams, and credentials.
             </p>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full"><path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" /></svg>
-          </div>
         </section>
 
-        {/* Content â€” CMS if available, otherwise hardcoded */}
+        {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />
         ) : (

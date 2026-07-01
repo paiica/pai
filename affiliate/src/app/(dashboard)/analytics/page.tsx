@@ -51,8 +51,8 @@ export default function AnalyticsPage() {
                 <AreaChart data={analytics.revenue_over_time} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#B8962E" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#B8962E" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
                   <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatCurrency(v)} />
                   <Tooltip formatter={(v: number) => [formatCurrency(v), "Revenue"]}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  <Area type="monotone" dataKey="value" stroke="#B8962E" strokeWidth={2} fill="url(#grad-revenue)" dot={false} />
+                  <Area type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} fill="url(#grad-revenue)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
                     data={analytics.funnel.map((s, i) => ({
                       value: s.count,
                       name: s.stage,
-                      fill: ["#1e3a5f", "#B8962E", "#3b82f6", "#10b981"][i % 4],
+                      fill: ["#1e3a5f", "#14b8a6", "#3b82f6", "#10b981"][i % 4],
                     }))}
                   >
                     <LabelList position="right" content={({ value, name }) => (

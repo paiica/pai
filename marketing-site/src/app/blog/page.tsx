@@ -60,15 +60,12 @@ export default async function BlogPage() {
               Career advice, industry analysis, certification guides, and practical AI insights.
             </p>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full"><path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" /></svg>
-          </div>
         </section>
 
         <section className="section-padding bg-white">
           <div className="container-lg">
             {posts.length === 0 ? (
-              <div className="text-center py-20 text-slate-400 text-sm">No posts published yet â€” check back soon.</div>
+              <div className="text-center py-20 text-slate-400 text-sm">No posts published yet — check back soon.</div>
             ) : (
               <>
                 {featured && (

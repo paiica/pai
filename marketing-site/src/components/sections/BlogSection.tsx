@@ -41,7 +41,7 @@ export default async function BlogSection({ cmsContent = {} }: { cmsContent?: Re
 
         <div className="flex items-end justify-between mb-12">
           <div>
-            <span className="badge-gold mb-4">{badge}</span>
+            <span className="badge-teal mb-4">{badge}</span>
             <h2 className="section-title">{title}</h2>
           </div>
           <Link

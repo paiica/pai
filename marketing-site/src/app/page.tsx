@@ -9,6 +9,7 @@ import WhyPAISection from "@/components/sections/WhyPAISection";
 import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import IdentitySection from "@/components/sections/IdentitySection";
 import CTASection from "@/components/sections/CTASection";
+import LogoStripSection from "@/components/sections/LogoStripSection";
 
 type PageBlock = { key: string; is_visible: boolean; sort_order: number; content: Record<string, any> };
 
@@ -22,6 +23,7 @@ const SECTION_MAP: Record<string, React.ComponentType<any>> = {
   testimonials:   TestimonialsSection,
   blog:           BlogSection,
   cta:            CTASection,
+  logos:          LogoStripSection,
 };
 
 async function getBlocks(): Promise<PageBlock[]> {

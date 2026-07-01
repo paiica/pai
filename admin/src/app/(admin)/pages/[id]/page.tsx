@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -80,7 +80,23 @@ export default function PageEditorPage() {
   const [isPublished,     setIsPublished]     = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [initialized,     setInitialized]     = useState(false);
-  const [activeTab,       setActiveTab]       = useState<"editor" | "preview">("editor");
+  const [activeTab,       setActiveTab]       = useState<"editor" | "edit" | "preview">("editor");
+  const editableRef = useRef<HTMLDivElement>(null);
+
+  // Sync the live `content` string into the editable surface only when switching
+  // into this tab — never while it's mounted and being typed in, or every
+  // keystroke's setContent() would re-render dangerouslySetInnerHTML underneath
+  // the user's cursor and reset their selection.
+  useEffect(() => {
+    if (activeTab === "edit" && editableRef.current) {
+      editableRef.current.innerHTML = content;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  function syncEditableContent() {
+    if (editableRef.current) setContent(editableRef.current.innerHTML);
+  }
 
   useEffect(() => {
     if (page && !initialized) {
@@ -237,6 +253,14 @@ export default function PageEditorPage() {
                 <Code2 size={11} /> HTML
               </button>
               <button
+                onClick={() => setActiveTab("edit")}
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  activeTab === "edit" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Type size={11} /> Edit Text
+              </button>
+              <button
                 onClick={() => setActiveTab("preview")}
                 className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
                   activeTab === "preview" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -267,6 +291,16 @@ export default function PageEditorPage() {
                 }}
               />
             </div>
+          ) : activeTab === "edit" ? (
+            <div
+              ref={editableRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={syncEditableContent}
+              onBlur={syncEditableContent}
+              className="cms-editable w-full rounded-xl border border-slate-200 bg-white overflow-y-auto p-6 focus:outline-none focus:ring-2 focus:ring-teal-400"
+              style={{ height: 560, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: 15, color: "#171527" }}
+            />
           ) : (
             <iframe
               srcDoc={previewDoc(content)}
@@ -276,8 +310,21 @@ export default function PageEditorPage() {
             />
           )}
 
+          <style jsx global>{`
+            .cms-editable h1 { font-size: 2rem; font-weight: 900; margin: 0 0 8px; }
+            .cms-editable h2 { font-size: 1.25rem; font-weight: 700; margin: 32px 0 12px; }
+            .cms-editable h3 { font-size: 1rem; font-weight: 700; margin: 0 0 8px; }
+            .cms-editable p { line-height: 1.7; margin: 0 0 16px; }
+            .cms-editable a { color: #171527; }
+            .cms-editable ul, .cms-editable ol { padding-left: 20px; }
+            .cms-editable li { margin-bottom: 6px; font-size: 14px; line-height: 1.6; }
+            .cms-editable section { overflow: hidden; }
+          `}</style>
+
           <p className="text-[10px] text-slate-400 mt-2">
-            HTML editor — use inline styles or Tailwind classes (rendered on the marketing site). Preview shows an approximation.
+            {activeTab === "edit"
+              ? "Click directly into the text to edit it — layout, colors, and structure stay exactly as designed. Switch to HTML for structural changes."
+              : "HTML editor — use inline styles or Tailwind classes (rendered on the marketing site). Preview shows an approximation."}
           </p>
         </div>
 

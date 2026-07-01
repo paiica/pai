@@ -14,7 +14,8 @@
     "affiliate"
   ],
   "scripts": {
-    "dev": "concurrently -n \"marketing,portal,admin,backend,professors,exams,exam-admin,affiliate\" -c \"blue,green,yellow,red,magenta,cyan,white,bgBlue\" \"npm --prefix marketing-site run dev\" \"npm --prefix lms-platform/apps/frontend run dev\" \"npm --prefix admin run dev\" \"npm --prefix lms-platform/apps/backend run dev\" \"npm --prefix professors run dev\" \"npm --prefix lms-platform/apps/paiiexams run dev\" \"npm --prefix lms-platform/apps/exam-admin run dev\" \"npm --prefix affiliate run dev\""
+    "dev": "concurrently -n \"marketing,portal,admin,backend,professors,exams,exam-admin,affiliate\" -c \"blue,green,yellow,red,magenta,cyan,white,bgBlue\" \"npm --prefix marketing-site run dev\" \"npm --prefix lms-platform/apps/frontend run dev\" \"npm --prefix admin run dev\" \"npm --prefix lms-platform/apps/backend run dev\" \"npm --prefix professors run dev\" \"npm --prefix lms-platform/apps/paiiexams run dev\" \"npm --prefix lms-platform/apps/exam-admin run dev\" \"npm --prefix affiliate run dev\"",
+    "env:generate": "node scripts/generate-env.js"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

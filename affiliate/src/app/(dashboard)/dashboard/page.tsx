@@ -14,7 +14,7 @@ import { KPICardSkeleton, ChartSkeleton } from "@/components/ui/LoadingSkeleton"
 import { useAffiliateDashboard } from "@/hooks/useAffiliateDashboard";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 
-const CHART_COLOR = "#B8962E";
+const CHART_COLOR = "#14b8a6";
 
 function ChartCard({ title, data, dataKey, color = CHART_COLOR, formatter }: {
   title: string;
@@ -89,7 +89,7 @@ export default function DashboardPage() {
               title="Earnings Over Time"
               data={charts.earnings.map((d) => ({ date: d.date, value: d.value }))}
               dataKey="value"
-              color="#B8962E"
+              color="#14b8a6"
               formatter={formatCurrency}
             />
             <ChartCard

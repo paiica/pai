@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — type-check, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Prisma client types are required for the backend to type-check —
+      # this only generates the client from schema.prisma, it does not
+      # touch a real database.
+      - name: Generate Prisma client
+        run: npx prisma generate --schema lms-platform/apps/backend/prisma/schema.prisma
+
+      - name: Type-check
+        run: npm run type-check --workspace lms-platform/apps/backend
+
+      - name: Lint
+        run: npm run lint --workspace lms-platform/apps/backend
+
+      - name: Test
+        run: npm test --workspace lms-platform/apps/backend
+
+  frontends:
+    name: Frontend apps — type-check & lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - marketing-site
+          - admin
+          - professors
+          - affiliate
+          - lms-platform/apps/frontend
+          - lms-platform/apps/paiiexams
+          - lms-platform/apps/exam-admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check --workspace ${{ matrix.app }}
+
+      - name: Lint
+        run: npm run lint --workspace ${{ matrix.app }}
+        # Next.js's `next lint` exits non-zero on warnings in some configs —
+        # treat lint failures as non-blocking until the existing warning
+        # backlog across these apps is cleaned up.
+        continue-on-error: true

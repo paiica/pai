@@ -29,6 +29,7 @@ backend-stderr.txt
 # Runtime / cache
 .turbo/
 .cache/
+.claude/*.lock
 
 # OS
 .DS_Store

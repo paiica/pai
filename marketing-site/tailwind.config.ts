@@ -36,7 +36,7 @@ const config: Config = {
           800: "#332f2a",
           900: "#1a1714",
         },
-        // Single accent — teal
+        // Interactive accent — teal (buttons, links, active states)
         teal: {
           50:  "#f0fdfa",
           100: "#ccfbf1",
@@ -52,7 +52,8 @@ const config: Config = {
       },
       fontFamily: {
         sans:    ["var(--font-jakarta)", "system-ui", "sans-serif"],
-        display: ["var(--font-jakarta)", "system-ui", "sans-serif"],
+        display: ["var(--font-fraunces)", "Georgia", "serif"],
+        mono:    ["var(--font-plex-mono)", "ui-monospace", "monospace"],
       },
       boxShadow: {
         card:       "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.05)",

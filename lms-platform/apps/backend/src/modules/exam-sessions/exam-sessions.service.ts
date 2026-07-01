@@ -231,14 +231,28 @@ export class ExamSessionsService {
   }
 
   async getMyBooking(certificationId: string, userId: string) {
-    return (this.prisma as any).examBooking.findFirst({
+    const booking = await (this.prisma as any).examBooking.findFirst({
       where: {
         user_id: userId,
         exam_session: { certification_id: certificationId },
         status: "confirmed",
       },
-      include: { exam_session: true },
+      include: {
+        exam_session: true,
+        enrollment: {
+          select: {
+            exam_attempts: {
+              orderBy: { attempt_number: "desc" },
+              take: 1,
+              select: { id: true, status: true, score_percentage: true, passed: true, submitted_at: true },
+            },
+          },
+        },
+      },
     });
+    if (!booking) return null;
+    const { enrollment, ...rest } = booking;
+    return { ...rest, latest_attempt: enrollment?.exam_attempts?.[0] ?? null };
   }
 
   async startExamFromBooking(bookingId: string, userId: string) {
@@ -265,6 +279,17 @@ export class ExamSessionsService {
     });
     if (existingInProgress) return { attemptId: existingInProgress.id };
 
+    // Same cap startExam() enforces — without it, a student whose booked-session
+    // attempt timed out could keep re-triggering this endpoint for unlimited
+    // fresh attempts instead of being bound by their purchased retake count.
+    const existingCount = await this.prisma.examAttempt.count({
+      where: { enrollment_id: enrollment.id },
+    });
+    const maxAttempts = cert.max_retakes_included + 1;
+    if (existingCount >= maxAttempts) {
+      throw new BadRequestException("Maximum exam attempts reached. Purchase additional retakes.");
+    }
+
     const bankQuestions = await this.prisma.examBank.findMany({
       where: { certification_id: cert.id, is_active: true },
       take: cert.exam_questions_count,
@@ -281,10 +306,6 @@ export class ExamSessionsService {
       options: q.options,
       topic_tag: q.topic_tag,
     }));
-
-    const existingCount = await this.prisma.examAttempt.count({
-      where: { enrollment_id: enrollment.id },
-    });
 
     const attempt = await this.prisma.examAttempt.create({
       data: {

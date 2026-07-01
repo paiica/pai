@@ -11,7 +11,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-sand-100 text-ink-900;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-fraunces), serif;
+  }
+  :focus-visible {
+    outline: 2px solid theme(colors.teal.500);
+    outline-offset: 2px;
   }
 }
 
@@ -44,8 +51,8 @@
 
 /* Colors */
 :root {
-  --navy-50: #eef1f8;
-  --navy-800: #0e1e3d;
-  --gold-400: #e4b340;
-  --gold-500: #c9913a;
+  --navy-50: #f3f2f7;
+  --navy-800: #1f1d38;
+  --gold-400: #2dd4bf;
+  --gold-500: #14b8a6;
 }

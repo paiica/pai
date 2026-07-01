@@ -201,12 +201,12 @@ export default function OnlineToolsAdminPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-black text-navy-900 mb-0.5">Online Tools</h1>
-          <p className="text-slate-500 text-sm">Manage tools visible in the student portal â€” courses, bundles, subscriptions, and external resources.</p>
+          <p className="text-slate-500 text-sm">Manage tools visible in the student portal — courses, bundles, subscriptions, and external resources.</p>
         </div>
         <button onClick={startNew} className="btn-primary"><Plus size={14} /> New Tool</button>
       </div>
 
-      {/* â”€â”€ Form â”€â”€ */}
+      {/* ── Form ── */}
       {showForm && (
         <div className="card mb-6 border-2 border-navy-200 overflow-hidden">
           <div className="px-5 pt-4 pb-0 border-b border-slate-100">
@@ -231,13 +231,13 @@ export default function OnlineToolsAdminPage() {
 
           <div className="p-5 space-y-4">
 
-            {/* â”€â”€ TAB: Info & Pricing â”€â”€ */}
+            {/* ── TAB: Info & Pricing ── */}
             {activeTab === "info" && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Title *</label>
-                    <input value={form.title} onChange={e => { f("title", e.target.value); if (!editId) f("slug", slugify(e.target.value)); }} className="input-base text-sm" placeholder="PMIstandards+â„¢ Monthly Subscription" />
+                    <input value={form.title} onChange={e => { f("title", e.target.value); if (!editId) f("slug", slugify(e.target.value)); }} className="input-base text-sm" placeholder="PMIstandards+™ Monthly Subscription" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Slug *</label>
@@ -279,7 +279,7 @@ export default function OnlineToolsAdminPage() {
               </>
             )}
 
-            {/* â”€â”€ TAB: Content â”€â”€ */}
+            {/* ── TAB: Content ── */}
             {activeTab === "content" && (
               <>
                 <div className="grid grid-cols-1 gap-4">
@@ -324,7 +324,7 @@ export default function OnlineToolsAdminPage() {
                       </div>
                     ))}
                     {features.length === 0 && (
-                      <p className="text-xs text-slate-400 italic">No features yet â€” click Add to list what students get access to.</p>
+                      <p className="text-xs text-slate-400 italic">No features yet — click Add to list what students get access to.</p>
                     )}
                   </div>
                 </div>
@@ -357,14 +357,14 @@ export default function OnlineToolsAdminPage() {
                       </div>
                     ))}
                     {steps.length === 0 && (
-                      <p className="text-xs text-slate-400 italic">No steps yet â€” click Add Step to explain how the tool works.</p>
+                      <p className="text-xs text-slate-400 italic">No steps yet — click Add Step to explain how the tool works.</p>
                     )}
                   </div>
                 </div>
               </>
             )}
 
-            {/* â”€â”€ TAB: Settings â”€â”€ */}
+            {/* ── TAB: Settings ── */}
             {activeTab === "settings" && (
               <>
                 <div className="grid grid-cols-2 gap-4">
@@ -385,7 +385,7 @@ export default function OnlineToolsAdminPage() {
                       className="input-base text-sm"
                       disabled={!!form.certification_id}
                     >
-                      <option value="">â€” None â€”</option>
+                      <option value="">— None —</option>
                       {courses.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
                   </div>
@@ -398,8 +398,8 @@ export default function OnlineToolsAdminPage() {
                       className="input-base text-sm"
                       disabled={!!form.course_id}
                     >
-                      <option value="">â€” None â€”</option>
-                      {certs.map((c: any) => <option key={c.id} value={c.id}>{c.acronym} â€” {c.title}</option>)}
+                      <option value="">— None —</option>
+                      {certs.map((c: any) => <option key={c.id} value={c.id}>{c.acronym} — {c.title}</option>)}
                     </select>
                   </div>
 
@@ -444,7 +444,7 @@ export default function OnlineToolsAdminPage() {
         </div>
       )}
 
-      {/* â”€â”€ List â”€â”€ */}
+      {/* ── List ── */}
       {tools.length === 0 ? (
         <div className="card p-12 text-center">
           <Wrench size={32} className="text-slate-200 mx-auto mb-3" />
@@ -486,7 +486,7 @@ export default function OnlineToolsAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {tool.course_title ? `Course: ${tool.course_title}` :
-                     tool.cert_acronym  ? `Cert: ${tool.cert_acronym}` : "â€”"}
+                     tool.cert_acronym  ? `Cert: ${tool.cert_acronym}` : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => toggleStatus(tool)}>

@@ -61,16 +61,11 @@ export default async function CoursesListPage() {
             <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-tight">
               Learn at Your Own Pace.
               <br />
-              <span className="text-gold-400">Pass with Confidence.</span>
+              <span className="text-gradient">Pass with Confidence.</span>
             </h1>
             <p className="text-lg text-white/80 max-w-2xl">
               Self-paced courses built to develop practical AI skills and prepare you for certification exams.
             </p>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
           </div>
         </section>
 
@@ -112,7 +107,7 @@ export default async function CoursesListPage() {
                             </span>
                           )}
                           {course.cert_acronym && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-gold-700 border border-gold-200 bg-gold-50 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-teal-700 border border-teal-200 bg-teal-50 px-2 py-0.5 rounded-full">
                               {course.cert_acronym}
                             </span>
                           )}

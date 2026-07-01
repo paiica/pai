@@ -145,11 +145,6 @@ export default function EducatorPage() {
               </Link>
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
-          </div>
         </section>
 
         {/* Stats bar */}
@@ -175,7 +170,7 @@ export default function EducatorPage() {
         <section id="how-it-works" className="section-padding bg-white">
           <div className="container-lg">
             <div className="text-center mb-12">
-              <span className="badge-gold mb-4">Simple Process</span>
+              <span className="badge-teal mb-4">Simple Process</span>
               <h2 className="section-title mb-4">How It Works</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 From application to earning, the whole process takes minutes to set up.
@@ -213,7 +208,7 @@ export default function EducatorPage() {
         <section className="section-padding bg-sand-100">
           <div className="container-lg">
             <div className="text-center mb-12">
-              <span className="badge-gold mb-4">Why Partner With PAI</span>
+              <span className="badge-teal mb-4">Why Partner With PAI</span>
               <h2 className="section-title mb-4">Built for Educators</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 We've designed the educator affiliate program to be low-effort and high-value
@@ -238,7 +233,7 @@ export default function EducatorPage() {
         <section className="section-padding bg-white">
           <div className="container-lg">
             <div className="text-center mb-12">
-              <span className="badge-gold mb-4">What You Can Refer</span>
+              <span className="badge-teal mb-4">What You Can Refer</span>
               <h2 className="section-title mb-4">PAI Certification Programs</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 Four rigorous credentials covering every professional level — from practitioners
@@ -272,7 +267,7 @@ export default function EducatorPage() {
         <section className="section-padding bg-sand-100">
           <div className="container-md">
             <div className="text-center mb-10">
-              <span className="badge-gold mb-4">Ideal Partners</span>
+              <span className="badge-teal mb-4">Ideal Partners</span>
               <h2 className="section-title mb-4">Who Is This For?</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 The PAI Educator Partner Program is designed for professionals who teach,

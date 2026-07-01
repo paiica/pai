@@ -33,7 +33,7 @@ export class SiteSettingsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Update site settings (admin)" })
-  update(@Body() body: Record<string, string>) {
+  update(@Body() body: Record<string, unknown>) {
     return this.service.upsertMany(body);
   }
 

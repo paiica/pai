@@ -13,7 +13,25 @@ import { TransformInterceptor } from "./common/interceptors/transform.intercepto
 import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
 import { PrismaService } from "./modules/prisma/prisma.service";
 
+// Optional — only activates if SENTRY_DSN is set AND @sentry/node is installed
+// (`npm install @sentry/node`). Safe to leave unset; this is a no-op otherwise.
+async function initErrorTracking() {
+  if (!process.env.SENTRY_DSN) return;
+  try {
+    // Indirected through a variable so TypeScript doesn't require this
+    // genuinely-optional package to be installed just to compile.
+    const moduleName = "@sentry/node";
+    const Sentry = await import(moduleName);
+    Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV });
+    console.log("[PAI Backend] Sentry error tracking enabled");
+  } catch {
+    console.warn("SENTRY_DSN is set but @sentry/node isn't installed — run `npm install @sentry/node` to enable error reporting.");
+  }
+}
+
 async function bootstrap() {
+  await initErrorTracking();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter(), {
     logger: ["error", "warn", "log", "debug"],
   });

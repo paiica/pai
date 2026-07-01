@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --font-display: "Sora", system-ui, sans-serif;
+  --font-display: var(--font-fraunces), system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; }
+body { font-family: var(--font-jakarta), system-ui, sans-serif; }
+:focus-visible { outline: 2px solid #14b8a6; outline-offset: 2px; }
 
 /* Rich text question rendering inside the exam */
 .rte-preview { color: #f1f5f9; font-size: 1rem; line-height: 1.7; }

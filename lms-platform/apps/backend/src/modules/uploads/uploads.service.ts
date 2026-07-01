@@ -79,6 +79,12 @@ export class UploadsService {
   }
 
   async confirmUpload(userId: string, dto: ConfirmUploadDto) {
+    // The presign step scopes every key under uploads/{userId}/... — confirming a key
+    // outside your own prefix would let you register another user's file as your own.
+    if (!dto.s3_key.startsWith(`uploads/${userId}/`)) {
+      throw new BadRequestException("This upload key does not belong to you");
+    }
+
     const bucket = this.config.get<string>("s3.bucketName", "pai-lms-assets");
     const region = this.config.get<string>("s3.region", "us-east-1");
     const url = `https://${bucket}.s3.${region}.amazonaws.com/${dto.s3_key}`;

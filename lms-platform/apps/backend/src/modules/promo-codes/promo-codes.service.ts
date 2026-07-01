@@ -84,6 +84,7 @@ export class PromoCodesService {
   }) {
     const { code, description, discount_type, discount_value, max_uses, expires_at, is_active = true, course_id, certification_id } = dto;
     if (!["percentage", "fixed"].includes(discount_type)) throw new BadRequestException("discount_type must be percentage or fixed");
+    this.assertValidDiscountValue(discount_type, discount_value);
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO lms.promo_codes (id, code, description, discount_type, discount_value, max_uses, expires_at, is_active, used_count, course_id, certification_id, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, $2, $3, $4::numeric, $5, $6, $7, 0, $8, $9, now(), now()) RETURNING *`,
@@ -100,6 +101,21 @@ export class PromoCodesService {
     course_id: string; certification_id: string;
   }>) {
     const { description, discount_type, discount_value, max_uses, expires_at, is_active, course_id, certification_id } = dto;
+    if (discount_type !== undefined || discount_value !== undefined) {
+      if (discount_type !== undefined && !["percentage", "fixed"].includes(discount_type)) {
+        throw new BadRequestException("discount_type must be percentage or fixed");
+      }
+      if (discount_value !== undefined) {
+        let effectiveType: string = discount_type ?? "";
+        if (!effectiveType) {
+          const [current] = await this.prisma.$queryRawUnsafe<any[]>(
+            `SELECT discount_type FROM lms.promo_codes WHERE id = $1`, id,
+          );
+          effectiveType = current?.discount_type ?? "fixed";
+        }
+        this.assertValidDiscountValue(effectiveType, discount_value);
+      }
+    }
     await this.prisma.$executeRawUnsafe(
       `UPDATE lms.promo_codes SET
         description = COALESCE($1, description),
@@ -123,5 +139,14 @@ export class PromoCodesService {
   async adminDelete(id: string) {
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.promo_codes WHERE id = $1`, id);
     return { deleted: true };
+  }
+
+  private assertValidDiscountValue(discountType: string, discountValue: number) {
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+      throw new BadRequestException("discount_value must be a positive number");
+    }
+    if (discountType === "percentage" && discountValue > 100) {
+      throw new BadRequestException("A percentage discount cannot exceed 100");
+    }
   }
 }

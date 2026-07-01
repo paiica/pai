@@ -16,9 +16,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-jakarta), system-ui, sans-serif;
+    font-family: var(--font-fraunces), Georgia, serif;
     font-weight: 700;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.01em;
   }
 
   a:hover {
@@ -46,15 +46,15 @@
     @apply text-lg text-ink-900 leading-relaxed;
   }
 
-  /* Badges — one neutral style only */
+  /* Eyebrows — a verification-tag mark, not a pill: a short rule + small-caps mono label */
   .badge {
-    @apply inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-900 bg-sand-200 border border-sand-300 px-3 py-1.5 rounded-full uppercase tracking-widest;
+    @apply inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-ink-900 uppercase tracking-[0.15em] pl-3 border-l-2 border-sand-400;
   }
   .badge-dark {
-    @apply inline-flex items-center gap-1.5 text-[11px] font-semibold text-white bg-white/10 border border-white/20 px-3 py-1.5 rounded-full uppercase tracking-widest;
+    @apply inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-white uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-400;
   }
-  .badge-gold {
-    @apply inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-900 bg-teal-50 border border-teal-100 px-3 py-1.5 rounded-full uppercase tracking-widest;
+  .badge-teal {
+    @apply inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500;
   }
 
   /* Buttons */
@@ -85,9 +85,13 @@
   }
 }
 
-/* text-gradient is no longer used as a color effect */
+/* Teal gradient — reserved for the one emphasized phrase per section */
 .text-gradient {
-  color: inherit;
+  background: linear-gradient(90deg, #5eead4 0%, #14b8a6 60%, #0f766e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #14b8a6; /* fallback for browsers without background-clip: text */
 }
 
 /* Hero slider progress bar */
@@ -97,4 +101,21 @@
 }
 .animate-hero-progress {
   animation: hero-progress 6s linear forwards;
+}
+
+/* Logo strip marquee */
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee-scroll 14s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }

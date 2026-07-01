@@ -27,12 +27,15 @@ export class SiteSettingsService {
     });
   }
 
-  async upsertMany(data: Record<string, string>) {
+  async upsertMany(data: Record<string, unknown>) {
+    // `value` is a required String column — callers occasionally send a number
+    // (e.g. logo_height) or boolean, which Prisma rejects outright rather than
+    // coercing, so normalize everything to a string here.
     const ops = Object.entries(data).map(([key, value]) =>
       this.prisma.siteSetting.upsert({
         where: { key },
-        create: { key, value },
-        update: { value },
+        create: { key, value: String(value) },
+        update: { value: String(value) },
       })
     );
     return this.prisma.$transaction(ops);

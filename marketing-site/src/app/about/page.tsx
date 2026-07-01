@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
     title: cms?.title ?? "About PAI",
-    description: cms?.meta_description ?? "Learn about the Professional AI Institute â€” our mission, values, advisory board, and commitment to rigorous AI certification.",
+    description: cms?.meta_description ?? "Learn about the Professional AI Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
   };
 }
 
@@ -50,7 +50,7 @@ export default async function AboutPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero â€” always hardcoded */}
+        {/* Hero — always hardcoded */}
         <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">About PAI</span>
@@ -62,14 +62,9 @@ export default async function AboutPage() {
               We build rigorous, globally recognized certifications for the AI era.
             </p>
           </div>
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 60" fill="none" className="w-full">
-              <path d="M0 60L1440 60V30C1440 30 1080 0 720 0C360 0 0 30 0 30V60Z" fill="white" />
-            </svg>
-          </div>
         </section>
 
-        {/* Content â€” CMS if available, otherwise hardcoded */}
+        {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />
         ) : (
@@ -78,7 +73,7 @@ export default async function AboutPage() {
               <div className="container-md">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-start">
                   <div>
-                    <span className="badge-gold mb-4">Our Mission</span>
+                    <span className="badge-teal mb-4">Our Mission</span>
                     <h2 className="section-title mb-5">Closing the AI Credibility Gap</h2>
                     <p className="text-ink-900 leading-relaxed mb-5">
                       In 2023, we noticed a growing problem: organizations were scrambling to implement AI,
@@ -88,7 +83,7 @@ export default async function AboutPage() {
                       inaccessible to most professionals.
                     </p>
                     <p className="text-ink-900 leading-relaxed mb-5">
-                      PAI was founded to solve that problem â€” to create the professional certification
+                      PAI was founded to solve that problem — to create the professional certification
                       infrastructure for AI, modeled after institutions like the CPA, PMI, and CSI that
                       define credentialing in other professions.
                     </p>
@@ -103,7 +98,7 @@ export default async function AboutPage() {
                       "Curriculum reviewed quarterly to stay current",
                       "Independent psychometric exam development",
                       "ISO 17024-aligned credentialing framework",
-                      "No sponsorship from AI vendors â€” 100% independent",
+                      "No sponsorship from AI vendors — 100% independent",
                       "Advisory board includes practitioners from 12 industries",
                     ].map((item) => (
                       <div key={item} className="flex items-start gap-3 bg-sand-100 rounded-xl p-4 border border-sand-200">
@@ -119,7 +114,7 @@ export default async function AboutPage() {
             <section className="section-padding bg-sand-100">
               <div className="container-lg">
                 <div className="text-center mb-12">
-                  <span className="badge-gold mb-4">Our Values</span>
+                  <span className="badge-teal mb-4">Our Values</span>
                   <h2 className="section-title">What We Stand For</h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -139,7 +134,7 @@ export default async function AboutPage() {
             <section id="board" className="section-padding bg-white">
               <div className="container-lg">
                 <div className="text-center mb-12">
-                  <span className="badge-gold mb-4">Advisory Board</span>
+                  <span className="badge-teal mb-4">Advisory Board</span>
                   <h2 className="section-title mb-4">Guided by Industry Leaders</h2>
                   <p className="section-subtitle max-w-xl mx-auto">
                     Our programs are shaped by active practitioners and thought leaders from the world's leading organizations.
@@ -163,10 +158,10 @@ export default async function AboutPage() {
 
             <section id="accreditation" className="section-padding bg-sand-100">
               <div className="container-md text-center">
-                <span className="badge-gold mb-4">Accreditation</span>
+                <span className="badge-teal mb-4">Accreditation</span>
                 <h2 className="section-title mb-5">Standards-Aligned Credentialing</h2>
                 <p className="text-ink-900 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  PAI's certification framework aligns with ISO 17024 â€” the international standard for
+                  PAI's certification framework aligns with ISO 17024 — the international standard for
                   personnel certification bodies. Our exam development follows best practices from the
                   National Commission for Certifying Agencies (NCCA).
                 </p>

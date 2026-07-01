@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 const CERT_THEMES = [
-  { dark: false, bg: "bg-[#f5ede0]", shapeColor: "#c9913a", shapeType: "pentagon" },
+  { dark: false, bg: "bg-[#f5f0eb]", shapeColor: "#134e4a", shapeType: "pentagon" },
   { dark: true,  bg: "bg-[#0f2a5c]", shapeColor: "#38bdf8", shapeType: "circle"   },
   { dark: true,  bg: "bg-[#2d1b69]", shapeColor: "#a78bfa", shapeType: "triangle" },
   { dark: false, bg: "bg-[#eaf5ef]", shapeColor: "#059669", shapeType: "pentagon" },
@@ -34,18 +34,18 @@ const DEFAULT_CERTS: CertCard[] = [
 function Shape({ type, color }: { type: string; color: string }) {
   if (type === "circle") {
     return (
-      <div className="absolute top-4 right-4 w-28 h-28 rounded-full opacity-30" style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }} />
+      <div className="absolute top-5 right-5 w-36 h-36 rounded-full opacity-30" style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }} />
     );
   }
   if (type === "triangle") {
     return (
-      <svg className="absolute top-0 right-0 w-32 h-28 opacity-25" viewBox="0 0 130 110">
+      <svg className="absolute top-0 right-0 w-40 h-36 opacity-25" viewBox="0 0 130 110">
         <polygon points="130,0 130,110 0,110" fill={color} />
       </svg>
     );
   }
   return (
-    <svg className="absolute top-2 right-2 w-28 h-28 opacity-20" viewBox="0 0 100 100">
+    <svg className="absolute top-3 right-3 w-36 h-36 opacity-20" viewBox="0 0 100 100">
       <polygon points="50,5 95,35 80,85 20,85 5,35" fill={color} />
     </svg>
   );
@@ -55,52 +55,52 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
   const theme = CERT_THEMES[idx % CERT_THEMES.length];
   return (
     <div className={cn(
-      "relative flex-shrink-0 w-[270px] h-[420px] rounded-2xl overflow-hidden flex flex-col border",
+      "relative flex-shrink-0 w-[330px] h-[500px] rounded-2xl overflow-hidden flex flex-col border",
       theme.bg,
       theme.dark ? "border-white/10" : "border-sand-300"
     )}>
-      <div className="relative h-[130px] overflow-hidden">
+      <div className="relative h-[165px] overflow-hidden">
         <Shape type={theme.shapeType} color={theme.shapeColor} />
-        <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
+        <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
           <span className={cn(
-            "text-[11px] font-semibold px-2.5 py-1 rounded-full border",
+            "text-[12px] font-semibold px-3 py-1.5 rounded-full border",
             theme.dark ? "bg-white/10 text-white border-white/20" : "bg-white/70 text-ink-900 border-sand-200/60"
           )}>
             Certification
           </span>
           {cert.status === "coming_soon" ? (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
               Coming Soon
             </span>
           ) : cert.popular === "true" && (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
               Most Popular
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-5 flex flex-col flex-1">
-        <p className={cn("text-[11px] font-semibold mb-1", theme.dark ? "text-white" : "text-ink-900")}>
+      <div className="p-6 flex flex-col flex-1">
+        <p className={cn("text-[12px] font-semibold mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.level}
         </p>
-        <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1", theme.dark ? "text-white" : "text-ink-900")}>
+        <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.acronym}®
         </p>
-        <h3 className={cn("font-display font-black text-[16px] leading-snug mb-3", theme.dark ? "text-white" : "text-ink-900")}>
+        <h3 className={cn("font-display font-black text-[19px] leading-snug mb-3.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.title}
         </h3>
-        <p className={cn("text-[12.5px] leading-relaxed flex-1 mb-5 line-clamp-4", theme.dark ? "text-white" : "text-ink-900")}>
+        <p className={cn("text-[13.5px] leading-relaxed flex-1 mb-6 line-clamp-5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.description}
         </p>
         <Link
           href={`/certifications/${cert.slug}`}
           className={cn(
-            "inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13px] font-bold transition-colors",
+            "inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-bold transition-colors",
             theme.dark ? "bg-white text-ink-900 hover:bg-teal-50" : "bg-ink-900 text-white hover:bg-ink-700"
           )}
         >
-          Learn More <ArrowRight size={12} />
+          Learn More <ArrowRight size={13} />
         </Link>
       </div>
     </div>
@@ -159,7 +159,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div className="max-w-xl">
-            <span className="badge-gold mb-4">{badge}</span>
+            <span className="badge-teal mb-4">{badge}</span>
             <h2 className="section-title">
               {title}<br />
               <span className="text-gradient">{titleHighlight}</span>
@@ -175,7 +175,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
 
         <div
           ref={scrollRef}
-          className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth"
+          className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           {certs.map((cert, i) => (
@@ -185,14 +185,14 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
           ))}
 
           {/* CTA card */}
-          <div className="flex-shrink-0 w-[270px] snap-start">
-            <div className="h-[420px] rounded-2xl bg-sand-100 border border-sand-300 flex flex-col items-center justify-center p-7 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-sand-200 flex items-center justify-center mb-4">
-                <span className="text-2xl">🎓</span>
+          <div className="flex-shrink-0 w-[330px] snap-start">
+            <div className="h-[500px] rounded-2xl bg-sand-100 border border-sand-300 flex flex-col items-center justify-center p-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-sand-200 flex items-center justify-center mb-5">
+                <span className="text-3xl">🎓</span>
               </div>
-              <p className="font-display font-black text-ink-900 text-base mb-2">{ctaCardTitle}</p>
-              <p className="text-sm text-ink-900 mb-5">{ctaCardDesc}</p>
-              <Link href={ctaCardHref} className="btn-primary !py-2.5 !px-5 !text-sm">
+              <p className="font-display font-black text-ink-900 text-lg mb-2.5">{ctaCardTitle}</p>
+              <p className="text-[15px] text-ink-900 mb-6">{ctaCardDesc}</p>
+              <Link href={ctaCardHref} className="btn-primary !py-3 !px-6 !text-sm">
                 {ctaCardLabel}
               </Link>
             </div>

@@ -98,7 +98,7 @@ export default function SiteSettingsPage() {
       site_description: siteDesc,
       favicon_url:      faviconUrl,
       site_logo_url:    logoUrl,
-      logo_height:      parseInt(logoHeight, 10) || 48,
+      logo_height:      String(parseInt(logoHeight, 10) || 48),
     };
     try {
       let token = accessToken!;

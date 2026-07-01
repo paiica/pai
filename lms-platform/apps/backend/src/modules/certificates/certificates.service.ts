@@ -1,11 +1,27 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { ApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class CertificatesService {
+  private readonly logger = new Logger(CertificatesService.name);
+
   constructor(private prisma: PrismaService, private mail: MailService) {}
+
+  // Runs daily — a certificate's `expires_at` alone doesn't make `verify()` report it
+  // as invalid; `status` has to actually flip to `expired` for that to happen.
+  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  async expireOverdueCertificates() {
+    const result = await this.prisma.certificate.updateMany({
+      where: { status: "active", expires_at: { lt: new Date() } },
+      data: { status: "expired" },
+    });
+    if (result.count > 0) {
+      this.logger.log(`Marked ${result.count} certificate(s) as expired`);
+    }
+  }
 
   async getMyCertificates(userId: string) {
     return this.prisma.certificate.findMany({

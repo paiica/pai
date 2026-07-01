@@ -10,6 +10,13 @@
   body {
     @apply bg-slate-50 text-slate-900;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-fraunces), serif;
+  }
+  :focus-visible {
+    outline: 2px solid theme(colors.navy.500);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {

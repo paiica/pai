@@ -19,7 +19,7 @@ export default function CTASection({ cmsContent = {} }: { cmsContent?: Record<st
       <div
         className="absolute inset-0 opacity-[0.07]"
         style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(201,145,58,0.9) 1px, transparent 0)",
+          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(20,184,166,0.9) 1px, transparent 0)",
           backgroundSize: "48px 48px",
         }}
       />

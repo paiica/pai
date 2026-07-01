@@ -45,7 +45,7 @@ export default function HowItWorksSection() {
     <section className="section-padding bg-sand-100">
       <div className="container-lg">
         <div className="text-center mb-14">
-          <span className="badge-gold mb-4">The Process</span>
+          <span className="badge-teal mb-4">The Process</span>
           <h2 className="section-title mb-4">How Certification Works</h2>
           <p className="section-subtitle max-w-xl mx-auto">
             A structured, transparent process designed to uphold credential integrity while making certification accessible.

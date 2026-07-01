@@ -135,7 +135,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div className="max-w-xl">
-            <span className="badge-gold mb-4">{badge}</span>
+            <span className="badge-teal mb-4">{badge}</span>
             <h2 className="section-title">
               {title}
               <br />

@@ -13,6 +13,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
+import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, RefundDto } from "./dto/checkout.dto";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -25,10 +26,9 @@ export class PaymentsController {
   @ApiOperation({ summary: "Checkout for certification (via application flow)" })
   createCheckout(
     @CurrentUser("id") userId: string,
-    @Body("certification_slug") certificationSlug: string,
-    @Body("application_id") applicationId?: string,
+    @Body() dto: CreateCheckoutDto,
   ) {
-    return this.paymentsService.createCheckoutSession(userId, certificationSlug, applicationId);
+    return this.paymentsService.createCheckoutSession(userId, dto.certification_slug, dto.application_id);
   }
 
   @ApiBearerAuth()
@@ -37,10 +37,9 @@ export class PaymentsController {
   @ApiOperation({ summary: "Buy a prep course (direct enrollment after payment)" })
   courseCheckout(
     @CurrentUser("id") userId: string,
-    @Body("course_id") courseId: string,
-    @Body("promo_code") promoCode?: string,
+    @Body() dto: CourseCheckoutDto,
   ) {
-    return this.paymentsService.createCourseCheckoutSession(userId, courseId, promoCode);
+    return this.paymentsService.createCourseCheckoutSession(userId, dto.course_id, dto.promo_code);
   }
 
   @ApiBearerAuth()
@@ -49,10 +48,9 @@ export class PaymentsController {
   @ApiOperation({ summary: "Enroll in a certification directly (no application form)" })
   certificationCheckout(
     @CurrentUser("id") userId: string,
-    @Body("certification_slug") certSlug: string,
-    @Body("promo_code") promoCode?: string,
+    @Body() dto: CertificationCheckoutDto,
   ) {
-    return this.paymentsService.createCertificationCheckoutSession(userId, certSlug, promoCode);
+    return this.paymentsService.createCertificationCheckoutSession(userId, dto.certification_slug, dto.promo_code);
   }
 
   @ApiBearerAuth()
@@ -105,8 +103,8 @@ export class PaymentsController {
   @Post("admin/:id/refund")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Issue full refund for a payment (admin)" })
-  adminRefund(@Param("id") id: string, @Body("reason") reason?: string) {
-    return this.paymentsService.adminRefund(id, reason);
+  adminRefund(@Param("id") id: string, @Body() dto: RefundDto) {
+    return this.paymentsService.adminRefund(id, dto.reason);
   }
 
   // ── Webhook ────────────────────────────────────────────────────────────────

@@ -307,6 +307,16 @@ export class AffiliateService {
     const ap = await this.prisma.affiliateProfile.findUnique({ where: { user_id: affiliateUserId } });
     if (!ap) throw new NotFoundException("Affiliate profile not found");
 
+    if (!["percentage", "fixed"].includes(dto.discount_type)) {
+      throw new BadRequestException("discount_type must be percentage or fixed");
+    }
+    if (!Number.isFinite(dto.discount_value) || dto.discount_value <= 0) {
+      throw new BadRequestException("discount_value must be a positive number");
+    }
+    if (dto.discount_type === "percentage" && dto.discount_value > 100) {
+      throw new BadRequestException("A percentage discount cannot exceed 100");
+    }
+
     return this.prisma.affiliatePromoCode.create({
       data: {
         affiliate_id: ap.id,

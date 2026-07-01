@@ -153,6 +153,16 @@ const DEFAULT_BLOCKS = [
     },
   },
   {
+    key: "logos",
+    label: "Logo Strip / Partners",
+    sort_order: 8,
+    content: {
+      badge: "",
+      title: "",
+      items: [],
+    },
+  },
+  {
     key: "footer",
     label: "Footer",
     sort_order: 99,
