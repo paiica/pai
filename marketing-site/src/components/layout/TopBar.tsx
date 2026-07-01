@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { ShoppingCart, User, LogOut, ExternalLink, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import LoginModal from "@/components/LoginModal";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-
-export default function TopBar() {
+export default function TopBar({
+  logoUrl, logoHeight,
+}: {
+  logoUrl: string | null;
+  logoHeight: number;
+}) {
   const { user, hydrated, logout, ssoLink } = useAuth();
   const { count }                  = useCart();
   const [showLogin, setShowLogin]  = useState(false);
   const [menuOpen,  setMenuOpen]   = useState(false);
-  const [logoUrl,    setLogoUrl]    = useState<string | null>(null);
-  const [logoHeight, setLogoHeight] = useState<number>(22);
   const menuRef                     = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,18 +27,6 @@ export default function TopBar() {
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  useEffect(() => {
-    fetch(`${API}/site-settings/public`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        const data = json?.data ?? json;
-        if (data?.site_logo_url) setLogoUrl(data.site_logo_url);
-        const configured = parseInt(data?.logo_height) || 22;
-        setLogoHeight(Math.max(16, configured));
-      })
-      .catch(() => {});
   }, []);
 
   // The bar grows to fit the configured logo with a slim margin, rather than
