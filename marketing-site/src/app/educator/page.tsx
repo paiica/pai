@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
   title: "Educator Partner Program",
   description:
-    "Refer your students to globally recognized AI certifications and earn commission on every enrollment. Join the PAI Educator Partner Program.",
+    "Refer your students to globally recognized AI certifications and earn commission on every enrollment. Join the PAII Educator Partner Program.",
 };
 
 const HOW_IT_WORKS = [
@@ -52,12 +52,12 @@ const BENEFITS = [
   {
     icon: Globe2,
     title: "Globally Recognized Credentials",
-    desc: "PAI certifications are recognized by employers across North America and internationally — real career value for your students.",
+    desc: "PAII certifications are recognized by employers across North America and internationally — real career value for your students.",
   },
   {
     icon: BookOpen,
     title: "Ready-Made Resources",
-    desc: "Access presentation slides, email templates, and course-ready materials to introduce PAI certifications to your class.",
+    desc: "Access presentation slides, email templates, and course-ready materials to introduce PAII certifications to your class.",
   },
   {
     icon: Users2,
@@ -67,7 +67,7 @@ const BENEFITS = [
   {
     icon: BadgeCheck,
     title: "Credibility for Your Program",
-    desc: "Offering PAI-certified pathways signals to students and employers that your program is aligned with industry standards.",
+    desc: "Offering PAII-certified pathways signals to students and employers that your program is aligned with industry standards.",
   },
   {
     icon: Award,
@@ -124,7 +124,7 @@ export default function EducatorPage() {
               Refer Your Students.<br className="hidden sm:block" /> Earn While They Grow.
             </h1>
             <p className="text-lg text-white max-w-2xl mx-auto mb-8">
-              Join the PAI Educator Partner Program. Share globally recognized AI certifications
+              Join the PAII Educator Partner Program. Share globally recognized AI certifications
               with your students and earn a commission on every enrollment — with full tracking
               and no caps.
             </p>
@@ -208,7 +208,7 @@ export default function EducatorPage() {
         <section className="section-padding bg-sand-100">
           <div className="container-lg">
             <div className="text-center mb-12">
-              <span className="badge-teal mb-4">Why Partner With PAI</span>
+              <span className="badge-teal mb-4">Why Partner With PAII</span>
               <h2 className="section-title mb-4">Built for Educators</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 We've designed the educator affiliate program to be low-effort and high-value
@@ -234,7 +234,7 @@ export default function EducatorPage() {
           <div className="container-lg">
             <div className="text-center mb-12">
               <span className="badge-teal mb-4">What You Can Refer</span>
-              <h2 className="section-title mb-4">PAI Certification Programs</h2>
+              <h2 className="section-title mb-4">PAII Certification Programs</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 Four rigorous credentials covering every professional level — from practitioners
                 to executives to educators.
@@ -270,7 +270,7 @@ export default function EducatorPage() {
               <span className="badge-teal mb-4">Ideal Partners</span>
               <h2 className="section-title mb-4">Who Is This For?</h2>
               <p className="section-subtitle max-w-xl mx-auto">
-                The PAI Educator Partner Program is designed for professionals who teach,
+                The PAII Educator Partner Program is designed for professionals who teach,
                 train, or advise others in AI and technology.
               </p>
             </div>
@@ -302,7 +302,7 @@ export default function EducatorPage() {
               Apply in Minutes. Earn from Day One.
             </h2>
             <p className="text-white max-w-lg mx-auto mb-8 leading-relaxed">
-              Join hundreds of educators already referring their students to PAI certifications.
+              Join hundreds of educators already referring their students to PAII certifications.
               No upfront cost, no minimums — just your unique link and a dashboard to track results.
             </p>
             <a

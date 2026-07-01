@@ -35,7 +35,7 @@ const DEFAULT_SLIDES: SlideData[] = [
     badge: "The AI Credential Standard",
     headline: "Prove Your AI Expertise.",
     highlight: "Advance Your Career.",
-    sub: "PAI offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
+    sub: "PAII offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
     cta_label: "Start with CAIP",
     cta_href: "/certifications/certified-ai-professional",
     cta2_label: "View All Programs",
@@ -50,10 +50,10 @@ const DEFAULT_SLIDES: SlideData[] = [
     badge: "Trusted by Professionals Worldwide",
     headline: "Your Industry Needs AI-Verified",
     highlight: "Talent.",
-    sub: "From healthcare to finance, technology to education — employers across every sector are requiring verifiable AI credentials. Stand out with a PAI certification that carries real weight.",
+    sub: "From healthcare to finance, technology to education — employers across every sector are requiring verifiable AI credentials. Stand out with a PAII certification that carries real weight.",
     cta_label: "Explore Certifications",
     cta_href: "/certifications",
-    cta2_label: "Why PAI?",
+    cta2_label: "Why PAII?",
     cta2_href: "/about",
     stat1_value: "92%",    stat1_label: "Got Promoted or Hired",
     stat2_value: "38%",    stat2_label: "Average Salary Increase",
@@ -65,7 +65,7 @@ const DEFAULT_SLIDES: SlideData[] = [
     badge: "Enterprise AI Certification",
     headline: "Upskill Your Entire Team.",
     highlight: "All at Once.",
-    sub: "PAI Corporate provides tailored certification pathways for organizations. Train your workforce with flexible licensing, cohort learning, and dedicated enterprise support.",
+    sub: "PAII Corporate provides tailored certification pathways for organizations. Train your workforce with flexible licensing, cohort learning, and dedicated enterprise support.",
     cta_label: "Get a Corporate Quote",
     cta_href: "/corporate",
     cta2_label: "See Enterprise Plans",
@@ -146,12 +146,12 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
               <Icon size={13} className="text-teal-300" />
             </div>
           </div>
-          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1.5">Professional AI Institute</div>
+          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1.5">Professional Artificial Intelligence Institute</div>
           <div className="font-display font-semibold text-2xl text-white mb-6 italic">{slide.badge}</div>
           <div className="flex items-end justify-between pt-4 border-t border-dashed border-white/15">
             <div>
               <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Credential ID</div>
-              <div className="text-xs font-mono text-white/70">PAI—2026—{String(current + 1).padStart(4, "0")}</div>
+              <div className="text-xs font-mono text-white/70">PAII—2026—{String(current + 1).padStart(4, "0")}</div>
             </div>
             <div className="flex items-center gap-1 text-[10px] font-mono text-teal-300">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-300" /> LIVE

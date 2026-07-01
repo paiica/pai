@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import { ArrowRight, Award, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "AI Certification Programs | Professional AI Institute",
+  title: "AI Certification Programs | Professional Artificial Intelligence Institute",
   description:
     "Globally recognized AI certifications for every career stage — from core professional to domain specialist.",
 };

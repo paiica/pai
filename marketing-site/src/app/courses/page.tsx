@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import { Clock, BookOpen, ArrowRight, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Prep Courses | Professional AI Institute",
+  title: "Prep Courses | Professional Artificial Intelligence Institute",
   description: "Self-paced online courses to build practical AI skills and prepare for certification exams.",
 };
 

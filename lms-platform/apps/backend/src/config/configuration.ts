@@ -38,7 +38,7 @@ export default () => ({
   email: {
     apiKey: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "noreply@paii.ca",
-    fromName: process.env.EMAIL_FROM_NAME || "Professional AI Institute",
+    fromName: process.env.EMAIL_FROM_NAME || "Professional Artificial Intelligence Institute",
   },
 
   throttle: {

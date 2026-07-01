@@ -139,7 +139,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
   const titleHighlight = cmsContent.title_highlight || "certified success";
   const description    = cmsContent.description     || "No matter what your professional goals are, we have a certification to help you reach them. AI credentials are an excellent way to advance your career.";
   const ctaCardTitle   = cmsContent.cta_card_title  || "Not sure where to start?";
-  const ctaCardDesc    = cmsContent.cta_card_desc   || "87% of PAI professionals begin with CAIP — the foundation of all credentials.";
+  const ctaCardDesc    = cmsContent.cta_card_desc   || "87% of PAII professionals begin with CAIP — the foundation of all credentials.";
   const ctaCardLabel   = cmsContent.cta_card_label  || "Start with CAIP";
   const ctaCardHref    = cmsContent.cta_card_href   || "/certifications/certified-ai-professional";
   // apiCerts is null before the fetch resolves, then an array (possibly empty).

@@ -309,7 +309,7 @@ export default function BlogEditorPage() {
           <div className="card p-5 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Author Name</label>
-              <input className="input-base" value={authorName} onChange={(e) => setAuthorName(e.target.value)} placeholder="e.g. PAI Editorial Team" />
+              <input className="input-base" value={authorName} onChange={(e) => setAuthorName(e.target.value)} placeholder="e.g. PAII Editorial Team" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Author Avatar Initials</label>

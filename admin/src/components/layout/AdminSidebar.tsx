@@ -177,7 +177,7 @@ export default function AdminSidebar() {
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-display font-black text-white truncate">Admin Portal</div>
-                <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAI</div>
+                <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAII</div>
               </div>
             </Link>
             <button

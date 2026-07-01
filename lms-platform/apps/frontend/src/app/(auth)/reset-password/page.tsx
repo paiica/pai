@@ -67,7 +67,7 @@ function ResetPasswordContent() {
   return (
     <div className="bg-white p-8" style={cardCls}>
       <h1 className="text-2xl font-display font-black text-ink-900 mb-1">Set new password</h1>
-      <p className="text-slate-500 text-sm mb-6">Choose a strong password for your PAI account.</p>
+      <p className="text-slate-500 text-sm mb-6">Choose a strong password for your PAII account.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

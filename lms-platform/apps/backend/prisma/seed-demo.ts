@@ -32,7 +32,7 @@ async function main() {
       password_hash: hash,
       role: Role.professor,
       email_verified: true,
-      profile: { create: { first_name: "Alex", last_name: "Thompson", job_title: "AI Research Lead", company: "PAI" } },
+      profile: { create: { first_name: "Alex", last_name: "Thompson", job_title: "AI Research Lead", company: "PAII" } },
     },
   });
   console.log(`✓ Professor: ${prof.email}`);
@@ -199,7 +199,7 @@ async function main() {
 
     // Module 3 lessons
     const l7 = await prisma.lesson.create({ data: { module_id: mod3.id, title: "Responsible AI Principles", type: LessonType.video, sort_order: 1, is_published: true, duration_minutes: 25, video_url: "https://www.youtube.com/watch?v=1bUy-1hGZpI", description: "Fairness, transparency, accountability, and safety in AI systems." } });
-    const l8 = await prisma.lesson.create({ data: { module_id: mod3.id, title: "AI Governance Resources", type: LessonType.download, sort_order: 2, is_published: true, duration_minutes: 10, description: "Download the PAI AI Governance Framework template.", external_url: "https://paii.ca/resources/governance-framework" } });
+    const l8 = await prisma.lesson.create({ data: { module_id: mod3.id, title: "AI Governance Resources", type: LessonType.download, sort_order: 2, is_published: true, duration_minutes: 10, description: "Download the PAII AI Governance Framework template.", external_url: "https://paii.ca/resources/governance-framework" } });
     const l9 = await prisma.lesson.create({ data: { module_id: mod3.id, title: "Final Module Assessment", type: LessonType.quiz, sort_order: 3, is_published: true, duration_minutes: 30, max_attempts: 2 } });
 
     lessons = [l1, l2, l3, l4, l5, l6, l7, l8, l9];
@@ -455,7 +455,7 @@ async function main() {
     await prisma.certificate.create({
       data: {
         user_id: emily.id, enrollment_id: emilyEnrollment.id, certification_id: caip.id,
-        certificate_number: "PAI-CAIP-2026-0001",
+        certificate_number: "PAII-CAIP-2026-0001",
         status: CertificateStatus.active,
         holder_name: "Emily Davis",
         certification_title: "Certified AI Professional",
@@ -463,7 +463,7 @@ async function main() {
         exam_score: 80.0,
         issued_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
         expires_at: new Date(Date.now() + 725 * 24 * 60 * 60 * 1000),
-        verification_url: "https://verify.paii.ca/PAI-CAIP-2026-0001",
+        verification_url: "https://verify.paii.ca/PAII-CAIP-2026-0001",
       },
     });
     console.log(`✓ Exam attempt & certificate issued for Emily`);

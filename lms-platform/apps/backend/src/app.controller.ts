@@ -10,7 +10,7 @@ export class AppController {
   @ApiOperation({ summary: "API root — version and status" })
   root() {
     return {
-      name: "Professional AI Institute — LMS API",
+      name: "Professional Artificial Intelligence Institute — LMS API",
       version: "1.0",
       status: "ok",
       docs: "/api/v1/docs",

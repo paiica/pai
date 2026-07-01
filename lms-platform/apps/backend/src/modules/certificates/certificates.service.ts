@@ -71,7 +71,7 @@ export class CertificatesService {
       ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || enrollment.user.email
       : enrollment.user.email;
 
-    const certNumber = `PAI-${enrollment.certification.acronym}-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const certNumber = `PAII-${enrollment.certification.acronym}-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + enrollment.certification.validity_years);
 

@@ -48,7 +48,7 @@ export default function AffiliateSidebar() {
         <div className="flex items-center gap-2.5 overflow-hidden">
           <Image
             src="/paii.logo.png"
-            alt="PAI"
+            alt="PAII"
             width={32}
             height={32}
             className="rounded-lg object-contain flex-shrink-0"
@@ -57,7 +57,7 @@ export default function AffiliateSidebar() {
           {!collapsed && (
             <div>
               <div className="text-xs font-display font-black text-white">Affiliate Portal</div>
-              <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAI</div>
+              <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAII</div>
             </div>
           )}
         </div>

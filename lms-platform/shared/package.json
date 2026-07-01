@@ -1,5 +1,5 @@
 {
-  "name": "@pai/shared",
+  "name": "@paii/shared",
   "version": "1.0.0",
   "private": true,
   "main": "./index.ts",

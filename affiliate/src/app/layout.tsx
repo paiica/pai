@@ -17,8 +17,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Affiliate Portal | PAI", template: "%s | PAI Affiliate" },
-  description: "PAI Sales Affiliate Dashboard — track your referrals, commissions, and performance.",
+  title: { default: "Affiliate Portal | PAII", template: "%s | PAII Affiliate" },
+  description: "PAII Sales Affiliate Dashboard — track your referrals, commissions, and performance.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

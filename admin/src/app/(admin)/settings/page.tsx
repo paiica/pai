@@ -275,7 +275,7 @@ export default function SiteSettingsPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Site Title</label>
                 <input type="text" value={siteTitle} onChange={(e) => setSiteTitle(e.target.value)}
-                  placeholder="Professional AI Institute" className="input-base" />
+                  placeholder="Professional Artificial Intelligence Institute" className="input-base" />
                 <p className="text-xs text-slate-400 mt-1.5">Used in browser tab titles and search results.</p>
               </div>
               <div>

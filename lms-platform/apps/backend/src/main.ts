@@ -23,7 +23,7 @@ async function initErrorTracking() {
     const moduleName = "@sentry/node";
     const Sentry = await import(moduleName);
     Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV });
-    console.log("[PAI Backend] Sentry error tracking enabled");
+    console.log("[PAII Backend] Sentry error tracking enabled");
   } catch {
     console.warn("SENTRY_DSN is set but @sentry/node isn't installed — run `npm install @sentry/node` to enable error reporting.");
   }
@@ -107,8 +107,8 @@ async function bootstrap() {
   // Swagger (non-production)
   if (nodeEnv !== "production") {
     const config = new DocumentBuilder()
-      .setTitle("PAI LMS API")
-      .setDescription("Professional AI Institute — LMS Platform API")
+      .setTitle("PAII LMS API")
+      .setDescription("Professional Artificial Intelligence Institute — LMS Platform API")
       .setVersion("1.0")
       .addBearerAuth()
       .build();
@@ -119,9 +119,9 @@ async function bootstrap() {
   }
 
   await app.listen(port);
-  console.log(`[PAI Backend] running on http://localhost:${port}/${apiPrefix}`);
+  console.log(`[PAII Backend] running on http://localhost:${port}/${apiPrefix}`);
   if (nodeEnv !== "production") {
-    console.log(`[PAI Backend] Swagger at http://localhost:${port}/${apiPrefix}/docs`);
+    console.log(`[PAII Backend] Swagger at http://localhost:${port}/${apiPrefix}/docs`);
   }
 
   // Auto-create super admin if env vars are provided and no admin exists yet
@@ -138,16 +138,16 @@ async function bootstrap() {
             password_hash:  await bcrypt.hash(adminPassword, 12),
             role:           "super_admin",
             email_verified: true,
-            profile: { create: { first_name: "PAI", last_name: "Admin", display_name: "PAI Administrator" } },
+            profile: { create: { first_name: "PAII", last_name: "Admin", display_name: "PAII Administrator" } },
           },
         });
-        console.log(`[PAI Bootstrap] Super admin created: ${adminEmail}`);
+        console.log(`[PAII Bootstrap] Super admin created: ${adminEmail}`);
       }
     } catch (e) {
-      console.error("[PAI Bootstrap] Failed to create super admin:", e);
+      console.error("[PAII Bootstrap] Failed to create super admin:", e);
     }
   } else {
-    console.warn("[PAI Bootstrap] SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set — skipping auto-create.");
+    console.warn("[PAII Bootstrap] SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set — skipping auto-create.");
   }
 }
 

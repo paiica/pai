@@ -62,7 +62,7 @@ export class AuthService {
     const emailVerifyToken = skipVerification ? null : randomBytes(32).toString("hex");
     const emailVerifyTokenExpiresAt = skipVerification ? null : new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-    const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const paiId = `PAII-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     const isSalesRep = dto.role === "sales_rep";
     const referralCode = isSalesRep

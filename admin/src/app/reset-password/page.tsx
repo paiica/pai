@@ -39,8 +39,8 @@ function ResetPasswordContent() {
             <Shield size={20} className="text-white" />
           </div>
           <div>
-            <div className="text-white font-display font-black text-lg leading-tight">PAI Admin Portal</div>
-            <div className="text-gold-400 text-[10px] uppercase tracking-widest">Professional AI Institute</div>
+            <div className="text-white font-display font-black text-lg leading-tight">PAII Admin Portal</div>
+            <div className="text-gold-400 text-[10px] uppercase tracking-widest">Professional Artificial Intelligence Institute</div>
           </div>
         </div>
 

@@ -32,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: "14px", textDecoration: "none" }}>
             <Image
               src="/paii.logo.png"
-              alt="Professional AI Institute"
+              alt="Professional Artificial Intelligence Institute"
               width={130}
               height={52}
               className="object-contain block"
@@ -41,7 +41,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div style={{ width: "1px", height: "36px", background: "#e8e4de", flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: "12px", fontWeight: 700, color: "#171527", letterSpacing: "-0.01em" }}>
-                Professional AI Institute
+                Professional Artificial Intelligence Institute
               </div>
               <div style={{ fontSize: "10px", fontWeight: 600, color: "#14b8a6", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: "2px" }}>
                 Sales Partner Portal
@@ -109,7 +109,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               </h1>
 
               <p style={{ fontSize: "15px", lineHeight: "1.7", color: "rgba(255,255,255,0.55)" }}>
-                Partner with PAI to promote Canada&rsquo;s leading AI certification programs and earn
+                Partner with PAII to promote Canada&rsquo;s leading AI certification programs and earn
                 competitive commissions on every successful referral.
               </p>
             </div>
@@ -168,7 +168,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 ))}
               </div>
               <p style={{ fontSize: "13.5px", fontStyle: "italic", color: "rgba(255,255,255,0.65)", marginBottom: "14px", lineHeight: "1.6" }}>
-                &ldquo;I&rsquo;ve referred 12 clients to PAI this quarter and earned over $3,200 in
+                &ldquo;I&rsquo;ve referred 12 clients to PAII this quarter and earned over $3,200 in
                 commissions. The portal makes tracking effortless.&rdquo;
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -191,7 +191,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 </div>
                 <div>
                   <p style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Michael R.</p>
-                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>PAI Certified Affiliate</p>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>PAII Certified Affiliate</p>
                 </div>
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           {/* Footer */}
           <p className="relative z-10" style={{ fontSize: "11px", color: "rgba(255,255,255,0.25)", marginTop: "32px" }}>
-            &copy; {new Date().getFullYear()} Professional AI Institute. All rights reserved.
+            &copy; {new Date().getFullYear()} Professional Artificial Intelligence Institute. All rights reserved.
           </p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       >
         {/* Mobile logo */}
         <div className="flex lg:hidden items-center gap-3 mb-8">
-          <Image src="/paii.logo.png" alt="PAI" width={100} height={40} className="object-contain block" style={{ maxHeight: "40px", width: "auto" }} />
+          <Image src="/paii.logo.png" alt="PAII" width={100} height={40} className="object-contain block" style={{ maxHeight: "40px", width: "auto" }} />
         </div>
 
         <div className="w-full max-w-[420px]">
@@ -226,7 +226,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
           <p className="text-center mt-5" style={{ fontSize: "11px", color: "#948e84" }}>
-            &copy; {new Date().getFullYear()} Professional AI Institute
+            &copy; {new Date().getFullYear()} Professional Artificial Intelligence Institute
           </p>
         </div>
       </div>

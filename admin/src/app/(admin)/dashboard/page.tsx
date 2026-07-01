@@ -247,7 +247,7 @@ export default function AdminDashboard() {
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-gold-600 mb-1">Admin Panel</div>
-          <h1 className="text-2xl font-display font-black text-navy-900">PAI Admin Dashboard</h1>
+          <h1 className="text-2xl font-display font-black text-navy-900">PAII Admin Dashboard</h1>
         </div>
 
         <div className="relative">

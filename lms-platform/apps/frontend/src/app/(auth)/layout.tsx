@@ -31,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Link href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} style={{ display: "flex", alignItems: "center", gap: "14px", textDecoration: "none" }}>
             <Image
               src="/paii.logo.png"
-              alt="Professional AI Institute"
+              alt="Professional Artificial Intelligence Institute"
               width={130}
               height={52}
               className="object-contain block"
@@ -40,7 +40,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div style={{ width: "1px", height: "36px", background: "#e8e4de", flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: "12px", fontWeight: 700, color: "#171527", letterSpacing: "-0.01em" }}>
-                Professional AI Institute
+                Professional Artificial Intelligence Institute
               </div>
               <div style={{ fontSize: "10px", fontWeight: 600, color: "#14b8a6", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: "2px" }}>
                 Learning Portal
@@ -198,7 +198,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           {/* Footer */}
           <p className="relative z-10" style={{ fontSize: "11px", color: "rgba(255,255,255,0.25)", marginTop: "32px" }}>
-            &copy; {new Date().getFullYear()} Professional AI Institute. All rights reserved.
+            &copy; {new Date().getFullYear()} Professional Artificial Intelligence Institute. All rights reserved.
           </p>
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="flex lg:hidden items-center justify-center mb-8">
           <Image
             src="/paii.logo.png"
-            alt="PAI"
+            alt="PAII"
             width={120}
             height={48}
             className="object-contain block"

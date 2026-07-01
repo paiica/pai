@@ -17,7 +17,7 @@ export function formatCurrency(amount: number, currency = "USD"): string {
 export function generateCertificateNumber(acronym: string): string {
   const year = new Date().getFullYear();
   const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `PAI-${acronym}-${year}-${rand}`;
+  return `PAII-${acronym}-${year}-${rand}`;
 }
 
 export function calculateExpiryDate(validityYears: number): Date {

@@ -19,7 +19,7 @@ const DEFAULT_SOCIAL_INSTAGRAM = "";
 const DEFAULT_SOCIAL_EMAIL = "info@paii.ca";
 const DEFAULT_CONTACT_EMAIL = "info@paii.ca";
 const DEFAULT_CONTACT_LOCATION = "Toronto, ON · Canada";
-const DEFAULT_COPYRIGHT = "Professional AI Institute. All rights reserved.";
+const DEFAULT_COPYRIGHT = "Professional Artificial Intelligence Institute. All rights reserved.";
 
 const DEFAULT_COLUMNS: FooterColumn[] = [
   {
@@ -35,7 +35,7 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
   {
     title: "Company",
     links: [
-      { label: "About PAI", href: "/about" },
+      { label: "About PAII", href: "/about" },
       { label: "Our Mission", href: "/about#mission" },
       { label: "Advisory Board", href: "/about#board" },
       { label: "Accreditation", href: "/about#accreditation" },
@@ -134,7 +134,7 @@ export default async function Footer() {
             <Link href="/" className="inline-flex items-center mb-5">
               <img
                 src={logoUrl || "/paii.logo.png"}
-                alt="Professional AI Institute"
+                alt="Professional Artificial Intelligence Institute"
                 style={{ height: `${logoHeight}px` }}
                 className="w-auto object-contain"
               />

@@ -6,7 +6,7 @@ import { Calendar, Clock, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Blog & Insights",
-  description: "AI industry insights, certification guides, career advice, and thought leadership from the Professional AI Institute.",
+  description: "AI industry insights, certification guides, career advice, and thought leadership from the Professional Artificial Intelligence Institute.",
 };
 
 type Post = {

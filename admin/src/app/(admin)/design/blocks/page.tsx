@@ -112,7 +112,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     badge: "The AI Credential Standard",
     headline: "Prove Your AI Expertise.",
     highlight: "Advance Your Career.",
-    sub: "PAI offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
+    sub: "PAII offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
     cta_label: "Start with CAIP", cta_href: "/certifications/certified-ai-professional",
     cta2_label: "View All Programs", cta2_href: "/certifications",
     stat1_value: "3,200+", stat1_label: "Certified Professionals",
@@ -127,7 +127,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     highlight: "Talent.",
     sub: "From healthcare to finance, technology to education — employers across every sector are requiring verifiable AI credentials.",
     cta_label: "Explore Certifications", cta_href: "/certifications",
-    cta2_label: "Why PAI?", cta2_href: "/about",
+    cta2_label: "Why PAII?", cta2_href: "/about",
     stat1_value: "92%",    stat1_label: "Got Promoted or Hired",
     stat2_value: "38%",    stat2_label: "Average Salary Increase",
     stat3_value: "1,400+", stat3_label: "Hiring Partners",
@@ -138,7 +138,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     badge: "Enterprise AI Certification",
     headline: "Upskill Your Entire Team.",
     highlight: "All at Once.",
-    sub: "PAI Corporate provides tailored certification pathways for organizations. Train your workforce with flexible licensing, cohort learning, and dedicated enterprise support.",
+    sub: "PAII Corporate provides tailored certification pathways for organizations. Train your workforce with flexible licensing, cohort learning, and dedicated enterprise support.",
     cta_label: "Get a Corporate Quote", cta_href: "/corporate",
     cta2_label: "See Enterprise Plans", cta2_href: "/corporate",
     stat1_value: "200+",  stat1_label: "Enterprise Clients",
@@ -256,18 +256,18 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
   );
 }
 
-// ─── Why PAI editor ──────────────────────────────────────────────────────────
+// ─── Why PAII editor ──────────────────────────────────────────────────────────
 
 type Pillar = { title: string; description: string };
 
 function WhyPAIEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
-  const [badge,    setBadge]    = useState(block.content?.badge    ?? "Why PAI");
+  const [badge,    setBadge]    = useState(block.content?.badge    ?? "Why PAII");
   const [title,    setTitle]    = useState(block.content?.title    ?? "The Credential That Opens Doors");
   const [subtitle, setSubtitle] = useState(block.content?.subtitle ?? "");
   const [pillars,  setPillars]  = useState<Pillar[]>(
     (block.content?.pillars as Pillar[]) ?? [
       { title: "Rigorous & Credible",          description: "Our exams are developed by AI practitioners and reviewed by independent subject-matter experts. ISO 17024-aligned standards ensure your credential means something." },
-      { title: "Globally Recognized",           description: "PAI credentials are recognized by employers across 48 countries. Verified via QR code, blockchain-anchored, and LinkedIn-ready in minutes." },
+      { title: "Globally Recognized",           description: "PAII credentials are recognized by employers across 48 countries. Verified via QR code, blockchain-anchored, and LinkedIn-ready in minutes." },
       { title: "Practitioner-Built Curriculum", description: "Every module is authored by active AI professionals — not theorists. Real tools, real workflows, real outcomes. Updated every quarter." },
       { title: "Digital Badges & Certificates", description: "Earn a digital certificate, Open Badge 3.0, and LinkedIn credential. Share and verify instantly with your network and employers." },
       { title: "Career-Defining Impact",        description: "87% of certified professionals report a measurable career advancement within 12 months. Average salary uplift: 18-24% in benchmark studies." },
@@ -349,7 +349,7 @@ function TestimonialsEditor({ block, token, onSave }: { block: Block; token: str
       { name: "Priya Patel",     title: "Chief Digital Officer",   company: "Intact Financial",   cert: "CAIE",  avatar: "PP", rating: "5", quote: "As a CDO, I needed a credential that spoke the language of the boardroom. CAIE is exactly that — strategic, governance-focused, and immediately applicable." },
       { name: "James Okonkwo",   title: "Data Analytics Lead",     company: "Deloitte",           cert: "CAIDA", avatar: "JO", rating: "5", quote: "CAIDA bridges the gap between traditional data analytics and modern AI methods. The curriculum is hands-on, practical, and built by people who actually work with these tools." },
       { name: "Ana Rodrigues",   title: "HR Director",             company: "Nestlé",             cert: "CAIP",  avatar: "AR", rating: "5", quote: "I came in knowing nothing about AI. CAIP walked me through everything from fundamentals to practical applications for HR." },
-      { name: "David Kim",       title: "VP Technology",           company: "Royal Bank of Canada",cert: "CAIM",  avatar: "DK", rating: "5", quote: "The PAI community alone is worth the certification fee. I've connected with AI leaders from 20+ countries." },
+      { name: "David Kim",       title: "VP Technology",           company: "Royal Bank of Canada",cert: "CAIM",  avatar: "DK", rating: "5", quote: "The PAII community alone is worth the certification fee. I've connected with AI leaders from 20+ countries." },
     ]
   );
   const [saving, setSaving] = useState(false);
@@ -866,8 +866,8 @@ function VideoEditor({ block, token, onSave }: { block: Block; token: string; on
       <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Section defaults</p>
         <p className="text-xs text-slate-400">Used as fallback when a video has no title/description set.</p>
-        <Field label="Section Title" value={title} onChange={setTitle} placeholder="See PAI in Action" />
-        <Field label="Section Subtitle" value={subtitle} onChange={setSubtitle} textarea placeholder="Discover how PAI certifications are transforming careers..." />
+        <Field label="Section Title" value={title} onChange={setTitle} placeholder="See PAII in Action" />
+        <Field label="Section Subtitle" value={subtitle} onChange={setSubtitle} textarea placeholder="Discover how PAII certifications are transforming careers..." />
       </div>
 
       {/* Per-video editor */}
@@ -1103,7 +1103,7 @@ const BLOCK_TEMPLATES = [
   { key: "certifications",label: "Certifications" },
   { key: "courses",       label: "Prep Courses" },
   { key: "video",         label: "Featured Video" },
-  { key: "why_pai",       label: "Why PAI" },
+  { key: "why_pai",       label: "Why PAII" },
   { key: "testimonials",  label: "Testimonials" },
   { key: "blog",          label: "Latest Articles" },
   { key: "cta",           label: "Call to Action" },

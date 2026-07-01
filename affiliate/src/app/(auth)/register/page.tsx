@@ -78,7 +78,7 @@ export default function RegisterPage() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold text-ink-900 tracking-tight mb-1">Become an Affiliate</h1>
-        <p className="text-sm text-sand-500">Apply to join the PAI sales partner program</p>
+        <p className="text-sm text-sand-500">Apply to join the PAII sales partner program</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

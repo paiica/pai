@@ -37,7 +37,7 @@ function emailShell(body: string): string {
 
         <!-- HEADER — edit brand colours, logo, tagline here -->
         <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:28px 40px;text-align:center">
-          <img src="${LMS_URL}/paii.logo.png" alt="Professional AI Institute" width="160" style="height:auto;display:block;margin:0 auto 10px;filter:brightness(0) invert(1)" />
+          <img src="${LMS_URL}/paii.logo.png" alt="Professional Artificial Intelligence Institute" width="160" style="height:auto;display:block;margin:0 auto 10px;filter:brightness(0) invert(1)" />
           <p style="margin:0;color:rgba(255,255,255,0.45);font-size:12px;letter-spacing:0.5px">paii.ca</p>
         </td></tr>
 
@@ -48,7 +48,7 @@ ${body}
 
         <!-- FOOTER — edit copyright, links here -->
         <tr><td style="padding:20px 40px;border-top:1px solid #f1f5f9;text-align:center">
-          <p style="margin:0;font-size:12px;color:#cbd5e1">© ${new Date().getFullYear()} Professional AI Institute. All rights reserved.</p>
+          <p style="margin:0;font-size:12px;color:#cbd5e1">© ${new Date().getFullYear()} Professional Artificial Intelligence Institute. All rights reserved.</p>
         </td></tr>
 
       </table>
@@ -79,10 +79,10 @@ const TEMPLATES: TemplateDef[] = [
     description: "Sent when a user registers or requests a re-verification link.",
     category: "Account",
     categoryColor: "blue",
-    defaultSubject: "Verify your PAI email address",
+    defaultSubject: "Verify your PAII email address",
     variables: ["{{firstName}}", "{{link}}"],
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi {{firstName}},</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Thanks for creating your PAI account. Please verify your email address to activate your learning portal.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Thanks for creating your PAII account. Please verify your email address to activate your learning portal.</p>
           <div style="text-align:center;margin:32px 0">
             <a href="{{link}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Verify Email Address</a>
           </div>
@@ -96,10 +96,10 @@ const TEMPLATES: TemplateDef[] = [
     description: "Sent when a user requests to reset their password.",
     category: "Account",
     categoryColor: "blue",
-    defaultSubject: "Reset your PAI password",
+    defaultSubject: "Reset your PAII password",
     variables: ["{{firstName}}", "{{link}}"],
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi {{firstName}},</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We received a request to reset your PAI account password. Click the button below to choose a new password.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We received a request to reset your PAII account password. Click the button below to choose a new password.</p>
           <div style="text-align:center;margin:32px 0">
             <a href="{{link}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Reset Password</a>
           </div>
@@ -158,7 +158,7 @@ const TEMPLATES: TemplateDef[] = [
     variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{certNumber}}", "{{expiresAt}}", "{{verificationUrl}}"],
     note: "{acronym} → cert acronym.",
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Congratulations, {{firstName}}!</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You've successfully earned your PAI certificate. This is a significant professional achievement.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You've successfully earned your PAII certificate. This is a significant professional achievement.</p>
           <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center">
             <p style="margin:0 0 4px;font-size:28px;font-weight:900;color:#92400e;letter-spacing:2px">{{certAcronym}}</p>
             <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#78350f">{{certTitle}}</p>
@@ -234,7 +234,7 @@ const TEMPLATES: TemplateDef[] = [
             <p style="margin:0 0 4px;font-size:48px;font-weight:900;color:#15803d">{{score}}</p>
             <p style="margin:0;font-size:14px;color:#16a34a;font-weight:600;text-transform:uppercase;letter-spacing:1px">Passing Score</p>
           </div>
-          <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">Your certificate will be reviewed and issued by the PAI team. You'll receive a separate email once it's ready. Congratulations on this achievement!</p>`),
+          <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">Your certificate will be reviewed and issued by the PAII team. You'll receive a separate email once it's ready. Congratulations on this achievement!</p>`),
   },
   {
     key: "exam_failed",
@@ -284,7 +284,7 @@ const TEMPLATES: TemplateDef[] = [
     variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{certNumber}}"],
     note: "{acronym} → cert acronym.",
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Certificate Update — {{firstName}}</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAI certificate has been revoked. Please review the details below.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAII certificate has been revoked. Please review the details below.</p>
           <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px 24px;margin:0 0 24px">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr><td style="font-size:13px;color:#64748b;padding:4px 0">Certification</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:4px 0">{{certAcronym}} — {{certTitle}}</td></tr>
@@ -335,14 +335,14 @@ const TEMPLATES: TemplateDef[] = [
   {
     key: "affiliate_invite",
     name: "Sales Rep Invite",
-    description: "Sent when a sales rep invites someone to join PAI as a student via the affiliate portal.",
+    description: "Sent when a sales rep invites someone to join PAII as a student via the affiliate portal.",
     category: "Sales",
     categoryColor: "teal",
-    defaultSubject: "{{senderName}} invited you to join PAI",
+    defaultSubject: "{{senderName}} invited you to join PAII",
     variables: ["{{firstName}}", "{{senderName}}", "{{inviteLink}}"],
     note: "{{firstName}} → recipient name, {{senderName}} → rep's full name, {{inviteLink}} → student registration URL with referral code.",
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi {{firstName}},</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>{{senderName}}</strong> has personally invited you to join the Professional AI Institute (PAI) — where professionals earn industry-recognized AI certifications that set them apart.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>{{senderName}}</strong> has personally invited you to join the Professional Artificial Intelligence Institute (PAII) — where professionals earn industry-recognized AI certifications that set them apart.</p>
           <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
             <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px">You're Invited</p>
             <p style="margin:0;font-size:15px;color:#78350f;line-height:1.5">Create your free account and start your AI certification journey today.</p>

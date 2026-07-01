@@ -33,8 +33,8 @@ function VerifyEmailContent() {
             <GraduationCap size={20} className="text-white" />
           </div>
           <div>
-            <div className="text-white font-display font-black text-lg leading-tight">PAI Professor Portal</div>
-            <div className="text-gold-400 text-[10px] uppercase tracking-widest">Professional AI Institute</div>
+            <div className="text-white font-display font-black text-lg leading-tight">PAII Professor Portal</div>
+            <div className="text-gold-400 text-[10px] uppercase tracking-widest">Professional Artificial Intelligence Institute</div>
           </div>
         </div>
 

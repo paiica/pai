@@ -42,7 +42,7 @@ function VerifyEmailContent() {
         </div>
         <h2 className="text-xl font-display font-black text-navy-900 mb-2">Email verified!</h2>
         <p className="text-slate-500 text-sm mb-6">
-          Your email has been confirmed. You can now sign in to your PAI learning portal.
+          Your email has been confirmed. You can now sign in to your PAII learning portal.
         </p>
         <Link href="/login" className="btn-primary !py-3 w-full justify-center">
           Sign In

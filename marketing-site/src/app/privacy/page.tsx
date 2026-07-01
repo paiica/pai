@@ -23,14 +23,14 @@ const SECTIONS = [
   { title: "Data Storage & Security", content: "Your data is stored on encrypted servers in Canada and the United States. We use industry-standard security practices including TLS encryption, access controls, and regular security audits. Payment data is processed via Stripe and never stored on our servers." },
   { title: "Your Rights (PIPEDA / GDPR)", content: "You have the right to access, correct, or delete your personal information. You may also request a copy of your data in a portable format. To exercise these rights, contact privacy@paii.ca." },
   { title: "Cookies", content: "We use essential cookies for authentication and performance cookies (via analytics tools) to understand how our site is used. You can control non-essential cookies via your browser settings." },
-  { title: "Contact", content: "For privacy-related questions, contact our Privacy Officer at privacy@paii.ca or write to: Professional AI Institute, Toronto, ON, Canada." },
+  { title: "Contact", content: "For privacy-related questions, contact our Privacy Officer at privacy@paii.ca or write to: Professional Artificial Intelligence Institute, Toronto, ON, Canada." },
 ];
 
 export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
     title: cms?.title ?? "Privacy Policy",
-    description: cms?.meta_description ?? "Professional AI Institute Privacy Policy.",
+    description: cms?.meta_description ?? "Professional Artificial Intelligence Institute Privacy Policy.",
   };
 }
 

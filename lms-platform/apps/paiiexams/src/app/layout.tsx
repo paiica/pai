@@ -6,7 +6,7 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakart
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", weight: ["500","600","700","900"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "paiiexams — Professional AI Institute Exam Platform",
+  title: "paiiexams — Professional Artificial Intelligence Institute Exam Platform",
   description: "Secure proctored certification exams",
 };
 

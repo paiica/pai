@@ -21,7 +21,7 @@ export class MailService {
   constructor(private config: ConfigService, private settings: SiteSettingsService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
     this.envResend = apiKey ? new Resend(apiKey) : null;
-    const fromName = config.get<string>("EMAIL_FROM_NAME", "Professional AI Institute");
+    const fromName = config.get<string>("EMAIL_FROM_NAME", "Professional Artificial Intelligence Institute");
     const fromAddr = config.get<string>("EMAIL_FROM", "noreply@paii.ca");
     this.envFrom = `${fromName} <${fromAddr}>`;
     this.frontendUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
@@ -33,7 +33,7 @@ export class MailService {
     const all = await this.settings.getAll();
     const key = all["resend_api_key"];
     if (!key) return null;
-    const fromName = all["email_from_name"] || "Professional AI Institute";
+    const fromName = all["email_from_name"] || "Professional Artificial Intelligence Institute";
     const fromAddr = all["email_from"]      || "noreply@paii.ca";
     return { resend: new Resend(key), from: `${fromName} <${fromAddr}>` };
   }
@@ -79,7 +79,7 @@ export class MailService {
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.verificationBody(firstName, link));
-    await this.send({ to, subject: subject ?? "Verify your PAI email address", html });
+    await this.send({ to, subject: subject ?? "Verify your PAII email address", html });
   }
 
   async sendPasswordResetEmail(to: string, firstName: string, token: string, baseUrl?: string) {
@@ -89,7 +89,7 @@ export class MailService {
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.resetBody(firstName, link));
-    await this.send({ to, subject: subject ?? "Reset your PAI password", html });
+    await this.send({ to, subject: subject ?? "Reset your PAII password", html });
   }
 
   async sendPurchaseConfirmation(opts: {
@@ -240,7 +240,7 @@ export class MailService {
       await client.resend.emails.send({
         from: client.from,
         to,
-        subject: "PAI — Test Email",
+        subject: "PAII — Test Email",
         html: this.wrapper(`
           <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Test Email</p>
           <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your Resend integration is working correctly. Emails will be delivered from <strong>${client.from}</strong>.</p>
@@ -267,7 +267,7 @@ export class MailService {
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, senderName: opts.senderName, inviteLink: opts.inviteLink })
       : this.wrapper(this.affiliateInviteBody(opts.senderName, firstName, opts.inviteLink));
-    await this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAI`, html });
+    await this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAII`, html });
   }
 
   async sendApplicationRejected(opts: {
@@ -289,18 +289,18 @@ export class MailService {
 
   getDefaultTemplates(): TemplateDefault[] {
     const sampleDate = "Monday, Jan 27 2026 at 10:00 AM EST";
-    const sampleCert = { certTitle: "Certified AI Professional", certAcronym: "CAIP", certNumber: "PAI-CAIP-2026-ABCD12" };
+    const sampleCert = { certTitle: "Certified AI Professional", certAcronym: "CAIP", certNumber: "PAII-CAIP-2026-ABCD12" };
     const sampleExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
     return [
       {
         key: "verification", name: "Email Verification",
-        defaultSubject: "Verify your PAI email address",
+        defaultSubject: "Verify your PAII email address",
         variables: ["{{firstName}}", "{{link}}"],
         defaultBody: this.verificationBody("John", `${this.frontendUrl}/verify-email?token=sample`),
       },
       {
         key: "reset", name: "Password Reset",
-        defaultSubject: "Reset your PAI password",
+        defaultSubject: "Reset your PAII password",
         variables: ["{{firstName}}", "{{link}}"],
         defaultBody: this.resetBody("John", `${this.frontendUrl}/reset-password?token=sample`),
       },
@@ -378,7 +378,7 @@ export class MailService {
   private verificationBody(firstName: string, link: string): string {
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Thanks for creating your PAI account. Please verify your email address to activate your learning portal.</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Thanks for creating your PAII account. Please verify your email address to activate your learning portal.</p>
       <div style="text-align:center;margin:32px 0">
         <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Verify Email Address</a>
       </div>
@@ -391,7 +391,7 @@ export class MailService {
   private resetBody(firstName: string, link: string): string {
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We received a request to reset your PAI account password. Click the button below to choose a new password.</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We received a request to reset your PAII account password. Click the button below to choose a new password.</p>
       <div style="text-align:center;margin:32px 0">
         <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Reset Password</a>
       </div>
@@ -439,7 +439,7 @@ export class MailService {
     const expiryStr = opts.expiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Congratulations, ${opts.firstName}!</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You've successfully earned your PAI certificate. This is a significant professional achievement.</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You've successfully earned your PAII certificate. This is a significant professional achievement.</p>
       <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center">
         <p style="margin:0 0 4px;font-size:28px;font-weight:900;color:#92400e;letter-spacing:2px">${opts.certAcronym}</p>
         <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#78350f">${opts.certTitle}</p>
@@ -508,7 +508,7 @@ export class MailService {
         <p style="margin:0 0 4px;font-size:48px;font-weight:900;color:#15803d">${opts.score}%</p>
         <p style="margin:0;font-size:14px;color:#16a34a;font-weight:600;text-transform:uppercase;letter-spacing:1px">Passing Score</p>
       </div>
-      <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">Your certificate will be reviewed and issued by the PAI team. You'll receive a separate email once it's ready. Congratulations on this achievement!</p>
+      <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">Your certificate will be reviewed and issued by the PAII team. You'll receive a separate email once it's ready. Congratulations on this achievement!</p>
     `;
   }
 
@@ -547,7 +547,7 @@ export class MailService {
   private certificateRevokedBody(opts: { firstName: string; certTitle: string; certAcronym: string; certNumber: string }): string {
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Certificate Update — ${opts.firstName}</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAI certificate has been revoked. Please review the details below.</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAII certificate has been revoked. Please review the details below.</p>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px 24px;margin:0 0 24px">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="font-size:13px;color:#64748b;padding:4px 0">Certification</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:4px 0">${opts.certAcronym} — ${opts.certTitle}</td></tr>
@@ -590,7 +590,7 @@ export class MailService {
   private affiliateInviteBody(senderName: string, recipientName: string, inviteLink: string): string {
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${recipientName},</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>${senderName}</strong> has personally invited you to join the Professional AI Institute (PAI) — where professionals earn industry-recognized AI certifications that set them apart.</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>${senderName}</strong> has personally invited you to join the Professional Artificial Intelligence Institute (PAII) — where professionals earn industry-recognized AI certifications that set them apart.</p>
       <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
         <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px">You're Invited</p>
         <p style="margin:0;font-size:15px;color:#78350f;line-height:1.5">Create your free account and start your AI certification journey today.</p>
@@ -613,12 +613,12 @@ export class MailService {
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden">
         <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:36px 40px;text-align:center">
-          <p style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">Professional AI Institute</p>
+          <p style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">Professional Artificial Intelligence Institute</p>
           <p style="margin:6px 0 0;color:rgba(255,255,255,0.5);font-size:13px">paii.ca</p>
         </td></tr>
         <tr><td style="padding:40px">${body}</td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f1f5f9;text-align:center">
-          <p style="margin:0;font-size:12px;color:#cbd5e1">© ${new Date().getFullYear()} Professional AI Institute. All rights reserved.</p>
+          <p style="margin:0;font-size:12px;color:#cbd5e1">© ${new Date().getFullYear()} Professional Artificial Intelligence Institute. All rights reserved.</p>
         </td></tr>
       </table>
     </td></tr>

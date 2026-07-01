@@ -475,7 +475,7 @@ export default function UsersPage() {
                   />
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">PAI ID</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">PAII ID</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Country</th>
@@ -532,7 +532,7 @@ export default function UsersPage() {
                       </div>
                     </td>
 
-                    {/* PAI ID */}
+                    {/* PAII ID */}
                     <td className="px-4 py-3 hidden sm:table-cell">
                       <span className="text-xs font-mono text-slate-600">{u.pai_id ?? "—"}</span>
                     </td>

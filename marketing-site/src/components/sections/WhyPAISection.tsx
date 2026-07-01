@@ -4,7 +4,7 @@ const PILLAR_ICONS: LucideIcon[] = [Shield, Globe2, BookOpen, Award, TrendingUp,
 
 const DEFAULT_PILLARS = [
   { title: "Rigorous & Credible",          description: "Our exams are developed by AI practitioners and reviewed by independent subject-matter experts. ISO 17024-aligned standards ensure your credential means something." },
-  { title: "Globally Recognized",           description: "PAI credentials are recognized by employers across 48 countries. Verified via QR code, blockchain-anchored, and LinkedIn-ready in minutes." },
+  { title: "Globally Recognized",           description: "PAII credentials are recognized by employers across 48 countries. Verified via QR code, blockchain-anchored, and LinkedIn-ready in minutes." },
   { title: "Practitioner-Built Curriculum", description: "Every module is authored by active AI professionals — not theorists. Real tools, real workflows, real outcomes. Updated every quarter." },
   { title: "Digital Badges & Certificates", description: "Earn a digital certificate, Open Badge 3.0, and LinkedIn credential. Share and verify instantly with your network and employers." },
   { title: "Career-Defining Impact",        description: "87% of certified professionals report a measurable career advancement within 12 months. Average salary uplift: 18-24% in benchmark studies." },
@@ -16,7 +16,7 @@ const DEFAULT_PILLARS = [
 type Pillar = { title: string; description: string };
 
 export default function WhyPAISection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
-  const badge    = cmsContent.badge    || "Why PAI";
+  const badge    = cmsContent.badge    || "Why PAII";
   const title    = cmsContent.title    || "The Credential That Opens Doors";
   const subtitle = cmsContent.subtitle || "Not another course. A rigorous, globally recognized certification backed by practitioners, validated by employers, and built for the AI era.";
   const pillars: Pillar[] = (cmsContent.pillars as Pillar[]) ?? DEFAULT_PILLARS;

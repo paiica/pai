@@ -10,7 +10,7 @@ export class EmailService {
 
   constructor(private config: ConfigService) {
     const apiKey = config.get<string>("email.apiKey");
-    const fromName = config.get<string>("email.fromName", "Professional AI Institute");
+    const fromName = config.get<string>("email.fromName", "Professional Artificial Intelligence Institute");
     const fromEmail = config.get<string>("email.from", "noreply@paii.ca");
     this.from = `${fromName} <${fromEmail}>`;
     if (apiKey) {
@@ -21,11 +21,11 @@ export class EmailService {
   }
 
   async sendEmailChangeVerification(newEmail: string, verifyUrl: string, firstName: string) {
-    const subject = "Verify your new email address — PAI";
+    const subject = "Verify your new email address — PAII";
     const html = `
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
         <h2 style="color:#1a2a5e">Hi ${firstName},</h2>
-        <p>You requested to change your PAI account email to <strong>${newEmail}</strong>.</p>
+        <p>You requested to change your PAII account email to <strong>${newEmail}</strong>.</p>
         <p>Click the button below to confirm this change. The link expires in <strong>24 hours</strong>.</p>
         <p style="margin:28px 0">
           <a href="${verifyUrl}"
@@ -36,7 +36,7 @@ export class EmailService {
         </p>
         <p style="color:#666;font-size:13px">If you did not request this, you can safely ignore this email — your current email address will remain unchanged.</p>
         <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
-        <p style="color:#999;font-size:12px">Professional AI Institute · <a href="https://paii.ca" style="color:#999">paii.ca</a></p>
+        <p style="color:#999;font-size:12px">Professional Artificial Intelligence Institute · <a href="https://paii.ca" style="color:#999">paii.ca</a></p>
       </div>
     `;
 

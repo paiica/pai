@@ -7,8 +7,8 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakart
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", weight: ["500","600","700","900"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "PAI Professor Portal",
-  description: "Professional AI Institute — Professor Portal",
+  title: "PAII Professor Portal",
+  description: "Professional Artificial Intelligence Institute — Professor Portal",
   robots: { index: false, follow: false },
 };
 

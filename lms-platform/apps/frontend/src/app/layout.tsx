@@ -8,10 +8,10 @@ const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", wei
 
 export const metadata: Metadata = {
   title: {
-    default: "PAI Learning Portal",
-    template: "%s | PAI",
+    default: "PAII Learning Portal",
+    template: "%s | PAII",
   },
-  description: "Professional AI Institute — Learning Management System",
+  description: "Professional Artificial Intelligence Institute — Learning Management System",
   robots: { index: false, follow: false },
 };
 

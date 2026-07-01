@@ -595,7 +595,7 @@ export default function ApplyPage() {
             <div>
               <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Personal Information</h2>
               <p className="text-slate-400 text-xs">
-                {isLoggedIn ? "Some fields are pre-filled from your account." : "Create your PAI account to track your application."}
+                {isLoggedIn ? "Some fields are pre-filled from your account." : "Create your PAII account to track your application."}
               </p>
             </div>
 

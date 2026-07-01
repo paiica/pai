@@ -96,7 +96,7 @@ export default function IdentitySection({ cmsContent = {} }: { cmsContent?: Reco
   const badge     = cmsContent.badge     ?? "The AI Credential Standard";
   const headline  = cmsContent.headline  ?? "We don’t teach AI.";
   const highlight = cmsContent.highlight ?? "We certify the people trusted to lead it.";
-  const body      = cmsContent.body      ?? "Professional AI Institute was founded on a single belief: the world needs a rigorous, globally recognized credential for AI professionals — one built by practitioners, validated by employers, and designed to evolve as fast as the field itself.";
+  const body      = cmsContent.body      ?? "Professional Artificial Intelligence Institute was founded on a single belief: the world needs a rigorous, globally recognized credential for AI professionals — one built by practitioners, validated by employers, and designed to evolve as fast as the field itself.";
 
   const stats = [
     { value: cmsContent.stat_1_value ?? "12,400+", label: cmsContent.stat_1_label ?? "Professionals Certified" },

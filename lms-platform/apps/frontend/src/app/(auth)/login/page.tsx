@@ -54,7 +54,7 @@ function LoginContent() {
   return (
     <div className="bg-white p-8" style={{ borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.05)" }}>
       <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>Sign In</h1>
-      <p className="text-sm mb-6" style={{ color: "#948e84" }}>Access your PAI learning portal</p>
+      <p className="text-sm mb-6" style={{ color: "#948e84" }}>Access your PAII learning portal</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

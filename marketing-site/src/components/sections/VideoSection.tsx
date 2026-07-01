@@ -32,7 +32,7 @@ function VideoCard({ item, index }: { item: VideoItem | null; index: number }) {
               className="absolute inset-0 w-full h-full"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              title={item?.label || "PAI Video"}
+              title={item?.label || "PAII Video"}
             />
           )
         ) : (
@@ -58,8 +58,8 @@ function VideoCard({ item, index }: { item: VideoItem | null; index: number }) {
 }
 
 export default function VideoSection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
-  const title    = cmsContent.title    || "See PAI in Action";
-  const subtitle = cmsContent.subtitle || "Discover how PAI certifications are transforming careers and organizations across industries.";
+  const title    = cmsContent.title    || "See PAII in Action";
+  const subtitle = cmsContent.subtitle || "Discover how PAII certifications are transforming careers and organizations across industries.";
 
   const videos: VideoItem[] = Array.isArray(cmsContent.videos) && cmsContent.videos.length
     ? cmsContent.videos

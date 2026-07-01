@@ -412,7 +412,7 @@ export default function CartPage() {
               <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
                 {[
                   { icon: Lock,   label: "Secure SSL checkout" },
-                  { icon: Shield, label: "Verified PAI credentials" },
+                  { icon: Shield, label: "Verified PAII credentials" },
                   { icon: Zap,    label: "Instant access on enrollment" },
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-center gap-2.5 text-xs text-slate-500">

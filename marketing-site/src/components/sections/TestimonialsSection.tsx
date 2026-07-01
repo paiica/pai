@@ -6,7 +6,7 @@ const DEFAULT_ITEMS = [
   { name: "Priya Patel",     title: "Chief Digital Officer",   company: "Intact Financial",    cert: "CAIE",  avatar: "PP", rating: "5", quote: "As a CDO, I needed a credential that spoke the language of the boardroom. CAIE is exactly that — strategic, governance-focused, and immediately applicable. I completed it in 4 weeks while running a team of 120." },
   { name: "James Okonkwo",   title: "Data Analytics Lead",     company: "Deloitte",            cert: "CAIDA", avatar: "JO", rating: "5", quote: "CAIDA bridges the gap between traditional data analytics and modern AI methods. The curriculum is hands-on, practical, and built by people who actually work with these tools. My team has enrolled 8 people already." },
   { name: "Ana Rodrigues",   title: "HR Director",             company: "Nestlé",              cert: "CAIP",  avatar: "AR", rating: "5", quote: "I came in knowing nothing about AI. CAIP walked me through everything from fundamentals to practical applications for HR. The exam was challenging but fair. Now I'm implementing AI tools across our 40-person HR team." },
-  { name: "David Kim",       title: "VP Technology",           company: "Royal Bank of Canada", cert: "CAIM",  avatar: "DK", rating: "5", quote: "The PAI community alone is worth the certification fee. I've connected with AI leaders from 20+ countries. The weekly virtual events and the alumni network are exceptional." },
+  { name: "David Kim",       title: "VP Technology",           company: "Royal Bank of Canada", cert: "CAIM",  avatar: "DK", rating: "5", quote: "The PAII community alone is worth the certification fee. I've connected with AI leaders from 20+ countries. The weekly virtual events and the alumni network are exceptional." },
 ];
 
 type TestimonialItem = { name: string; title: string; company: string; cert: string; avatar: string; rating: string; quote: string };
@@ -14,7 +14,7 @@ type TestimonialItem = { name: string; title: string; company: string; cert: str
 export default function TestimonialsSection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
   const badge    = cmsContent.badge    || "What Professionals Say";
   const title    = cmsContent.title    || "Trusted by Industry Leaders";
-  const subtitle = cmsContent.subtitle || "Join 3,200+ professionals who've advanced their careers with PAI credentials.";
+  const subtitle = cmsContent.subtitle || "Join 3,200+ professionals who've advanced their careers with PAII credentials.";
   const items: TestimonialItem[] = (cmsContent.items as TestimonialItem[]) ?? DEFAULT_ITEMS;
 
   return (

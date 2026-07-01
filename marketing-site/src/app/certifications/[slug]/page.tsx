@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${cert.title} (${cert.acronym})`,
     description: cert.description,
-    openGraph: { title: `${cert.title} | Professional AI Institute`, description: cert.description },
+    openGraph: { title: `${cert.title} | Professional Artificial Intelligence Institute`, description: cert.description },
   };
 }
 

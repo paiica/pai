@@ -62,7 +62,7 @@ export default function LoginModal({
 
         <div className="mb-6">
           <h2 className="font-display font-black text-xl text-ink-900 mb-1">Welcome back</h2>
-          <p className="text-sm text-slate-500">Sign in to your PAI account</p>
+          <p className="text-sm text-slate-500">Sign in to your PAII account</p>
         </div>
 
         {error && (

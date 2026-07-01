@@ -59,7 +59,7 @@ export default function VerifyForm({ initialId }: { initialId: string }) {
           type="text"
           value={certId}
           onChange={(e) => setCertId(e.target.value)}
-          placeholder="e.g. PAI-CAIP-2024-001234"
+          placeholder="e.g. PAII-CAIP-2024-001234"
           className="input-base font-mono"
         />
         <button

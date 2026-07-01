@@ -25,7 +25,7 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
   {
     title: "Company",
     links: [
-      { label: "About PAI", href: "/about" },
+      { label: "About PAII", href: "/about" },
       { label: "Our Mission", href: "/about#mission" },
       { label: "Advisory Board", href: "/about#board" },
       { label: "Accreditation", href: "/about#accreditation" },
@@ -125,7 +125,7 @@ export default function FooterPage() {
   const resolvedContactLocation = contactLocation ?? c.contact_location ?? "Toronto, ON · Canada";
   const resolvedColumns: FooterColumn[] = columns ?? (Array.isArray(c.columns) ? c.columns : DEFAULT_COLUMNS);
   const resolvedTrustItems: string[] = trustItems ?? (Array.isArray(c.trust_items) ? c.trust_items : DEFAULT_TRUST_ITEMS);
-  const resolvedCopyright = copyright ?? c.copyright ?? "Professional AI Institute. All rights reserved.";
+  const resolvedCopyright = copyright ?? c.copyright ?? "Professional Artificial Intelligence Institute. All rights reserved.";
   const resolvedBottomLinks: FooterLink[] = bottomLinks ?? (Array.isArray(c.bottom_links) ? c.bottom_links : DEFAULT_BOTTOM_LINKS);
 
   function initFromBlock() {
@@ -139,7 +139,7 @@ export default function FooterPage() {
     setContactLocation(c.contact_location ?? "Toronto, ON · Canada");
     setColumns(Array.isArray(c.columns) ? c.columns : DEFAULT_COLUMNS);
     setTrustItems(Array.isArray(c.trust_items) ? c.trust_items : DEFAULT_TRUST_ITEMS);
-    setCopyright(c.copyright ?? "Professional AI Institute. All rights reserved.");
+    setCopyright(c.copyright ?? "Professional Artificial Intelligence Institute. All rights reserved.");
     setBottomLinks(Array.isArray(c.bottom_links) ? c.bottom_links : DEFAULT_BOTTOM_LINKS);
   }
 

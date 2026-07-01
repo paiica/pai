@@ -282,7 +282,7 @@ export default function StudentDashboard() {
             {paiId && (
               <div className="hidden md:block border-l border-white/10 pl-6 ml-2">
                 <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Account Details</p>
-                <p className="text-white/80 text-sm font-medium">PAI ID: <span className="font-bold text-white">{paiId}</span></p>
+                <p className="text-white/80 text-sm font-medium">PAII ID: <span className="font-bold text-white">{paiId}</span></p>
               </div>
             )}
           </div>
@@ -332,7 +332,7 @@ export default function StudentDashboard() {
             <div className="rounded-2xl bg-navy-900 p-8 text-center">
               <GraduationCap size={36} className="mx-auto mb-3 text-white/30" />
               <p className="text-white font-semibold mb-1">No certifications yet</p>
-              <p className="text-white/40 text-sm mb-5">Apply for a PAI certification program to get started.</p>
+              <p className="text-white/40 text-sm mb-5">Apply for a PAII certification program to get started.</p>
               <a
                 href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}/certifications`}
                 className="inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-400 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"

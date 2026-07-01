@@ -151,7 +151,7 @@ export default function LoginPage() {
 
       <div className="flex items-center gap-3 my-6">
         <div className="flex-1 h-px bg-sand-200" />
-        <span className="text-xs text-sand-400 font-medium">New to PAI?</span>
+        <span className="text-xs text-sand-400 font-medium">New to PAII?</span>
         <div className="flex-1 h-px bg-sand-200" />
       </div>
 

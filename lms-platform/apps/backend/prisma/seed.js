@@ -18,9 +18,9 @@ async function main() {
             email_verified: true,
             profile: {
                 create: {
-                    first_name: "PAI",
+                    first_name: "PAII",
                     last_name: "Admin",
-                    display_name: "PAI Administrator",
+                    display_name: "PAII Administrator",
                 },
             },
         },

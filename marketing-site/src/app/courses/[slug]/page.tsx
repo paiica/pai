@@ -89,10 +89,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const course = await getCourse(slug);
   if (!course) return { title: "Not Found" };
   return {
-    title: `${course.title} | Professional AI Institute`,
+    title: `${course.title} | Professional Artificial Intelligence Institute`,
     description: course.subtitle || course.description,
     openGraph: {
-      title: `${course.title} | Professional AI Institute`,
+      title: `${course.title} | Professional Artificial Intelligence Institute`,
       description: course.description,
     },
   };

@@ -22,8 +22,8 @@ async function getCmsPage(): Promise<CmsPage | null> {
 export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
-    title: cms?.title ?? "About PAI",
-    description: cms?.meta_description ?? "Learn about the Professional AI Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
+    title: cms?.title ?? "About PAII",
+    description: cms?.meta_description ?? "Learn about the Professional Artificial Intelligence Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
   };
 }
 
@@ -39,7 +39,7 @@ const BOARD = [
 const VALUES = [
   { icon: Shield, title: "Credential Integrity", desc: "Our certifications mean something. Every exam question, every curriculum module, and every assessment criterion undergoes independent review. We never compromise on rigor." },
   { icon: Globe2, title: "Global Accessibility", desc: "World-class AI credentials should be accessible to professionals everywhere. We offer flexible payment, translated materials, and region-adjusted pricing." },
-  { icon: Users2, title: "Community-Driven", desc: "PAI is built by practitioners, for practitioners. Our curriculum is shaped by the 3,200+ professionals in our community and updated quarterly." },
+  { icon: Users2, title: "Community-Driven", desc: "PAII is built by practitioners, for practitioners. Our curriculum is shaped by the 3,200+ professionals in our community and updated quarterly." },
   { icon: Award, title: "Career Impact", desc: "Every program decision is measured against one question: does this help our learners advance their careers? If not, we don't include it." },
 ];
 
@@ -53,7 +53,7 @@ export default async function AboutPage() {
         {/* Hero — always hardcoded */}
         <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
           <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">About PAI</span>
+            <span className="badge-dark mb-5">About PAII</span>
             <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
               The AI Credential Standard
             </h1>
@@ -83,7 +83,7 @@ export default async function AboutPage() {
                       inaccessible to most professionals.
                     </p>
                     <p className="text-ink-900 leading-relaxed mb-5">
-                      PAI was founded to solve that problem — to create the professional certification
+                      PAII was founded to solve that problem — to create the professional certification
                       infrastructure for AI, modeled after institutions like the CPA, PMI, and CSI that
                       define credentialing in other professions.
                     </p>
@@ -161,7 +161,7 @@ export default async function AboutPage() {
                 <span className="badge-teal mb-4">Accreditation</span>
                 <h2 className="section-title mb-5">Standards-Aligned Credentialing</h2>
                 <p className="text-ink-900 max-w-2xl mx-auto mb-10 leading-relaxed">
-                  PAI's certification framework aligns with ISO 17024 — the international standard for
+                  PAII's certification framework aligns with ISO 17024 — the international standard for
                   personnel certification bodies. Our exam development follows best practices from the
                   National Commission for Certifying Agencies (NCCA).
                 </p>

@@ -1427,12 +1427,12 @@ export default function CertEditorPage() {
                     .replace(/\{\{STUDENT_NAME\}\}/g, "Jane Smith")
                     .replace(/\{\{CERT_TITLE\}\}/g, cert.title)
                     .replace(/\{\{CERT_ACRONYM\}\}/g, cert.acronym)
-                    .replace(/\{\{CERT_NUMBER\}\}/g, `PAI-${cert.acronym}-2025-SAMPLE`)
+                    .replace(/\{\{CERT_NUMBER\}\}/g, `PAII-${cert.acronym}-2025-SAMPLE`)
                     .replace(/\{\{ISSUE_DATE\}\}/g, "June 19, 2025")
                     .replace(/\{\{EXPIRY_DATE\}\}/g, "June 19, 2027")
                     .replace(/\{\{EXAM_SCORE\}\}/g, "91.5")
-                    .replace(/\{\{VERIFICATION_URL\}\}/g, "https://paii.ca/verify?id=PAI-SAMPLE")
-                    .replace(/\{\{QR_CODE_URL\}\}/g, "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://paii.ca/verify?id=PAI-SAMPLE")
+                    .replace(/\{\{VERIFICATION_URL\}\}/g, "https://paii.ca/verify?id=PAII-SAMPLE")
+                    .replace(/\{\{QR_CODE_URL\}\}/g, "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://paii.ca/verify?id=PAII-SAMPLE")
                   }
                   className="w-full"
                   style={{ height: "600px", border: "none" }}

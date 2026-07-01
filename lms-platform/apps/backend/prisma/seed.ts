@@ -242,8 +242,8 @@ const CERTS = [
     badge_icon:         "🏛️",
     price:              3495.00,
     sort_order:         5,
-    description:        "The highest-level PAI credential for C-suite leaders and board members responsible for enterprise AI strategy.",
-    long_description:   "The highest-level PAI credential for senior executives, C-suite leaders, and board members responsible for organizational AI strategy, governance, and transformation.",
+    description:        "The highest-level PAII credential for C-suite leaders and board members responsible for enterprise AI strategy.",
+    long_description:   "The highest-level PAII credential for senior executives, C-suite leaders, and board members responsible for organizational AI strategy, governance, and transformation.",
     duration_weeks:      6,
     total_lessons:       28,
     total_hours:         25,
@@ -291,9 +291,9 @@ async function main() {
       email_verified: true,
       profile: {
         create: {
-          first_name:   "PAI",
+          first_name:   "PAII",
           last_name:    "Admin",
-          display_name: "PAI Administrator",
+          display_name: "PAII Administrator",
         },
       },
     },

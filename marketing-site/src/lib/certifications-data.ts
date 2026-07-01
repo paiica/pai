@@ -285,9 +285,9 @@ export const CERTIFICATIONS: CertificationSummary[] = [
     passing_score: 70,
     validity_years: 3,
     status: "coming_soon",
-    short_description: "The highest-level PAI credential for C-suite leaders and board members responsible for enterprise AI strategy.",
+    short_description: "The highest-level PAII credential for C-suite leaders and board members responsible for enterprise AI strategy.",
     long_description:
-      "The highest-level PAI credential for senior executives, C-suite leaders, and board members responsible for organizational AI strategy, governance, and transformation.",
+      "The highest-level PAII credential for senior executives, C-suite leaders, and board members responsible for organizational AI strategy, governance, and transformation.",
     target_audience: ["CEOs", "CTOs", "CDOs", "CFOs", "Board members", "VPs", "Senior directors"],
     learning_outcomes: [
       "Enterprise AI governance and board-level oversight",

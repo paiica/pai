@@ -18,7 +18,7 @@ const STEPS = [
     number: "03",
     title: "Application Review",
     description:
-      "PAI's admissions team reviews your application within 3–5 business days. You'll receive a decision email with your LMS access credentials.",
+      "PAII's admissions team reviews your application within 3–5 business days. You'll receive a decision email with your LMS access credentials.",
   },
   {
     number: "04",

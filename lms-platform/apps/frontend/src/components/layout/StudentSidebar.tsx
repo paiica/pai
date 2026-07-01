@@ -220,7 +220,7 @@ export default function StudentSidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-slate-100 flex-shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-          <img src="/paii.logo.png" alt="Professional AI Institute" className={collapsed ? "w-8 h-8 object-contain flex-shrink-0" : "h-7 w-auto object-contain flex-shrink-0"} />
+          <img src="/paii.logo.png" alt="Professional Artificial Intelligence Institute" className={collapsed ? "w-8 h-8 object-contain flex-shrink-0" : "h-7 w-auto object-contain flex-shrink-0"} />
           {!collapsed && (
             <span className="text-[11px] font-semibold text-slate-700 leading-tight truncate">Professional AI<br />Institute</span>
           )}

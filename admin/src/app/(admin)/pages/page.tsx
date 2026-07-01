@@ -31,13 +31,13 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "about",
     title: "About",
     description: "Mission, values, advisory board, accreditation",
-    defaultMeta: "Learn about the Professional AI Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
+    defaultMeta: "Learn about the Professional Artificial Intelligence Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
     defaultHtml: `<section style="padding:64px 0;background:#fff">
   <div style="max-width:768px;margin:0 auto;padding:0 24px">
     <p style="display:inline-block;background:#ccfbf1;color:#0f766e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:99px;margin-bottom:16px">Our Mission</p>
     <h2 style="font-size:1.875rem;font-weight:900;color:#171527;margin:0 0 20px">Closing the AI Credibility Gap</h2>
     <p style="color:#171527;line-height:1.7;font-size:15px;margin:0 0 20px">In 2023, we noticed a growing problem: organizations were scrambling to implement AI, professionals were scrambling to learn AI, but there was no trusted credential standard to bridge the gap. LinkedIn courses and YouTube tutorials don't signal professional competence to employers. MBAs don't cover AI adequately. Engineering degrees are inaccessible to most professionals.</p>
-    <p style="color:#171527;line-height:1.7;font-size:15px;margin:0 0 20px">PAI was founded to solve that problem — to create the professional certification infrastructure for AI, modeled after institutions like the CPA, PMI, and CSI that define credentialing in other professions.</p>
+    <p style="color:#171527;line-height:1.7;font-size:15px;margin:0 0 20px">PAII was founded to solve that problem — to create the professional certification infrastructure for AI, modeled after institutions like the CPA, PMI, and CSI that define credentialing in other professions.</p>
     <p style="color:#171527;line-height:1.7;font-size:15px;margin:0">We build programs that are rigorous enough to mean something, accessible enough for working professionals, and practical enough to create immediate impact.</p>
   </div>
 </section>
@@ -51,7 +51,7 @@ const SITE_PAGES: SitePageDef[] = [
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px">
       <div style="background:#fff;border-radius:16px;border:1px solid #ddd8d0;padding:24px"><h3 style="font-weight:700;color:#171527;font-size:1rem;margin:0 0 8px">Credential Integrity</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Our certifications mean something. Every exam question, every curriculum module, and every assessment criterion undergoes independent review. We never compromise on rigor.</p></div>
       <div style="background:#fff;border-radius:16px;border:1px solid #ddd8d0;padding:24px"><h3 style="font-weight:700;color:#171527;font-size:1rem;margin:0 0 8px">Global Accessibility</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">World-class AI credentials should be accessible to professionals everywhere. We offer flexible payment, translated materials, and region-adjusted pricing.</p></div>
-      <div style="background:#fff;border-radius:16px;border:1px solid #ddd8d0;padding:24px"><h3 style="font-weight:700;color:#171527;font-size:1rem;margin:0 0 8px">Community-Driven</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">PAI is built by practitioners, for practitioners. Our curriculum is shaped by the 3,200+ professionals in our community and updated quarterly.</p></div>
+      <div style="background:#fff;border-radius:16px;border:1px solid #ddd8d0;padding:24px"><h3 style="font-weight:700;color:#171527;font-size:1rem;margin:0 0 8px">Community-Driven</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">PAII is built by practitioners, for practitioners. Our curriculum is shaped by the 3,200+ professionals in our community and updated quarterly.</p></div>
       <div style="background:#fff;border-radius:16px;border:1px solid #ddd8d0;padding:24px"><h3 style="font-weight:700;color:#171527;font-size:1rem;margin:0 0 8px">Career Impact</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Every program decision is measured against one question: does this help our learners advance their careers? If not, we don't include it.</p></div>
     </div>
   </div>
@@ -79,7 +79,7 @@ const SITE_PAGES: SitePageDef[] = [
   <div style="max-width:768px;margin:0 auto;padding:0 24px">
     <p style="display:inline-block;background:#ccfbf1;color:#0f766e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:99px;margin-bottom:16px">Accreditation</p>
     <h2 style="font-size:1.875rem;font-weight:900;color:#171527;margin:0 0 20px">Standards-Aligned Credentialing</h2>
-    <p style="color:#171527;line-height:1.7;font-size:15px;margin:0 0 40px">PAI's certification framework aligns with ISO 17024 — the international standard for personnel certification bodies. Our exam development follows best practices from the National Commission for Certifying Agencies (NCCA).</p>
+    <p style="color:#171527;line-height:1.7;font-size:15px;margin:0 0 40px">PAII's certification framework aligns with ISO 17024 — the international standard for personnel certification bodies. Our exam development follows best practices from the National Commission for Certifying Agencies (NCCA).</p>
     <a href="/certifications" style="display:inline-flex;align-items:center;gap:8px;background:#171527;color:#fff;font-weight:700;padding:14px 32px;border-radius:12px;font-size:14px;text-decoration:none">Explore Certifications →</a>
   </div>
 </section>`,
@@ -88,22 +88,22 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "faq",
     title: "FAQ",
     description: "Frequently asked questions by category",
-    defaultMeta: "Answers to the most common questions about PAI certifications, exams, enrollment, and credentials.",
+    defaultMeta: "Answers to the most common questions about PAII certifications, exams, enrollment, and credentials.",
     defaultHtml: `<section style="padding:64px 0;background:#fff">
   <div style="max-width:768px;margin:0 auto;padding:0 24px">
 
     <h2 style="font-size:1.125rem;font-weight:900;color:#171527;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #ddd8d0">Certifications &amp; Programs</h2>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:48px">
-      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Do I need a technical background to enroll?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">No. PAI certifications are designed for business professionals, not engineers. CAIP, CAIM, and CAIE require no programming or data science background. CAIDA benefits from familiarity with data tools but doesn't require coding.</p></div>
-      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Which certification should I start with?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">87% of PAI professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (executive) based on your role.</p></div>
+      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Do I need a technical background to enroll?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">No. PAII certifications are designed for business professionals, not engineers. CAIP, CAIM, and CAIE require no programming or data science background. CAIDA benefits from familiarity with data tools but doesn't require coding.</p></div>
+      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Which certification should I start with?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">87% of PAII professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (executive) based on your role.</p></div>
       <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Can I take multiple certifications?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Yes. Many professionals complete CAIP followed by CAIM or CAIDA. CAIP alumni receive a 15% discount on subsequent certifications.</p></div>
       <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Are there prerequisites?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">CAIP has no prerequisites. CAIM and CAIDA recommend CAIP but don't require it. CAIE is designed for senior professionals and recommends 3+ years in a leadership role.</p></div>
     </div>
 
     <h2 style="font-size:1.125rem;font-weight:900;color:#171527;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #ddd8d0">Application &amp; Enrollment</h2>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:48px">
-      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">How does the application process work?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval.</p></div>
-      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Why do I need to apply?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">PAI's application process ensures credential integrity and helps us understand your professional context. Applications are rarely declined — it's not an exclusionary process.</p></div>
+      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">How does the application process work?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">You submit a brief application (5 minutes), pay the enrollment fee, and PAII reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval.</p></div>
+      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Why do I need to apply?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">PAII's application process ensures credential integrity and helps us understand your professional context. Applications are rarely declined — it's not an exclusionary process.</p></div>
       <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">What if my application is rejected?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">You'll receive a full refund within 5–7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways.</p></div>
     </div>
 
@@ -118,7 +118,7 @@ const SITE_PAGES: SitePageDef[] = [
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:48px">
       <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">How long is the certification valid?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">CAIP, CAIM, and CAIDA are valid for 2 years. CAIE is valid for 3 years. Renewal involves a shorter recertification exam or continuing education credits.</p></div>
       <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">How do employers verify my credential?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Each certificate includes a unique ID and QR code. Employers can verify instantly at paii.ca/verify. You can also add your credential directly to LinkedIn.</p></div>
-      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Are PAI credentials recognized internationally?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Yes. PAI credentials are recognized by employers across 48 countries. Our ISO 17024-aligned framework aligns with international standards for professional certifications.</p></div>
+      <div style="background:#f5f0eb;border-radius:16px;padding:20px;border:1px solid #ddd8d0"><h3 style="font-weight:700;color:#171527;font-size:15px;margin:0 0 8px">Are PAII credentials recognized internationally?</h3><p style="color:#171527;font-size:14px;line-height:1.6;margin:0">Yes. PAII credentials are recognized by employers across 48 countries. Our ISO 17024-aligned framework aligns with international standards for professional certifications.</p></div>
     </div>
 
     <h2 style="font-size:1.125rem;font-weight:900;color:#171527;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #ddd8d0">Payments &amp; Refunds</h2>
@@ -141,7 +141,7 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "corporate",
     title: "Corporate",
     description: "Group pricing, features, and enterprise plans",
-    defaultMeta: "Upskill your entire organization with PAI's group certification programs. Volume pricing, dedicated support, and custom learning paths.",
+    defaultMeta: "Upskill your entire organization with PAII's group certification programs. Volume pricing, dedicated support, and custom learning paths.",
     defaultHtml: `<section style="padding:64px 0;background:#fff">
   <div style="max-width:1120px;margin:0 auto;padding:0 24px">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
@@ -222,7 +222,7 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "privacy",
     title: "Privacy Policy",
     description: "Privacy policy and data rights",
-    defaultMeta: "Professional AI Institute Privacy Policy.",
+    defaultMeta: "Professional Artificial Intelligence Institute Privacy Policy.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 8px">Privacy Policy</h1>
 <p style="color:#948e84;font-size:13px;margin:0 0 40px">Last updated: June 1, 2026</p>
 
@@ -242,18 +242,18 @@ const SITE_PAGES: SitePageDef[] = [
 <p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">We use essential cookies for authentication and performance cookies (via analytics tools) to understand how our site is used. You can control non-essential cookies via your browser settings.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Contact</h2>
-<p style="color:#171527;line-height:1.7;font-size:14px;margin:0">For privacy-related questions, contact our Privacy Officer at <a href="mailto:privacy@paii.ca" style="color:#171527;font-weight:600">privacy@paii.ca</a> or write to: Professional AI Institute, Toronto, ON, Canada.</p>`,
+<p style="color:#171527;line-height:1.7;font-size:14px;margin:0">For privacy-related questions, contact our Privacy Officer at <a href="mailto:privacy@paii.ca" style="color:#171527;font-weight:600">privacy@paii.ca</a> or write to: Professional Artificial Intelligence Institute, Toronto, ON, Canada.</p>`,
   },
   {
     slug: "terms",
     title: "Terms of Service",
     description: "Terms and conditions of enrollment",
-    defaultMeta: "Professional AI Institute Terms of Service.",
+    defaultMeta: "Professional Artificial Intelligence Institute Terms of Service.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 8px">Terms of Service</h1>
 <p style="color:#948e84;font-size:13px;margin:0 0 40px">Last updated: June 1, 2026</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Acceptance of Terms</h2>
-<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">By applying for or enrolling in a PAI certification program, you agree to be bound by these Terms of Service. If you do not agree, do not proceed with enrollment.</p>
+<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">By applying for or enrolling in a PAII certification program, you agree to be bound by these Terms of Service. If you do not agree, do not proceed with enrollment.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Enrollment &amp; Access</h2>
 <p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">Upon approval of your application and receipt of payment, you receive personal, non-transferable access to the course materials for the enrolled certification. Access is for individual use only and may not be shared.</p>
@@ -262,13 +262,13 @@ const SITE_PAGES: SitePageDef[] = [
 <p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">You are entitled to a full refund within 30 days of enrollment if you have not attempted the final certification exam. No refunds are issued after an exam attempt or after the 30-day window. Application rejections result in an automatic full refund within 5–7 business days.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Exam Integrity</h2>
-<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">You agree to complete all assessments independently without assistance from others. Any breach of exam integrity, including sharing questions, using unauthorized materials, or impersonating another individual, will result in immediate revocation of your credential and permanent disqualification from PAI programs.</p>
+<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">You agree to complete all assessments independently without assistance from others. Any breach of exam integrity, including sharing questions, using unauthorized materials, or impersonating another individual, will result in immediate revocation of your credential and permanent disqualification from PAII programs.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Credential Use</h2>
-<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">PAI credentials are issued to the individual who completed the program. You may represent your credential accurately on professional profiles and resumes. Misrepresentation of PAI credentials is prohibited and may result in legal action.</p>
+<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">PAII credentials are issued to the individual who completed the program. You may represent your credential accurately on professional profiles and resumes. Misrepresentation of PAII credentials is prohibited and may result in legal action.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Intellectual Property</h2>
-<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">All course materials, videos, quizzes, and content are the intellectual property of the Professional AI Institute. You may not reproduce, distribute, or create derivative works from our content without written permission.</p>
+<p style="color:#171527;line-height:1.7;font-size:14px;margin:0 0 16px">All course materials, videos, quizzes, and content are the intellectual property of the Professional Artificial Intelligence Institute. You may not reproduce, distribute, or create derivative works from our content without written permission.</p>
 
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">Contact</h2>
 <p style="color:#171527;line-height:1.7;font-size:14px;margin:0">For questions about these terms, contact <a href="mailto:legal@paii.ca" style="color:#171527;font-weight:600">legal@paii.ca</a>.</p>`,
@@ -277,9 +277,9 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "careers",
     title: "Careers",
     catchAll: true,
-    description: "Open roles and working at PAI",
-    defaultMeta: "Join the Professional AI Institute team. Explore open roles and our mission-driven culture.",
-    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Careers at PAI</h1>
+    description: "Open roles and working at PAII",
+    defaultMeta: "Join the Professional Artificial Intelligence Institute team. Explore open roles and our mission-driven culture.",
+    defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Careers at PAII</h1>
 <p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">We're building the credential standard for the AI era. Join us.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:0 0 12px">Open Roles</h2>
 <p style="color:#171527;font-size:14px;line-height:1.7;margin:0">No open roles at this time. Check back soon or send your resume to <a href="mailto:careers@paii.ca" style="color:#171527;font-weight:600">careers@paii.ca</a>.</p>`,
@@ -289,7 +289,7 @@ const SITE_PAGES: SitePageDef[] = [
     title: "Resources",
     catchAll: true,
     description: "Learning resources, guides, and tools",
-    defaultMeta: "Free AI learning resources, guides, and tools from the Professional AI Institute.",
+    defaultMeta: "Free AI learning resources, guides, and tools from the Professional Artificial Intelligence Institute.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Resources</h1>
 <p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">Free guides, templates, and tools to accelerate your AI journey.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:0 0 12px">Coming Soon</h2>
@@ -299,8 +299,8 @@ const SITE_PAGES: SitePageDef[] = [
     slug: "contact",
     title: "Contact",
     catchAll: true,
-    description: "Get in touch with PAI",
-    defaultMeta: "Contact the Professional AI Institute. Reach our team for enrollment questions, corporate inquiries, and support.",
+    description: "Get in touch with PAII",
+    defaultMeta: "Contact the Professional Artificial Intelligence Institute. Reach our team for enrollment questions, corporate inquiries, and support.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Contact Us</h1>
 <p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">Our team is here to help.</p>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:32px">
@@ -315,18 +315,18 @@ const SITE_PAGES: SitePageDef[] = [
     title: "Partners",
     catchAll: true,
     description: "Partner organizations and integrations",
-    defaultMeta: "PAI partner organizations, academic institutions, and technology integrations.",
+    defaultMeta: "PAII partner organizations, academic institutions, and technology integrations.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Partners</h1>
 <p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">We work with leading organizations to advance professional AI credentialing.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:0 0 12px">Partner With Us</h2>
-<p style="color:#171527;font-size:14px;line-height:1.7;margin:0">Interested in partnering with PAI? Reach out at <a href="mailto:partnerships@paii.ca" style="color:#171527;font-weight:600">partnerships@paii.ca</a>.</p>`,
+<p style="color:#171527;font-size:14px;line-height:1.7;margin:0">Interested in partnering with PAII? Reach out at <a href="mailto:partnerships@paii.ca" style="color:#171527;font-weight:600">partnerships@paii.ca</a>.</p>`,
   },
   {
     slug: "press",
     title: "Press",
     catchAll: true,
     description: "Media coverage, press releases, brand assets",
-    defaultMeta: "PAI press room — media coverage, press releases, and brand assets for journalists and media partners.",
+    defaultMeta: "PAII press room — media coverage, press releases, and brand assets for journalists and media partners.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Press &amp; Media</h1>
 <p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">For media inquiries, interview requests, and press assets.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:0 0 12px">Media Contact</h2>
@@ -339,11 +339,11 @@ const SITE_PAGES: SitePageDef[] = [
     title: "Accreditation",
     catchAll: true,
     description: "Credentialing framework and standards compliance",
-    defaultMeta: "PAI's ISO 17024-aligned credentialing framework and accreditation standards.",
+    defaultMeta: "PAII's ISO 17024-aligned credentialing framework and accreditation standards.",
     defaultHtml: `<h1 style="font-size:2rem;font-weight:900;color:#171527;margin:0 0 12px">Accreditation</h1>
-<p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">PAI's certification framework meets the highest international standards for professional credentialing.</p>
+<p style="color:#948e84;font-size:15px;line-height:1.7;margin:0 0 40px">PAII's certification framework meets the highest international standards for professional credentialing.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:0 0 12px">ISO 17024 Alignment</h2>
-<p style="color:#171527;font-size:14px;line-height:1.7;margin:0 0 16px">PAI's programs are developed in alignment with ISO 17024, the international standard for personnel certification bodies.</p>
+<p style="color:#171527;font-size:14px;line-height:1.7;margin:0 0 16px">PAII's programs are developed in alignment with ISO 17024, the international standard for personnel certification bodies.</p>
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">NCCA Best Practices</h2>
 <p style="color:#171527;font-size:14px;line-height:1.7;margin:0">Our exam development follows best practices from the National Commission for Certifying Agencies (NCCA).</p>`,
   },

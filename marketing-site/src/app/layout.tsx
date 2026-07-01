@@ -47,8 +47,8 @@ async function getSiteSettings(): Promise<Record<string, string>> {
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
 
-  const siteName  = settings.site_title       || "Professional AI Institute";
-  const siteDesc  = settings.site_description || "Earn globally recognized AI certifications. PAI offers rigorous, credential-focused programs for professionals, managers, and executives ready to lead in the AI era.";
+  const siteName  = settings.site_title       || "Professional Artificial Intelligence Institute";
+  const siteDesc  = settings.site_description || "Earn globally recognized AI certifications. PAII offers rigorous, credential-focused programs for professionals, managers, and executives ready to lead in the AI era.";
   const faviconUrl = settings.favicon_url     || "/favicon.ico";
 
   return {

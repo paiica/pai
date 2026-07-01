@@ -42,7 +42,7 @@ export function ProfSidebar() {
         </div>
         {!collapsed && (
           <div>
-            <p className="text-xs text-navy-300 font-medium leading-none">PAI</p>
+            <p className="text-xs text-navy-300 font-medium leading-none">PAII</p>
             <p className="text-sm font-bold leading-tight">Professor Portal</p>
           </div>
         )}

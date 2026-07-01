@@ -12,7 +12,7 @@ const DEFAULT_NAV: Array<{ label: string; href: string; sort_order: number; chil
   { label: "Learning",          href: "/blog",        sort_order: 2 },
   { label: "Resources",         href: "/faq",         sort_order: 3 },
   { label: "For Organizations", href: "/corporate",   sort_order: 4 },
-  { label: "About PAI",         href: "/about",       sort_order: 5 },
+  { label: "About PAII",         href: "/about",       sort_order: 5 },
 ];
 
 @Injectable()

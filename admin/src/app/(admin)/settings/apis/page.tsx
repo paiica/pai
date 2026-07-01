@@ -268,7 +268,7 @@ export default function ApiSettingsPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">From Name</label>
               <input type="text" value={emailFromName} onChange={(e) => setEmailFromName(e.target.value)}
-                placeholder="Professional AI Institute" className="input-base" />
+                placeholder="Professional Artificial Intelligence Institute" className="input-base" />
             </div>
           </div>
         </div>

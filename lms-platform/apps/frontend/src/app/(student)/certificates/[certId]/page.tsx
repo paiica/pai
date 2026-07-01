@@ -880,12 +880,12 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
   }
 
   function shareLinkedIn() {
-    const url = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(verifyUrl)}&title=${encodeURIComponent(`I earned the ${issuedCert.certification_acronym} certificate from PAI!`)}`;
+    const url = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(verifyUrl)}&title=${encodeURIComponent(`I earned the ${issuedCert.certification_acronym} certificate from PAII!`)}`;
     window.open(url, "_blank", "width=600,height=520");
   }
 
   function shareTwitter() {
-    const text = `I just earned the ${issuedCert.certification_acronym} — ${issuedCert.certification_title} certificate from PAI! 🎓 Verify it here:`;
+    const text = `I just earned the ${issuedCert.certification_acronym} — ${issuedCert.certification_title} certificate from PAII! 🎓 Verify it here:`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(verifyUrl)}`, "_blank", "width=600,height=400");
   }
 

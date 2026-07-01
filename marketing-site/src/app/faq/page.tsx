@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
     title: cms?.title ?? "Frequently Asked Questions",
-    description: cms?.meta_description ?? "Answers to the most common questions about PAI certifications, exams, enrollment, and credentials.",
+    description: cms?.meta_description ?? "Answers to the most common questions about PAII certifications, exams, enrollment, and credentials.",
   };
 }
 
@@ -31,8 +31,8 @@ const FAQS = [
   {
     category: "Certifications & Programs",
     items: [
-      { q: "Do I need a technical background to enroll?", a: "No. PAI certifications are designed for business professionals, not engineers. CAIP, CAIM, and CAIE require no programming or data science background. CAIDA benefits from familiarity with data tools but doesn't require coding." },
-      { q: "Which certification should I start with?", a: "87% of PAI professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (executive) based on your role." },
+      { q: "Do I need a technical background to enroll?", a: "No. PAII certifications are designed for business professionals, not engineers. CAIP, CAIM, and CAIE require no programming or data science background. CAIDA benefits from familiarity with data tools but doesn't require coding." },
+      { q: "Which certification should I start with?", a: "87% of PAII professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (executive) based on your role." },
       { q: "Can I take multiple certifications?", a: "Yes. Many professionals complete CAIP followed by CAIM or CAIDA. CAIP alumni receive a 15% discount on subsequent certifications." },
       { q: "Are there prerequisites?", a: "CAIP has no prerequisites. CAIM and CAIDA recommend CAIP but don't require it. CAIE is designed for senior professionals and recommends 3+ years in a leadership role." },
     ],
@@ -40,8 +40,8 @@ const FAQS = [
   {
     category: "Application & Enrollment",
     items: [
-      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAI reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval." },
-      { q: "Why do I need to apply? Can't I just enroll?", a: "PAI's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined — it's not an exclusionary process." },
+      { q: "How does the application process work?", a: "You submit a brief application (5 minutes), pay the enrollment fee, and PAII reviews your application within 3–5 business days. You receive your LMS access credentials via email upon approval." },
+      { q: "Why do I need to apply? Can't I just enroll?", a: "PAII's application process ensures credential integrity and helps us understand your professional context for the best learning experience. Applications are rarely declined — it's not an exclusionary process." },
       { q: "What if my application is rejected?", a: "You'll receive a full refund within 5–7 business days. In most cases, rejections come with guidance on reapplying or on alternative pathways." },
     ],
   },
@@ -59,7 +59,7 @@ const FAQS = [
     items: [
       { q: "How long is the certification valid?", a: "CAIP, CAIM, and CAIDA are valid for 2 years. CAIE is valid for 3 years. Renewal involves a shorter recertification exam or continuing education credits." },
       { q: "How do employers verify my credential?", a: "Each certificate includes a unique ID and QR code. Employers can verify instantly at paii.ca/verify. You can also add your credential directly to LinkedIn." },
-      { q: "Are PAI credentials recognized internationally?", a: "Yes. PAI credentials are recognized by employers across 48 countries. Our ISO 17024-aligned framework aligns with international standards for professional certifications." },
+      { q: "Are PAII credentials recognized internationally?", a: "Yes. PAII credentials are recognized by employers across 48 countries. Our ISO 17024-aligned framework aligns with international standards for professional certifications." },
     ],
   },
   {
@@ -85,7 +85,7 @@ export default async function FAQPage() {
             <span className="badge-dark mb-5">FAQ</span>
             <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">Frequently Asked Questions</h1>
             <p className="text-lg text-white max-w-xl mx-auto">
-              Everything you need to know about PAI certifications, exams, and credentials.
+              Everything you need to know about PAII certifications, exams, and credentials.
             </p>
           </div>
         </section>

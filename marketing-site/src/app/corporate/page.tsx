@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const cms = await getCmsPage();
   return {
     title: cms?.title ?? "Corporate Training & Group Enrollment",
-    description: cms?.meta_description ?? "Upskill your entire organization with PAI's group certification programs. Volume pricing, dedicated support, and custom learning paths.",
+    description: cms?.meta_description ?? "Upskill your entire organization with PAII's group certification programs. Volume pricing, dedicated support, and custom learning paths.",
   };
 }
 
@@ -72,7 +72,7 @@ export default async function CorporatePage() {
               AI-Ready Teams Start Here
             </h1>
             <p className="text-lg text-white max-w-2xl mx-auto mb-8">
-              Certify your entire organization with PAI's group programs. Volume pricing,
+              Certify your entire organization with PAII's group programs. Volume pricing,
               a dedicated account manager, and admin analytics included.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

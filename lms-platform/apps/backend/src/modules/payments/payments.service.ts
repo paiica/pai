@@ -61,7 +61,7 @@ export class PaymentsService {
           price_data: {
             currency: "usd",
             unit_amount: Math.round(Number(cert.price) * 100),
-            product_data: { name: `${cert.title} (${cert.acronym}) — PAI Certification`, description: cert.description },
+            product_data: { name: `${cert.title} (${cert.acronym}) — PAII Certification`, description: cert.description },
           },
           quantity: 1,
         }],
@@ -259,7 +259,7 @@ export class PaymentsService {
             currency: "usd",
             unit_amount: Math.round(price * 100),
             product_data: {
-              name: `${cert.title} (${cert.acronym}) — PAI Certification`,
+              name: `${cert.title} (${cert.acronym}) — PAII Certification`,
               description: cert.description,
             },
           },
@@ -387,7 +387,7 @@ export class PaymentsService {
       }
     }
 
-    let description = "PAI Enrollment";
+    let description = "PAII Enrollment";
 
     if (checkout_type === "course" && course_id) {
       await this.enrollInCourse(user_id, course_id, paymentIntentId!, amount);

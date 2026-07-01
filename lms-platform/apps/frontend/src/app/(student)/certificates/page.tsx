@@ -267,7 +267,7 @@ export default function CertificatesPage() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">My Certificates</h1>
-              <p className="text-sm text-slate-400 mt-1">Your earned PAI credentials</p>
+              <p className="text-sm text-slate-400 mt-1">Your earned PAII credentials</p>
             </div>
           </div>
 
@@ -344,7 +344,7 @@ export default function CertificatesPage() {
           <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
             <div>
               <h2 className="text-2xl font-display font-black text-navy-900 tracking-tight">Available Certifications</h2>
-              <p className="text-sm text-slate-400 mt-1">Enroll in a PAI certification program to start your AI career</p>
+              <p className="text-sm text-slate-400 mt-1">Enroll in a PAII certification program to start your AI career</p>
             </div>
             {items.length > 0 && (
               <Link

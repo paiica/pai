@@ -123,7 +123,7 @@ export class UsersService {
   async exportCsv({ q, role, status }: { q?: string; role?: string; status?: string }) {
     const { data } = await this.findAll({ page: 1, limit: 10000, q, role, status });
     const headers = [
-      "PAI ID", "ID", "Email", "First Name", "Last Name", "Role", "Status",
+      "PAII ID", "ID", "Email", "First Name", "Last Name", "Role", "Status",
       "Phone", "Country", "Date of Birth", "Email Verified", "Registered", "Last Login",
     ];
     const rows = (data as any[]).map((u) => [
@@ -418,7 +418,7 @@ export class UsersService {
 
     const tempPassword = randomBytes(16).toString("hex");
     const passwordHash = await bcrypt.hash(tempPassword, 12);
-    const paiId = `PAI-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const paiId = `PAII-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     const user = await this.prisma.user.create({
       data: {

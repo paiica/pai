@@ -785,7 +785,7 @@ function CommsSection({ token, profile, mutate }: any) {
       <div className="space-y-3">
         {[
           { label: "Account Notifications", desc: "Application updates, enrollment confirmations, exam results", value: emailNotif, set: setEmailNotif },
-          { label: "Marketing Emails",       desc: "New certifications, promotions, and PAI news",              value: marketingEmails, set: setMarketingEmails },
+          { label: "Marketing Emails",       desc: "New certifications, promotions, and PAII news",              value: marketingEmails, set: setMarketingEmails },
         ].map(({ label, desc, value, set }) => (
           <div key={label} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
             <div>

@@ -135,7 +135,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="min-w-0 relative z-10 flex-1">
-            <p className="text-sm font-bold leading-tight tracking-tight" style={{ color: lightSidebarText ?? "#ffffff" }}>PAI Exam Admin</p>
+            <p className="text-sm font-bold leading-tight tracking-tight" style={{ color: lightSidebarText ?? "#ffffff" }}>PAII Exam Admin</p>
             <p className="text-[11px] leading-tight mt-0.5 tracking-wide" style={{ color: lightSidebarSubtext ?? "#64748b" }}>Management Portal</p>
           </div>
 
@@ -259,7 +259,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-sm font-bold flex-1" style={{ color: lightSidebarText ?? "#ffffff" }}>PAI Exam Admin</span>
+          <span className="text-sm font-bold flex-1" style={{ color: lightSidebarText ?? "#ffffff" }}>PAII Exam Admin</span>
           <button
             onClick={toggleTheme}
             className="p-1.5 rounded-lg transition-colors"

@@ -65,7 +65,7 @@ export default function TopBar() {
         <Link href="/" className="flex items-center flex-shrink-0 pl-4 sm:pl-6 pr-4 sm:pr-6">
           <img
             src={logoUrl || "/paii.logo.png"}
-            alt="Professional AI Institute"
+            alt="Professional Artificial Intelligence Institute"
             style={{ height: `${logoHeight}px`, filter: "brightness(0) invert(1)" }}
             className="w-auto object-contain"
           />
@@ -74,7 +74,7 @@ export default function TopBar() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <p className="text-white/40 text-[13px] hidden sm:block tracking-wide">
-              Professional AI Institute — AI Certification Programs
+              Professional Artificial Intelligence Institute — AI Certification Programs
             </p>
           </div>
 
