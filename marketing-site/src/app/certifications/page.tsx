@@ -84,7 +84,7 @@ function CertCard({ cert, idx }: { cert: any; idx: number }) {
 
   return (
     <div className={cn(
-      "relative rounded-2xl overflow-hidden flex flex-col border transition-shadow hover:shadow-lg",
+      "relative h-[500px] rounded-2xl overflow-hidden flex flex-col border transition-shadow hover:shadow-lg",
       theme.bg,
       theme.dark ? "border-white/10" : "border-sand-300"
     )}>
