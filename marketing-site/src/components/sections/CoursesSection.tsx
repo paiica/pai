@@ -2,17 +2,10 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-
-const COURSE_THEMES = [
-  { bg: "bg-blue-50", borderColor: "border-blue-200", accentColor: "#3b82f6" },
-  { bg: "bg-amber-50", borderColor: "border-amber-200", accentColor: "#f59e0b" },
-  { bg: "bg-purple-50", borderColor: "border-purple-200", accentColor: "#a855f7" },
-  { bg: "bg-emerald-50", borderColor: "border-emerald-200", accentColor: "#10b981" },
-];
 
 type CourseCard = {
   title: string;
@@ -20,7 +13,8 @@ type CourseCard = {
   level: string;
   description: string;
   price: string;
-  badge_icon: string;
+  duration_hours: number;
+  module_count: number;
   featured: string;
 };
 
@@ -31,7 +25,8 @@ const DEFAULT_COURSES: CourseCard[] = [
     level: "Beginner",
     description: "Master the core concepts of artificial intelligence, machine learning, and practical AI tools used across industries.",
     price: "99",
-    badge_icon: "🤖",
+    duration_hours: 2,
+    module_count: 5,
     featured: "true",
   },
   {
@@ -40,7 +35,8 @@ const DEFAULT_COURSES: CourseCard[] = [
     level: "Intermediate",
     description: "Learn how to lead AI-driven teams, evaluate AI projects, and build data-informed decision-making frameworks.",
     price: "149",
-    badge_icon: "📊",
+    duration_hours: 3,
+    module_count: 6,
     featured: "false",
   },
   {
@@ -49,38 +45,66 @@ const DEFAULT_COURSES: CourseCard[] = [
     level: "Beginner",
     description: "Go from basic prompts to advanced techniques for ChatGPT, Claude, and enterprise LLM workflows.",
     price: "79",
-    badge_icon: "✍️",
+    duration_hours: 1.5,
+    module_count: 4,
     featured: "false",
   },
 ];
 
-function CourseCardItem({ course, idx }: { course: CourseCard; idx: number }) {
-  const theme = COURSE_THEMES[idx % COURSE_THEMES.length];
+// Signature: a faint oversized module-count numeral behind the copy, plus a
+// segmented "syllabus rail" — a distinct, quieter counterpart to the
+// certification cards' colored credential-badge treatment.
+function CourseCardItem({ course }: { course: CourseCard }) {
+  const modules = Math.max(0, Math.round(course.module_count || 0));
+  const railSegments = Math.min(Math.max(modules, 1), 8);
+
   return (
-    <div className={cn("relative flex-shrink-0 w-[330px] h-[460px] rounded-2xl overflow-hidden flex flex-col border", theme.bg, theme.borderColor)}>
-      <div className="relative h-[140px] overflow-hidden" style={{ background: `linear-gradient(135deg, ${theme.accentColor}20, ${theme.accentColor}05)` }}>
-        <div className="absolute top-4 left-5 right-5 flex items-center justify-between">
-          <span className="text-5xl">{course.badge_icon}</span>
+    <div className="relative flex-shrink-0 w-[330px] h-[460px] rounded-2xl overflow-hidden flex flex-col bg-white border border-sand-300 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300">
+      {modules > 0 && (
+        <div
+          className="absolute -top-6 -right-3 font-display font-black leading-none text-sand-100 select-none pointer-events-none"
+          style={{ fontSize: "160px" }}
+          aria-hidden="true"
+        >
+          {String(modules).padStart(2, "0")}
+        </div>
+      )}
+
+      <div className="relative p-6 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-6">
+          <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
+            {course.level}
+          </span>
           {course.featured === "true" && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
-              Featured
-            </span>
+            <span className="text-[10px] font-mono font-semibold text-sand-500 uppercase tracking-widest">Featured</span>
           )}
         </div>
-      </div>
 
-      <div className="p-6 flex flex-col flex-1">
-        <p className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">{course.level}</p>
-        <h3 className="font-display font-black text-[19px] leading-snug mb-2.5 text-slate-900">{course.title}</h3>
-        <p className="text-sm leading-relaxed flex-1 mb-4 text-slate-600 line-clamp-3">{course.description}</p>
+        <h3 className="font-display font-black text-[21px] leading-snug mb-3 text-ink-900">{course.title}</h3>
+        <p className="text-sm leading-relaxed flex-1 mb-5 text-ink-900/70 line-clamp-3">{course.description}</p>
 
-        <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-          <span className="text-xl font-black text-slate-900">${course.price}</span>
+        {/* Syllabus rail — one segment per module */}
+        {modules > 0 && (
+          <div className="flex items-center gap-1 mb-3">
+            {Array.from({ length: railSegments }).map((_, i) => (
+              <div key={i} className="h-1.5 flex-1 rounded-full bg-teal-500/70" />
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3 text-xs text-sand-500 mb-5">
+          {modules > 0 && <span>{modules} module{modules !== 1 ? "s" : ""}</span>}
+          {course.duration_hours > 0 && (
+            <span className="flex items-center gap-1"><Clock size={11} /> {course.duration_hours}h</span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-sand-200">
+          <span className="text-xl font-mono font-bold text-ink-900">${course.price}</span>
           <Link
             href={`/courses/${course.slug}`}
-            className="inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-lg text-[13px] font-bold transition-colors bg-slate-900 text-white hover:bg-slate-700"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
           >
-            Learn More <ArrowRight size={12} />
+            View Course <ArrowRight size={14} />
           </Link>
         </div>
       </div>
@@ -103,7 +127,8 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : "All Levels",
           description: c.subtitle || c.description || "",
           price: c.price != null ? String(Math.round(Number(c.price))) : "0",
-          badge_icon: c.cert_acronym ? "📚" : "🤖",
+          duration_hours: Number(c.duration_hours) || 0,
+          module_count: Number(c.module_count) || 0,
           featured: "true",
         })));
       })
@@ -131,7 +156,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
   }
 
   return (
-    <section className="section-padding bg-gradient-to-b from-slate-50 to-white">
+    <section className="section-padding bg-sand-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div className="max-w-xl">
@@ -143,8 +168,8 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
             </h2>
           </div>
           <div className="max-w-sm">
-            <p className="text-slate-700 leading-relaxed mb-5">{description}</p>
-            <Link href="/courses" className="inline-flex items-center gap-1.5 text-slate-900 font-bold text-sm hover:text-slate-700 transition-colors border-b border-slate-300 pb-0.5">
+            <p className="text-ink-900/70 leading-relaxed mb-5">{description}</p>
+            <Link href="/courses" className="inline-flex items-center gap-1.5 text-ink-900 font-bold text-sm hover:text-teal-600 transition-colors border-b border-sand-300 pb-0.5">
               View All Courses <ArrowRight size={13} />
             </Link>
           </div>
@@ -153,18 +178,18 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
         <div ref={scrollRef} className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth" style={{ scrollbarWidth: "none" }}>
           {courses.map((course, i) => (
             <div key={course.slug || i} className="snap-start">
-              <CourseCardItem course={course} idx={i} />
+              <CourseCardItem course={course} />
             </div>
           ))}
 
           {/* CTA card */}
           <div className="flex-shrink-0 w-[330px] snap-start">
-            <div className="h-[460px] rounded-2xl bg-white border border-slate-200 flex flex-col items-center justify-center p-7 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
+            <div className="h-[460px] rounded-2xl bg-white border border-sand-300 flex flex-col items-center justify-center p-7 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-sand-100 flex items-center justify-center mb-5">
                 <span className="text-4xl">📚</span>
               </div>
-              <p className="font-display font-black text-slate-900 text-lg mb-2.5">{ctaCardTitle}</p>
-              <p className="text-sm text-slate-600 mb-7">{ctaCardDesc}</p>
+              <p className="font-display font-black text-ink-900 text-lg mb-2.5">{ctaCardTitle}</p>
+              <p className="text-sm text-ink-900/70 mb-7">{ctaCardDesc}</p>
               <Link href={ctaCardHref} className="btn-primary !py-3 !px-6 !text-sm">
                 {ctaCardLabel}
               </Link>
@@ -175,14 +200,14 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
         <div className="flex items-center justify-between mt-6">
           <div className="flex items-center gap-1.5">
             {courses.map((_, i) => (
-              <div key={i} className={cn("h-1.5 rounded-full transition-all", i === 0 ? "w-5 bg-slate-700" : "w-1.5 bg-slate-300")} />
+              <div key={i} className={cn("h-1.5 rounded-full transition-all", i === 0 ? "w-5 bg-ink-700" : "w-1.5 bg-sand-300")} />
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => scroll("left")} className="w-10 h-10 rounded-full border border-slate-300 flex items-center justify-center text-slate-900 hover:text-slate-700 hover:border-slate-400 transition-colors">
+            <button onClick={() => scroll("left")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronLeft size={18} />
             </button>
-            <button onClick={() => scroll("right")} className="w-10 h-10 rounded-full border border-slate-300 flex items-center justify-center text-slate-900 hover:text-slate-700 hover:border-slate-400 transition-colors">
+            <button onClick={() => scroll("right")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronRight size={18} />
             </button>
           </div>

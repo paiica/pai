@@ -3,6 +3,7 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "AI Certification Programs | Professional Artificial Intelligence Institute",
@@ -12,20 +13,12 @@ export const metadata: Metadata = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-const GRADIENTS = [
-  { from: "#e6d5f7", to: "#c8a8ef" },
-  { from: "#cfe8f5", to: "#b0d0ea" },
-  { from: "#f0e2cc", to: "#dfc5a0" },
-  { from: "#cdf0e2", to: "#a0d8c0" },
-  { from: "#f5cfe0", to: "#e8a8c5" },
-  { from: "#d0d8f5", to: "#a8b8ee" },
+const CERT_THEMES = [
+  { dark: false, bg: "bg-[#f5f0eb]", shapeColor: "#134e4a", shapeType: "pentagon" },
+  { dark: true,  bg: "bg-[#0f2a5c]", shapeColor: "#38bdf8", shapeType: "circle"   },
+  { dark: true,  bg: "bg-[#2d1b69]", shapeColor: "#a78bfa", shapeType: "triangle" },
+  { dark: false, bg: "bg-[#eaf5ef]", shapeColor: "#059669", shapeType: "pentagon" },
 ];
-
-function getGradient(slug: string) {
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) { h = ((h << 5) - h) + slug.charCodeAt(i); h |= 0; }
-  return GRADIENTS[Math.abs(h) % GRADIENTS.length];
-}
 
 const LEVEL_GROUPS = [
   { key: "pre_certificate", label: "Pre-Certification", description: "Start your AI journey — no prior experience required." },
@@ -61,56 +54,88 @@ async function getCertifications(): Promise<any[]> {
   }
 }
 
-function CertCard({ cert }: { cert: any }) {
-  const grad = getGradient(cert.slug);
+function Shape({ type, color }: { type: string; color: string }) {
+  if (type === "circle") {
+    return (
+      <div className="absolute top-5 right-5 w-36 h-36 rounded-full opacity-30" style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }} />
+    );
+  }
+  if (type === "triangle") {
+    return (
+      <svg className="absolute top-0 right-0 w-40 h-36 opacity-25" viewBox="0 0 130 110">
+        <polygon points="130,0 130,110 0,110" fill={color} />
+      </svg>
+    );
+  }
+  return (
+    <svg className="absolute top-3 right-3 w-36 h-36 opacity-20" viewBox="0 0 100 100">
+      <polygon points="50,5 95,35 80,85 20,85 5,35" fill={color} />
+    </svg>
+  );
+}
+
+function CertCard({ cert, idx }: { cert: any; idx: number }) {
+  const theme = CERT_THEMES[idx % CERT_THEMES.length];
   const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null ? cert.marketing_meta : {};
-  const audienceLabel = meta.audience_label || "";
+  const levelText = meta.audience_label || LEVEL_LABEL[cert.level] || cert.level || "";
   const isPopular = meta.is_most_popular === true || cert.popular === true;
   const isComingSoon = cert.status === "coming_soon";
   const price = Number(cert.price);
 
   return (
-    <div className="bg-white rounded-2xl border border-sand-200 shadow-card hover:shadow-card-hover transition-all flex flex-col overflow-hidden">
-      <div className="h-40 w-full" style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }} />
-      <div className="p-6 flex flex-col flex-1">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {cert.level && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
-              {LEVEL_LABEL[cert.level] ?? cert.level}
-            </span>
-          )}
-          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-700 border border-teal-200 bg-teal-50 px-2 py-0.5 rounded-full">
-            {cert.acronym}®
+    <div className={cn(
+      "relative rounded-2xl overflow-hidden flex flex-col border transition-shadow hover:shadow-lg",
+      theme.bg,
+      theme.dark ? "border-white/10" : "border-sand-300"
+    )}>
+      <div className="relative h-[165px] overflow-hidden">
+        <Shape type={theme.shapeType} color={theme.shapeColor} />
+        <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
+          <span className={cn(
+            "text-[12px] font-semibold px-3 py-1.5 rounded-full border",
+            theme.dark ? "bg-white/10 text-white border-white/20" : "bg-white/70 text-ink-900 border-sand-200/60"
+          )}>
+            Certification
           </span>
-          {isPopular && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-teal-500 px-2 py-0.5 rounded-full">
+          {isComingSoon ? (
+            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
+              Coming Soon
+            </span>
+          ) : isPopular && (
+            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
               Most Popular
             </span>
           )}
-          {isComingSoon && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-ink-700 px-2 py-0.5 rounded-full">
-              Coming Soon
-            </span>
-          )}
         </div>
-        <h3 className="font-display font-black text-ink-900 text-lg leading-snug mb-2">
+      </div>
+
+      <div className="p-6 flex flex-col flex-1">
+        {levelText && (
+          <p className={cn("text-[12px] font-semibold mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
+            {levelText}
+          </p>
+        )}
+        <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
+          {cert.acronym}®
+        </p>
+        <h3 className={cn("font-display font-black text-[19px] leading-snug mb-3.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.title}
         </h3>
-        <p className="text-sm text-slate-500 leading-relaxed mb-4 flex-1 line-clamp-3">
+        <p className={cn("text-[13.5px] leading-relaxed flex-1 mb-6 line-clamp-5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.description}
         </p>
-        {audienceLabel && (
-          <p className="text-xs text-slate-400 mb-5">{audienceLabel}</p>
-        )}
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-sand-100">
-          <span className="text-xl font-display font-black text-ink-900">
+        <div className="flex items-center justify-between gap-3">
+          <span className={cn("text-sm font-bold flex-shrink-0", theme.dark ? "text-white" : "text-ink-900")}>
             {price === 0 ? "Free" : `$${price.toLocaleString()}`}
           </span>
           <Link
             href={`/certifications/${cert.slug}`}
-            className="btn-dark !py-2 !px-4 !text-xs flex items-center gap-1"
+            className={cn(
+              "inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-bold transition-colors",
+              theme.dark ? "bg-white text-ink-900 hover:bg-teal-50" : "bg-ink-900 text-white hover:bg-ink-700"
+            )}
           >
-            Learn More <ArrowRight size={12} />
+            Learn More <ArrowRight size={13} />
           </Link>
         </div>
       </div>
@@ -121,13 +146,16 @@ function CertCard({ cert }: { cert: any }) {
 export default async function CertificationsListPage() {
   const certs = await getCertifications();
 
+  // Assign a stable global theme index before grouping so colours vary across the whole page
+  const certsWithIdx = certs.map((cert: any, i: number) => ({ ...cert, _themeIdx: i }));
+
   const groups = LEVEL_GROUPS
-    .map((g) => ({ ...g, certs: certs.filter((c: any) => c.level === g.key) }))
+    .map((g) => ({ ...g, certs: certsWithIdx.filter((c: any) => c.level === g.key) }))
     .filter((g) => g.certs.length > 0);
 
   // Any cert whose level doesn't match the four known groups falls into "Other"
   const knownKeys = new Set(LEVEL_GROUPS.map((g) => g.key));
-  const ungrouped = certs.filter((c: any) => !knownKeys.has(c.level));
+  const ungrouped = certsWithIdx.filter((c: any) => !knownKeys.has(c.level));
 
   return (
     <>
@@ -173,9 +201,9 @@ export default async function CertificationsListPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {group.certs.map((cert: any) => (
-                    <CertCard key={cert.id ?? cert.slug} cert={cert} />
+                    <CertCard key={cert.id ?? cert.slug} cert={cert} idx={cert._themeIdx} />
                   ))}
                 </div>
               </div>
@@ -187,9 +215,9 @@ export default async function CertificationsListPage() {
                 <div className="mb-8 pb-4 border-b border-sand-200">
                   <h2 className="text-2xl font-display font-black text-ink-900">Other Certifications</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {ungrouped.map((cert: any) => (
-                    <CertCard key={cert.id ?? cert.slug} cert={cert} />
+                    <CertCard key={cert.id ?? cert.slug} cert={cert} idx={cert._themeIdx} />
                   ))}
                 </div>
               </div>

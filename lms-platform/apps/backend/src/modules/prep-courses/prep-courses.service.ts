@@ -183,6 +183,7 @@ export class PrepCoursesService {
     return this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.level,
              c.duration_hours, c.thumbnail_url, c.is_featured,
+             (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
              cert.acronym AS cert_acronym, cert.title AS cert_title
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
