@@ -59,7 +59,7 @@ function CourseCardItem({ course }: { course: CourseCard }) {
   const railSegments = Math.min(Math.max(modules, 1), 8);
 
   return (
-    <div className="relative flex-shrink-0 w-[330px] h-[460px] rounded-2xl overflow-hidden flex flex-col bg-white border border-sand-300 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300">
+    <div className="relative flex-shrink-0 w-[85vw] max-w-[330px] h-[460px] rounded-2xl overflow-hidden flex flex-col bg-white border border-sand-300 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300">
       {modules > 0 && (
         <div
           className="absolute -top-6 -right-3 font-display font-black leading-none text-sand-100 select-none pointer-events-none"
@@ -188,7 +188,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           ))}
 
           {/* CTA card */}
-          <div className="flex-shrink-0 w-[330px] snap-start">
+          <div className="flex-shrink-0 w-[85vw] max-w-[330px] snap-start">
             <div className="h-[460px] rounded-2xl bg-white border border-sand-300 flex flex-col items-center justify-center p-7 text-center">
               <div className="w-20 h-20 rounded-2xl bg-sand-100 flex items-center justify-center mb-5">
                 <Compass size={34} className="text-ink-900" strokeWidth={1.5} />

@@ -55,7 +55,7 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
   const theme = CERT_THEMES[idx % CERT_THEMES.length];
   return (
     <div className={cn(
-      "relative flex-shrink-0 w-[330px] h-[500px] rounded-2xl overflow-hidden flex flex-col border",
+      "relative flex-shrink-0 w-[85vw] max-w-[330px] h-[500px] rounded-2xl overflow-hidden flex flex-col border",
       theme.bg,
       theme.dark ? "border-white/10" : "border-sand-300"
     )}>
@@ -185,7 +185,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
           ))}
 
           {/* CTA card */}
-          <div className="flex-shrink-0 w-[330px] snap-start">
+          <div className="flex-shrink-0 w-[85vw] max-w-[330px] snap-start">
             <div className="h-[500px] rounded-2xl bg-sand-100 border border-sand-300 flex flex-col items-center justify-center p-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-sand-200 flex items-center justify-center mb-5">
                 <span className="text-3xl">🎓</span>
