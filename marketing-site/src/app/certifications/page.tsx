@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { ArrowRight, Award, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "AI Certification Programs | Professional Artificial Intelligence Institute",
@@ -12,14 +12,20 @@ export const metadata: Metadata = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-const THEMES = [
-  { dark: false, bg: "#f5f0eb", shape: "#134e4a" },
-  { dark: true,  bg: "#0f2a5c", shape: "#38bdf8" },
-  { dark: true,  bg: "#2d1b69", shape: "#a78bfa" },
-  { dark: false, bg: "#eaf5ef", shape: "#059669" },
-  { dark: false, bg: "#fce7f3", shape: "#db2777" },
-  { dark: true,  bg: "#1e3a5f", shape: "#60a5fa" },
+const GRADIENTS = [
+  { from: "#e6d5f7", to: "#c8a8ef" },
+  { from: "#cfe8f5", to: "#b0d0ea" },
+  { from: "#f0e2cc", to: "#dfc5a0" },
+  { from: "#cdf0e2", to: "#a0d8c0" },
+  { from: "#f5cfe0", to: "#e8a8c5" },
+  { from: "#d0d8f5", to: "#a8b8ee" },
 ];
+
+function getGradient(slug: string) {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) { h = ((h << 5) - h) + slug.charCodeAt(i); h |= 0; }
+  return GRADIENTS[Math.abs(h) % GRADIENTS.length];
+}
 
 const LEVEL_GROUPS = [
   { key: "pre_certificate", label: "Pre-Certification", description: "Start your AI journey — no prior experience required." },
@@ -27,6 +33,13 @@ const LEVEL_GROUPS = [
   { key: "advanced",        label: "Level 2",           description: "Advanced specializations for experienced AI practitioners." },
   { key: "executive",       label: "Level 3",           description: "Executive and leadership-level AI credentials." },
 ];
+
+const LEVEL_LABEL: Record<string, string> = {
+  pre_certificate: "Pre-Certification",
+  foundation: "Level 1",
+  advanced: "Level 2",
+  executive: "Level 3",
+};
 
 const FALLBACK = [
   { id: "1", acronym: "CAIP",  title: "Certified AI Professional",  slug: "certified-ai-professional",  description: "Master AI fundamentals, tools, workflows, ethics, and practical applications across industries.", level: "foundation", price: 495, popular: true  },
@@ -48,41 +61,73 @@ async function getCertifications(): Promise<any[]> {
   }
 }
 
-function Shape({ color, idx }: { color: string; idx: number }) {
-  const type = idx % 3;
-  if (type === 0)
-    return (
-      <div
-        className="absolute top-4 right-4 w-28 h-28 rounded-full opacity-25 pointer-events-none"
-        style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }}
-      />
-    );
-  if (type === 1)
-    return (
-      <svg className="absolute top-0 right-0 w-32 h-28 opacity-20 pointer-events-none" viewBox="0 0 130 110">
-        <polygon points="130,0 130,110 0,110" fill={color} />
-      </svg>
-    );
+function CertCard({ cert }: { cert: any }) {
+  const grad = getGradient(cert.slug);
+  const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null ? cert.marketing_meta : {};
+  const audienceLabel = meta.audience_label || "";
+  const isPopular = meta.is_most_popular === true || cert.popular === true;
+  const isComingSoon = cert.status === "coming_soon";
+  const price = Number(cert.price);
+
   return (
-    <svg className="absolute top-2 right-2 w-28 h-28 opacity-20 pointer-events-none" viewBox="0 0 100 100">
-      <polygon points="50,5 95,35 80,85 20,85 5,35" fill={color} />
-    </svg>
+    <div className="bg-white rounded-2xl border border-sand-200 shadow-card hover:shadow-card-hover transition-all flex flex-col overflow-hidden">
+      <div className="h-40 w-full" style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }} />
+      <div className="p-6 flex flex-col flex-1">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {cert.level && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
+              {LEVEL_LABEL[cert.level] ?? cert.level}
+            </span>
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-700 border border-teal-200 bg-teal-50 px-2 py-0.5 rounded-full">
+            {cert.acronym}®
+          </span>
+          {isPopular && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-teal-500 px-2 py-0.5 rounded-full">
+              Most Popular
+            </span>
+          )}
+          {isComingSoon && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-ink-700 px-2 py-0.5 rounded-full">
+              Coming Soon
+            </span>
+          )}
+        </div>
+        <h3 className="font-display font-black text-ink-900 text-lg leading-snug mb-2">
+          {cert.title}
+        </h3>
+        <p className="text-sm text-slate-500 leading-relaxed mb-4 flex-1 line-clamp-3">
+          {cert.description}
+        </p>
+        {audienceLabel && (
+          <p className="text-xs text-slate-400 mb-5">{audienceLabel}</p>
+        )}
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-sand-100">
+          <span className="text-xl font-display font-black text-ink-900">
+            {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+          </span>
+          <Link
+            href={`/certifications/${cert.slug}`}
+            className="btn-dark !py-2 !px-4 !text-xs flex items-center gap-1"
+          >
+            Learn More <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default async function CertificationsListPage() {
   const certs = await getCertifications();
 
-  // Assign a stable global theme index before grouping so colours vary across the whole page
-  const certsWithIdx = certs.map((cert: any, i: number) => ({ ...cert, _themeIdx: i }));
-
   const groups = LEVEL_GROUPS
-    .map((g) => ({ ...g, certs: certsWithIdx.filter((c: any) => c.level === g.key) }))
+    .map((g) => ({ ...g, certs: certs.filter((c: any) => c.level === g.key) }))
     .filter((g) => g.certs.length > 0);
 
   // Any cert whose level doesn't match the four known groups falls into "Other"
   const knownKeys = new Set(LEVEL_GROUPS.map((g) => g.key));
-  const ungrouped = certsWithIdx.filter((c: any) => !knownKeys.has(c.level));
+  const ungrouped = certs.filter((c: any) => !knownKeys.has(c.level));
 
   return (
     <>
@@ -128,109 +173,10 @@ export default async function CertificationsListPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {group.certs.map((cert: any) => {
-                    const theme = THEMES[cert._themeIdx % THEMES.length];
-                    const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null
-                      ? cert.marketing_meta : {};
-                    const audienceLabel = meta.audience_label || "";
-                    const isPopular = meta.is_most_popular === true || cert.popular === true;
-                    const price = Number(cert.price);
-
-                    return (
-                      <div
-                        key={cert.id ?? cert.slug}
-                        className="relative rounded-2xl overflow-hidden flex flex-col border transition-shadow hover:shadow-lg"
-                        style={{
-                          backgroundColor: theme.bg,
-                          borderColor: theme.dark ? "rgba(255,255,255,0.1)" : "#e5d9c8",
-                        }}
-                      >
-                        {/* Decorative shape + badges */}
-                        <div className="relative h-[100px] overflow-hidden flex-shrink-0">
-                          <Shape color={theme.shape} idx={cert._themeIdx} />
-                          <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
-                            <span
-                              className="text-[11px] font-semibold px-2.5 py-1 rounded-full border"
-                              style={theme.dark
-                                ? { background: "rgba(255,255,255,0.1)", color: "#fff", borderColor: "rgba(255,255,255,0.2)" }
-                                : { background: "rgba(255,255,255,0.7)", color: "#1a1a2e", borderColor: "rgba(229,217,200,0.6)" }}
-                            >
-                              Certification
-                            </span>
-                            {isPopular && (
-                              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white">
-                                Most Popular
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-5 flex flex-col flex-1">
-                          {audienceLabel && (
-                            <p
-                              className="text-[11px] font-semibold mb-1"
-                              style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}
-                            >
-                              {audienceLabel}
-                            </p>
-                          )}
-                          <p
-                            className="text-[11px] font-bold uppercase tracking-wider mb-1"
-                            style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}
-                          >
-                            {cert.acronym}®
-                          </p>
-                          <h3
-                            className="font-display font-black text-[16px] leading-snug mb-3"
-                            style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}
-                          >
-                            {cert.title}
-                          </h3>
-                          <p
-                            className="text-[12.5px] leading-relaxed flex-1 mb-4 line-clamp-3"
-                            style={{ color: theme.dark ? "rgba(255,255,255,0.85)" : "#1a1a2e" }}
-                          >
-                            {cert.description}
-                          </p>
-
-                          {cert.status === "coming_soon" ? (
-                            <div className="mt-auto pt-3 flex items-center justify-between" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
-                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white">
-                                Coming Soon
-                              </span>
-                              <Link
-                                href={`/certifications/${cert.slug}`}
-                                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
-                                style={theme.dark ? { background: "rgba(255,255,255,0.15)", color: "#fff" } : { background: "rgba(26,26,46,0.15)", color: "#1a1a2e" }}
-                              >
-                                Learn More <ArrowRight size={11} />
-                              </Link>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between mt-auto pt-3" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
-                              <div className="flex items-center gap-1" style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}>
-                                <Award size={12} />
-                                <span className="text-[12px] font-bold">
-                                  {price === 0 ? "Free" : `$${price.toLocaleString()}`}
-                                </span>
-                              </div>
-                              <Link
-                                href={`/certifications/${cert.slug}`}
-                                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
-                                style={theme.dark
-                                  ? { background: "#fff", color: "#1a1a2e" }
-                                  : { background: "#1a1a2e", color: "#fff" }}
-                              >
-                                Learn More <ArrowRight size={11} />
-                              </Link>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.certs.map((cert: any) => (
+                    <CertCard key={cert.id ?? cert.slug} cert={cert} />
+                  ))}
                 </div>
               </div>
             ))}
@@ -241,96 +187,10 @@ export default async function CertificationsListPage() {
                 <div className="mb-8 pb-4 border-b border-sand-200">
                   <h2 className="text-2xl font-display font-black text-ink-900">Other Certifications</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {ungrouped.map((cert: any) => {
-                    const theme = THEMES[cert._themeIdx % THEMES.length];
-                    const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null
-                      ? cert.marketing_meta : {};
-                    const isPopular = meta.is_most_popular === true || cert.popular === true;
-                    const price = Number(cert.price);
-
-                    return (
-                      <div
-                        key={cert.id ?? cert.slug}
-                        className="relative rounded-2xl overflow-hidden flex flex-col border transition-shadow hover:shadow-lg"
-                        style={{
-                          backgroundColor: theme.bg,
-                          borderColor: theme.dark ? "rgba(255,255,255,0.1)" : "#e5d9c8",
-                        }}
-                      >
-                        <div className="relative h-[100px] overflow-hidden flex-shrink-0">
-                          <Shape color={theme.shape} idx={cert._themeIdx} />
-                          <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
-                            <span
-                              className="text-[11px] font-semibold px-2.5 py-1 rounded-full border"
-                              style={theme.dark
-                                ? { background: "rgba(255,255,255,0.1)", color: "#fff", borderColor: "rgba(255,255,255,0.2)" }
-                                : { background: "rgba(255,255,255,0.7)", color: "#1a1a2e", borderColor: "rgba(229,217,200,0.6)" }}
-                            >
-                              Certification
-                            </span>
-                            {isPopular && (
-                              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white">
-                                Most Popular
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="p-5 flex flex-col flex-1">
-                          <p
-                            className="text-[11px] font-bold uppercase tracking-wider mb-1"
-                            style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}
-                          >
-                            {cert.acronym}®
-                          </p>
-                          <h3
-                            className="font-display font-black text-[16px] leading-snug mb-3"
-                            style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}
-                          >
-                            {cert.title}
-                          </h3>
-                          <p
-                            className="text-[12.5px] leading-relaxed flex-1 mb-4 line-clamp-3"
-                            style={{ color: theme.dark ? "rgba(255,255,255,0.85)" : "#1a1a2e" }}
-                          >
-                            {cert.description}
-                          </p>
-                          {cert.status === "coming_soon" ? (
-                            <div className="mt-auto pt-3 flex items-center justify-between" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
-                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white">
-                                Coming Soon
-                              </span>
-                              <Link
-                                href={`/certifications/${cert.slug}`}
-                                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
-                                style={theme.dark ? { background: "rgba(255,255,255,0.15)", color: "#fff" } : { background: "rgba(26,26,46,0.15)", color: "#1a1a2e" }}
-                              >
-                                Learn More <ArrowRight size={11} />
-                              </Link>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between mt-auto pt-3" style={{ borderTop: theme.dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229,217,200,0.6)" }}>
-                              <div className="flex items-center gap-1" style={{ color: theme.dark ? "#fff" : "#1a1a2e" }}>
-                                <Award size={12} />
-                                <span className="text-[12px] font-bold">
-                                  {price === 0 ? "Free" : `$${price.toLocaleString()}`}
-                                </span>
-                              </div>
-                              <Link
-                                href={`/certifications/${cert.slug}`}
-                                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-[12px] font-bold transition-colors"
-                                style={theme.dark
-                                  ? { background: "#fff", color: "#1a1a2e" }
-                                  : { background: "#1a1a2e", color: "#fff" }}
-                              >
-                                Learn More <ArrowRight size={11} />
-                              </Link>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {ungrouped.map((cert: any) => (
+                    <CertCard key={cert.id ?? cert.slug} cert={cert} />
+                  ))}
                 </div>
               </div>
             )}
