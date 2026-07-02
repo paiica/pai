@@ -166,7 +166,48 @@ export class ApplicationsService {
       }),
       this.prisma.application.count({ where: { status: ApplicationStatus.pending_review } }),
     ]);
-    return { data: items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    const data = await this.attachReferrals(items);
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  // ── Affiliate referral attribution ───────────────────────────────────────────
+  // AffiliateLead has no direct FK to Application/User — a referral is only
+  // matched by email at the time a referred visitor registers. Look up leads
+  // for the given emails and attach the referring affiliate's name, if any.
+  private async attachReferrals<T extends { email: string }>(items: T[]): Promise<(T & { referred_by: any })[]> {
+    const emails = [...new Set(items.map((i) => i.email))];
+    if (emails.length === 0) return items.map((i) => ({ ...i, referred_by: null }));
+
+    const leads = await this.prisma.affiliateLead.findMany({
+      where: { email: { in: emails } },
+      include: { affiliate: { include: { user: { include: { profile: true } } } } },
+      orderBy: { created_at: "desc" },
+    });
+
+    // Prefer a 'purchased' lead for the email if one exists, otherwise the most recent
+    const byEmail = new Map<string, (typeof leads)[number]>();
+    for (const lead of leads) {
+      const existing = byEmail.get(lead.email);
+      if (!existing || (lead.status === "purchased" && existing.status !== "purchased")) {
+        byEmail.set(lead.email, lead);
+      }
+    }
+
+    return items.map((item) => {
+      const lead = byEmail.get(item.email);
+      if (!lead) return { ...item, referred_by: null };
+      const profile = lead.affiliate.user.profile;
+      return {
+        ...item,
+        referred_by: {
+          affiliate_id: lead.affiliate.id,
+          name: profile ? `${profile.first_name} ${profile.last_name}` : lead.affiliate.user.email,
+          email: lead.affiliate.user.email,
+          referral_code: lead.affiliate.referral_code,
+          lead_status: lead.status,
+        },
+      };
+    });
   }
 
   async approve(applicationId: string, adminId: string) {
@@ -399,7 +440,8 @@ export class ApplicationsService {
       }),
       this.prisma.application.count({ where }),
     ]);
-    return { data: items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    const data = await this.attachReferrals(items);
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   // ── Document requests (admin) ────────────────────────────────────────────────

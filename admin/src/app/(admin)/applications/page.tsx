@@ -5,7 +5,7 @@ import useSWR from "swr";
 import {
   ClipboardList, CheckCircle2, XCircle, Loader2, Eye, X,
   User, Briefcase, GraduationCap, FileText, Paperclip,
-  ToggleLeft, ToggleRight, Download, Trash2, AlertTriangle, BadgeCheck, Ban,
+  ToggleLeft, ToggleRight, Download, Trash2, AlertTriangle, BadgeCheck, Ban, UserCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -147,6 +147,28 @@ function ApplicationDrawer({
             <div>
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">How They Heard</span>
               <p className="text-sm text-slate-600">{app.how_heard}</p>
+            </div>
+          )}
+
+          {app.referred_by && (
+            <div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Referred By</span>
+              <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl p-3">
+                <div className="w-9 h-9 bg-teal-600 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                  <UserCheck size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={`/affiliates/${app.referred_by.affiliate_id}`}
+                    className="text-sm font-semibold text-teal-800 hover:underline"
+                  >
+                    {app.referred_by.name}
+                  </a>
+                  <p className="text-xs text-teal-700/80 truncate">
+                    {app.referred_by.email} · code {app.referred_by.referral_code}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -586,6 +608,11 @@ export default function ApplicationsPage() {
                     {app.documents?.length > 0 && (
                       <span className="badge bg-purple-50 text-purple-700 flex items-center gap-1">
                         <FileText size={9} /> {app.documents.length} doc{app.documents.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {app.referred_by && (
+                      <span className="badge bg-teal-50 text-teal-700 flex items-center gap-1" title={`Referred by ${app.referred_by.name}`}>
+                        <UserCheck size={9} /> {app.referred_by.name}
                       </span>
                     )}
                     <span className="text-slate-400">{formatDate(app.created_at)}</span>
