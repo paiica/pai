@@ -84,11 +84,16 @@ export default async function CoursesListPage() {
                       )}
                       <div className="relative p-6 flex flex-col flex-1">
                         <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-                          {course.level && (
-                            <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
-                              {course.level}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-sand-300 bg-sand-50 text-ink-900">
+                              Course
                             </span>
-                          )}
+                            {course.level && (
+                              <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
+                                {course.level}
+                              </span>
+                            )}
+                          </div>
                           {course.cert_acronym && (
                             <span className="text-[10px] font-mono font-semibold text-sand-500 uppercase tracking-widest">
                               {course.cert_acronym}

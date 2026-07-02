@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Clock, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -71,10 +71,15 @@ function CourseCardItem({ course }: { course: CourseCard }) {
       )}
 
       <div className="relative p-6 flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-6">
-          <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
-            {course.level}
-          </span>
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-sand-300 bg-sand-50 text-ink-900">
+              Course
+            </span>
+            <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
+              {course.level}
+            </span>
+          </div>
           {course.featured === "true" && (
             <span className="text-[10px] font-mono font-semibold text-sand-500 uppercase tracking-widest">Featured</span>
           )}
@@ -186,7 +191,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           <div className="flex-shrink-0 w-[330px] snap-start">
             <div className="h-[460px] rounded-2xl bg-white border border-sand-300 flex flex-col items-center justify-center p-7 text-center">
               <div className="w-20 h-20 rounded-2xl bg-sand-100 flex items-center justify-center mb-5">
-                <span className="text-4xl">📚</span>
+                <Compass size={34} className="text-ink-900" strokeWidth={1.5} />
               </div>
               <p className="font-display font-black text-ink-900 text-lg mb-2.5">{ctaCardTitle}</p>
               <p className="text-sm text-ink-900/70 mb-7">{ctaCardDesc}</p>
