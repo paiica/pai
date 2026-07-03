@@ -43,6 +43,16 @@ type Cert = {
   instructors?: { is_lead: boolean; user: { profile?: { first_name?: string; last_name?: string; avatar_url?: string; bio?: string } } }[];
 };
 
+// Hero sphere gradient per certification level — a lit-sphere radial (light
+// source upper-left, fading to a dark edge) so the mark reads as dimensional
+// rather than a flat color fill, and the color itself signals the tier.
+const LEVEL_SPHERE_GRADIENT: Record<string, string> = {
+  foundation: "radial-gradient(circle at 32% 28%, #99f6e4 0%, #14b8a6 42%, #0a3d3a 100%)",
+  advanced:   "radial-gradient(circle at 32% 28%, #7dd3fc 0%, #0891b2 42%, #0c2b3d 100%)",
+  executive:  "radial-gradient(circle at 32% 28%, #fde68a 0%, #d97706 42%, #451a03 100%)",
+  specialist: "radial-gradient(circle at 32% 28%, #d8b4fe 0%, #9333ea 42%, #2e1065 100%)",
+};
+
 async function getCert(slug: string): Promise<Cert | null> {
   try {
     const res = await fetch(`${API}/courses/${slug}`, { next: { revalidate: 300 } });
@@ -142,12 +152,11 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                 <span className="badge-dark inline-block mb-6">{heroBadgeLabel}</span>
 
                 <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-8 mb-6">
-                  {/* Signature graphic — acronym mark on a gradient sphere */}
+                  {/* Signature graphic — acronym mark on a level-tinted lit sphere */}
                   <div
-                    className="relative w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-full flex-shrink-0 overflow-hidden shadow-2xl"
-                    style={{ background: "linear-gradient(160deg, #5eead4 0%, #14b8a6 45%, #0a3d3a 100%)" }}
+                    className="relative w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-full flex-shrink-0 shadow-2xl"
+                    style={{ background: LEVEL_SPHERE_GRADIENT[cert.level] ?? LEVEL_SPHERE_GRADIENT.foundation }}
                   >
-                    <div className="absolute inset-x-0 top-[38%] h-[8%] bg-white/25 blur-md" />
                     <div className="absolute inset-0 flex items-center justify-center px-4">
                       <div className="border-2 border-white/80 rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 bg-ink-900/15 backdrop-blur-sm">
                         <span className="font-display font-black text-white text-base sm:text-xl tracking-tight leading-none whitespace-nowrap">{cert.acronym}</span>
