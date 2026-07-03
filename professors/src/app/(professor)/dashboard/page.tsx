@@ -19,8 +19,8 @@ export default function ProfDashboardPage() {
     ([url, t]) => fetcher(url, t)
   );
 
-  const totalEnrollments = certs?.reduce((s: number, c: any) => s + (c._count?.enrollments ?? 0), 0) ?? 0;
-  const totalModules = certs?.reduce((s: number, c: any) => s + (c._count?.modules ?? 0), 0) ?? 0;
+  const totalEnrollments = certs?.reduce((s: number, c: any) => s + (c.enrollment_count ?? 0), 0) ?? 0;
+  const totalModules = certs?.reduce((s: number, c: any) => s + (c.module_count ?? 0), 0) ?? 0;
 
   const firstName = user?.profile?.first_name ?? "Professor";
 
@@ -36,7 +36,7 @@ export default function ProfDashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
-          { label: "Assigned Certifications", value: certs?.length ?? 0, icon: BookOpen, color: "text-navy-700 bg-navy-50" },
+          { label: "Assigned Courses", value: certs?.length ?? 0, icon: BookOpen, color: "text-navy-700 bg-navy-50" },
           { label: "Active Students", value: totalEnrollments, icon: Users, color: "text-gold-600 bg-gold-50" },
           { label: "Total Modules", value: totalModules, icon: FileText, color: "text-emerald-700 bg-emerald-50" },
         ].map(({ label, value, icon: Icon, color }) => (
@@ -52,10 +52,10 @@ export default function ProfDashboardPage() {
         ))}
       </div>
 
-      {/* Certifications */}
+      {/* Courses */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-navy-900">My Certifications</h2>
+          <h2 className="text-lg font-bold text-navy-900">My Courses</h2>
           <Link href="/courses" className="text-sm text-navy-600 hover:text-navy-800 font-medium">
             View all →
           </Link>
@@ -64,27 +64,29 @@ export default function ProfDashboardPage() {
         {!certs || certs.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <BookOpen size={36} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-medium">No certifications assigned yet</p>
-            <p className="text-sm mt-1">Contact an admin to be assigned to a certification.</p>
+            <p className="font-medium">No courses assigned yet</p>
+            <p className="text-sm mt-1">Contact an admin to be assigned to a course.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {certs.slice(0, 5).map((cert: any) => (
+            {certs.slice(0, 5).map((course: any) => (
               <Link
-                key={cert.id}
-                href={`/courses/${cert.id}/builder`}
+                key={course.id}
+                href={`/courses/${course.id}/builder`}
                 className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-navy-200 hover:bg-navy-50 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{cert.badge_icon}</span>
+                  <div className="w-9 h-9 rounded-lg bg-navy-50 text-navy-700 flex items-center justify-center flex-shrink-0">
+                    <BookOpen size={16} />
+                  </div>
                   <div>
-                    <p className="font-semibold text-navy-900">{cert.acronym}</p>
-                    <p className="text-sm text-slate-500">{cert.title}</p>
+                    <p className="font-semibold text-navy-900">{course.title}</p>
+                    <p className="text-sm text-slate-500">{course.subtitle || course.cert_acronym || course.level}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6 text-sm text-slate-500">
-                  <span>{cert._count?.modules ?? 0} modules</span>
-                  <span>{cert._count?.enrollments ?? 0} students</span>
+                  <span>{course.module_count ?? 0} modules</span>
+                  <span>{course.enrollment_count ?? 0} students</span>
                   <ChevronRight size={16} className="text-slate-300 group-hover:text-navy-400" />
                 </div>
               </Link>
