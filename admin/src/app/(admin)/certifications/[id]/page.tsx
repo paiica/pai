@@ -9,6 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
+  GraduationCap,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -74,6 +75,10 @@ type Cert = {
   min_training_hours?: number | null;
   is_featured?: boolean;
   _count?: { enrollments: number; applications: number };
+  instructors?: {
+    id: string; user_id: string; is_lead: boolean;
+    user?: { email?: string; profile?: { first_name?: string; last_name?: string; avatar_url?: string } };
+  }[];
 };
 
 const LEVELS   = ["foundation", "advanced", "executive", "specialist"] as const;
@@ -85,6 +90,7 @@ const TABS = [
   { id: "audience",     label: "Audience",          icon: Users },
   { id: "exam",         label: "Exam & Pricing",    icon: Settings },
   { id: "enrollments",  label: "Enrollments",       icon: Users },
+  { id: "instructors",  label: "Instructors",       icon: GraduationCap },
   { id: "faqs",         label: "FAQs",              icon: HelpCircle },
   { id: "marketing",    label: "Marketing",         icon: Megaphone },
   { id: "testimonials", label: "Testimonials",      icon: Quote },
@@ -658,6 +664,115 @@ function CertEnrollmentsTab({ certId, token }: { certId: string; token: string }
   );
 }
 
+// ─── Cert Instructors Tab ─────────────────────────────────────────────────────
+
+function CertInstructorsTab({
+  certId, token, instructors, onRefresh,
+}: {
+  certId: string; token: string; instructors: NonNullable<Cert["instructors"]>; onRefresh: () => void;
+}) {
+  const { data: usersRaw } = useSWR(
+    token ? ["/users?limit=200", token] : null,
+    ([url, t]) => api.get<any>(url, t)
+  );
+
+  const users: any[] = (() => {
+    const d = (usersRaw as any)?.data?.data ?? (usersRaw as any)?.data ?? usersRaw;
+    return Array.isArray(d) ? d : [];
+  })();
+
+  const professors = users.filter(
+    (u: any) => u.role === "professor" || u.role === "admin" || u.role === "super_admin"
+  );
+
+  async function assignInstructor(userId: string, isLead: boolean) {
+    await toast.promise(
+      api.post(`/admin/certifications/${certId}/instructors`, { user_id: userId, is_lead: isLead }, token)
+        .then(() => onRefresh()),
+      { loading: "Assigning…", success: "Assigned", error: "Failed" }
+    );
+  }
+
+  async function removeInstructor(userId: string) {
+    await toast.promise(
+      api.delete(`/admin/certifications/${certId}/instructors/${userId}`, token).then(() => onRefresh()),
+      { loading: "Removing…", success: "Removed", error: "Failed" }
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Current Instructors */}
+      <div className="card p-6">
+        <p className="text-xs font-bold text-navy-900 uppercase tracking-widest mb-1">Assigned Instructors</p>
+        <p className="text-[11px] text-slate-400 mb-4">
+          Shown in the "Your Instructors" section on the public certification page. Leave empty to hide that section.
+        </p>
+        {instructors.length === 0 ? (
+          <p className="text-xs text-slate-400">No instructors assigned yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {instructors.map((ins) => {
+              const p = ins.user?.profile;
+              const name = `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || ins.user?.email || "Unknown";
+              const initials = [(p?.first_name ?? "")[0], (p?.last_name ?? "")[0]].filter(Boolean).join("").toUpperCase();
+              return (
+                <div key={ins.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-navy-100 flex items-center justify-center text-[10px] font-bold text-navy-600">
+                      {initials || "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {name}
+                        {ins.is_lead && <span className="text-gold-600 font-bold ml-1">★ Lead</span>}
+                      </p>
+                      {ins.user?.email && <p className="text-xs text-slate-400">{ins.user.email}</p>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeInstructor(ins.user_id)}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    title="Remove instructor"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Assign Instructor */}
+      <div className="card p-6">
+        <p className="text-xs font-bold text-navy-900 uppercase tracking-widest mb-4">Assign Instructor</p>
+        <select
+          className="input-base"
+          defaultValue=""
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) return;
+            const [userId, isLeadStr] = val.split("|");
+            assignInstructor(userId, isLeadStr === "1");
+            e.target.value = "";
+          }}
+        >
+          <option value="" disabled>Select professor to assign…</option>
+          {professors
+            .filter((p: any) => !instructors.find((i) => i.user_id === p.id))
+            .map((p: any) => (
+              <optgroup key={p.id} label={`${p.profile?.first_name ?? ""} ${p.profile?.last_name ?? ""} (${p.role})`.trim()}>
+                <option value={`${p.id}|0`}>Add as instructor</option>
+                <option value={`${p.id}|1`}>Add as lead instructor ★</option>
+              </optgroup>
+            ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 // ─── Exam Bank Panel ──────────────────────────────────────────────────────────
 
 export default function CertEditorPage() {
@@ -1135,6 +1250,10 @@ export default function CertEditorPage() {
 
       {tab === "enrollments" && (
         <CertEnrollmentsTab certId={id} token={accessToken!} />
+      )}
+
+      {tab === "instructors" && (
+        <CertInstructorsTab certId={id} token={accessToken!} instructors={cert?.instructors ?? []} onRefresh={() => mutate()} />
       )}
 
       {tab === "faqs" && <FaqEditor items={faqs} onChange={setFaqs} />}

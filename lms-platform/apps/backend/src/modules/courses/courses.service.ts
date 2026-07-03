@@ -401,6 +401,9 @@ export class CoursesService {
         _count: { select: { enrollments: true, applications: true } },
         faqs: { orderBy: { sort_order: "asc" } },
         modules: { orderBy: { sort_order: "asc" }, include: { _count: { select: { lessons: true } } } },
+        instructors: {
+          include: { user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } } } },
+        },
       },
     });
     if (!cert) throw new NotFoundException("Certification not found");
