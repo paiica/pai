@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpen, LayoutDashboard, Users, FileText,
-  BarChart3, ChevronLeft, ChevronRight, LogOut, GraduationCap, Shield,
+  BarChart3, ChevronLeft, ChevronRight, LogOut, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -36,19 +36,17 @@ export function ProfessorSidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-navy-700">
-        <div className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center flex-shrink-0">
-          <GraduationCap size={18} className="text-white" />
-        </div>
+      <div className={cn("flex items-center py-5 border-b border-navy-700", collapsed ? "justify-center px-2" : "gap-3 px-4")}>
         {!collapsed && (
-          <div>
-            <p className="text-xs text-navy-300 font-medium leading-none">PAII</p>
-            <p className="text-sm font-bold leading-tight">Professor Portal</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/paii.logo.png" alt="PAII" className="h-6 w-auto object-contain flex-shrink-0" style={{ filter: "brightness(0) invert(1)" }} />
+            <p className="text-[10px] text-gold-400 uppercase tracking-widest truncate">Professor Portal</p>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto text-navy-400 hover:text-white transition-colors"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn("text-navy-400 hover:text-white hover:bg-navy-700 transition-colors p-1.5 rounded-lg flex-shrink-0", !collapsed && "ml-auto")}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>

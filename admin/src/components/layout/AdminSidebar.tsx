@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award,
-  ClipboardList, LogOut, Shield, Settings,
+  ClipboardList, LogOut, Settings,
   Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -166,19 +166,14 @@ export default function AdminSidebar() {
         collapsed ? "justify-center px-0" : "px-5"
       )}>
         {collapsed ? (
-          <button onClick={toggleCollapsed} title="Expand sidebar" className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center hover:bg-gold-400 transition-colors">
-            <Shield size={17} className="text-white" />
+          <button onClick={toggleCollapsed} title="Expand sidebar" className="p-1.5 rounded-lg hover:bg-navy-800 transition-colors">
+            <img src="/paii.logo.png" alt="PAII" className="h-6 w-auto object-contain" style={{ filter: "brightness(0) invert(1)" }} />
           </button>
         ) : (
           <div className="flex items-center justify-between w-full min-w-0">
             <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Shield size={17} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-display font-black text-white truncate">Admin Portal</div>
-                <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAII</div>
-              </div>
+              <img src="/paii.logo.png" alt="PAII" className="h-6 w-auto object-contain flex-shrink-0" style={{ filter: "brightness(0) invert(1)" }} />
+              <div className="text-[9px] text-gold-400 uppercase tracking-widest truncate">Admin Portal</div>
             </Link>
             <button
               onClick={toggleCollapsed}

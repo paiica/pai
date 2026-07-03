@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Package, Tag, Mail, Users, DollarSign,
@@ -44,27 +43,17 @@ export default function AffiliateSidebar() {
       collapsed ? "w-[68px]" : "w-[240px]"
     )}>
       {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-navy-700/50">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          <Image
-            src="/paii.logo.png"
-            alt="PAII"
-            width={32}
-            height={32}
-            className="rounded-lg object-contain flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.08)", padding: "3px" }}
-          />
-          {!collapsed && (
-            <div>
-              <div className="text-xs font-display font-black text-white">Affiliate Portal</div>
-              <div className="text-[9px] text-gold-400 uppercase tracking-widest">PAII</div>
-            </div>
-          )}
-        </div>
+      <div className={cn("h-16 flex items-center border-b border-navy-700/50", collapsed ? "justify-center px-2" : "px-4")}>
+        {!collapsed && (
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/paii.logo.png" alt="PAII" className="h-6 w-auto object-contain flex-shrink-0" style={{ filter: "brightness(0) invert(1)" }} />
+            <div className="text-[9px] text-gold-400 uppercase tracking-widest truncate">Affiliate Portal</div>
+          </div>
+        )}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="ml-auto text-navy-400 hover:text-white transition-colors"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn("text-navy-400 hover:text-white hover:bg-navy-800 transition-colors p-1.5 rounded-lg flex-shrink-0", !collapsed && "ml-auto")}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>

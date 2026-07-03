@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, CheckCircle2, ArrowLeft, GraduationCap } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 
 export default function ProfForgotPasswordPage() {
@@ -29,14 +29,9 @@ export default function ProfForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-navy-900 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gold-500 rounded-xl flex items-center justify-center">
-            <GraduationCap size={20} className="text-white" />
-          </div>
-          <div>
-            <div className="text-white font-display font-black text-lg leading-tight">PAII Professor Portal</div>
-            <div className="text-gold-400 text-[10px] uppercase tracking-widest">Professional Artificial Intelligence Institute</div>
-          </div>
+        <div className="flex flex-col items-center gap-2 mb-8">
+          <img src="/paii.logo.png" alt="Professional Artificial Intelligence Institute" className="h-14 w-auto object-contain" style={{ filter: "brightness(0) invert(1)" }} />
+          <div className="text-gold-400 text-xs uppercase tracking-widest font-semibold">Professor Portal</div>
         </div>
 
         {done ? (
