@@ -84,12 +84,12 @@ function CourseSidebar({
       {/* Search */}
       <div className="p-3 border-b border-slate-100">
         <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search titles, descriptions"
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-navy-400"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-navy-400"
           />
         </div>
       </div>
@@ -99,17 +99,17 @@ function CourseSidebar({
         {filtered.map(mod => (
           <div key={mod.id}>
             {/* Module row */}
-            <div className="flex items-center gap-1 px-2 py-1 group hover:bg-slate-50">
+            <div className="flex items-center gap-1.5 px-2.5 py-2 group hover:bg-slate-50">
               <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="p-0.5 text-slate-500">
-                {expanded[mod.id] ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                {expanded[mod.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </button>
-              <span className="flex-1 text-xs font-semibold text-navy-800 truncate cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}>
+              <span className="flex-1 text-sm font-semibold text-navy-800 truncate cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}>
                 {mod.title}
               </span>
               {!studentView && (
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-                  <button onClick={() => onAddLesson(mod)} className="p-1 rounded hover:bg-navy-100 text-slate-400 hover:text-navy-700" title="Add lesson"><Plus size={11} /></button>
-                  <button onClick={() => onDeleteModule(mod)} className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete module"><Trash2 size={11} /></button>
+                  <button onClick={() => onAddLesson(mod)} className="p-1.5 rounded hover:bg-navy-100 text-slate-400 hover:text-navy-700" title="Add lesson"><Plus size={13} /></button>
+                  <button onClick={() => onDeleteModule(mod)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete module"><Trash2 size={13} /></button>
                 </div>
               )}
             </div>
@@ -123,22 +123,22 @@ function CourseSidebar({
                   key={lesson.id}
                   onClick={() => onSelectLesson(lesson, mod)}
                   className={cn(
-                    "flex items-center gap-2 pl-6 pr-2 py-1.5 cursor-pointer group transition-colors",
+                    "flex items-center gap-2.5 pl-8 pr-2.5 py-2.5 cursor-pointer group transition-colors",
                     isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700"
                   )}
                 >
-                  <Icon size={13} className={isSelected ? "text-white" : "text-slate-400"} />
-                  <span className={cn("flex-1 text-xs truncate", isSelected ? "text-white font-medium" : "text-slate-700")}>
+                  <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                  <span className={cn("flex-1 text-sm truncate", isSelected ? "text-white font-medium" : "text-slate-700")}>
                     {lesson.title}
                   </span>
                   {!lesson.is_published && !isSelected && (
-                    <span className="text-[10px] text-slate-400">draft</span>
+                    <span className="text-xs text-slate-400">draft</span>
                   )}
                   {!studentView && (
                     <button
                       onClick={e => { e.stopPropagation(); onDeleteLesson(lesson, mod); }}
-                      className={cn("opacity-0 group-hover:opacity-100 p-0.5 rounded", isSelected ? "hover:bg-blue-700 text-blue-200" : "hover:bg-red-50 text-slate-400 hover:text-red-600")}
-                    ><Trash2 size={10} /></button>
+                      className={cn("opacity-0 group-hover:opacity-100 p-1 rounded", isSelected ? "hover:bg-blue-700 text-blue-200" : "hover:bg-red-50 text-slate-400 hover:text-red-600")}
+                    ><Trash2 size={13} /></button>
                   )}
                 </div>
               );
@@ -148,9 +148,9 @@ function CourseSidebar({
             {!studentView && expanded[mod.id] && (
               <button
                 onClick={() => onAddLesson(mod)}
-                className="flex items-center gap-1.5 pl-7 pr-3 py-1.5 w-full text-xs text-slate-400 hover:text-navy-600 hover:bg-navy-50 transition-colors"
+                className="flex items-center gap-2 pl-9 pr-3 py-2 w-full text-sm text-slate-400 hover:text-navy-600 hover:bg-navy-50 transition-colors"
               >
-                <Plus size={11} /> Add lesson
+                <Plus size={14} /> Add lesson
               </button>
             )}
           </div>
@@ -160,8 +160,8 @@ function CourseSidebar({
       {/* Add module */}
       {!studentView && (
         <div className="p-3 border-t border-slate-100">
-          <button onClick={onAddModule} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-xs text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
-            <Plus size={12} /> New Module
+          <button onClick={onAddModule} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-sm text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
+            <Plus size={14} /> New Module
           </button>
         </div>
       )}
