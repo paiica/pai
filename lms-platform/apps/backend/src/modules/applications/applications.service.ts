@@ -171,30 +171,36 @@ export class ApplicationsService {
   }
 
   // ── Affiliate referral attribution ───────────────────────────────────────────
-  // AffiliateLead has no direct FK to Application/User — a referral is only
-  // matched by email at the time a referred visitor registers. Look up leads
-  // for the given emails and attach the referring affiliate's name, if any.
-  private async attachReferrals<T extends { email: string }>(items: T[]): Promise<(T & { referred_by: any })[]> {
+  // Primary match is AffiliateLead.user_id — set once at signup and permanent,
+  // so it still finds the referral even if the applicant later used a
+  // different email on the application form. Falls back to matching by email
+  // for older lead records created before user_id existed.
+  private async attachReferrals<T extends { user_id: string; email: string }>(
+    items: T[],
+  ): Promise<(T & { referred_by: any })[]> {
+    const userIds = [...new Set(items.map((i) => i.user_id))];
     const emails = [...new Set(items.map((i) => i.email))];
-    if (emails.length === 0) return items.map((i) => ({ ...i, referred_by: null }));
+    if (userIds.length === 0 && emails.length === 0) return items.map((i) => ({ ...i, referred_by: null }));
 
     const leads = await this.prisma.affiliateLead.findMany({
-      where: { email: { in: emails } },
+      where: { OR: [{ user_id: { in: userIds } }, { email: { in: emails } }] },
       include: { affiliate: { include: { user: { include: { profile: true } } } } },
       orderBy: { created_at: "desc" },
     });
 
-    // Prefer a 'purchased' lead for the email if one exists, otherwise the most recent
+    // Prefer a 'purchased' lead if one exists, otherwise the most recent
+    function keepBetter(existing: (typeof leads)[number] | undefined, lead: (typeof leads)[number]) {
+      return !existing || (lead.status === "purchased" && existing.status !== "purchased") ? lead : existing;
+    }
+    const byUserId = new Map<string, (typeof leads)[number]>();
     const byEmail = new Map<string, (typeof leads)[number]>();
     for (const lead of leads) {
-      const existing = byEmail.get(lead.email);
-      if (!existing || (lead.status === "purchased" && existing.status !== "purchased")) {
-        byEmail.set(lead.email, lead);
-      }
+      if (lead.user_id) byUserId.set(lead.user_id, keepBetter(byUserId.get(lead.user_id), lead));
+      byEmail.set(lead.email, keepBetter(byEmail.get(lead.email), lead));
     }
 
     return items.map((item) => {
-      const lead = byEmail.get(item.email);
+      const lead = byUserId.get(item.user_id) ?? byEmail.get(item.email);
       if (!lead) return { ...item, referred_by: null };
       const profile = lead.affiliate.user.profile;
       return {
@@ -205,6 +211,7 @@ export class ApplicationsService {
           email: lead.affiliate.user.email,
           referral_code: lead.affiliate.referral_code,
           lead_status: lead.status,
+          matched_by: lead.user_id === item.user_id ? "account" : "email",
         },
       };
     });

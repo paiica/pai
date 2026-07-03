@@ -114,6 +114,7 @@ export class AuthService {
         await this.prisma.affiliateLead.create({
           data: {
             affiliate_id: affiliateProfile.id,
+            user_id: user.id,
             email: user.email,
             name: name || undefined,
             status: "registered" as any,
@@ -371,6 +372,7 @@ export class AuthService {
           await this.prisma.affiliateLead.create({
             data: {
               affiliate_id: affiliateProfile.id,
+              user_id: user.id,
               email: user.email,
               name: name || undefined,
               status: "registered" as any,

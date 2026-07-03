@@ -274,6 +274,7 @@ model User {
   exam_bookings            ExamBooking[]
   affiliate_profile        AffiliateProfile?
   affiliate_commissions_as_buyer AffiliateCommission[]
+  affiliate_leads_referred AffiliateLead[]
 
   @@index([email])
   @@map("users")
@@ -1522,9 +1523,17 @@ model AffiliateLead {
   created_at       DateTime            @default(now())
   updated_at       DateTime            @updatedAt
 
+  // Set once, at email verification, from the referred visitor's own account —
+  // a permanent link that survives them later using a different email on an
+  // application form. `email` is kept as a fallback match for leads created
+  // before this field existed.
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
   commissions AffiliateCommission[]
 
   @@index([affiliate_id])
+  @@index([user_id])
   @@map("affiliate_leads")
   @@schema("lms")
 }
