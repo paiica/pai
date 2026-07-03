@@ -148,9 +148,14 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                     <span className="text-white text-xs ml-1">{reviewsRating} ({reviewsCount} reviews)</span>
                   </div>
                 </div>
-                <div className="mb-5">
-                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
-                  <p className="text-white text-xl mt-2">({cert.acronym})</p>
+                <div className="flex items-start gap-5 mb-5">
+                  <div className="w-20 h-20 rounded-2xl border-2 border-white/25 bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <span className="font-display font-black text-white text-lg tracking-tight leading-none">{cert.acronym}</span>
+                  </div>
+                  <div>
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
+                    <p className="text-white text-xl mt-2">({cert.acronym})</p>
+                  </div>
                 </div>
                 <p className="text-lg text-white leading-relaxed max-w-2xl mb-5">{cert.long_description || cert.description}</p>
 
