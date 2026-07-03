@@ -80,7 +80,11 @@ export default function CertTabs({
   return (
     <>
       {/* ── Sticky tab nav ── */}
-      <div ref={navRef} className="border-b border-sand-200 bg-white sticky top-[60px] z-20">
+      <div
+        ref={navRef}
+        className="border-b border-sand-200 bg-white sticky z-20"
+        style={{ top: "calc(var(--header-height, 148px) + 56px)" }}
+      >
         <div className="container-lg">
           <nav className="flex overflow-x-auto -mb-px">
             {tabs.map((t) => (

@@ -8,6 +8,8 @@ import {
   BarChart2, Lock, ShoppingCart, FileText, Download,
 } from "lucide-react";
 import EnrollButton from "@/components/EnrollButton";
+import CourseTabs from "./CourseTabs";
+import CourseStickyEnrollBar from "./CourseStickyEnrollBar";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
@@ -115,6 +117,16 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
   const learningOutcomes = safeArray<string>(content.learning_outcomes);
   const howItWorksSteps = safeArray<{ title: string; description: string }>(content.how_it_works_steps);
   const prepItems = safeArray<string>(content.training_exam_prep_items);
+
+  const tabs = [
+    learningOutcomes.length > 0 && { id: "course-section-learn", label: "What You'll Learn" },
+    howItWorksSteps.length > 0 && { id: "course-section-how", label: "How It Works" },
+    modules.length > 0 && { id: "course-section-curriculum", label: "Curriculum" },
+    documents.length > 0 && { id: "course-section-materials", label: documents.length > 1 ? `Materials (${documents.length})` : "Materials" },
+    (content.training_exam_prep_body || prepItems.length > 0) && { id: "course-section-included", label: "What's Included" },
+    instructors.length > 0 && { id: "course-section-instructors", label: "Instructors" },
+  ].filter(Boolean) as { id: string; label: string }[];
+
   const relatedSlugs = safeArray<string>(content.related_course_slugs);
   const relatedCourses = await getRelatedCourses(relatedSlugs);
   const totalLessons = modules.reduce((s, m) => s + (m.lessons?.length ?? 0), 0);
@@ -127,6 +139,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
   return (
     <>
       <Navbar />
+      <CourseStickyEnrollBar title={course.title} price={price} lmsEnrollUrl={lmsEnrollUrl} />
       <main>
         {/* ── HERO ── */}
         <section
@@ -228,43 +241,11 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
           </div>
         </section>
 
-        {/* ── COURSE MATERIALS ── */}
-        {documents.length > 0 && (
-          <section className="section-padding bg-sand-50 border-b border-sand-200">
-            <div className="container-lg">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div>
-                  <h2 className="text-3xl font-display font-black text-ink-900">Course Materials</h2>
-                  <p className="text-slate-500 text-sm mt-2">Preview the syllabus and other materials before you enroll.</p>
-                </div>
-                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {documents.map((doc) => (
-                    <a
-                      key={doc.id}
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-4 bg-white rounded-2xl p-5 border border-sand-200 shadow-card hover:shadow-card-hover transition-all group"
-                    >
-                      <div className="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center flex-shrink-0">
-                        <FileText size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-ink-900 text-sm truncate">{doc.title}</p>
-                        <p className="text-xs text-slate-400 truncate">{doc.file_name || "Download"}</p>
-                      </div>
-                      <Download size={16} className="text-slate-300 group-hover:text-ink-900 transition-colors flex-shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+        <CourseTabs tabs={tabs} />
 
         {/* ── WHAT YOU'LL LEARN ── */}
         {learningOutcomes.length > 0 && (
-          <section className="section-padding bg-white border-b border-sand-200">
+          <section id="course-section-learn" className="section-padding bg-white border-b border-sand-200">
             <div className="container-lg">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div>
@@ -285,7 +266,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
 
         {/* ── HOW IT WORKS ── */}
         {howItWorksSteps.length > 0 && (
-          <section className="section-padding bg-sand-50 border-b border-sand-200">
+          <section id="course-section-how" className="section-padding bg-sand-50 border-b border-sand-200">
             <div className="container-lg">
               <h2 className="text-3xl font-display font-black text-ink-900 mb-2">
                 {content.how_it_works_headline || "How It Works"}
@@ -308,7 +289,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
 
         {/* ── CURRICULUM ── */}
         {modules.length > 0 && (
-          <section className="section-padding bg-white border-b border-sand-200">
+          <section id="course-section-curriculum" className="section-padding bg-white border-b border-sand-200">
             <div className="container-lg">
               <h2 className="text-3xl font-display font-black text-ink-900 mb-2">Course Curriculum</h2>
               <p className="text-slate-500 text-sm mb-8">{modules.length} modules · {totalLessons} lessons</p>
@@ -349,9 +330,43 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
           </section>
         )}
 
+        {/* ── COURSE MATERIALS ── */}
+        {documents.length > 0 && (
+          <section id="course-section-materials" className="section-padding bg-sand-50 border-b border-sand-200">
+            <div className="container-lg">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                <div>
+                  <h2 className="text-3xl font-display font-black text-ink-900">Course Materials</h2>
+                  <p className="text-slate-500 text-sm mt-2">Preview the syllabus and other materials before you enroll.</p>
+                </div>
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {documents.map((doc) => (
+                    <a
+                      key={doc.id}
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-4 bg-white rounded-2xl p-5 border border-sand-200 shadow-card hover:shadow-card-hover transition-all group"
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center flex-shrink-0">
+                        <FileText size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-ink-900 text-sm truncate">{doc.title}</p>
+                        <p className="text-xs text-slate-400 truncate">{doc.file_name || "Download"}</p>
+                      </div>
+                      <Download size={16} className="text-slate-300 group-hover:text-ink-900 transition-colors flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ── WHAT'S INCLUDED ── */}
         {(content.training_exam_prep_body || prepItems.length > 0) && (
-          <section className="section-padding bg-sand-50 border-b border-sand-200">
+          <section id="course-section-included" className="section-padding bg-white border-b border-sand-200">
             <div className="container-lg">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div>
@@ -381,7 +396,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
 
         {/* ── INSTRUCTORS ── */}
         {instructors.length > 0 && (
-          <section className="section-padding bg-white border-b border-sand-200">
+          <section id="course-section-instructors" className="section-padding bg-sand-50 border-b border-sand-200">
             <div className="container-lg">
               <h2 className="text-2xl font-display font-bold text-ink-900 mb-8">Your Instructors</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

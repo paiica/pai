@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Award } from "lucide-react";
+import Link from "next/link";
 
-export default function StickyEnrollBar({
-  title, acronym, price, applyUrl,
+export default function CourseStickyEnrollBar({
+  title, price, lmsEnrollUrl,
 }: {
-  title: string; acronym: string; price: number; applyUrl: string;
+  title: string; price: number; lmsEnrollUrl: string;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -25,13 +25,15 @@ export default function StickyEnrollBar({
     >
       <div className="container-lg py-3 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <span className="font-display font-black text-white text-sm truncate block">{acronym} — {title}</span>
+          <span className="font-display font-black text-white text-sm truncate block">{title}</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-white font-display font-black text-lg">${price.toLocaleString()}</span>
-          <a href={applyUrl} className="btn-primary !py-2 !px-5 !text-sm">
-            <Award size={14} /> Apply Now
-          </a>
+          <span className="text-white font-display font-black text-lg">
+            {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+          </span>
+          <Link href={lmsEnrollUrl} className="btn-primary !py-2 !px-5 !text-sm">
+            {price === 0 ? "Enroll Free" : `Get Started — $${price.toLocaleString()}`}
+          </Link>
         </div>
       </div>
     </div>
