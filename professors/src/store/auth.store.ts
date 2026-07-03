@@ -25,9 +25,18 @@ interface AuthState {
 
   setHasHydrated: (v: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<boolean>;
   fetchMe: () => Promise<void>;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -62,6 +71,18 @@ export const useAuthStore = create<AuthState>()(
             user: user as UserProfile,
             accessToken: access_token,
             refreshToken: refresh_token,
+          });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      register: async (formData) => {
+        set({ isLoading: true });
+        try {
+          await api.post("/auth/register", {
+            ...formData,
+            role: "professor",
           });
         } finally {
           set({ isLoading: false });

@@ -97,9 +97,12 @@ export default function ProfessorLoginPage() {
             </button>
           </form>
 
-          <div className="mt-5 pt-5 border-t border-slate-100 text-center">
-            <a href="/forgot-password" className="text-xs text-slate-500 hover:text-navy-700">
+          <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-between text-xs">
+            <a href="/forgot-password" className="text-slate-500 hover:text-navy-700">
               Forgot your password?
+            </a>
+            <a href="/register" className="font-semibold text-navy-700 hover:text-navy-900">
+              Apply to teach
             </a>
           </div>
         </div>

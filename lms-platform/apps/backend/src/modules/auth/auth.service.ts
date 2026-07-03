@@ -65,6 +65,7 @@ export class AuthService {
     const paiId = `PAII-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     const isSalesRep = dto.role === "sales_rep";
+    const isProfessor = dto.role === "professor";
     const referralCode = isSalesRep
       ? randomBytes(4).toString("hex").toUpperCase()
       : undefined;
@@ -76,7 +77,11 @@ export class AuthService {
         email_verified: skipVerification,
         email_verify_token: emailVerifyToken,
         email_verify_token_expires_at: emailVerifyTokenExpiresAt,
-        role: isSalesRep ? ("sales_rep" as any) : undefined,
+        role: isSalesRep ? ("sales_rep" as any) : isProfessor ? ("professor" as any) : undefined,
+        // Professor applications need manual admin review before they can log
+        // in and touch course content/grades — reuses the existing is_active
+        // gate (login already blocks on it) rather than adding new state.
+        is_active: isProfessor ? false : undefined,
         profile: {
           create: {
             first_name: dto.first_name,
@@ -102,7 +107,7 @@ export class AuthService {
       include: { profile: true },
     });
 
-    this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : "student"}, verified: ${skipVerification})`);
+    this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : isProfessor ? "professor" : "student"}, verified: ${skipVerification})`);
 
     // Wire up affiliate lead immediately for any referred registration
     if (!isSalesRep && dto.referral_code) {
@@ -128,13 +133,13 @@ export class AuthService {
     }
 
     if (!skipVerification) {
-      const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : "student");
+      const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : isProfessor ? "professor" : "student");
       await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken!, verifyBaseUrl);
     }
 
     return {
       user: this.sanitizeUser(user),
-      message: isSalesRep
+      message: isSalesRep || isProfessor
         ? "Application submitted! Your account will be reviewed and approved by our team."
         : skipVerification
           ? "Account created successfully. You can now log in."
@@ -153,6 +158,12 @@ export class AuthService {
     }
 
     if (!user.is_active) {
+      // Distinguish "never approved yet" (professor application awaiting
+      // review) from "was active, later disabled" using last_login_at as a
+      // signal — a pending applicant has never logged in at all.
+      if (user.role === ("professor" as any) && !user.last_login_at) {
+        throw new UnauthorizedException("Your professor application is still under review. We'll email you once it's approved.");
+      }
       throw new UnauthorizedException("Account has been deactivated");
     }
 

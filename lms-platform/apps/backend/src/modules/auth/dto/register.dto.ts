@@ -53,10 +53,10 @@ export class RegisterDto {
   @IsDateString()
   date_of_birth?: string;
 
-  @ApiPropertyOptional({ example: "student", enum: ["student", "sales_rep"] })
+  @ApiPropertyOptional({ example: "student", enum: ["student", "sales_rep", "professor"] })
   @IsOptional()
   @IsString()
-  @IsIn(["student", "sales_rep"])
+  @IsIn(["student", "sales_rep", "professor"])
   role?: string;
 
   @ApiPropertyOptional({ example: "A1B2C3D4" })
