@@ -537,6 +537,7 @@ export class PaymentsService {
           certificationId: certification_id || undefined,
           courseId: course_id || undefined,
           promoId: promo_id || undefined,
+          promoCode: promo_code || undefined,
           saleAmount: amount,
         });
       }
@@ -549,6 +550,7 @@ export class PaymentsService {
     certificationId?: string;
     courseId?: string;
     promoId?: string;
+    promoCode?: string;
     saleAmount: number;
   }) {
     if (opts.saleAmount <= 0) return;
@@ -612,6 +614,7 @@ export class PaymentsService {
         sale_amount: opts.saleAmount,
         amount: commissionAmount,
         commission_rate: commissionRate,
+        promo_code: opts.promoCode ?? null,
         status: "pending" as any,
       },
     });

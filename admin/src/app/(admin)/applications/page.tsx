@@ -159,7 +159,7 @@ function ApplicationDrawer({
                 </div>
                 <div className="min-w-0 flex-1">
                   <a
-                    href={`/affiliates/${app.referred_by.affiliate_id}`}
+                    href={`/affiliates/${app.referred_by.affiliate_user_id}`}
                     className="text-sm font-semibold text-teal-800 hover:underline"
                   >
                     {app.referred_by.name}
@@ -285,6 +285,18 @@ function ApplicationDrawer({
                         <p className="text-[10px] text-slate-400 mt-0.5">
                           Promo: <span className="font-mono font-semibold text-purple-600">{app.promo_code}</span>
                           {Number(app.amount_paid) === 0 && <span className="ml-1 text-emerald-600 font-semibold">(100% off — free)</span>}
+                          {app.promo_affiliate && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`/affiliates/${app.promo_affiliate.affiliate_user_id}`}
+                                className="text-teal-700 font-semibold hover:underline"
+                              >
+                                {app.promo_affiliate.name}
+                              </a>
+                              's code
+                            </>
+                          )}
                         </p>
                       ) : (
                         <p className="text-[10px] text-slate-400 mt-0.5">

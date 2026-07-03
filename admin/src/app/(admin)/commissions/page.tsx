@@ -251,6 +251,7 @@ export default function CommissionsPage() {
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Sales Rep</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Lead</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Promo Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Product</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Sale</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Rate</th>
@@ -281,6 +282,13 @@ export default function CommissionsPage() {
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-800">{c.lead?.name ?? "—"}</p>
                         <p className="text-xs text-slate-400">{c.lead?.email ?? ""}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {c.promo_code ? (
+                          <span className="font-mono font-semibold text-purple-600 text-xs">{c.promo_code}</span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Referral link</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{c.product?.name ?? "—"}</td>
                       <td className="px-4 py-3 text-right text-slate-700">{fmt(Number(c.sale_amount))}</td>

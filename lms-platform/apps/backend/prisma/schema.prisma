@@ -1553,6 +1553,10 @@ model AffiliateCommission {
   sale_amount      Decimal                   @db.Decimal(10, 2)
   amount           Decimal                   @db.Decimal(10, 2)
   commission_rate  Decimal                   @db.Decimal(5, 2)
+  // The promo code that triggered this commission, if any (vs. a plain
+  // referral-link lead). Recorded at creation time since nothing else on
+  // this record can be joined back to the checkout that produced it.
+  promo_code       String?
   status           AffiliateCommissionStatus @default(pending)
   paid_at          DateTime?
   voided_at        DateTime?

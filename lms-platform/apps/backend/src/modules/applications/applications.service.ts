@@ -166,7 +166,7 @@ export class ApplicationsService {
       }),
       this.prisma.application.count({ where: { status: ApplicationStatus.pending_review } }),
     ]);
-    const data = await this.attachReferrals(items);
+    const data = await this.attachPromoAffiliate(await this.attachReferrals(items));
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
@@ -207,11 +207,46 @@ export class ApplicationsService {
         ...item,
         referred_by: {
           affiliate_id: lead.affiliate.id,
+          // /affiliates/[id] looks up by the affiliate's User.id, not AffiliateProfile.id
+          affiliate_user_id: lead.affiliate.user.id,
           name: profile ? `${profile.first_name} ${profile.last_name}` : lead.affiliate.user.email,
           email: lead.affiliate.user.email,
           referral_code: lead.affiliate.referral_code,
           lead_status: lead.status,
           matched_by: lead.user_id === item.user_id ? "account" : "email",
+        },
+      };
+    });
+  }
+
+  // ── Promo code attribution ───────────────────────────────────────────────────
+  // Application.promo_code only stores the raw code text an applicant typed in
+  // at checkout — resolve it against AffiliatePromoCode to show which rep (if
+  // any) it belongs to, so the admin doesn't have to look it up separately.
+  private async attachPromoAffiliate<T extends { promo_code: string | null }>(
+    items: T[],
+  ): Promise<(T & { promo_affiliate: any })[]> {
+    const codes = [...new Set(items.map((i) => i.promo_code).filter((c): c is string => !!c))];
+    if (codes.length === 0) return items.map((i) => ({ ...i, promo_affiliate: null }));
+
+    const promoCodes = await this.prisma.affiliatePromoCode.findMany({
+      where: { code: { in: codes.map((c) => c.toUpperCase()) } },
+      include: { affiliate: { include: { user: { include: { profile: true } } } } },
+    });
+    const byCode = new Map(promoCodes.map((p) => [p.code, p]));
+
+    return items.map((item) => {
+      const promo = item.promo_code ? byCode.get(item.promo_code.toUpperCase()) : undefined;
+      if (!promo) return { ...item, promo_affiliate: null };
+      const profile = promo.affiliate.user.profile;
+      return {
+        ...item,
+        promo_affiliate: {
+          affiliate_id: promo.affiliate.id,
+          // /affiliates/[id] looks up by the affiliate's User.id, not AffiliateProfile.id
+          affiliate_user_id: promo.affiliate.user.id,
+          name: profile ? `${profile.first_name} ${profile.last_name}` : promo.affiliate.user.email,
+          email: promo.affiliate.user.email,
         },
       };
     });
@@ -447,7 +482,7 @@ export class ApplicationsService {
       }),
       this.prisma.application.count({ where }),
     ]);
-    const data = await this.attachReferrals(items);
+    const data = await this.attachPromoAffiliate(await this.attachReferrals(items));
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
