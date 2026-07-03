@@ -31,11 +31,12 @@ export class PrepCoursesService {
 
   async assertLessonCourseAccess(lessonId: string, userId: string, role: Role) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT m.course_id FROM lms.lessons l JOIN lms.modules m ON m.id = l.module_id WHERE l.id = $1 AND m.course_id IS NOT NULL`,
+      `SELECT m.course_id, l.module_id FROM lms.lessons l JOIN lms.modules m ON m.id = l.module_id WHERE l.id = $1 AND m.course_id IS NOT NULL`,
       lessonId,
     );
     if (!rows.length) throw new NotFoundException("Lesson not found");
     await this.assertTeacherAccess(rows[0].course_id, userId, role);
+    return { course_id: rows[0].course_id as string, module_id: rows[0].module_id as string };
   }
 
   // ─── Student learn view ──────────────────────────────────────────────
@@ -676,6 +677,41 @@ export class PrepCoursesService {
     return this.adminUpdate(courseId, dto);
   }
 
+  // Full module/lesson tree with rich per-lesson fields (video_url, content_body,
+  // download_url, quiz settings, etc.) — same shape the admin builder uses, so the
+  // professor builder can offer the same per-lesson-type content editors.
+  async profGetModules(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminGetModules(courseId);
+  }
+
+  async profPublishAll(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminPublishAll(courseId);
+  }
+
+  // ─── Quiz questions (course builder) ──────────────────────────────────
+
+  async profGetQuestions(lessonId: string, userId: string, role: Role) {
+    const { course_id, module_id } = await this.assertLessonCourseAccess(lessonId, userId, role);
+    return this.adminGetQuestions(course_id, module_id, lessonId);
+  }
+
+  async profCreateQuestion(lessonId: string, dto: Record<string, any>, userId: string, role: Role) {
+    const { course_id, module_id } = await this.assertLessonCourseAccess(lessonId, userId, role);
+    return this.adminCreateQuestion(course_id, module_id, lessonId, dto);
+  }
+
+  async profUpdateQuestion(lessonId: string, questionId: string, dto: Record<string, any>, userId: string, role: Role) {
+    const { course_id, module_id } = await this.assertLessonCourseAccess(lessonId, userId, role);
+    return this.adminUpdateQuestion(course_id, module_id, lessonId, questionId, dto);
+  }
+
+  async profDeleteQuestion(lessonId: string, questionId: string, userId: string, role: Role) {
+    const { course_id, module_id } = await this.assertLessonCourseAccess(lessonId, userId, role);
+    return this.adminDeleteQuestion(course_id, module_id, lessonId, questionId);
+  }
+
   // ─── Modules (course builder) ────────────────────────────────────────
 
   async createCourseModule(courseId: string, title: string, userId: string, role: Role) {
@@ -744,14 +780,17 @@ export class PrepCoursesService {
     await this.assertLessonCourseAccess(lessonId, userId, role);
     const allowed = [
       'title', 'description', 'is_published', 'sort_order', 'duration_minutes',
-      'video_url', 'content_body', 'download_url', 'is_free_preview',
+      'video_url', 'content_body', 'download_url', 'is_free_preview', 'type',
+      'allow_download', 'external_url', 'passing_score', 'max_attempts',
+      'max_score', 'due_date', 'allow_text_response', 'text_word_limit',
     ];
     const sets: string[] = [];
     const vals: unknown[] = [];
     let p = 1;
     for (const key of allowed) {
       if (!(key in dto)) continue;
-      sets.push(`"${key}" = $${p}`);
+      const cast = key === "type" ? `::lms."LessonType"` : "";
+      sets.push(`"${key}" = $${p}${cast}`);
       vals.push(dto[key]);
       p++;
     }

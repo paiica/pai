@@ -47,6 +47,26 @@ export class ProfPrepCoursesController {
     return this.service.profUpdateCourse(courseId, dto, userId, role);
   }
 
+  @Get(":courseId/modules")
+  @ApiOperation({ summary: "Get full module/lesson tree with rich per-lesson fields (builder view)" })
+  getModules(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profGetModules(courseId, userId, role);
+  }
+
+  @Post(":courseId/publish-all")
+  @ApiOperation({ summary: "Publish all modules and lessons in this course" })
+  publishAll(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profPublishAll(courseId, userId, role);
+  }
+
   @Post(":courseId/modules")
   @ApiOperation({ summary: "Add a module to this course" })
   createModule(
@@ -109,5 +129,49 @@ export class ProfPrepCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.service.deleteCourseLesson(lessonId, userId, role);
+  }
+
+  @Get("lessons/:lessonId/questions")
+  @ApiOperation({ summary: "List quiz questions for a lesson" })
+  getQuestions(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profGetQuestions(lessonId, userId, role);
+  }
+
+  @Post("lessons/:lessonId/questions")
+  @ApiOperation({ summary: "Add a quiz question to a lesson" })
+  createQuestion(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body() dto: any,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profCreateQuestion(lessonId, dto, userId, role);
+  }
+
+  @Put("lessons/:lessonId/questions/:questionId")
+  @ApiOperation({ summary: "Update a quiz question" })
+  updateQuestion(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("questionId", ParseUUIDPipe) questionId: string,
+    @Body() dto: any,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profUpdateQuestion(lessonId, questionId, dto, userId, role);
+  }
+
+  @Delete("lessons/:lessonId/questions/:questionId")
+  @ApiOperation({ summary: "Delete a quiz question" })
+  deleteQuestion(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("questionId", ParseUUIDPipe) questionId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profDeleteQuestion(lessonId, questionId, userId, role);
   }
 }
