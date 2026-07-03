@@ -222,7 +222,13 @@ export class PrepCoursesService {
           ))
           FROM lms.course_teachers ct JOIN lms.profiles p ON p.user_id = ct.user_id
           WHERE ct.course_id = c.id
-        ) AS instructors
+        ) AS instructors,
+        (
+          SELECT json_agg(json_build_object(
+            'id', d.id, 'title', d.title, 'file_url', d.file_url, 'file_name', d.file_name
+          ) ORDER BY d.sort_order)
+          FROM lms.course_documents d WHERE d.course_id = c.id
+        ) AS documents
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
       WHERE c.slug = $1
@@ -414,6 +420,75 @@ export class PrepCoursesService {
       courseId, userId,
     );
     return { message: "Instructor removed" };
+  }
+
+  // ─── Admin — Documents (syllabus, outline, etc.) ──────────────────────
+
+  async adminGetDocuments(courseId: string) {
+    return this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM lms.course_documents WHERE course_id = $1 ORDER BY sort_order ASC, created_at ASC`,
+      courseId,
+    );
+  }
+
+  async adminCreateDocument(courseId: string, dto: Record<string, any>) {
+    const { title, file_url, file_name } = dto;
+    if (!title?.trim()) throw new BadRequestException("Document title is required");
+    if (!file_url?.trim()) throw new BadRequestException("File is required");
+    const countRows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM lms.course_documents WHERE course_id = $1`,
+      courseId,
+    );
+    const sort_order = Number(countRows[0]?.next ?? 0);
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      INSERT INTO lms.course_documents (id, course_id, title, file_url, file_name, sort_order, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now(), now()) RETURNING *
+    `, courseId, title, file_url, file_name ?? null, sort_order);
+    return rows[0];
+  }
+
+  async adminUpdateDocument(courseId: string, documentId: string, dto: Record<string, any>) {
+    const { title, file_url, file_name } = dto;
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      UPDATE lms.course_documents SET
+        title = COALESCE($1, title),
+        file_url = COALESCE($2, file_url),
+        file_name = COALESCE($3, file_name),
+        updated_at = now()
+      WHERE id = $4 AND course_id = $5 RETURNING *
+    `, title ?? null, file_url ?? null, file_name ?? null, documentId, courseId);
+    if (!rows.length) throw new NotFoundException("Document not found");
+    return rows[0];
+  }
+
+  async adminDeleteDocument(courseId: string, documentId: string) {
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM lms.course_documents WHERE id = $1 AND course_id = $2`,
+      documentId, courseId,
+    );
+    return { message: "Document deleted" };
+  }
+
+  // ─── Professor — Documents ─────────────────────────────────────────────
+
+  async profGetDocuments(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminGetDocuments(courseId);
+  }
+
+  async profCreateDocument(courseId: string, dto: Record<string, any>, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminCreateDocument(courseId, dto);
+  }
+
+  async profUpdateDocument(courseId: string, documentId: string, dto: Record<string, any>, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminUpdateDocument(courseId, documentId, dto);
+  }
+
+  async profDeleteDocument(courseId: string, documentId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminDeleteDocument(courseId, documentId);
   }
 
   // ─── Admin — Module & Lesson management ──────────────────────────────

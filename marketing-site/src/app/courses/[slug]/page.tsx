@@ -5,7 +5,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import {
   CheckCircle2, Clock, BookOpen, ArrowRight, ChevronRight,
-  BarChart2, Lock, ShoppingCart,
+  BarChart2, Lock, ShoppingCart, FileText, Download,
 } from "lucide-react";
 import EnrollButton from "@/components/EnrollButton";
 
@@ -15,6 +15,7 @@ const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
 type Lesson = { id: string; title: string; type: string; duration_minutes: number; is_free_preview: boolean };
 type Module = { id: string; title: string; description?: string; lessons?: Lesson[] };
 type Instructor = { user_id: string; is_lead: boolean; first_name: string; last_name: string; avatar_url?: string; bio?: string };
+type CourseDocument = { id: string; title: string; file_url: string; file_name?: string };
 type CourseContent = {
   overview_headline?: string;
   overview_body?: string;
@@ -33,6 +34,7 @@ type Course = {
   cert_acronym?: string; cert_title?: string; cert_slug?: string;
   modules?: Module[]; instructors?: Instructor[];
   content?: CourseContent;
+  documents?: CourseDocument[];
 };
 
 const GRADIENTS = [
@@ -108,6 +110,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
   const price = Number(course.price);
   const modules = safeArray<Module>(course.modules);
   const instructors = safeArray<Instructor>(course.instructors);
+  const documents = safeArray<CourseDocument>(course.documents);
   const content: CourseContent = course.content ?? {};
   const learningOutcomes = safeArray<string>(content.learning_outcomes);
   const howItWorksSteps = safeArray<{ title: string; description: string }>(content.how_it_works_steps);
@@ -224,6 +227,40 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
             </div>
           </div>
         </section>
+
+        {/* ── COURSE MATERIALS ── */}
+        {documents.length > 0 && (
+          <section className="section-padding bg-sand-50 border-b border-sand-200">
+            <div className="container-lg">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                <div>
+                  <h2 className="text-3xl font-display font-black text-ink-900">Course Materials</h2>
+                  <p className="text-slate-500 text-sm mt-2">Preview the syllabus and other materials before you enroll.</p>
+                </div>
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {documents.map((doc) => (
+                    <a
+                      key={doc.id}
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-4 bg-white rounded-2xl p-5 border border-sand-200 shadow-card hover:shadow-card-hover transition-all group"
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center flex-shrink-0">
+                        <FileText size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-ink-900 text-sm truncate">{doc.title}</p>
+                        <p className="text-xs text-slate-400 truncate">{doc.file_name || "Download"}</p>
+                      </div>
+                      <Download size={16} className="text-slate-300 group-hover:text-ink-900 transition-colors flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── WHAT YOU'LL LEARN ── */}
         {learningOutcomes.length > 0 && (

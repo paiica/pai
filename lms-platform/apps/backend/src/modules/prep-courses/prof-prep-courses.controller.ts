@@ -67,6 +67,50 @@ export class ProfPrepCoursesController {
     return this.service.profPublishAll(courseId, userId, role);
   }
 
+  @Get(":courseId/documents")
+  @ApiOperation({ summary: "List downloadable documents (syllabus, outline, etc.) for this course" })
+  getDocuments(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profGetDocuments(courseId, userId, role);
+  }
+
+  @Post(":courseId/documents")
+  @ApiOperation({ summary: "Add a downloadable document to this course" })
+  createDocument(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Body() dto: any,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profCreateDocument(courseId, dto, userId, role);
+  }
+
+  @Put(":courseId/documents/:documentId")
+  @ApiOperation({ summary: "Rename or replace a document" })
+  updateDocument(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
+    @Body() dto: any,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profUpdateDocument(courseId, documentId, dto, userId, role);
+  }
+
+  @Delete(":courseId/documents/:documentId")
+  @ApiOperation({ summary: "Delete a document" })
+  deleteDocument(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profDeleteDocument(courseId, documentId, userId, role);
+  }
+
   @Post(":courseId/modules")
   @ApiOperation({ summary: "Add a module to this course" })
   createModule(

@@ -612,10 +612,31 @@ model Course {
   affiliate_assignments  AffiliateProductAssignment[]
   affiliate_leads        AffiliateLead[]
   affiliate_commissions  AffiliateCommission[]
+  documents        CourseDocument[]
 
   @@index([slug])
   @@index([status])
   @@map("courses")
+  @@schema("lms")
+}
+
+// Downloadable materials (syllabus, outline, etc.) attached to a course.
+// Shown publicly on the course's marketing page so prospective students can
+// preview them before enrolling — not gated behind enrollment/lesson access.
+model CourseDocument {
+  id        String @id @default(uuid())
+  course_id String
+  course    Course @relation(fields: [course_id], references: [id], onDelete: Cascade)
+
+  title      String
+  file_url   String
+  file_name  String?
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([course_id, sort_order])
+  @@map("course_documents")
   @@schema("lms")
 }
 

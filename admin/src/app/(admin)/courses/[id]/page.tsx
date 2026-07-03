@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2, X, Check,
   BookOpen, Users, Settings, ChevronLeft, ChevronRight, AlertCircle, RefreshCw,
   Globe, Archive, ArchiveRestore, UserPlus, UserMinus,
-  DollarSign, Clock, Layers, Eye, EyeOff,
+  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -38,7 +38,14 @@ type Course = {
   content?: CourseContent;
 };
 
-type Tab = "overview" | "instructors" | "content";
+type Tab = "overview" | "instructors" | "content" | "documents";
+
+type CourseDocument = {
+  id: string;
+  title: string;
+  file_url: string;
+  file_name?: string;
+};
 
 type CourseContent = {
   overview_headline?: string;
@@ -51,6 +58,152 @@ type CourseContent = {
   training_exam_prep_items?: string[];
   related_course_slugs?: string[];
 };
+
+function DocumentsTab({ courseId, token }: { courseId: string; token: string }) {
+  const { data: docsRaw, mutate } = useSWR(
+    token && courseId ? [`/admin/courses/${courseId}/documents`, token] : null,
+    ([url, t]) => api.get<any>(url, t)
+  );
+  const documents: CourseDocument[] = (() => {
+    const d = (docsRaw as any)?.data ?? docsRaw;
+    return Array.isArray(d) ? d : [];
+  })();
+
+  const [title, setTitle] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+  async function uploadAndAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!title.trim()) { toast.error("Enter a document name first"); return; }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/uploads/local`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+      const data = await res.json();
+      const fileUrl: string = data?.url ?? data?.data?.url;
+      if (!fileUrl) throw new Error("No URL in response");
+      await api.post(`/admin/courses/${courseId}/documents`, {
+        title: title.trim(),
+        file_url: fileUrl,
+        file_name: file.name,
+      }, token);
+      setTitle("");
+      toast.success("Document added");
+      mutate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function saveRename(doc: CourseDocument) {
+    if (!editTitle.trim()) return;
+    await toast.promise(
+      api.patch(`/admin/courses/${courseId}/documents/${doc.id}`, { title: editTitle.trim() }, token)
+        .then(() => { setEditingId(null); mutate(); }),
+      { loading: "Saving…", success: "Renamed", error: "Failed" }
+    );
+  }
+
+  async function deleteDocument(doc: CourseDocument) {
+    if (!confirm(`Delete "${doc.title}"?`)) return;
+    await toast.promise(
+      api.delete(`/admin/courses/${courseId}/documents/${doc.id}`, token).then(() => mutate()),
+      { loading: "Deleting…", success: "Deleted", error: "Failed" }
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-6">
+        <p className="text-xs font-bold text-navy-900 uppercase tracking-widest mb-1">Course Documents</p>
+        <p className="text-[11px] text-slate-400 mb-4">
+          Syllabus, outline, or any other file students can download from the public course page — visible before they enroll.
+        </p>
+
+        {documents.length === 0 ? (
+          <p className="text-xs text-slate-400 mb-4">No documents yet.</p>
+        ) : (
+          <div className="space-y-2 mb-5">
+            {documents.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-navy-100 flex items-center justify-center flex-shrink-0">
+                  <FileText size={14} className="text-navy-600" />
+                </div>
+                {editingId === doc.id ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      className="input-base py-1 text-sm flex-1"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveRename(doc); if (e.key === "Escape") setEditingId(null); }}
+                      autoFocus
+                    />
+                    <button onClick={() => saveRename(doc)} className="text-emerald-600 hover:text-emerald-700"><Check size={15} /></button>
+                    <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600"><X size={15} /></button>
+                  </div>
+                ) : (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{doc.title}</p>
+                    <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs text-navy-500 hover:underline truncate block">
+                      {doc.file_name || doc.file_url.split("/").pop()}
+                    </a>
+                  </div>
+                )}
+                {editingId !== doc.id && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <a href={doc.file_url} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-slate-200 text-slate-400 hover:text-navy-700" title="Download">
+                      <Download size={14} />
+                    </a>
+                    <button onClick={() => { setEditingId(doc.id); setEditTitle(doc.title); }} className="p-1.5 rounded hover:bg-slate-200 text-slate-400 hover:text-navy-700" title="Rename">
+                      <Edit3 size={14} />
+                    </button>
+                    <button onClick={() => deleteDocument(doc)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Document Name</label>
+            <input
+              className="input-base text-sm"
+              placeholder="e.g., Course Syllabus, Module Outline"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <label className={cn(
+            "flex items-center justify-center gap-2 h-16 rounded-lg cursor-pointer transition-colors text-sm",
+            uploading ? "bg-navy-50 text-navy-400" : "bg-slate-50 hover:bg-navy-50 text-slate-500 hover:text-navy-700"
+          )}>
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {uploading ? "Uploading…" : "Click to upload PDF or file"}
+            <input type="file" className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" onChange={uploadAndAdd} disabled={uploading} />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -422,6 +575,17 @@ export default function CourseDetailPage() {
           )}
         >
           <Users size={13} /> Instructors ({instructors.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("documents")}
+          className={cn(
+            "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
+            activeTab === "documents"
+              ? "border-gold-500 text-gold-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <FileText size={13} /> Documents
         </button>
       </div>
 
@@ -916,6 +1080,11 @@ export default function CourseDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Documents Tab */}
+      {activeTab === "documents" && (
+        <DocumentsTab courseId={courseId} token={token} />
       )}
     </div>
   );

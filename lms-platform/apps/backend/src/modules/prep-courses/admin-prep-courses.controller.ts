@@ -77,6 +77,37 @@ export class AdminPrepCoursesController {
     return this.service.removeTeacher(id, userId);
   }
 
+  @Get(":id/documents")
+  @ApiOperation({ summary: "List downloadable documents (syllabus, outline, etc.) for this course" })
+  getDocuments(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminGetDocuments(id);
+  }
+
+  @Post(":id/documents")
+  @ApiOperation({ summary: "Add a downloadable document to this course" })
+  createDocument(@Param("id", ParseUUIDPipe) id: string, @Body() dto: any) {
+    return this.service.adminCreateDocument(id, dto);
+  }
+
+  @Patch(":id/documents/:documentId")
+  @ApiOperation({ summary: "Rename or replace a document" })
+  updateDocument(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
+    @Body() dto: any,
+  ) {
+    return this.service.adminUpdateDocument(id, documentId, dto);
+  }
+
+  @Delete(":id/documents/:documentId")
+  @ApiOperation({ summary: "Delete a document" })
+  deleteDocument(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
+  ) {
+    return this.service.adminDeleteDocument(id, documentId);
+  }
+
   @Post(":id/publish-all")
   @ApiOperation({ summary: "Publish all modules and lessons for a course" })
   publishAll(@Param("id", ParseUUIDPipe) id: string) {
