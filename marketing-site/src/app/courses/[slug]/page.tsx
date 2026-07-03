@@ -10,13 +10,18 @@ import {
 import EnrollButton from "@/components/EnrollButton";
 import CourseTabs from "./CourseTabs";
 import CourseStickyEnrollBar from "./CourseStickyEnrollBar";
+import InstructorCard from "@/components/InstructorCard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
 
 type Lesson = { id: string; title: string; type: string; duration_minutes: number; is_free_preview: boolean };
 type Module = { id: string; title: string; description?: string; lessons?: Lesson[] };
-type Instructor = { user_id: string; is_lead: boolean; first_name: string; last_name: string; avatar_url?: string; bio?: string };
+type Instructor = {
+  user_id: string; is_lead: boolean; first_name: string; last_name: string;
+  avatar_url?: string; bio?: string; job_title?: string; company?: string;
+  years_experience?: number; education_entries?: any[]; experience_entries?: any[];
+};
 type CourseDocument = { id: string; title: string; file_url: string; file_name?: string };
 type CourseContent = {
   overview_headline?: string;
@@ -403,27 +408,19 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
                 {instructors.map((ins, i) => {
                   const name = `${ins.first_name ?? ""} ${ins.last_name ?? ""}`.trim();
                   if (!name) return null;
-                  const initials = [(ins.first_name ?? "")[0], (ins.last_name ?? "")[0]]
-                    .filter(Boolean).join("").toUpperCase();
                   return (
-                    <div key={i} className="flex items-start gap-4 bg-sand-50 rounded-2xl p-5 border border-sand-200">
-                      {ins.avatar_url ? (
-                        <img src={ins.avatar_url} alt={name} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-ink-800 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
-                          {initials}
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-display font-bold text-ink-900 text-base">{name}</div>
-                        {ins.is_lead && (
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">
-                            Lead Instructor
-                          </span>
-                        )}
-                        {ins.bio && <p className="text-sm text-slate-500 mt-2 leading-relaxed">{ins.bio}</p>}
-                      </div>
-                    </div>
+                    <InstructorCard
+                      key={i}
+                      name={name}
+                      avatarUrl={ins.avatar_url}
+                      bio={ins.bio}
+                      isLead={ins.is_lead}
+                      jobTitle={ins.job_title}
+                      company={ins.company}
+                      yearsExperience={ins.years_experience}
+                      educationEntries={ins.education_entries}
+                      experienceEntries={ins.experience_entries}
+                    />
                   );
                 })}
               </div>

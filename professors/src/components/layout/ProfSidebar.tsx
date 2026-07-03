@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpen, LayoutDashboard, FileText, Award,
-  ChevronLeft, ChevronRight, LogOut, Shield,
+  ChevronLeft, ChevronRight, LogOut, Shield, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/courses", icon: BookOpen, label: "My Courses" },
   { href: "/certifications", icon: Award, label: "Certifications" },
   { href: "/grades", icon: FileText, label: "Submissions" },
+  { href: "/profile", icon: User, label: "My Profile" },
 ];
 
 export function ProfSidebar() {

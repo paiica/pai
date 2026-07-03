@@ -218,7 +218,11 @@ export class PrepCoursesService {
           SELECT json_agg(json_build_object(
             'user_id', ct.user_id, 'is_lead', ct.is_lead,
             'first_name', p.first_name, 'last_name', p.last_name,
-            'avatar_url', p.avatar_url, 'bio', p.bio
+            'avatar_url', p.avatar_url, 'bio', p.bio,
+            'job_title', p.job_title, 'company', p.company,
+            'years_experience', p.years_experience,
+            'education_entries', p.education_entries,
+            'experience_entries', p.experience_entries
           ))
           FROM lms.course_teachers ct JOIN lms.profiles p ON p.user_id = ct.user_id
           WHERE ct.course_id = c.id

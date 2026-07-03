@@ -54,7 +54,11 @@ export class CoursesService {
         faqs: { orderBy: { sort_order: "asc" } },
         instructors: {
           include: {
-            user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true, bio: true } } } },
+            user: { include: { profile: { select: {
+              first_name: true, last_name: true, avatar_url: true, bio: true,
+              job_title: true, company: true, years_experience: true,
+              education_entries: true, experience_entries: true,
+            } } } },
           },
         },
       },

@@ -11,6 +11,7 @@ import {
   Shield, Quote, Tag,
 } from "lucide-react";
 import CertCTAButton from "@/components/CertCTAButton";
+import InstructorCard from "@/components/InstructorCard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -40,7 +41,16 @@ type Cert = {
   exam_questions_count: number; validity_years: number;
   max_retakes_included: number; retake_fee: number;
   modules?: { title: string; description?: string; _count?: { lessons: number } }[];
-  instructors?: { is_lead: boolean; user: { profile?: { first_name?: string; last_name?: string; avatar_url?: string; bio?: string } } }[];
+  instructors?: {
+    is_lead: boolean;
+    user: {
+      profile?: {
+        first_name?: string; last_name?: string; avatar_url?: string; bio?: string;
+        job_title?: string; company?: string; years_experience?: number;
+        education_entries?: any[]; experience_entries?: any[];
+      };
+    };
+  }[];
 };
 
 // Hero sphere gradient per certification level — a lit-sphere radial (light
@@ -320,22 +330,19 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                   const p = ins.user?.profile;
                   const name = `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim();
                   if (!name) return null;
-                  const initials = [p?.first_name?.[0], p?.last_name?.[0]].filter(Boolean).join("").toUpperCase();
                   return (
-                    <div key={i} className="flex items-start gap-4 bg-sand-50 rounded-2xl p-5 border border-sand-200">
-                      {p?.avatar_url ? (
-                        <img src={p.avatar_url} alt={name} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-ink-800 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
-                          {initials}
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-display font-bold text-ink-900 text-base">{name}</div>
-                        {ins.is_lead && <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">Lead Instructor</span>}
-                        {p?.bio && <p className="text-sm text-slate-500 mt-2 leading-relaxed">{p.bio}</p>}
-                      </div>
-                    </div>
+                    <InstructorCard
+                      key={i}
+                      name={name}
+                      avatarUrl={p?.avatar_url}
+                      bio={p?.bio}
+                      isLead={ins.is_lead}
+                      jobTitle={p?.job_title}
+                      company={p?.company}
+                      yearsExperience={p?.years_experience}
+                      educationEntries={p?.education_entries}
+                      experienceEntries={p?.experience_entries}
+                    />
                   );
                 })}
               </div>
