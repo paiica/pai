@@ -48,22 +48,22 @@ function ModuleSection({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-50 transition-colors",
+          "w-full flex items-start gap-2.5 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors",
           hasActive && "bg-blue-50/50"
         )}
       >
         <ChevronDown
-          size={14}
+          size={16}
           className={cn(
             "mt-0.5 flex-shrink-0 text-slate-400 transition-transform",
             !open && "-rotate-90"
           )}
         />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-navy-900 leading-snug">
+          <p className="text-sm font-semibold text-navy-900 leading-snug">
             {mod.title}
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-400 mt-0.5">
             {mod.completed_count}/{mod.total_count} Completed
           </p>
         </div>
@@ -81,7 +81,7 @@ function ModuleSection({
                 key={lesson.id}
                 href={`/learn/${enrollmentId}/lesson/${lesson.id}`}
                 className={cn(
-                  "flex items-center gap-3 pl-9 pr-4 py-2.5 text-left hover:bg-slate-50 transition-colors relative group",
+                  "flex items-center gap-3 pl-9 pr-4 py-3 text-left hover:bg-slate-50 transition-colors relative group",
                   isActive && "bg-blue-50"
                 )}
               >
@@ -91,7 +91,7 @@ function ModuleSection({
                 )}
 
                 <Icon
-                  size={14}
+                  size={16}
                   className={cn(
                     "flex-shrink-0",
                     isActive ? "text-blue-600" : "text-slate-400"
@@ -100,7 +100,7 @@ function ModuleSection({
 
                 <span
                   className={cn(
-                    "flex-1 text-[12.5px] leading-snug line-clamp-2",
+                    "flex-1 text-sm leading-snug line-clamp-2",
                     isActive
                       ? "text-blue-700 font-semibold"
                       : lesson.completed
@@ -113,9 +113,9 @@ function ModuleSection({
 
                 <div className="flex-shrink-0">
                   {lesson.completed ? (
-                    <CheckCircle size={13} className="text-emerald-500" />
+                    <CheckCircle size={15} className="text-emerald-500" />
                   ) : (
-                    <Circle size={13} className="text-slate-200 group-hover:text-slate-300" />
+                    <Circle size={15} className="text-slate-200 group-hover:text-slate-300" />
                   )}
                 </div>
               </Link>
@@ -254,24 +254,24 @@ export default function CoursePlayerLayout({ children }: { children: React.React
 
         {/* Left sidebar */}
         {sidebarOpen && (
-          <div className="w-72 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden bg-white">
+          <div className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden bg-white">
             {/* Search */}
-            <div className="px-3 py-2.5 border-b border-slate-100">
+            <div className="px-3 py-3 border-b border-slate-100">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search titles, descriptions"
-                  className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-300 bg-slate-50"
+                  className="w-full pl-9 pr-7 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-300 bg-slate-50"
                 />
                 {search && (
                   <button
                     onClick={() => setSearch("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    <X size={12} />
+                    <X size={14} />
                   </button>
                 )}
               </div>

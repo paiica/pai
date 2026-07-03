@@ -880,31 +880,31 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
   return (
     <div className="flex h-[calc(100vh-80px)] border border-slate-200 rounded-xl overflow-hidden">
       {/* Sidebar */}
-      <div className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-100 bg-navy-900">
-          <p className="text-xs font-bold text-white truncate">{course.title}</p>
+      <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        <div className="px-4 py-3.5 border-b border-slate-100 bg-navy-900">
+          <p className="text-sm font-bold text-white truncate">{course.title}</p>
         </div>
         <div className="p-3 border-b border-slate-100">
           <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input placeholder="Search titles, descriptions" className="w-full pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none" readOnly />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input placeholder="Search titles, descriptions" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none" readOnly />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
           {modules.map(mod => (
             <div key={mod.id}>
-              <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-slate-50 text-left">
-                {expanded[mod.id] ? <ChevronDown size={13} className="text-slate-400" /> : <ChevronRight size={13} className="text-slate-400" />}
-                <span className="text-xs font-semibold text-navy-800 flex-1">{mod.title}</span>
+              <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-slate-50 text-left">
+                {expanded[mod.id] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                <span className="text-sm font-semibold text-navy-800 flex-1">{mod.title}</span>
               </button>
               {expanded[mod.id] && mod.lessons.map(l => {
                 const Icon = LESSON_ICONS[l.type] ?? FileText;
                 const isSelected = l.id === selectedId;
                 return (
-                  <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2 w-full pl-6 pr-3 py-2 text-left transition-colors", isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700")}>
-                    <GripVertical size={11} className={isSelected ? "text-blue-300" : "text-slate-300"} />
-                    <Icon size={13} className={isSelected ? "text-white" : "text-slate-400"} />
-                    <span className={cn("text-xs flex-1 truncate", isSelected ? "text-white" : "text-slate-700")}>{l.title}</span>
+                  <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2.5 w-full pl-8 pr-3 py-2.5 text-left transition-colors", isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700")}>
+                    <GripVertical size={13} className={isSelected ? "text-blue-300" : "text-slate-300"} />
+                    <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                    <span className={cn("text-sm flex-1 truncate", isSelected ? "text-white" : "text-slate-700")}>{l.title}</span>
                   </button>
                 );
               })}

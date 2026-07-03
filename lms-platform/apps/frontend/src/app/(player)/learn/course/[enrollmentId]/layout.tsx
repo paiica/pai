@@ -34,12 +34,12 @@ function ModuleSection({
     <div className="border-b border-slate-100 last:border-0">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+        className="w-full flex items-start gap-2.5 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors"
       >
-        <ChevronDown size={14} className={cn("mt-0.5 flex-shrink-0 text-slate-400 transition-transform", !open && "-rotate-90")} />
+        <ChevronDown size={16} className={cn("mt-0.5 flex-shrink-0 text-slate-400 transition-transform", !open && "-rotate-90")} />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-navy-900 leading-snug">{mod.title}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{lessons.length} lesson{lessons.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm font-semibold text-navy-900 leading-snug">{mod.title}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{lessons.length} lesson{lessons.length !== 1 ? "s" : ""}</p>
         </div>
       </button>
       {open && (
@@ -52,17 +52,17 @@ function ModuleSection({
                 key={lesson.id}
                 href={`/learn/course/${enrollmentId}/lesson/${lesson.id}`}
                 className={cn(
-                  "flex items-center gap-3 pl-9 pr-4 py-2.5 hover:bg-slate-50 transition-colors relative group",
+                  "flex items-center gap-3 pl-9 pr-4 py-3 hover:bg-slate-50 transition-colors relative group",
                   isActive && "bg-blue-50"
                 )}
               >
                 {isActive && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-600 rounded-r-full" />}
-                <Icon size={14} className={cn("flex-shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
-                <span className={cn("flex-1 text-[12.5px] leading-snug line-clamp-2", isActive ? "text-blue-700 font-semibold" : "text-slate-700")}>
+                <Icon size={16} className={cn("flex-shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
+                <span className={cn("flex-1 text-sm leading-snug line-clamp-2", isActive ? "text-blue-700 font-semibold" : "text-slate-700")}>
                   {lesson.title}
                 </span>
                 {lesson.duration_minutes > 0 && (
-                  <span className="text-[10px] text-slate-400 flex-shrink-0">{lesson.duration_minutes}m</span>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{lesson.duration_minutes}m</span>
                 )}
               </Link>
             );
@@ -150,20 +150,20 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {sidebarOpen && (
-          <div className="w-72 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden bg-white">
-            <div className="px-3 py-2.5 border-b border-slate-100">
+          <div className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden bg-white">
+            <div className="px-3 py-3 border-b border-slate-100">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search lessons"
-                  className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-navy-200 bg-slate-50"
+                  className="w-full pl-9 pr-7 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-navy-200 bg-slate-50"
                 />
                 {search && (
                   <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    <X size={12} />
+                    <X size={14} />
                   </button>
                 )}
               </div>
