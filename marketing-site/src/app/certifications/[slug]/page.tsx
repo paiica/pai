@@ -7,8 +7,8 @@ import StickyEnrollBar from "./StickyEnrollBar";
 import CertTabs from "./CertTabs";
 import type { PageTabsData } from "./cert-types";
 import {
-  CheckCircle2, Clock, BookOpen, Award, ArrowRight, ChevronRight,
-  Shield, Star, FileText, RefreshCw, Quote, Tag, Users2,
+  CheckCircle2, Award, ArrowRight, ChevronRight,
+  Shield, Quote, Tag,
 } from "lucide-react";
 import CertCTAButton from "@/components/CertCTAButton";
 
@@ -103,8 +103,6 @@ export default async function CertificationDetailPage({ params }: { params: Prom
     : modulesRaw.map((m: any) => ({ title: m.title, description: m.description ?? "", lessons: m._count?.lessons ?? 0 }));
 
   const meta               = cert.marketing_meta;
-  const reviewsRating      = meta?.reviews_rating    || "4.9";
-  const reviewsCount       = meta?.reviews_count      || "1,200+";
   const socialProof        = meta?.social_proof        || "Join 3,200+ certified professionals";
   const heroBadgeLabel     = meta?.hero_badge_label    || "Professional Certification";
   const prerequisites      = meta?.prerequisites        || "";
@@ -141,27 +139,33 @@ export default async function CertificationDetailPage({ params }: { params: Prom
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
               <div className="lg:col-span-2">
-                <div className="flex items-center gap-3 mb-5">
-                  <span className="badge-dark">{heroBadgeLabel}</span>
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((i) => <Star key={i} size={12} className="text-white fill-white" />)}
-                    <span className="text-white text-xs ml-1">{reviewsRating} ({reviewsCount} reviews)</span>
+                <span className="badge-dark inline-block mb-6">{heroBadgeLabel}</span>
+
+                <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-8 mb-6">
+                  {/* Signature graphic — acronym mark on a gradient sphere */}
+                  <div
+                    className="relative w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-full flex-shrink-0 overflow-hidden shadow-2xl"
+                    style={{ background: "linear-gradient(160deg, #5eead4 0%, #14b8a6 45%, #0a3d3a 100%)" }}
+                  >
+                    <div className="absolute inset-x-0 top-[38%] h-[8%] bg-white/25 blur-md" />
+                    <div className="absolute inset-0 flex items-center justify-center px-4">
+                      <div className="border-2 border-white/80 rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 bg-ink-900/15 backdrop-blur-sm">
+                        <span className="font-display font-black text-white text-base sm:text-xl tracking-tight leading-none whitespace-nowrap">{cert.acronym}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-5 mb-5">
-                  <div className="w-20 h-20 rounded-2xl border-2 border-white/25 bg-white/5 flex items-center justify-center flex-shrink-0">
-                    <span className="font-display font-black text-white text-lg tracking-tight leading-none">{cert.acronym}</span>
-                  </div>
+
                   <div>
                     <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
                     <p className="text-white text-xl mt-2">({cert.acronym})</p>
                   </div>
                 </div>
+
                 <p className="text-lg text-white leading-relaxed max-w-2xl mb-5">{cert.long_description || cert.description}</p>
 
                 {/* Skills tags */}
                 {skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-5">
+                  <div className="flex flex-wrap gap-2">
                     {skills.map((s) => (
                       <span key={s} className="inline-flex items-center gap-1 text-xs font-semibold text-white/80 bg-white/10 border border-white/20 px-3 py-1 rounded-full">
                         <Tag size={10} /> {s}
@@ -169,14 +173,6 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                     ))}
                   </div>
                 )}
-
-                <div className="flex flex-wrap gap-5 text-sm text-white">
-                  {cert.duration_weeks > 0 && <div className="flex items-center gap-1.5"><Clock size={14} />{cert.duration_weeks} weeks</div>}
-                  {cert.total_lessons > 0 && <div className="flex items-center gap-1.5"><BookOpen size={14} />{cert.total_lessons} lessons</div>}
-                  {cert.exam_duration_minutes > 0 && <div className="flex items-center gap-1.5"><FileText size={14} />{cert.exam_duration_minutes}min exam</div>}
-                  {cert.passing_score > 0 && <div className="flex items-center gap-1.5"><Shield size={14} />{cert.passing_score}% to pass</div>}
-                  {cert.validity_years > 0 && <div className="flex items-center gap-1.5"><RefreshCw size={14} />{cert.validity_years}-year validity</div>}
-                </div>
               </div>
 
               {/* Enrollment card */}
