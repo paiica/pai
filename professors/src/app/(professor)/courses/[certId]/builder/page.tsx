@@ -1104,7 +1104,7 @@ function StudentCourseView({ modules, course, token }: { modules: Module[]; cour
   }, [selectedId]);
 
   return (
-    <div className="flex h-[calc(100vh-220px)] border border-slate-200 rounded-xl overflow-hidden">
+    <div className="flex h-full border border-slate-200 rounded-xl overflow-hidden">
       <div className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
         <div className="px-4 py-3 border-b border-slate-100 bg-navy-900">
           <p className="text-xs font-bold text-white truncate">{course.title}</p>
@@ -1363,9 +1363,9 @@ function CurriculumTab({ courseId, token }: { courseId: string; token: string })
   }
 
   return (
-    <div className="-mx-4 sm:-mx-8 -mb-8">
+    <div className="flex flex-col" style={{ height: "calc(100vh - 184px)" }}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-6 py-3 bg-navy-900 border-y border-navy-800">
+      <div className="flex items-center justify-between px-6 py-3 bg-navy-900 border-y border-navy-800 flex-shrink-0">
         <span className="text-xs text-navy-300">{modules.length} module{modules.length !== 1 ? "s" : ""} · {modules.reduce((s, m) => s + m.lessons.length, 0)} lesson{modules.reduce((s, m) => s + m.lessons.length, 0) !== 1 ? "s" : ""}</span>
         <div className="flex items-center gap-2">
           {!showStudentView && modules.length > 0 && (
@@ -1389,13 +1389,13 @@ function CurriculumTab({ courseId, token }: { courseId: string; token: string })
       </div>
 
       {showStudentView ? (
-        <div className="p-6 bg-slate-50">
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           <StudentCourseView modules={modules} course={course} token={token} />
         </div>
       ) : (
-        <div className="flex" style={{ minHeight: "calc(100vh - 340px)" }}>
+        <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-72 flex-shrink-0 border-r border-slate-200">
+          <div className="w-72 flex-shrink-0 border-r border-slate-200 overflow-y-auto">
             <CourseSidebar
               modules={modules}
               selectedLessonId={selectedLesson?.lesson.id ?? null}
@@ -1409,7 +1409,7 @@ function CurriculumTab({ courseId, token }: { courseId: string; token: string })
           </div>
 
           {/* Content area */}
-          <div className="flex-1 bg-white">
+          <div className="flex-1 bg-white overflow-y-auto">
             {selectedLesson ? (
               <div className="max-w-3xl mx-auto px-8 py-8">
                 <div className="flex items-center gap-2 mb-1">
@@ -1523,52 +1523,55 @@ export default function CourseBuilderPage() {
   const modules: Module[] = course.modules ?? [];
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-black text-navy-900">{course.title}</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            /{course.slug} · {course.module_count ?? modules.length} modules
-          </p>
+    <div>
+      <div className="px-8 pt-8 max-w-4xl mx-auto">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-display font-black text-navy-900">{course.title}</h1>
+            <p className="text-slate-500 text-sm mt-0.5">
+              /{course.slug} · {course.module_count ?? modules.length} modules
+            </p>
+          </div>
+          <span className={cn("badge", course.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
+            {course.status}
+          </span>
         </div>
-        <span className={cn("badge", course.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>
-          {course.status}
-        </span>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
+          <button
+            onClick={() => setTab("overview")}
+            className={cn(
+              "px-3 py-2 text-sm font-medium border-b-2 transition-colors",
+              tab === "overview" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setTab("content")}
+            className={cn(
+              "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
+              tab === "content" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <BookOpen size={13} /> Content
+          </button>
+          <button
+            onClick={() => setTab("curriculum")}
+            className={cn(
+              "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
+              tab === "curriculum" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <Layers size={13} /> Curriculum
+          </button>
+        </div>
+
+        {tab === "overview" && <div className="pb-8"><OverviewTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
+        {tab === "content" && <div className="pb-8"><ContentTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
-        <button
-          onClick={() => setTab("overview")}
-          className={cn(
-            "px-3 py-2 text-sm font-medium border-b-2 transition-colors",
-            tab === "overview" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
-          )}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setTab("content")}
-          className={cn(
-            "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
-            tab === "content" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <BookOpen size={13} /> Content
-        </button>
-        <button
-          onClick={() => setTab("curriculum")}
-          className={cn(
-            "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
-            tab === "curriculum" ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <Layers size={13} /> Curriculum
-        </button>
-      </div>
-
-      {tab === "overview" && <OverviewTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} />}
-      {tab === "content" && <ContentTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} />}
       {tab === "curriculum" && <CurriculumTab courseId={courseId} token={token} />}
     </div>
   );

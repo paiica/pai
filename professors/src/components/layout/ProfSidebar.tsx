@@ -37,19 +37,22 @@ export function ProfSidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-navy-700">
-        <div className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center flex-shrink-0">
-          <GraduationCap size={18} className="text-white" />
-        </div>
+      <div className={cn("flex items-center py-5 border-b border-navy-700", collapsed ? "justify-center px-2" : "gap-3 px-4")}>
         {!collapsed && (
-          <div>
-            <p className="text-xs text-navy-300 font-medium leading-none">PAII</p>
-            <p className="text-sm font-bold leading-tight">Professor Portal</p>
-          </div>
+          <>
+            <div className="w-8 h-8 bg-gold-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-navy-300 font-medium leading-none">PAII</p>
+              <p className="text-sm font-bold leading-tight">Professor Portal</p>
+            </div>
+          </>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto text-navy-400 hover:text-white transition-colors"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn("text-navy-400 hover:text-white hover:bg-navy-700 transition-colors p-1.5 rounded-lg flex-shrink-0", !collapsed && "ml-auto")}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
