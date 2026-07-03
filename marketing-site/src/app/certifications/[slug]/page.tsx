@@ -148,14 +148,9 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                     <span className="text-white text-xs ml-1">{reviewsRating} ({reviewsCount} reviews)</span>
                   </div>
                 </div>
-                <div className="flex items-start gap-5 mb-5">
-                  <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 shadow-teal">
-                    {cert.badge_icon || "🎓"}
-                  </div>
-                  <div>
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
-                    <p className="text-white text-xl mt-2">({cert.acronym})</p>
-                  </div>
+                <div className="mb-5">
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
+                  <p className="text-white text-xl mt-2">({cert.acronym})</p>
                 </div>
                 <p className="text-lg text-white leading-relaxed max-w-2xl mb-5">{cert.long_description || cert.description}</p>
 
@@ -368,9 +363,6 @@ export default async function CertificationDetailPage({ params }: { params: Prom
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {relatedCerts.map((r) => (
                   <div key={r.slug} className="bg-white rounded-2xl border border-sand-200 shadow-card hover:shadow-card-hover transition-all p-5 flex flex-col">
-                    <div className="w-12 h-12 bg-gradient-to-br from-sand-100 to-sand-200 rounded-2xl flex items-center justify-center text-2xl mb-4">
-                      {r.badge_icon || "🎓"}
-                    </div>
                     <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{r.acronym}</div>
                     <h3 className="font-display font-bold text-ink-900 text-base mb-2 leading-snug">{r.title}</h3>
                     <p className="text-xs text-slate-500 leading-relaxed flex-1 mb-4">{r.description}</p>
@@ -391,7 +383,6 @@ export default async function CertificationDetailPage({ params }: { params: Prom
         <section className="section-padding bg-ink-900">
           <div className="container-lg text-center">
             <div className="max-w-2xl mx-auto">
-              <div className="text-5xl mb-4">{cert.badge_icon || "🎓"}</div>
               <h2 className="text-3xl font-display font-black text-white mb-3">
                 {isComingSoon ? `${cert.acronym} — Coming Soon` : `Ready to Earn Your ${cert.acronym}?`}
               </h2>
