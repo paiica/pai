@@ -36,6 +36,17 @@ export class ProfPrepCoursesController {
     return this.service.profGetCourse(courseId, userId, role);
   }
 
+  @Put(":courseId")
+  @ApiOperation({ summary: "Update course details (title, subtitle, description, price, level, status, content, etc.)" })
+  updateCourse(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Body() dto: any,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profUpdateCourse(courseId, dto, userId, role);
+  }
+
   @Post(":courseId/modules")
   @ApiOperation({ summary: "Add a module to this course" })
   createModule(

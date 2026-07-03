@@ -668,6 +668,14 @@ export class PrepCoursesService {
     return this.adminGetOne(courseId);
   }
 
+  // A professor assigned to this course (via CourseTeacher) can edit the
+  // same fields an admin can — title, subtitle, description, price, level,
+  // status, content, etc. — not just the module/lesson tree.
+  async profUpdateCourse(courseId: string, dto: Record<string, any>, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminUpdate(courseId, dto);
+  }
+
   // ─── Modules (course builder) ────────────────────────────────────────
 
   async createCourseModule(courseId: string, title: string, userId: string, role: Role) {
