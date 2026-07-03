@@ -76,31 +76,35 @@ function DocumentsTab({ courseId, token }: { courseId: string; token: string }) 
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-  async function uploadAndAdd(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     e.target.value = "";
-    if (!title.trim()) { toast.error("Enter a document name first"); return; }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`${API_BASE}/uploads/local`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      const data = await res.json();
-      const fileUrl: string = data?.url ?? data?.data?.url;
-      if (!fileUrl) throw new Error("No URL in response");
-      await api.post(`/admin/courses/${courseId}/documents`, {
-        title: title.trim(),
-        file_url: fileUrl,
-        file_name: file.name,
-      }, token);
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${API_BASE}/uploads/local`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const data = await res.json();
+        const fileUrl: string = data?.url ?? data?.data?.url;
+        if (!fileUrl) throw new Error("No URL in response");
+        const docTitle = (files.length === 1 && title.trim())
+          ? title.trim()
+          : file.name.replace(/\.[^/.]+$/, "");
+        await api.post(`/admin/courses/${courseId}/documents`, {
+          title: docTitle,
+          file_url: fileUrl,
+          file_name: file.name,
+        }, token);
+      }
       setTitle("");
-      toast.success("Document added");
+      toast.success(files.length > 1 ? `${files.length} documents added` : "Document added");
       mutate();
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
@@ -183,7 +187,9 @@ function DocumentsTab({ courseId, token }: { courseId: string; token: string }) 
 
         <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Document Name</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Document Name <span className="text-slate-400 font-normal normal-case">(optional for a single file — leave blank to use the file name; ignored when uploading several at once)</span>
+            </label>
             <input
               className="input-base text-sm"
               placeholder="e.g., Course Syllabus, Module Outline"
@@ -196,9 +202,10 @@ function DocumentsTab({ courseId, token }: { courseId: string; token: string }) 
             uploading ? "bg-navy-50 text-navy-400" : "bg-slate-50 hover:bg-navy-50 text-slate-500 hover:text-navy-700"
           )}>
             {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-            {uploading ? "Uploading…" : "Click to upload PDF or file"}
-            <input type="file" className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" onChange={uploadAndAdd} disabled={uploading} />
+            {uploading ? "Uploading…" : "Click to upload one or more files"}
+            <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" onChange={uploadFiles} disabled={uploading} />
           </label>
+          <p className="text-[11px] text-slate-400">You can add as many documents as you like — repeat this to upload more.</p>
         </div>
       </div>
     </div>
