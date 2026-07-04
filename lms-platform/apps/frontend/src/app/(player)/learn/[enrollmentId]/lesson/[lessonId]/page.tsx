@@ -429,6 +429,9 @@ function AssignmentLesson({
   }
 
   const isGraded = submission?.grade !== null && submission?.grade !== undefined;
+  const MAX_ATTEMPTS = 2;
+  const attemptsUsed = submission?.attempt_count ?? 0;
+  const canResubmit = attemptsUsed < MAX_ATTEMPTS;
 
   return (
     <div className="space-y-5">
@@ -465,89 +468,99 @@ function AssignmentLesson({
           {submission.feedback && (
             <p className="text-sm text-slate-700 leading-relaxed border-t border-emerald-200 pt-2 mt-2">{submission.feedback}</p>
           )}
+          <p className="text-xs text-emerald-700/70 pt-1">This assignment has been graded and can no longer be resubmitted.</p>
+        </div>
+      ) : submission && !canResubmit ? (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 flex items-center gap-2">
+          <AlertCircle size={14} /> Maximum submissions reached ({attemptsUsed}/{MAX_ATTEMPTS}) — awaiting review by your professor
         </div>
       ) : submission ? (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
           <CheckCircle size={14} /> Submitted — awaiting review by your professor
+          <span className="text-blue-500">· attempt {attemptsUsed}/{MAX_ATTEMPTS}</span>
         </div>
       ) : null}
 
-      {/* Text response */}
-      {allowText && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-semibold text-slate-700">
-              Written Response <span className="text-slate-400 font-normal">(optional if file attached)</span>
+      {!isGraded && canResubmit && (
+        <>
+          {/* Text response */}
+          {allowText && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Written Response <span className="text-slate-400 font-normal">(optional if file attached)</span>
+                </label>
+                {wordLimit != null && (
+                  <span className={cn(
+                    "text-xs font-medium tabular-nums",
+                    overLimit ? "text-red-600" : "text-slate-400"
+                  )}>
+                    {wordCount} / {wordLimit} words
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Write your response here…"
+                className={cn("input-base h-40 resize-y", overLimit && "border-red-400 focus:ring-red-300")}
+              />
+              {overLimit && (
+                <p className="text-xs text-red-600 mt-1">
+                  Over limit by {wordCount - wordLimit!} word{wordCount - wordLimit! !== 1 ? "s" : ""}. Please shorten your response.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* File upload */}
+          <div>
+            <label className="text-sm font-semibold text-slate-700 mb-2 block">
+              Attach File <span className="text-slate-400 font-normal">(optional if text provided)</span>
             </label>
-            {wordLimit != null && (
-              <span className={cn(
-                "text-xs font-medium tabular-nums",
-                overLimit ? "text-red-600" : "text-slate-400"
+            {uploadedFile ? (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <Download size={16} className="text-slate-500 flex-shrink-0" />
+                <span className="text-sm text-slate-700 flex-1 truncate">{uploadedFile.name}</span>
+                <button
+                  onClick={() => setUploadedFile(null)}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className={cn(
+                "flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
+                uploading ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"
               )}>
-                {wordCount} / {wordLimit} words
-              </span>
+                {uploading
+                  ? <Loader2 size={20} className="animate-spin text-blue-500" />
+                  : <Upload size={20} className="text-slate-400" />}
+                <span className="text-sm text-slate-500">
+                  {uploading ? "Uploading…" : "Click to upload PDF, Word, or other file"}
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+              </label>
             )}
           </div>
-          <textarea
-            value={textContent}
-            onChange={(e) => setTextContent(e.target.value)}
-            placeholder="Write your response here…"
-            className={cn("input-base h-40 resize-y", overLimit && "border-red-400 focus:ring-red-300")}
-          />
-          {overLimit && (
-            <p className="text-xs text-red-600 mt-1">
-              Over limit by {wordCount - wordLimit!} word{wordCount - wordLimit! !== 1 ? "s" : ""}. Please shorten your response.
-            </p>
-          )}
-        </div>
+
+          <button
+            onClick={submit}
+            disabled={submitting || uploading || overLimit}
+            className="btn-primary w-full justify-center disabled:opacity-50"
+          >
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {submission ? "Resubmit Assignment" : "Submit Assignment"}
+          </button>
+        </>
       )}
-
-      {/* File upload */}
-      <div>
-        <label className="text-sm font-semibold text-slate-700 mb-2 block">
-          Attach File <span className="text-slate-400 font-normal">(optional if text provided)</span>
-        </label>
-        {uploadedFile ? (
-          <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <Download size={16} className="text-slate-500 flex-shrink-0" />
-            <span className="text-sm text-slate-700 flex-1 truncate">{uploadedFile.name}</span>
-            <button
-              onClick={() => setUploadedFile(null)}
-              className="text-xs text-red-500 hover:text-red-700 font-medium"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <label className={cn(
-            "flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
-            uploading ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"
-          )}>
-            {uploading
-              ? <Loader2 size={20} className="animate-spin text-blue-500" />
-              : <Upload size={20} className="text-slate-400" />}
-            <span className="text-sm text-slate-500">
-              {uploading ? "Uploading…" : "Click to upload PDF, Word, or other file"}
-            </span>
-            <input
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"
-              onChange={handleFileChange}
-              disabled={uploading}
-            />
-          </label>
-        )}
-      </div>
-
-      <button
-        onClick={submit}
-        disabled={submitting || uploading || overLimit}
-        className="btn-primary w-full justify-center disabled:opacity-50"
-      >
-        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-        {submission ? "Resubmit Assignment" : "Submit Assignment"}
-      </button>
     </div>
   );
 }

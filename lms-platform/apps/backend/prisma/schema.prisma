@@ -869,6 +869,7 @@ model AssignmentSubmission {
   file_name     String?
   file_size     Int?
   text_content  String?          @db.Text
+  attempt_count Int              @default(1)
 
   status        SubmissionStatus @default(submitted)
   submitted_at  DateTime         @default(now())

@@ -406,6 +406,8 @@ export class LearningService {
 
   // ─── Assignment Submission ────────────────────────────────────────────
 
+  private static readonly MAX_ASSIGNMENT_ATTEMPTS = 2;
+
   async submitAssignment(enrollmentId: string, lessonId: string, userId: string, dto: SubmitAssignmentDto) {
     await this.assertEnrollment(enrollmentId, userId);
 
@@ -416,6 +418,18 @@ export class LearningService {
     if (!lesson || lesson.type !== "assignment") throw new BadRequestException("Lesson is not an assignment");
     if (!dto.file_url && !dto.text_content) {
       throw new BadRequestException("Either file or text content is required");
+    }
+
+    const existing = await this.prisma.assignmentSubmission.findUnique({
+      where: { lesson_id_user_id: { lesson_id: lessonId, user_id: userId } },
+    });
+    if (existing) {
+      if (existing.grade !== null && existing.grade !== undefined) {
+        throw new BadRequestException("This assignment has already been graded and can no longer be resubmitted.");
+      }
+      if (existing.attempt_count >= LearningService.MAX_ASSIGNMENT_ATTEMPTS) {
+        throw new BadRequestException(`Maximum of ${LearningService.MAX_ASSIGNMENT_ATTEMPTS} submission attempts reached.`);
+      }
     }
 
     const submission = await this.prisma.assignmentSubmission.upsert({
@@ -430,6 +444,7 @@ export class LearningService {
         text_content: dto.text_content,
         status: "submitted",
         submitted_at: new Date(),
+        attempt_count: 1,
       },
       update: {
         file_url: dto.file_url,
@@ -438,10 +453,7 @@ export class LearningService {
         text_content: dto.text_content,
         status: "submitted",
         submitted_at: new Date(),
-        grade: null,
-        feedback: null,
-        graded_by: null,
-        graded_at: null,
+        attempt_count: { increment: 1 },
         updated_at: new Date(),
       },
     });
