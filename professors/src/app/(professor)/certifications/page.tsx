@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Award, Users, BarChart2, ChevronRight } from "lucide-react";
+import { Award, Users, BarChart2, ChevronRight, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -64,8 +64,14 @@ export default function ProfCertificationsPage() {
               </div>
               <div className="flex items-center gap-2 ml-4">
                 <Link
-                  href={`/certifications/${cert.id}/gradebook`}
+                  href={`/certifications/${cert.id}/builder`}
                   className="btn-primary text-xs px-3 py-2"
+                >
+                  <Settings size={14} /> Builder
+                </Link>
+                <Link
+                  href={`/certifications/${cert.id}/gradebook`}
+                  className="btn-outline text-xs px-3 py-2"
                 >
                   <BarChart2 size={14} /> Gradebook
                 </Link>
