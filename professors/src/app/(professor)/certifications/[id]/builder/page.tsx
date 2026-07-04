@@ -61,11 +61,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 function CertSidebar({
   modules, selectedLessonId, onSelectLesson, onAddModule, onDeleteModule,
-  onAddLesson, onDeleteLesson,
+  onAddLesson, onDeleteLesson, onToggleModulePublish,
 }: {
   modules: Module[]; selectedLessonId: string | null; onSelectLesson: (l: Lesson, m: Module) => void;
   onAddModule: () => void; onDeleteModule: (m: Module) => void;
   onAddLesson: (m: Module) => void; onDeleteLesson: (l: Lesson, m: Module) => void;
+  onToggleModulePublish: (m: Module) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -104,6 +105,17 @@ function CertSidebar({
               <span className="flex-1 text-sm font-semibold text-navy-800 truncate cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}>
                 {mod.title}
               </span>
+              <button
+                onClick={() => onToggleModulePublish(mod)}
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors",
+                  mod.is_published ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                )}
+                title={mod.is_published ? "Published — visible to enrolled students. Click to unpublish." : "Draft — hidden from students. Click to publish."}
+              >
+                {mod.is_published ? <Eye size={11} /> : <EyeOff size={11} />}
+                {mod.is_published ? "Published" : "Draft"}
+              </button>
               <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
                 <button onClick={() => onAddLesson(mod)} className="p-1.5 rounded hover:bg-navy-100 text-slate-400 hover:text-navy-700" title="Add lesson"><Plus size={13} /></button>
                 <button onClick={() => onDeleteModule(mod)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete module"><Trash2 size={13} /></button>
@@ -910,6 +922,14 @@ export default function CertBuilderPage() {
     );
   }
 
+  async function handleToggleModulePublish(mod: Module) {
+    const next = !mod.is_published;
+    await toast.promise(
+      api.put(`/prof/modules/${mod.id}`, { is_published: next }, token).then(() => mutate()),
+      { loading: "Saving…", success: next ? "Module published — visible to students" : "Module unpublished", error: "Failed" }
+    );
+  }
+
   if (!certRaw) {
     return (
       <div className="p-8">
@@ -968,6 +988,7 @@ export default function CertBuilderPage() {
             onDeleteModule={handleDeleteModule}
             onAddLesson={handleAddLesson}
             onDeleteLesson={handleDeleteLesson}
+            onToggleModulePublish={handleToggleModulePublish}
           />
         </div>
 
