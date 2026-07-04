@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
@@ -361,6 +361,11 @@ function AssignmentLesson({
   );
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setTextContent(submission?.text_content ?? "");
+    setUploadedFile(submission?.file_url ? { url: submission.file_url, name: submission.file_name ?? "file", size: 0 } : null);
+  }, [submission?.updated_at]);
 
   const allowText = lesson.allow_text_response !== false;
   const wordLimit = lesson.text_word_limit as number | undefined;
