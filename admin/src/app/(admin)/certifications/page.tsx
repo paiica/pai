@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2, Timer } from "lucide-react";
+import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2, Timer, Wrench } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -314,6 +314,15 @@ export default function CertificationsPage() {
                           <Link href={`/certifications/${cert.id}`} className="btn-outline !py-1.5 !px-2.5 !text-xs" title="Edit">
                             <Pencil size={12} />
                           </Link>
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_PROFESSORS_URL || "http://localhost:3003"}/certifications/${cert.id}/builder`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-outline !py-1.5 !px-2.5 !text-xs"
+                            title="Open curriculum builder"
+                          >
+                            <Wrench size={12} />
+                          </a>
                           <button
                             onClick={() => setStatus(cert.id, cert.status === "archived" ? "active" : "archived")}
                             className={`btn-outline !py-1.5 !px-2.5 !text-xs ${cert.status === "archived" ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" : "text-slate-500 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50"}`}
