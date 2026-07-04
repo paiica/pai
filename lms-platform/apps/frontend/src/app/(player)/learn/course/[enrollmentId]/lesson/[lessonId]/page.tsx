@@ -3,11 +3,14 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
-import { useState } from "react";
-import { CheckCircle, Download, ExternalLink, Loader2, XCircle, RotateCcw, Award } from "lucide-react";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { CheckCircle, Download, ExternalLink, Loader2, XCircle, RotateCcw, Award, Upload, AlertCircle, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data ?? r);
@@ -201,6 +204,202 @@ function QuizLesson({ lesson }: { lesson: any }) {
   );
 }
 
+function AssignmentLesson({
+  lesson, enrollmentId, token, onComplete,
+}: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const submission = lesson.submission;
+  const [textContent, setTextContent] = useState(submission?.text_content ?? "");
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; size: number } | null>(
+    submission?.file_url ? { url: submission.file_url, name: submission.file_name ?? "file", size: 0 } : null
+  );
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setTextContent(submission?.text_content ?? "");
+    setUploadedFile(submission?.file_url ? { url: submission.file_url, name: submission.file_name ?? "file", size: 0 } : null);
+  }, [submission?.updated_at]);
+
+  const allowText = lesson.allow_text_response !== false;
+  const wordLimit = lesson.text_word_limit as number | undefined;
+  const wordCount = textContent.trim() ? textContent.trim().split(/\s+/).length : 0;
+  const overLimit = allowText && wordLimit != null && wordCount > wordLimit;
+  const isGraded = submission?.grade !== null && submission?.grade !== undefined;
+  const MAX_ATTEMPTS = 2;
+  const attemptsUsed = submission?.attempt_count ?? 0;
+  const canResubmit = attemptsUsed < MAX_ATTEMPTS;
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/uploads/local`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+      const data = await res.json();
+      const url: string = data?.url ?? data?.data?.url;
+      if (!url) throw new Error("No URL in upload response");
+      setUploadedFile({ url, name: file.name, size: file.size });
+      toast.success("File ready — click Submit to send your assignment");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function submit() {
+    if (!textContent.trim() && !uploadedFile) {
+      toast.error("Add a text response or upload a file before submitting.");
+      return;
+    }
+    if (overLimit) {
+      toast.error(`Response exceeds the ${wordLimit}-word limit (${wordCount} words).`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.post<any>(
+        `/prep-courses/learn/${enrollmentId}/lesson/${lesson.id}/assignment/submit`,
+        {
+          text_content: textContent || undefined,
+          file_url: uploadedFile?.url,
+          file_name: uploadedFile?.name,
+          file_size: uploadedFile?.size,
+        },
+        token
+      );
+      toast.success("Assignment submitted!");
+      onComplete();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {(lesson.content_body || lesson.description) && (
+        <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl">
+          <p className="font-semibold text-amber-800 text-sm mb-2">Instructions</p>
+          {(() => {
+            const body: string = lesson.content_body || lesson.description || "";
+            return isHTML(body) ? (
+              <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: body }} />
+            ) : (
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{body}</div>
+            );
+          })()}
+        </div>
+      )}
+
+      {lesson.due_date && (
+        <p className="text-sm text-amber-600 font-medium flex items-center gap-1.5">
+          <Clock size={13} /> Due: {new Date(lesson.due_date).toLocaleDateString("en-CA", { dateStyle: "long" })}
+        </p>
+      )}
+
+      {isGraded ? (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+          <p className="font-semibold text-emerald-800 text-sm flex items-center gap-2">
+            <CheckCircle size={15} /> Graded: {submission.grade} / {lesson.max_score ?? 100}
+          </p>
+          {submission.feedback && (
+            <p className="text-sm text-slate-700 leading-relaxed border-t border-emerald-200 pt-2 mt-2">{submission.feedback}</p>
+          )}
+          <p className="text-xs text-emerald-700/70 pt-1">This assignment has been graded and can no longer be resubmitted.</p>
+        </div>
+      ) : submission && !canResubmit ? (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 flex items-center gap-2">
+          <AlertCircle size={14} /> Maximum submissions reached ({attemptsUsed}/{MAX_ATTEMPTS}) — awaiting review by your instructor
+        </div>
+      ) : submission ? (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <CheckCircle size={14} /> Submitted — awaiting review by your instructor
+          <span className="text-blue-500">· attempt {attemptsUsed}/{MAX_ATTEMPTS}</span>
+        </div>
+      ) : null}
+
+      {!isGraded && canResubmit && (
+        <>
+          {allowText && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Written Response <span className="text-slate-400 font-normal">(optional if file attached)</span>
+                </label>
+                {wordLimit != null && (
+                  <span className={cn("text-xs font-medium tabular-nums", overLimit ? "text-red-600" : "text-slate-400")}>
+                    {wordCount} / {wordLimit} words
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Write your response here…"
+                className={cn("w-full h-40 border border-slate-200 rounded-xl p-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-navy-200", overLimit && "border-red-400 focus:ring-red-300")}
+              />
+              {overLimit && (
+                <p className="text-xs text-red-600 mt-1">
+                  Over limit by {wordCount - wordLimit!} word{wordCount - wordLimit! !== 1 ? "s" : ""}. Please shorten your response.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700 mb-2 block">
+              Attach File <span className="text-slate-400 font-normal">(optional if text provided)</span>
+            </label>
+            {uploadedFile ? (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <Download size={16} className="text-slate-500 flex-shrink-0" />
+                <span className="text-sm text-slate-700 flex-1 truncate">{uploadedFile.name}</span>
+                <button onClick={() => setUploadedFile(null)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className={cn(
+                "flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
+                uploading ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"
+              )}>
+                {uploading ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Upload size={20} className="text-slate-400" />}
+                <span className="text-sm text-slate-500">{uploading ? "Uploading…" : "Click to upload PDF, Word, or other file"}</span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+              </label>
+            )}
+          </div>
+
+          <button
+            onClick={submit}
+            disabled={submitting || uploading || overLimit}
+            className="w-full inline-flex items-center justify-center gap-2 bg-navy-900 hover:bg-navy-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
+          >
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {submission ? "Resubmit Assignment" : "Submit Assignment"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DownloadLesson({ lesson }: { lesson: any }) {
   return (
     <div className="space-y-5">
@@ -233,7 +432,7 @@ export default function CoursePrepLessonPage() {
   const { enrollmentId, lessonId } = useParams<{ enrollmentId: string; lessonId: string }>();
   const token = useAuthStore((s) => s.accessToken)!;
 
-  const { data: lesson, isLoading } = useSWR(
+  const { data: lesson, isLoading, mutate } = useSWR(
     token && enrollmentId && lessonId
       ? [`/prep-courses/learn/${enrollmentId}/lesson/${lessonId}`, token]
       : null,
@@ -280,7 +479,10 @@ export default function CoursePrepLessonPage() {
       <div className="mb-8">
         {lesson.type === "video" && <VideoLesson lesson={lesson} />}
         {(lesson.type === "reading" || lesson.type === "html") && <ReadingLesson lesson={lesson} />}
-        {(lesson.type === "download" || lesson.type === "assignment") && <DownloadLesson lesson={lesson} />}
+        {lesson.type === "download" && <DownloadLesson lesson={lesson} />}
+        {lesson.type === "assignment" && (
+          <AssignmentLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} />
+        )}
         {lesson.type === "quiz" && <QuizLesson lesson={lesson} />}
         {!["video", "reading", "html", "download", "assignment", "quiz"].includes(lesson.type) && (
           lesson.content_body ? (

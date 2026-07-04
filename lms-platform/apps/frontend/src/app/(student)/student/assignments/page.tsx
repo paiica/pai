@@ -50,9 +50,15 @@ function getStandaloneStatus(a: any) {
 export default function StudentAssignmentsPage() {
   const token = useAuthStore((s) => s.accessToken)!;
 
-  // Lesson-based assignments (existing)
+  // Lesson-based assignments (certifications)
   const { data: lessonAssignments, isLoading: loadingLesson } = useSWR(
     token ? ["/learn/assignments", token] : null,
+    ([url, t]) => fetcher(url, t)
+  );
+
+  // Lesson-based assignments (prep courses)
+  const { data: courseAssignments, isLoading: loadingCourse } = useSWR(
+    token ? ["/prep-courses/my/assignments", token] : null,
     ([url, t]) => fetcher(url, t)
   );
 
@@ -62,12 +68,26 @@ export default function StudentAssignmentsPage() {
     ([url, t]) => fetcher(url, t)
   );
 
-  const isLoading = loadingLesson || loadingStandalone;
+  const isLoading = loadingLesson || loadingCourse || loadingStandalone;
 
-  // Normalize lesson-based items
+  // Normalize lesson-based items (certifications)
   const lessonItems: any[] = (Array.isArray(lessonAssignments) ? lessonAssignments : []).map((a: any) => ({
     _type: "lesson",
     key: `lesson-${a.lesson_id}`,
+    lesson_id: a.lesson_id,
+    title: a.title,
+    description: null,
+    due_date: a.due_date,
+    max_score: a.max_score ?? 100,
+    certification: a.certification,
+    status: getLessonStatus(a),
+    feedback: a.submission?.feedback ?? null,
+  }));
+
+  // Normalize lesson-based items (prep courses)
+  const courseLessonItems: any[] = (Array.isArray(courseAssignments) ? courseAssignments : []).map((a: any) => ({
+    _type: "lesson",
+    key: `course-lesson-${a.lesson_id}`,
     lesson_id: a.lesson_id,
     title: a.title,
     description: null,
@@ -94,7 +114,7 @@ export default function StudentAssignmentsPage() {
     sections_count: Array.isArray(a.sections) ? a.sections.length : 0,
   }));
 
-  const allItems = [...standaloneItems, ...lessonItems];
+  const allItems = [...standaloneItems, ...lessonItems, ...courseLessonItems];
 
   const grouped = allItems.reduce((acc: Record<string, any[]>, a) => {
     const key = a.certification?.acronym ?? "General";

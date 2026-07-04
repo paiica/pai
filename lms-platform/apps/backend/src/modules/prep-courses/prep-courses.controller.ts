@@ -1,9 +1,10 @@
-import { Controller, Get, Param, UseGuards, ParseUUIDPipe } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Public } from "../../common/decorators/public.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { PrepCoursesService } from "./prep-courses.service";
+import { SubmitAssignmentDto } from "../learning/dto/submit-assignment.dto";
 
 @ApiTags("Prep Courses — Public")
 @Controller("prep-courses")
@@ -34,6 +35,14 @@ export class PrepCoursesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get("my/assignments")
+  @ApiOperation({ summary: "Get all assignment lessons across my course enrollments" })
+  async getMyAssignments(@CurrentUser("id") userId: string) {
+    return this.service.getMyCourseAssignments(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get("learn/:enrollmentId")
   @ApiOperation({ summary: "Get course learn view (modules + lessons) for enrolled student" })
   getCourseLearnView(
@@ -53,6 +62,20 @@ export class PrepCoursesController {
     @CurrentUser("id") userId: string,
   ) {
     return this.service.getCourseLessonContent(enrollmentId, lessonId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("learn/:enrollmentId/lesson/:lessonId/assignment/submit")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Submit an assignment (file URL or text)" })
+  submitAssignment(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: SubmitAssignmentDto,
+  ) {
+    return this.service.submitCourseAssignment(enrollmentId, lessonId, userId, dto);
   }
 
   @Public()

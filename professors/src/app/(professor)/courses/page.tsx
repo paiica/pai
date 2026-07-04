@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { BookOpen, Settings, Users, BarChart2 } from "lucide-react";
+import { BookOpen, Settings, Users, BarChart2, FileText } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -83,6 +83,12 @@ export default function ProfCoursesPage() {
                   className="btn-primary text-xs px-3 py-2"
                 >
                   <Settings size={14} /> Builder
+                </Link>
+                <Link
+                  href={`/courses/${course.id}/submissions`}
+                  className="btn-outline text-xs px-3 py-2"
+                >
+                  <FileText size={14} /> Submissions
                 </Link>
                 <Link
                   href={`/courses/${course.id}/gradebook`}

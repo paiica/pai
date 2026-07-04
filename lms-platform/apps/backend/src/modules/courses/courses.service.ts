@@ -349,7 +349,7 @@ export class CoursesService {
     });
 
     await this.learningService.completeGradedAssignment(
-      submission.enrollment_id, submission.lesson_id, submission.user_id
+      submission.enrollment_id!, submission.lesson_id, submission.user_id
     );
 
     return graded;

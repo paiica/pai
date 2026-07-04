@@ -667,6 +667,8 @@ model CourseEnrollment {
   stripe_payment_intent_id   String?
   amount_paid                Decimal? @db.Decimal(10, 2)
 
+  assignment_submissions AssignmentSubmission[]
+
   @@unique([user_id, course_id])
   @@index([user_id])
   @@index([course_id])
@@ -862,8 +864,10 @@ model AssignmentSubmission {
   lesson        Lesson           @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
   user_id       String
   user          User             @relation("student_submissions", fields: [user_id], references: [id], onDelete: Cascade)
-  enrollment_id String
-  enrollment    Enrollment       @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  enrollment_id String?
+  enrollment    Enrollment?      @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  course_enrollment_id String?
+  course_enrollment    CourseEnrollment? @relation(fields: [course_enrollment_id], references: [id], onDelete: Cascade)
 
   file_url      String?
   file_name     String?
@@ -884,6 +888,7 @@ model AssignmentSubmission {
 
   @@unique([lesson_id, user_id])
   @@index([enrollment_id])
+  @@index([course_enrollment_id])
   @@index([lesson_id])
   @@map("assignment_submissions")
   @@schema("lms")

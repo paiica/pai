@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { GradeSubmissionDto } from "../courses/dto/grade-submission.dto";
 
 @ApiTags("Professor — Course Builder")
 @ApiBearerAuth()
@@ -217,5 +218,26 @@ export class ProfPrepCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.service.profDeleteQuestion(lessonId, questionId, userId, role);
+  }
+
+  @Get(":courseId/submissions")
+  @ApiOperation({ summary: "List assignment submissions for this course" })
+  getSubmissions(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.getCourseSubmissions(courseId, userId, role);
+  }
+
+  @Put("submissions/:submissionId/grade")
+  @ApiOperation({ summary: "Grade an assignment submission" })
+  gradeSubmission(
+    @Param("submissionId", ParseUUIDPipe) submissionId: string,
+    @Body() dto: GradeSubmissionDto,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.gradeCourseSubmission(submissionId, dto, userId, role);
   }
 }
