@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Plus, Trash2, Edit3, Check, Video, FileText, HelpCircle,
-  File, Link2, Download, X, ChevronLeft, ChevronDown, ChevronRight,
+  File, Link2, Download, Eye, EyeOff, X, ChevronDown, ChevronRight,
   Save, Loader2, Search, BookOpen, FileQuestion, CheckCircle,
+  ArrowLeft, ArrowRight,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -49,6 +49,12 @@ const LESSON_COLORS: Record<string, string> = {
 const LESSON_TYPE_LABEL: Record<string, string> = {
   video: "Video", reading: "Reading", quiz: "Quiz",
   assignment: "Assignment", download: "Download / PDF", live_session: "Live Session", html: "HTML Page",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700",
+  archived: "bg-slate-100 text-slate-600",
+  coming_soon: "bg-amber-100 text-amber-700",
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -651,6 +657,182 @@ function LessonSettings({ lesson, token, onSaved }: { lesson: Lesson; token: str
   );
 }
 
+// ─── Student preview ──────────────────────────────────────────────────────────
+
+function StudentCertView({ modules, cert }: { modules: Module[]; cert: any }) {
+  const allLessons = modules.flatMap(m => m.lessons.map(l => ({ ...l, moduleName: m.title, moduleId: m.id })));
+  const [selectedId, setSelectedId] = useState<string | null>(allLessons[0]?.id ?? null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const init: Record<string, boolean> = {};
+    modules.forEach(m => { init[m.id] = true; });
+    setExpanded(init);
+  }, []);
+
+  const lesson = allLessons.find(l => l.id === selectedId) ?? allLessons[0];
+  const idx = allLessons.findIndex(l => l.id === lesson?.id);
+  const prev = allLessons[idx - 1];
+  const next = allLessons[idx + 1];
+
+  return (
+    <div className="flex h-full border border-slate-200 rounded-xl overflow-hidden">
+      <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        <div className="px-4 py-3.5 border-b border-slate-100 bg-navy-900">
+          <p className="text-sm font-bold text-white truncate">{cert.title}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2">
+          {modules.map(mod => (
+            <div key={mod.id}>
+              <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-slate-50 text-left">
+                {expanded[mod.id] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                <span className="text-sm font-semibold text-navy-800 flex-1">{mod.title}</span>
+              </button>
+              {expanded[mod.id] && mod.lessons.map(l => {
+                const Icon = LESSON_ICONS[l.type] ?? FileText;
+                const isSelected = l.id === selectedId;
+                return (
+                  <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2.5 w-full pl-8 pr-3 py-2.5 text-left transition-colors", isSelected ? "bg-navy-700 text-white" : "hover:bg-slate-50 text-slate-700")}>
+                    <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                    <span className={cn("text-sm flex-1 truncate", isSelected ? "text-white" : "text-slate-700")}>{l.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 bg-white overflow-y-auto">
+        {lesson ? (
+          <div className="max-w-3xl mx-auto px-8 py-8">
+            <p className="text-xs text-slate-400 mb-1">{lesson.moduleName}</p>
+            <h1 className="text-3xl font-bold text-navy-900 mb-6">{lesson.title}</h1>
+
+            {lesson.type === "video" && lesson.video_url && (
+              <div className="rounded-xl overflow-hidden border border-slate-200 aspect-video mb-6">
+                {(lesson.video_url.includes("youtube") || lesson.video_url.includes("youtu.be")) ? (
+                  <iframe src={lesson.video_url.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/")} className="w-full h-full" allowFullScreen title={lesson.title} />
+                ) : (
+                  <video src={lesson.video_url} controls className="w-full h-full" />
+                )}
+              </div>
+            )}
+
+            {(lesson.type === "reading" || lesson.type === "live_session" || lesson.type === "video") && lesson.content_body && (
+              (lesson.content_body as string).trim().startsWith("<") ? (
+                <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed mb-6" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+              ) : (
+                <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-6">{lesson.content_body}</p>
+              )
+            )}
+
+            {lesson.type === "html" && (
+              <div className="rounded-xl overflow-hidden border border-slate-200 mb-6" style={{ height: 500 }}>
+                <iframe srcDoc={lesson.content_body ?? ""} className="w-full h-full" title={lesson.title} sandbox="allow-scripts" style={{ border: "none" }} />
+              </div>
+            )}
+
+            {lesson.download_url && (
+              <div className="mb-6">
+                {/\.pdf$/i.test(lesson.download_url) ? (
+                  <div className="rounded-xl overflow-hidden border border-slate-200" style={{ height: 500 }}>
+                    <iframe src={lesson.download_url} className="w-full h-full" title="PDF" style={{ border: "none" }} />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <File size={20} className="text-red-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm truncate">{lesson.download_url.split("/").pop()}</p>
+                    </div>
+                    <a href={lesson.download_url} download target="_blank" rel="noreferrer" className="btn-primary !py-2 !px-4 !text-xs flex items-center gap-1 flex-shrink-0">
+                      <Download size={13} /> Download
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {lesson.type === "quiz" && (
+              (lesson.quiz_questions ?? []).length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <HelpCircle size={16} className="text-purple-500" />
+                    <span className="text-sm text-purple-700 font-medium">
+                      {lesson.quiz_questions!.length} question{lesson.quiz_questions!.length !== 1 ? "s" : ""}
+                      {lesson.passing_score ? ` · Passing score: ${lesson.passing_score}%` : ""}
+                      {lesson.max_attempts ? ` · ${lesson.max_attempts} attempt(s)` : ""}
+                      {lesson.time_limit_minutes ? ` · ${lesson.time_limit_minutes} min limit` : ""}
+                    </span>
+                  </div>
+                  {lesson.quiz_questions!.map((q, qi) => (
+                    <div key={q.id} className="border border-slate-200 rounded-xl p-5">
+                      <p className="font-semibold text-slate-800 mb-3 text-sm">{qi + 1}. {q.question_text}</p>
+                      <div className="space-y-2">
+                        {q.options.map((opt, oi) => (
+                          <div key={oi} className={cn("flex items-center gap-3 p-3 rounded-lg border text-sm", oi === q.correct_index ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600")}>
+                            <span className="w-6 h-6 rounded-full border border-current flex-shrink-0 flex items-center justify-center text-xs font-bold">
+                              {String.fromCharCode(65 + oi)}
+                            </span>
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                      {q.explanation && <p className="mt-3 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">{q.explanation}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 bg-purple-50 border border-purple-100 rounded-xl text-center">
+                  <HelpCircle size={36} className="text-purple-400 mx-auto mb-3" />
+                  <p className="font-semibold text-purple-800">Quiz</p>
+                  <p className="text-sm text-purple-600 mt-1">No questions added yet.</p>
+                </div>
+              )
+            )}
+
+            {lesson.type === "assignment" && lesson.content_body && (
+              <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl">
+                <p className="font-semibold text-amber-800 text-sm mb-2">Instructions</p>
+                {(lesson.content_body as string).trim().startsWith("<") ? (
+                  <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+                ) : (
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
+                )}
+                {(lesson.due_date || lesson.max_score) && (
+                  <p className="text-xs text-amber-600 mt-3">
+                    {lesson.max_score ? `${lesson.max_score} points` : ""}
+                    {lesson.due_date ? ` · Due ${new Date(lesson.due_date).toLocaleDateString()}` : ""}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-12 pt-6 border-t border-slate-100">
+              {prev ? (
+                <button onClick={() => setSelectedId(prev.id)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-navy-700 font-medium">
+                  <ArrowLeft size={16} /> {prev.title}
+                </button>
+              ) : <div />}
+              {next && (
+                <button onClick={() => setSelectedId(next.id)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-navy-700 font-medium">
+                  {next.title} <ArrowRight size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-slate-400">
+            <p>No lessons yet</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function CertBuilderPage() {
@@ -659,6 +841,7 @@ export default function CertBuilderPage() {
 
   const [selectedLesson, setSelectedLesson] = useState<{ lesson: Lesson; module: Module } | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "settings">("content");
+  const [showStudentView, setShowStudentView] = useState(false);
 
   const { data: certRaw, mutate } = useSWR(
     token && certId ? [`/prof/certifications/${certId}`, token] as const : null,
@@ -729,31 +912,52 @@ export default function CertBuilderPage() {
 
   if (!certRaw) {
     return (
-      <div className="p-8 flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader2 size={24} className="animate-spin text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Loading certification…</p>
+      <div className="p-8">
+        <div className="card p-8 animate-pulse space-y-4">
+          <div className="h-6 bg-slate-100 rounded w-1/3" />
+          <div className="h-32 bg-slate-100 rounded" />
         </div>
       </div>
     );
   }
 
+  const totalLessons = modules.reduce((s, m) => s + m.lessons.length, 0);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-0px)]">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 bg-navy-900 border-b border-navy-800 flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/certifications" className="text-navy-300 hover:text-white transition-colors flex-shrink-0">
-            <ChevronLeft size={16} />
-          </Link>
-          <span className="text-white font-semibold text-sm truncate">{cert.title} ({cert.acronym})</span>
+    <div className="flex flex-col h-screen">
+      {/* Page header */}
+      <div className="px-8 pt-8 max-w-4xl mx-auto w-full flex-shrink-0">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-display font-black text-navy-900">{cert.title}</h1>
+            <p className="text-slate-500 text-sm mt-0.5">
+              {cert.acronym} · {modules.length} module{modules.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <span className={cn("badge", STATUS_COLORS[cert.status] ?? "bg-slate-100 text-slate-600")}>
+            {cert.status}
+          </span>
         </div>
-        <span className="text-xs text-navy-300 flex-shrink-0">
-          {modules.length} module{modules.length !== 1 ? "s" : ""} · {modules.reduce((s, m) => s + m.lessons.length, 0)} lesson{modules.reduce((s, m) => s + m.lessons.length, 0) !== 1 ? "s" : ""}
-        </span>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-6 py-3 bg-navy-900 border-y border-navy-800 flex-shrink-0">
+        <span className="text-xs text-navy-300">{modules.length} module{modules.length !== 1 ? "s" : ""} · {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}</span>
+        <button
+          onClick={() => setShowStudentView(!showStudentView)}
+          className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border", showStudentView ? "bg-navy-600 text-white border-navy-500" : "bg-navy-800 text-navy-200 border-navy-700 hover:bg-navy-700")}
+        >
+          {showStudentView ? <EyeOff size={12} /> : <Eye size={12} />}
+          {showStudentView ? "Exit Preview" : "Student View"}
+        </button>
+      </div>
+
+      {showStudentView ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 bg-slate-50">
+          <StudentCertView modules={modules} cert={cert} />
+        </div>
+      ) : (
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <div className="w-80 flex-shrink-0 border-r border-slate-200 overflow-y-auto">
           <CertSidebar
@@ -810,6 +1014,7 @@ export default function CertBuilderPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Add module modal */}
       {addingModule && (
