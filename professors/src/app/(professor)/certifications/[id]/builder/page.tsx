@@ -608,6 +608,7 @@ function AssignmentEditor({ lesson, token, onSaved }: { lesson: Lesson; token: s
 
 function LessonSettings({ lesson, token, onSaved }: { lesson: Lesson; token: string; onSaved: () => void }) {
   const [title, setTitle] = useState(lesson.title);
+  const [description, setDescription] = useState(lesson.description ?? "");
   const [type, setType] = useState(lesson.type);
   const [duration, setDuration] = useState(lesson.duration_minutes);
   const [published, setPublished] = useState(lesson.is_published);
@@ -615,7 +616,7 @@ function LessonSettings({ lesson, token, onSaved }: { lesson: Lesson; token: str
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setTitle(lesson.title); setType(lesson.type); setDuration(lesson.duration_minutes);
+    setTitle(lesson.title); setDescription(lesson.description ?? ""); setType(lesson.type); setDuration(lesson.duration_minutes);
     setPublished(lesson.is_published); setFreePreview(lesson.is_free_preview);
   }, [lesson.id]);
 
@@ -623,7 +624,7 @@ function LessonSettings({ lesson, token, onSaved }: { lesson: Lesson; token: str
     setSaving(true);
     try {
       await api.put(`/prof/lessons/${lesson.id}`, {
-        title, type, duration_minutes: duration, is_published: published, is_free_preview: freePreview,
+        title, description: description || undefined, type, duration_minutes: duration, is_published: published, is_free_preview: freePreview,
       }, token);
       toast.success("Settings saved"); onSaved();
     } catch { toast.error("Failed to save"); }
@@ -635,6 +636,12 @@ function LessonSettings({ lesson, token, onSaved }: { lesson: Lesson; token: str
       <div>
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Lesson Title</label>
         <input value={title} onChange={e => setTitle(e.target.value)} className="input-base text-sm" />
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">
+          Instructions <span className="text-slate-400 normal-case font-normal">(shown to students before the lesson content)</span>
+        </label>
+        <textarea value={description} onChange={e => setDescription(e.target.value)} className="input-base h-20 resize-none text-sm" placeholder="Anything students should know before starting this lesson…" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -878,15 +885,17 @@ export default function CertBuilderPage() {
 
   const [addingModule, setAddingModule] = useState(false);
   const [moduleTitle, setModuleTitle] = useState("");
+  const [moduleDescription, setModuleDescription] = useState("");
   const [addingLessonToModule, setAddingLessonToModule] = useState<Module | null>(null);
   const [newLessonTitle, setNewLessonTitle] = useState("");
   const [newLessonType, setNewLessonType] = useState("reading");
+  const [newLessonDescription, setNewLessonDescription] = useState("");
 
   async function handleAddModule() {
     if (!moduleTitle.trim()) return;
     await toast.promise(
-      api.post(`/prof/certifications/${certId}/modules`, { title: moduleTitle }, token)
-        .then(() => { setAddingModule(false); setModuleTitle(""); mutate(); }),
+      api.post(`/prof/certifications/${certId}/modules`, { title: moduleTitle, description: moduleDescription || undefined }, token)
+        .then(() => { setAddingModule(false); setModuleTitle(""); setModuleDescription(""); mutate(); }),
       { loading: "Creating…", success: "Module created", error: "Failed" }
     );
   }
@@ -901,14 +910,17 @@ export default function CertBuilderPage() {
 
   function handleAddLesson(mod: Module) {
     setAddingLessonToModule(mod);
-    setNewLessonTitle(""); setNewLessonType("reading");
+    setNewLessonTitle(""); setNewLessonType("reading"); setNewLessonDescription("");
   }
 
   async function submitAddLesson() {
     if (!addingLessonToModule || !newLessonTitle.trim()) return;
     const mod = addingLessonToModule;
     await toast.promise(
-      api.post(`/prof/modules/${mod.id}/lessons`, { title: newLessonTitle, type: newLessonType, duration_minutes: 10 }, token)
+      api.post(`/prof/modules/${mod.id}/lessons`, {
+        title: newLessonTitle, type: newLessonType, duration_minutes: 10,
+        description: newLessonDescription || undefined,
+      }, token)
         .then(() => { setAddingLessonToModule(null); mutate(); }),
       { loading: "Creating…", success: "Lesson created", error: "Failed" }
     );
@@ -1042,7 +1054,9 @@ export default function CertBuilderPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
             <p className="font-bold text-navy-900 mb-4">New Module</p>
-            <input value={moduleTitle} onChange={e => setModuleTitle(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleAddModule(); if (e.key === "Escape") setAddingModule(false); }} className="input-base mb-4" placeholder="Module title" autoFocus />
+            <input value={moduleTitle} onChange={e => setModuleTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") setAddingModule(false); }} className="input-base mb-3" placeholder="Module title" autoFocus />
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Instructions <span className="text-slate-400 font-normal">(optional — shown to students above this module's lessons)</span></label>
+            <textarea value={moduleDescription} onChange={e => setModuleDescription(e.target.value)} className="input-base mb-4 h-20 resize-none text-sm" placeholder="What this module covers…" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setAddingModule(false)} className="btn-outline !py-2 !px-4 !text-sm">Cancel</button>
               <button onClick={handleAddModule} className="btn-primary !py-2 !px-4 !text-sm">Create Module</button>
@@ -1057,8 +1071,8 @@ export default function CertBuilderPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
             <p className="font-bold text-navy-900 mb-1">New Lesson</p>
             <p className="text-xs text-slate-500 mb-4">in {addingLessonToModule.title}</p>
-            <input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submitAddLesson(); if (e.key === "Escape") setAddingLessonToModule(null); }} className="input-base mb-3" placeholder="Lesson title" autoFocus />
-            <select value={newLessonType} onChange={e => setNewLessonType(e.target.value)} className="input-base mb-4 text-sm">
+            <input value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") setAddingLessonToModule(null); }} className="input-base mb-3" placeholder="Lesson title" autoFocus />
+            <select value={newLessonType} onChange={e => setNewLessonType(e.target.value)} className="input-base mb-3 text-sm">
               <option value="reading">Reading</option>
               <option value="video">Video</option>
               <option value="html">HTML Page</option>
@@ -1067,6 +1081,8 @@ export default function CertBuilderPage() {
               <option value="assignment">Assignment</option>
               <option value="live_session">Live Session</option>
             </select>
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Instructions <span className="text-slate-400 font-normal">(optional — shown to students before the lesson content)</span></label>
+            <textarea value={newLessonDescription} onChange={e => setNewLessonDescription(e.target.value)} className="input-base mb-4 h-20 resize-none text-sm" placeholder="Anything students should know before starting this lesson…" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setAddingLessonToModule(null)} className="btn-outline !py-2 !px-4 !text-sm">Cancel</button>
               <button onClick={submitAddLesson} className="btn-primary !py-2 !px-4 !text-sm">Create Lesson</button>
