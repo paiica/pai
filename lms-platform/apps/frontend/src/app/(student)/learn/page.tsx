@@ -5,7 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import {
   BookOpen, Calendar, ArrowRight, CheckCircle, GraduationCap,
-  ShoppingCart, Layers, ExternalLink, ChevronDown, Clock, Trophy,
+  ShoppingCart, Layers, ExternalLink, ChevronDown, Clock, Trophy, Play,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
@@ -137,14 +137,24 @@ function CertBannerCard({
           <span className="text-[10px] text-slate-400 flex items-center gap-1">
             <Calendar size={9} /> {enrolledDate}
           </span>
-          <div className={cn(
-            "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200",
-            open ? "bg-navy-900" : "bg-slate-100 hover:bg-slate-200"
-          )}>
-            <ChevronDown
-              size={14}
-              className={cn("transition-transform duration-200", open ? "rotate-180 text-white" : "text-slate-400")}
-            />
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/learn/${enrollment.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Play size={11} className="fill-white" />
+              {isCompleted ? "Review" : pct > 0 ? "Continue" : "Start"}
+            </Link>
+            <div className={cn(
+              "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
+              open ? "bg-navy-900" : "bg-slate-100 hover:bg-slate-200"
+            )}>
+              <ChevronDown
+                size={14}
+                className={cn("transition-transform duration-200", open ? "rotate-180 text-white" : "text-slate-400")}
+              />
+            </div>
           </div>
         </div>
       </div>
