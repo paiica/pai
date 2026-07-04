@@ -75,7 +75,7 @@ function getInitials(first: string, last: string) {
 function CertCard({ enrollment, certificate }: { enrollment: any; certificate: any }) {
   const cert = enrollment.certification;
   const pct = enrollment.progress_percentage ?? 0;
-  const isCompleted = enrollment.status === "completed";
+  const isCompleted = pct === 100;
   const hasCert = !!certificate;
 
   let statusLabel = `${pct}% Complete`;

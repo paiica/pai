@@ -267,6 +267,23 @@ export class LearningService {
     return progress;
   }
 
+  // ─── Assignment Grading ───────────────────────────────────────────────
+
+  async completeGradedAssignment(enrollmentId: string, lessonId: string, userId: string) {
+    await this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: {
+        user_id: userId,
+        enrollment_id: enrollmentId,
+        lesson_id: lessonId,
+        completed: true,
+        completed_at: new Date(),
+      },
+      update: { completed: true, completed_at: new Date() },
+    });
+    await this.recalculateProgress(enrollmentId, userId);
+  }
+
   private async recalculateProgress(enrollmentId: string, userId: string) {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
@@ -291,14 +308,15 @@ export class LearningService {
     const completedLessons = enrollment.lesson_progress.length;
     const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
+    // Note: enrollment.status only moves to "completed" once the admin grants a
+    // certificate after the proctored exam (see certificates.service.ts `issue()`).
+    // Finishing lesson content just means the exam can now be booked — it must not
+    // flip the same status the admin's certificate step-bar treats as "exam complete".
     await this.prisma.enrollment.update({
       where: { id: enrollmentId },
       data: {
         progress_percentage: pct,
         last_accessed_at: new Date(),
-        ...(pct === 100 && enrollment.status === "active"
-          ? { status: "completed", completed_at: new Date() }
-          : {}),
       },
     });
 
@@ -437,7 +455,7 @@ export class LearningService {
         lesson_id: lessonId,
         completed: false,
       },
-      update: { updated_at: new Date() },
+      update: { completed: false, completed_at: null, updated_at: new Date() },
     });
 
     // Notify instructors

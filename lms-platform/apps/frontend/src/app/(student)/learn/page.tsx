@@ -60,7 +60,7 @@ function CertBannerCard({
   const [open, setOpen] = useState(false);
   const cert = enrollment.certification;
   const pct = enrollment.progress_percentage ?? 0;
-  const isCompleted = enrollment.status === "completed";
+  const isCompleted = pct === 100;
   const accent = CERT_ACCENTS[index % CERT_ACCENTS.length];
   const enrolledDate = new Date(enrollment.enrolled_at).toLocaleDateString("en-CA", {
     month: "short", day: "numeric", year: "numeric",

@@ -10,10 +10,14 @@ import { UpdateLessonDto } from "./dto/update-lesson.dto";
 import { ReorderItemsDto } from "./dto/reorder-items.dto";
 import { CreateQuestionDto } from "./dto/create-question.dto";
 import { GradeSubmissionDto } from "./dto/grade-submission.dto";
+import { LearningService } from "../learning/learning.service";
 
 @Injectable()
 export class CoursesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private learningService: LearningService,
+  ) {}
 
   // ─── Public ──────────────────────────────────────────────────────────
 
@@ -333,7 +337,7 @@ export class CoursesService {
     if (!submission) throw new NotFoundException("Submission not found");
     await this.assertProfessorAccess(submission.lesson.module.certification_id!, graderId, role);
 
-    return this.prisma.assignmentSubmission.update({
+    const graded = await this.prisma.assignmentSubmission.update({
       where: { id: submissionId },
       data: {
         grade: dto.grade,
@@ -343,6 +347,12 @@ export class CoursesService {
         status: "graded",
       },
     });
+
+    await this.learningService.completeGradedAssignment(
+      submission.enrollment_id, submission.lesson_id, submission.user_id
+    );
+
+    return graded;
   }
 
   // ─── Gradebook ────────────────────────────────────────────────────────
