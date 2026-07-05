@@ -3,7 +3,7 @@ import {
   IsBoolean, IsArray, Min, MaxLength,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { EventType, EventStatus } from "@prisma/client";
+import { EventType, EventStatus, EventNature, MeetingPlatform } from "@prisma/client";
 
 export class CreateEventDto {
   @IsString()
@@ -25,9 +25,12 @@ export class CreateEventDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() cover_image_url?: string;
   @IsOptional() @IsString() promo_video_url?: string;
+  @IsOptional() @IsEnum(EventNature) event_nature?: EventNature;
   @IsOptional() @IsEnum(EventType) event_type?: EventType;
+  @IsOptional() @IsString() city?: string;
   @IsOptional() @IsString() location_address?: string;
   @IsOptional() @IsString() meeting_link?: string;
+  @IsOptional() @IsEnum(MeetingPlatform) meeting_platform?: MeetingPlatform;
   @IsOptional() @IsString() timezone?: string;
   @IsOptional() @IsNumber() @Min(0) price?: number;
   @IsOptional() @IsString() currency?: string;

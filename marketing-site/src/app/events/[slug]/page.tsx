@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import EventRegisterForm from "./EventRegisterForm";
+import SpeakerCard from "./SpeakerCard";
 import { Calendar, Globe, MapPin } from "lucide-react";
 
 type Speaker = { id: string; name: string; title: string; company: string; bio: string; photo_url: string };
@@ -11,9 +12,21 @@ type AgendaItem = { id: string; day_label: string; time: string; title: string; 
 type EventDetail = {
   id: string; slug: string; title: string; subtitle: string | null; summary: string | null;
   description: string | null; cover_image_url: string | null; promo_video_url: string | null;
-  event_type: "online" | "in_person" | "hybrid"; location_address: string | null; meeting_link: string | null;
+  event_nature: "training" | "seminar" | "workshop" | "conference" | "meetup" | "webinar" | "other" | null;
+  event_type: "online" | "in_person" | "hybrid";
+  city: string | null; location_address: string | null; meeting_link: string | null;
+  meeting_platform: "zoom" | "teams" | "google_meet" | "other" | null;
   timezone: string; start_at: string; end_at: string; price: string; currency: string;
   speakers: Speaker[] | null; agenda: AgendaItem[] | null; topics: string[];
+};
+
+const NATURE_LABELS: Record<string, string> = {
+  training: "Training", seminar: "Seminar", workshop: "Workshop",
+  conference: "Conference", meetup: "Meetup", webinar: "Webinar", other: "Event",
+};
+
+const PLATFORM_LABELS: Record<string, string> = {
+  zoom: "Zoom", teams: "Microsoft Teams", google_meet: "Google Meet", other: "video call",
 };
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -84,9 +97,14 @@ export default async function EventDetailPage({
       <Navbar />
       <main className="bg-white">
         {/* Hero */}
-        <div className="pt-24 pb-16 bg-hero-dark relative overflow-hidden">
+        <div className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 32px)" }}>
           <div className="container-md relative">
             <div className="flex items-center gap-2 mb-4 flex-wrap">
+              {event.event_nature && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-white">
+                  {NATURE_LABELS[event.event_nature] ?? event.event_nature}
+                </span>
+              )}
               <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-white">
                 {event.event_type === "in_person" ? <MapPin size={12} /> : <Globe size={12} />}
                 {event.event_type === "in_person" ? "In Person" : event.event_type === "hybrid" ? "Hybrid" : "Online"}
@@ -139,16 +157,16 @@ export default async function EventDetailPage({
             {agenda.length > 0 && (
               <div>
                 <h2 className="text-xl font-display font-black text-ink-900 mb-5">Agenda</h2>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {agenda.map((item) => (
-                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-sand-200 bg-sand-50/40">
-                      <div className="flex-shrink-0 w-24 text-xs font-bold text-teal-700 pt-0.5">
-                        {item.day_label && <div className="text-sand-500 font-medium mb-0.5">{item.day_label}</div>}
+                    <div key={item.id} className="flex gap-5 p-6 rounded-2xl border border-sand-200 bg-sand-50/40">
+                      <div className="flex-shrink-0 w-28 text-sm font-bold text-teal-700 pt-0.5">
+                        {item.day_label && <div className="text-sand-500 font-medium mb-1">{item.day_label}</div>}
                         {item.time}
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-ink-900 text-sm">{item.title}</p>
-                        {item.description && <p className="text-sm text-ink-500 mt-1 leading-relaxed">{item.description}</p>}
+                        <p className="font-display font-bold text-ink-900 text-lg leading-snug">{item.title}</p>
+                        {item.description && <p className="text-base text-ink-500 mt-1.5 leading-relaxed">{item.description}</p>}
                       </div>
                     </div>
                   ))}
@@ -159,20 +177,9 @@ export default async function EventDetailPage({
             {speakers.length > 0 && (
               <div>
                 <h2 className="text-xl font-display font-black text-ink-900 mb-5">Speakers</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {speakers.map((speaker) => (
-                    <div key={speaker.id} className="flex gap-4 p-4 rounded-xl border border-sand-200">
-                      <div className="w-16 h-16 rounded-full bg-sand-100 overflow-hidden flex-shrink-0">
-                        {speaker.photo_url && <img src={speaker.photo_url} alt={speaker.name} className="w-full h-full object-cover" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink-900 text-sm">{speaker.name}</p>
-                        <p className="text-xs text-sand-500 mb-1.5">
-                          {[speaker.title, speaker.company].filter(Boolean).join(" · ")}
-                        </p>
-                        {speaker.bio && <p className="text-xs text-ink-500 leading-relaxed line-clamp-3">{speaker.bio}</p>}
-                      </div>
-                    </div>
+                    <SpeakerCard key={speaker.id} speaker={speaker} />
                   ))}
                 </div>
               </div>
@@ -193,10 +200,25 @@ export default async function EventDetailPage({
               <EventRegisterForm eventId={event.id} price={price} alreadyRegistered={registered === "1"} />
               <div className="rounded-2xl border border-sand-200 p-4 space-y-2.5 text-sm text-ink-500">
                 <div className="flex items-center gap-2"><Calendar size={14} className="text-sand-400 flex-shrink-0" /> {formatDateTime(event.start_at, event.end_at, event.timezone)}</div>
-                <div className="flex items-center gap-2">
-                  {event.event_type === "in_person" ? <MapPin size={14} className="text-sand-400 flex-shrink-0" /> : <Globe size={14} className="text-sand-400 flex-shrink-0" />}
-                  {event.event_type === "in_person" ? (event.location_address ?? "In person") : "Online — link sent after registration"}
-                </div>
+                {event.event_type !== "online" && (
+                  <div className="flex items-start gap-2">
+                    <MapPin size={14} className="text-sand-400 flex-shrink-0 mt-0.5" />
+                    <span>
+                      {event.city && <span className="font-semibold text-ink-900">{event.city}</span>}
+                      {event.city && event.location_address && ", "}
+                      {event.location_address}
+                      {!event.city && !event.location_address && "In person"}
+                    </span>
+                  </div>
+                )}
+                {event.event_type !== "in_person" && (
+                  <div className="flex items-center gap-2">
+                    <Globe size={14} className="text-sand-400 flex-shrink-0" />
+                    {event.meeting_platform
+                      ? `via ${PLATFORM_LABELS[event.meeting_platform]} — link sent after registration`
+                      : "Online — link sent after registration"}
+                  </div>
+                )}
               </div>
             </div>
           </div>

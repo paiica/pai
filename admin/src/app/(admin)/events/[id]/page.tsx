@@ -101,9 +101,12 @@ export default function EventEditorPage() {
   const [description, setDescription] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [promoVideo, setPromoVideo] = useState("");
+  const [eventNature, setEventNature] = useState<"" | "training" | "seminar" | "workshop" | "conference" | "meetup" | "webinar" | "other">("");
   const [eventType, setEventType] = useState<"online" | "in_person" | "hybrid">("online");
+  const [city, setCity] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
+  const [meetingPlatform, setMeetingPlatform] = useState<"" | "zoom" | "teams" | "google_meet" | "other">("");
   const [timezone, setTimezone] = useState("America/Toronto");
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
@@ -126,9 +129,12 @@ export default function EventEditorPage() {
     setDescription(event.description ?? "");
     setCoverImage(event.cover_image_url ?? "");
     setPromoVideo(event.promo_video_url ?? "");
+    setEventNature(event.event_nature ?? "");
     setEventType(event.event_type ?? "online");
+    setCity(event.city ?? "");
     setLocationAddress(event.location_address ?? "");
     setMeetingLink(event.meeting_link ?? "");
+    setMeetingPlatform(event.meeting_platform ?? "");
     setTimezone(event.timezone ?? "America/Toronto");
     setStartAt(toLocalInputValue(event.start_at));
     setEndAt(toLocalInputValue(event.end_at));
@@ -155,7 +161,9 @@ export default function EventEditorPage() {
       await api.put(`/admin/events/${id}`, {
         title, slug, subtitle, summary, description,
         cover_image_url: coverImage, promo_video_url: promoVideo,
-        event_type: eventType, location_address: locationAddress, meeting_link: meetingLink,
+        event_nature: eventNature || undefined,
+        event_type: eventType, city, location_address: locationAddress, meeting_link: meetingLink,
+        meeting_platform: meetingPlatform || undefined,
         timezone, start_at: new Date(startAt).toISOString(), end_at: new Date(endAt).toISOString(),
         price: parseFloat(price) || 0,
         capacity: capacity ? parseInt(capacity) : undefined,
@@ -288,7 +296,20 @@ export default function EventEditorPage() {
 
           <div className="card p-5 space-y-4">
             <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Format & Location</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Event Nature</label>
+                <select className="input-base" value={eventNature} onChange={(e) => setEventNature(e.target.value as any)}>
+                  <option value="">Select…</option>
+                  <option value="training">Training</option>
+                  <option value="seminar">Seminar</option>
+                  <option value="workshop">Workshop</option>
+                  <option value="conference">Conference</option>
+                  <option value="meetup">Meetup</option>
+                  <option value="webinar">Webinar</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Type</label>
                 <select className="input-base" value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
@@ -303,15 +324,33 @@ export default function EventEditorPage() {
               </div>
             </div>
             {eventType !== "online" && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Address</label>
-                <input className="input-base" value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} placeholder="123 Main St, Toronto, ON" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">City</label>
+                  <input className="input-base" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Toronto" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Address</label>
+                  <input className="input-base" value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} placeholder="123 Main St, ON M5V 2T6" />
+                </div>
               </div>
             )}
             {eventType !== "in_person" && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Meeting Link</label>
-                <input className="input-base" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://zoom.us/…" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Meeting Platform</label>
+                  <select className="input-base" value={meetingPlatform} onChange={(e) => setMeetingPlatform(e.target.value as any)}>
+                    <option value="">Select…</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="teams">Microsoft Teams</option>
+                    <option value="google_meet">Google Meet</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Meeting Link</label>
+                  <input className="input-base" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://zoom.us/…" />
+                </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">

@@ -185,6 +185,27 @@ enum EventStatus {
   @@schema("lms")
 }
 
+enum EventNature {
+  training
+  seminar
+  workshop
+  conference
+  meetup
+  webinar
+  other
+
+  @@schema("lms")
+}
+
+enum MeetingPlatform {
+  zoom
+  teams
+  google_meet
+  other
+
+  @@schema("lms")
+}
+
 enum EventRegistrationStatus {
   registered
   cancelled
@@ -1382,9 +1403,12 @@ model Event {
   description       String?      @db.Text
   cover_image_url   String?
   promo_video_url   String?
+  event_nature      EventNature?
   event_type        EventType    @default(online)
+  city              String?
   location_address  String?
   meeting_link      String?
+  meeting_platform  MeetingPlatform?
   timezone          String       @default("America/Toronto")
   start_at          DateTime
   end_at            DateTime
