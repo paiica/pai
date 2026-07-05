@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { Calendar, Globe, MapPin } from "lucide-react";
+import { Globe, MapPin } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Events",
@@ -30,15 +30,6 @@ async function getEvents(): Promise<EventListItem[]> {
   }
 }
 
-function formatDateRange(startIso: string, endIso: string) {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  const sameDay = start.toDateString() === end.toDateString();
-  const dateOpts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
-  if (sameDay) return start.toLocaleDateString("en-US", dateOpts);
-  return `${start.toLocaleDateString("en-US", dateOpts)} – ${end.toLocaleDateString("en-US", dateOpts)}`;
-}
-
 export default async function EventsPage() {
   const events = await getEvents();
 
@@ -59,33 +50,44 @@ export default async function EventsPage() {
         <section className="section-padding bg-white">
           <div className="container-lg">
             {events.length === 0 ? (
-              <div className="text-center py-20 text-slate-400 text-sm">No upcoming events — check back soon.</div>
+              <div className="text-center py-20 text-sand-500 text-sm">No upcoming events — check back soon.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {events.map((event) => {
                   const price = Number(event.price);
+                  const start = new Date(event.start_at);
+                  const month = start.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+                  const day = start.toLocaleDateString("en-US", { day: "numeric" });
                   return (
-                    <Link key={event.id} href={`/events/${event.slug}`} className="card-hover flex flex-col overflow-hidden">
-                      <div className="relative h-40 bg-gradient-to-br from-teal-500 to-navy-700 flex-shrink-0">
+                    <Link key={event.id} href={`/events/${event.slug}`} className="card-hover flex flex-col overflow-hidden group">
+                      <div className="relative h-44 bg-gradient-to-br from-teal-500 to-ink-900 flex-shrink-0">
                         {event.cover_image_url && (
-                          <img src={event.cover_image_url} alt={event.title} className="w-full h-full object-cover" />
+                          <img src={event.cover_image_url} alt={event.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                         )}
                         {event.is_featured && (
-                          <span className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/90 text-navy-900">Featured</span>
+                          <span className="absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full bg-teal-400 text-ink-900">Featured</span>
                         )}
-                        <span className="absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full bg-navy-900/80 text-white">
-                          {price > 0 ? `$${price.toLocaleString()}` : "Free"}
-                        </span>
                       </div>
-                      <div className="p-5 flex-1 flex flex-col">
-                        <p className="font-display font-bold text-ink-900 text-lg leading-snug mb-2 line-clamp-2">{event.title}</p>
-                        {event.summary && <p className="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-4 flex-1">{event.summary}</p>}
-                        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap mt-auto pt-3 border-t border-slate-100">
-                          <span className="flex items-center gap-1"><Calendar size={11} /> {formatDateRange(event.start_at, event.end_at)}</span>
-                          <span className="flex items-center gap-1">
-                            {event.event_type === "in_person" ? <MapPin size={11} /> : <Globe size={11} />}
+                      <div className="relative px-5 pt-8 pb-5 flex-1 flex flex-col">
+                        {/* Ticket-stub date block */}
+                        <div className="absolute -top-7 left-5 w-14 h-14 rounded-xl bg-white shadow-card border border-sand-300 flex flex-col items-center justify-center">
+                          <span className="text-[9px] font-bold text-teal-600 uppercase tracking-wider leading-none">{month}</span>
+                          <span className="text-xl font-display font-black text-ink-900 leading-none mt-1">{day}</span>
+                        </div>
+
+                        <p className="font-display font-bold text-ink-900 text-xl leading-snug mb-2 line-clamp-2">{event.title}</p>
+                        {event.summary && <p className="text-sm text-ink-500 leading-relaxed line-clamp-2 mb-4 flex-1">{event.summary}</p>}
+
+                        <div className="flex items-center justify-between gap-3 mt-auto pt-4 border-t border-sand-200">
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-sand-600">
+                            {event.event_type === "in_person" ? <MapPin size={13} /> : <Globe size={13} />}
                             {event.event_type === "in_person" ? (event.location_address?.split(",")[0] ?? "In Person") : "Online"}
                           </span>
+                          {price > 0 ? (
+                            <span className="text-xl font-display font-black text-ink-900">${price.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-sm font-bold text-teal-600 uppercase tracking-wide">Free</span>
+                          )}
                         </div>
                       </div>
                     </Link>
