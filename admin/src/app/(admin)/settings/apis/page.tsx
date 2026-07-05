@@ -11,6 +11,52 @@ function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data ?? r);
 }
 
+type ConnStatus = "connected" | "attention" | "disconnected" | "loading";
+
+const STATUS_STYLES: Record<ConnStatus, { dot: string; pill: string; label: string }> = {
+  connected:    { dot: "bg-emerald-500",             pill: "text-emerald-700 bg-emerald-50 border-emerald-200", label: "Connected" },
+  attention:    { dot: "bg-amber-500",               pill: "text-amber-700 bg-amber-50 border-amber-200",       label: "Needs setup" },
+  disconnected: { dot: "bg-slate-300",               pill: "text-slate-500 bg-slate-50 border-slate-200",       label: "Not connected" },
+  loading:      { dot: "bg-slate-200 animate-pulse", pill: "text-slate-400 bg-slate-50 border-slate-100",       label: "Checking…" },
+};
+
+function StatusPill({ status }: { status: ConnStatus }) {
+  const cfg = STATUS_STYLES[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border shrink-0 ${cfg.pill}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  );
+}
+
+function SavedChip() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+      <CheckCircle2 size={11} /> Saved
+    </span>
+  );
+}
+
+function SectionHeader({
+  id, icon: Icon, tile, title, blurb, status,
+}: { id: string; icon: any; tile: string; title: string; blurb: string; status: ConnStatus }) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-9 h-9 rounded-xl ${tile} flex items-center justify-center text-white shrink-0`}>
+          <Icon size={16} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="font-semibold text-navy-900 leading-tight">{title}</h2>
+          <p className="text-xs text-slate-400 mt-0.5">{blurb}</p>
+        </div>
+      </div>
+      <StatusPill status={status} />
+    </div>
+  );
+}
+
 export default function ApiSettingsPage() {
   const { accessToken } = useAuthStore();
 
@@ -73,6 +119,34 @@ export default function ApiSettingsPage() {
       setStripePubKey(payData.stripe_publishable_key ?? "");
     }
   }, [payData]);
+
+  // ── Connection status, derived from persisted data (not in-progress edits) ────
+  const dbStatus: ConnStatus = !data ? "loading"
+    : data.supabase_project_url && data.supabase_anon_key ? "connected"
+    : data.supabase_project_url || data.supabase_anon_key ? "attention"
+    : "disconnected";
+
+  const emailStatus: ConnStatus = !data ? "loading"
+    : data.resend_key_set && data.email_from ? "connected"
+    : data.resend_key_set || data.email_from ? "attention"
+    : "disconnected";
+
+  const storageStatus: ConnStatus = !data ? "loading"
+    : data.s3_access_key_id_set && data.s3_secret_access_key_set && data.s3_bucket_name ? "connected"
+    : data.s3_access_key_id_set || data.s3_secret_access_key_set ? "attention"
+    : "disconnected";
+
+  const paymentsStatus: ConnStatus = !payData ? "loading"
+    : payData.stripe_secret_key_set && (payData.stripe_mode !== "live" || payData.stripe_webhook_secret_set) ? "connected"
+    : payData.stripe_secret_key_set ? "attention"
+    : "disconnected";
+
+  const STATUS_STRIP = [
+    { id: "database", label: "Database", icon: Database,   tile: "bg-navy-800",   status: dbStatus },
+    { id: "email",    label: "Email",    icon: Mail,        tile: "bg-gold-600",   status: emailStatus },
+    { id: "storage",  label: "Storage",  icon: HardDrive,   tile: "bg-sky-600",    status: storageStatus },
+    { id: "payments", label: "Payments", icon: CreditCard,  tile: "bg-violet-600", status: paymentsStatus },
+  ] as const;
 
   async function sendTestEmail() {
     setTestingEmail(true);
@@ -169,25 +243,46 @@ export default function ApiSettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-10">
+    <div className="p-8 max-w-3xl mx-auto space-y-8">
 
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Key size={20} className="text-navy-600" />
-          <h1 className="text-2xl font-display font-black text-navy-900">API Integrations</h1>
+          <h1 className="text-2xl font-display font-black text-navy-900 tracking-tight">API Integrations</h1>
         </div>
-        <p className="text-slate-500 text-sm">Configure third-party API connections used by the platform.</p>
+        <p className="text-slate-500 text-sm">Credentials for the external services this platform depends on.</p>
+      </div>
+
+      {/* Signature element — status strip, one glance at what's wired up */}
+      <div className="card overflow-hidden">
+        <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+          {STATUS_STRIP.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="flex-1 flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors"
+            >
+              <div className={`w-9 h-9 rounded-xl ${item.tile} flex items-center justify-center text-white shrink-0`}>
+                <item.icon size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400 font-medium mb-1">{item.label}</p>
+                <StatusPill status={item.status} />
+              </div>
+            </a>
+          ))}
+        </div>
       </div>
 
       {/* Database — Supabase */}
-      <form onSubmit={saveSupabase} className="space-y-6">
+      <form onSubmit={saveSupabase} id="database" className="space-y-4 scroll-mt-6">
         <div className="card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Database size={16} className="text-navy-600" />
-              <h2 className="font-semibold text-navy-900">Database — Supabase</h2>
-            </div>
+          <SectionHeader
+            id="database" icon={Database} tile="bg-navy-800"
+            title="Database — Supabase" blurb="Backs every table in the platform." status={dbStatus}
+          />
+          <div className="flex items-center justify-end -mt-3 mb-4">
             <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs text-navy-600 hover:text-navy-800 font-medium">
               Supabase Dashboard <ExternalLink size={11} />
@@ -195,7 +290,7 @@ export default function ApiSettingsPage() {
           </div>
 
           {/* DATABASE_URL notice */}
-          <div className="mb-4 flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <div className="mb-5 flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
             <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
             <p className="text-xs text-amber-800">
               <strong>DATABASE_URL</strong> (the Postgres connection string) cannot be stored here — it is required to connect to this database in the first place. Set it directly as an environment variable on <strong>Render</strong>.
@@ -222,26 +317,23 @@ export default function ApiSettingsPage() {
         </div>
         <button type="submit" disabled={savingSupabase} className="btn-primary w-full justify-center disabled:opacity-60">
           {savingSupabase ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          Save Supabase Settings
+          Save Database Settings
         </button>
       </form>
 
       {/* Email — Resend */}
-      <form onSubmit={saveEmail} className="space-y-6">
+      <form onSubmit={saveEmail} id="email" className="space-y-4 scroll-mt-6">
         <div className="card p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Mail size={16} className="text-navy-600" />
-            <h2 className="font-semibold text-navy-900">Email — Resend</h2>
-          </div>
+          <SectionHeader
+            id="email" icon={Mail} tile="bg-gold-600"
+            title="Email — Resend" blurb="Sends verification, password reset, and receipt emails." status={emailStatus}
+          />
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">API Key</label>
-              {data?.resend_key_set && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
-                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <span className="text-xs text-green-700 font-medium">Key saved — enter a new one to replace it</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">API Key</label>
+                {data?.resend_key_set && <SavedChip />}
+              </div>
               <div className="relative">
                 <input
                   type={showResend ? "text" : "password"}
@@ -262,7 +354,7 @@ export default function ApiSettingsPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">From Address</label>
               <input type="email" value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)}
                 placeholder="noreply@paii.ca" className="input-base" />
-              <p className="text-xs text-slate-400 mt-1.5">Verified domain in your Resend account.</p>
+              <p className="text-xs text-slate-400 mt-1.5">Must be on a domain verified in your Resend account.</p>
             </div>
 
             <div>
@@ -287,12 +379,12 @@ export default function ApiSettingsPage() {
       </form>
 
       {/* File Storage — S3 */}
-      <form onSubmit={saveS3} className="space-y-6">
+      <form onSubmit={saveS3} id="storage" className="space-y-4 scroll-mt-6">
         <div className="card p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <HardDrive size={16} className="text-navy-600" />
-            <h2 className="font-semibold text-navy-900">File Storage — S3</h2>
-          </div>
+          <SectionHeader
+            id="storage" icon={HardDrive} tile="bg-sky-600"
+            title="File Storage — S3" blurb="Stores uploaded lesson files, documents, and images." status={storageStatus}
+          />
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Endpoint URL</label>
@@ -315,26 +407,20 @@ export default function ApiSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Access Key ID</label>
-              {data?.s3_access_key_id_set && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
-                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <span className="text-xs text-green-700 font-medium">Key saved — enter a new one to replace it</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">Access Key ID</label>
+                {data?.s3_access_key_id_set && <SavedChip />}
+              </div>
               <input type="text" value={s3AccessKey} onChange={(e) => setS3AccessKey(e.target.value)}
                 placeholder={data?.s3_access_key_id_set ? "Enter new key to replace…" : "AKIA..."}
                 className="input-base" />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Secret Access Key</label>
-              {data?.s3_secret_access_key_set && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
-                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <span className="text-xs text-green-700 font-medium">Key saved — enter a new one to replace it</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">Secret Access Key</label>
+                {data?.s3_secret_access_key_set && <SavedChip />}
+              </div>
               <div className="relative">
                 <input
                   type={showS3Secret ? "text" : "password"}
@@ -358,13 +444,13 @@ export default function ApiSettingsPage() {
       </form>
 
       {/* Payment — Stripe */}
-      <form onSubmit={saveStripe} className="space-y-6">
+      <form onSubmit={saveStripe} id="payments" className="space-y-4 scroll-mt-6">
         <div className="card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <CreditCard size={16} className="text-navy-600" />
-              <h2 className="font-semibold text-navy-900">Payment — Stripe</h2>
-            </div>
+          <SectionHeader
+            id="payments" icon={CreditCard} tile="bg-violet-600"
+            title="Payments — Stripe" blurb="Processes enrollment, retake, and event checkout payments." status={paymentsStatus}
+          />
+          <div className="flex items-center justify-end -mt-3 mb-5">
             <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs text-navy-600 hover:text-navy-800 font-medium">
               Stripe Dashboard <ExternalLink size={11} />
@@ -402,13 +488,10 @@ export default function ApiSettingsPage() {
                 placeholder={stripeMode === "live" ? "pk_live_..." : "pk_test_..."} className="input-base" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Secret Key</label>
-              {payData?.stripe_secret_key_set && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
-                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <span className="text-xs text-green-700 font-medium">Key saved — enter a new one to replace it</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">Secret Key</label>
+                {payData?.stripe_secret_key_set && <SavedChip />}
+              </div>
               <div className="relative">
                 <input type={showStripeSecret ? "text" : "password"} value={stripeSecretKey}
                   onChange={(e) => setStripeSecretKey(e.target.value)}
@@ -421,13 +504,10 @@ export default function ApiSettingsPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Webhook Secret</label>
-              {payData?.stripe_webhook_secret_set && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
-                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <span className="text-xs text-green-700 font-medium">Secret saved — enter a new one to replace it</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">Webhook Secret</label>
+                {payData?.stripe_webhook_secret_set && <SavedChip />}
+              </div>
               <div className="relative">
                 <input type={showStripeWebhook ? "text" : "password"} value={stripeWebhook}
                   onChange={(e) => setStripeWebhook(e.target.value)}

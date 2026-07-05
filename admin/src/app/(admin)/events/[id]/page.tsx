@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Save, Loader2, Mail, Plus, Trash2, Upload, Users, Calendar,
-  GripVertical,
+  GripVertical, ChevronDown, Briefcase, GraduationCap, MapPin,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -91,6 +91,7 @@ export default function EventEditorPage() {
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [expandedReg, setExpandedReg] = useState<string | null>(null);
 
   // Details
   const [title, setTitle] = useState("");
@@ -136,8 +137,9 @@ export default function EventEditorPage() {
     setStatus(event.status ?? "draft");
     setTopicsInput((event.topics ?? []).join(", "));
     setIsFeatured(event.is_featured ?? false);
-    setSpeakers(Array.isArray(event.speakers) ? event.speakers : []);
-    setAgenda(Array.isArray(event.agenda) ? event.agenda : []);
+    const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+    setSpeakers(Array.isArray(event.speakers) ? event.speakers.filter(isRecord) : []);
+    setAgenda(Array.isArray(event.agenda) ? event.agenda.filter(isRecord) : []);
     setInitialized(true);
   }, [event, initialized]);
 
@@ -421,6 +423,7 @@ export default function EventEditorPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-navy-50 border-b border-slate-200">
+                    <th className="w-8"></th>
                     <th className="text-left px-4 py-3 font-semibold text-navy-800">Name</th>
                     <th className="text-left px-4 py-3 font-semibold text-navy-800">Email</th>
                     <th className="text-left px-4 py-3 font-semibold text-navy-800">Phone</th>
@@ -430,20 +433,60 @@ export default function EventEditorPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {registrations.map((r: any) => (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-navy-900">{r.name}</td>
-                      <td className="px-4 py-3 text-slate-600">{r.email}</td>
-                      <td className="px-4 py-3 text-slate-500">{r.phone ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-600">{Number(r.amount_paid) > 0 ? `$${Number(r.amount_paid).toLocaleString()}` : "Free"}</td>
-                      <td className="px-4 py-3 text-slate-500 flex items-center gap-1"><Calendar size={11} /> {formatDate(r.registered_at)}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", r.status === "registered" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500")}>
-                          {r.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {registrations.map((r: any) => {
+                    const isOpen = expandedReg === r.id;
+                    return (
+                      <Fragment key={r.id}>
+                        <tr onClick={() => setExpandedReg(isOpen ? null : r.id)}
+                          className="hover:bg-slate-50 cursor-pointer">
+                          <td className="pl-4">
+                            <ChevronDown size={14} className={cn("text-slate-400 transition-transform", isOpen && "rotate-180")} />
+                          </td>
+                          <td className="px-4 py-3 font-medium text-navy-900">{r.name}</td>
+                          <td className="px-4 py-3 text-slate-600">{r.email}</td>
+                          <td className="px-4 py-3 text-slate-500">{r.phone ?? "—"}</td>
+                          <td className="px-4 py-3 text-slate-600">{Number(r.amount_paid) > 0 ? `$${Number(r.amount_paid).toLocaleString()}` : "Free"}</td>
+                          <td className="px-4 py-3 text-slate-500"><span className="flex items-center gap-1"><Calendar size={11} /> {formatDate(r.registered_at)}</span></td>
+                          <td className="px-4 py-3">
+                            <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", r.status === "registered" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500")}>
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="bg-slate-50/60">
+                            <td></td>
+                            <td colSpan={6} className="px-4 py-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={10} /> Address</p>
+                                  <p className="text-slate-700">
+                                    {[r.address_line1, r.city, r.state_province, r.postal_code, r.country].filter(Boolean).join(", ") || "—"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Briefcase size={10} /> Profession</p>
+                                  <p className="text-slate-700">{r.profession ?? "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Briefcase size={10} /> Job title</p>
+                                  <p className="text-slate-700">{r.job_title ?? "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap size={10} /> Education</p>
+                                  <p className="text-slate-700">{r.education ?? "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Years of experience</p>
+                                  <p className="text-slate-700">{r.years_experience ?? "—"}</p>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
