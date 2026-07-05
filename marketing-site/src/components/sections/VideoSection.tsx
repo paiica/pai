@@ -72,6 +72,8 @@ export default function VideoSection({ cmsContent = {} }: { cmsContent?: Record<
 
   const [pairIndex, setPairIndex] = useState(0);
 
+  if (total === 0) return null;
+
   const leftVideo  = activeVideos[pairIndex % Math.max(total, 1)] ?? null;
   const rightVideo = total > 1 ? activeVideos[(pairIndex + 1) % total] ?? null : null;
 

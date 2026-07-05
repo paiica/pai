@@ -18,39 +18,6 @@ type CourseCard = {
   featured: string;
 };
 
-const DEFAULT_COURSES: CourseCard[] = [
-  {
-    title: "AI Fundamentals",
-    slug: "ai-fundamentals",
-    level: "Beginner",
-    description: "Master the core concepts of artificial intelligence, machine learning, and practical AI tools used across industries.",
-    price: "99",
-    duration_hours: 2,
-    module_count: 5,
-    featured: "true",
-  },
-  {
-    title: "AI for Managers",
-    slug: "ai-for-managers",
-    level: "Intermediate",
-    description: "Learn how to lead AI-driven teams, evaluate AI projects, and build data-informed decision-making frameworks.",
-    price: "149",
-    duration_hours: 3,
-    module_count: 6,
-    featured: "false",
-  },
-  {
-    title: "Prompt Engineering",
-    slug: "prompt-engineering",
-    level: "Beginner",
-    description: "Go from basic prompts to advanced techniques for ChatGPT, Claude, and enterprise LLM workflows.",
-    price: "79",
-    duration_hours: 1.5,
-    module_count: 4,
-    featured: "false",
-  },
-];
-
 // Signature: a faint oversized module-count numeral behind the copy, plus a
 // segmented "syllabus rail" — a distinct, quieter counterpart to the
 // certification cards' colored credential-badge treatment.

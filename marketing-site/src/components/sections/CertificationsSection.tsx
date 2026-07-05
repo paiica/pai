@@ -24,13 +24,6 @@ type CertCard = {
   status?: string;
 };
 
-const DEFAULT_CERTS: CertCard[] = [
-  { acronym: "CAIP",  title: "Certified AI Professional",  slug: "certified-ai-professional",  level: "No experience required",   description: "Master AI fundamentals, tools, workflows, ethics, and practical applications across industries. The essential credential for any professional working with AI.", popular: "true"  },
-  { acronym: "CAIM",  title: "Certified AI Manager",       slug: "certified-ai-manager",       level: "2+ years experience",      description: "Lead AI transformation initiatives, manage AI-powered teams, and build data-driven cultures. Designed for managers driving AI adoption across their organization.", popular: "false" },
-  { acronym: "CAIE",  title: "Certified AI Educator",      slug: "certified-ai-educator",      level: "Educators & trainers",     description: "Design and deliver AI-powered learning experiences. For educators, instructional designers, and L&D professionals integrating AI into teaching and curriculum.", popular: "false" },
-  { acronym: "CAIDA", title: "Certified AI Data Analyst",  slug: "certified-ai-data-analyst",  level: "1+ years data experience", description: "Advanced AI-powered data analysis, machine learning interpretation, and insight-driven decision-making. Built for analysts and data professionals.", popular: "false" },
-];
-
 function Shape({ type, color }: { type: string; color: string }) {
   if (type === "circle") {
     return (
@@ -139,15 +132,17 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
   const titleHighlight = cmsContent.title_highlight || "certified success";
   const description    = cmsContent.description     || "No matter what your professional goals are, we have a certification to help you reach them. AI credentials are an excellent way to advance your career.";
   const ctaCardTitle   = cmsContent.cta_card_title  || "Not sure where to start?";
-  const ctaCardDesc    = cmsContent.cta_card_desc   || "87% of PAII professionals begin with CAIP — the foundation of all credentials.";
-  const ctaCardLabel   = cmsContent.cta_card_label  || "Start with CAIP";
-  const ctaCardHref    = cmsContent.cta_card_href   || "/certifications/certified-ai-professional";
+  const ctaCardDesc    = cmsContent.cta_card_desc   || "Compare every credential to find the right fit for your goals.";
+  const ctaCardLabel   = cmsContent.cta_card_label  || "View All Certifications";
+  const ctaCardHref    = cmsContent.cta_card_href   || "/certifications";
   // apiCerts is null before the fetch resolves, then an array (possibly empty).
   // Once the API has responded, use its result exclusively — no fallback to
   // hardcoded defaults, so archived/non-featured certs are never shown.
-  const certs: CertCard[] = apiCerts !== null
-    ? apiCerts
-    : ((cmsContent.certs as CertCard[])?.length ? (cmsContent.certs as CertCard[]) : DEFAULT_CERTS);
+  const certs: CertCard[] = apiCerts ?? (cmsContent.certs as CertCard[] | undefined) ?? [];
+
+  // Hide section entirely while loading or when no certifications exist
+  if (apiCerts === null) return null;
+  if (certs.length === 0) return null;
 
   function scroll(dir: "left" | "right") {
     scrollRef.current?.scrollBy({ left: dir === "left" ? -300 : 300, behavior: "smooth" });

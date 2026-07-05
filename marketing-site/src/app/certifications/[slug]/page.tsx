@@ -123,7 +123,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
     : modulesRaw.map((m: any) => ({ title: m.title, description: m.description ?? "", lessons: m._count?.lessons ?? 0 }));
 
   const meta               = cert.marketing_meta;
-  const socialProof        = meta?.social_proof        || "Join 3,200+ certified professionals";
+  const socialProof        = meta?.social_proof        || "";
   const heroBadgeLabel     = meta?.hero_badge_label    || "Professional Certification";
   const prerequisites      = meta?.prerequisites        || "";
   const enrollmentIncludes = safeArray<string>(meta?.enrollment_includes, [
@@ -403,7 +403,11 @@ export default async function CertificationDetailPage({ params }: { params: Prom
               <h2 className="text-3xl font-display font-black text-white mb-3">
                 {isComingSoon ? `${cert.acronym} — Coming Soon` : `Ready to Earn Your ${cert.acronym}?`}
               </h2>
-              <p className="text-white/70 text-base mb-8">{isComingSoon ? "This certification is in development. Registration will open soon — stay tuned." : socialProof}</p>
+              {(isComingSoon || socialProof) && (
+                <p className="text-white/70 text-base mb-8">
+                  {isComingSoon ? "This certification is in development. Registration will open soon — stay tuned." : socialProof}
+                </p>
+              )}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {isComingSoon ? (
                   <span className="btn-primary !py-4 !px-8 !text-base justify-center opacity-60 cursor-default">

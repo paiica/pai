@@ -147,25 +147,6 @@ export default function EducatorPage() {
           </div>
         </section>
 
-        {/* Stats bar */}
-        <section className="bg-white border-b border-sand-200">
-          <div className="container-lg">
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-sand-200">
-              {[
-                { value: "3,200+", label: "Certified Professionals" },
-                { value: "4", label: "Certification Programs" },
-                { value: "Globally", label: "Recognized Credentials" },
-                { value: "Instant", label: "Affiliate Approval" },
-              ].map(({ value, label }) => (
-                <div key={label} className="py-7 px-6 text-center">
-                  <div className="text-2xl font-display font-black text-ink-900">{value}</div>
-                  <div className="text-xs text-ink-900 mt-1 font-medium">{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* How it works */}
         <section id="how-it-works" className="section-padding bg-white">
           <div className="container-lg">

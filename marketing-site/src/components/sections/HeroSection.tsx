@@ -29,58 +29,8 @@ type SlideData = {
   stat4_value: string; stat4_label: string;
 };
 
-const DEFAULT_SLIDES: SlideData[] = [
-  {
-    image_url: "",
-    badge: "The AI Credential Standard",
-    headline: "Prove Your AI Expertise.",
-    highlight: "Advance Your Career.",
-    sub: "PAII offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
-    cta_label: "Start with CAIP",
-    cta_href: "/certifications/certified-ai-professional",
-    cta2_label: "View All Programs",
-    cta2_href: "/certifications",
-    stat1_value: "3,200+", stat1_label: "Certified Professionals",
-    stat2_value: "48",     stat2_label: "Countries",
-    stat3_value: "4",      stat3_label: "Programs",
-    stat4_value: "94%",    stat4_label: "Employer Recognition",
-  },
-  {
-    image_url: "",
-    badge: "Trusted by Professionals Worldwide",
-    headline: "Your Industry Needs AI-Verified",
-    highlight: "Talent.",
-    sub: "From healthcare to finance, technology to education — employers across every sector are requiring verifiable AI credentials. Stand out with a PAII certification that carries real weight.",
-    cta_label: "Explore Certifications",
-    cta_href: "/certifications",
-    cta2_label: "Why PAII?",
-    cta2_href: "/about",
-    stat1_value: "92%",    stat1_label: "Got Promoted or Hired",
-    stat2_value: "38%",    stat2_label: "Average Salary Increase",
-    stat3_value: "1,400+", stat3_label: "Hiring Partners",
-    stat4_value: "4.9/5",  stat4_label: "Student Rating",
-  },
-  {
-    image_url: "",
-    badge: "Enterprise AI Certification",
-    headline: "Upskill Your Entire Team.",
-    highlight: "All at Once.",
-    sub: "PAII Corporate provides tailored certification pathways for organizations. Train your workforce with flexible licensing, cohort learning, and dedicated enterprise support.",
-    cta_label: "Get a Corporate Quote",
-    cta_href: "/corporate",
-    cta2_label: "See Enterprise Plans",
-    cta2_href: "/corporate",
-    stat1_value: "200+",  stat1_label: "Enterprise Clients",
-    stat2_value: "15k+",  stat2_label: "Employees Trained",
-    stat3_value: "6 wks", stat3_label: "Avg. Cohort Duration",
-    stat4_value: "100%",  stat4_label: "Custom Pathways",
-  },
-];
-
 export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
-  const slides: SlideData[] = (cmsContent?.slides as SlideData[])?.length
-    ? (cmsContent.slides as SlideData[])
-    : DEFAULT_SLIDES;
+  const slides: SlideData[] = (cmsContent?.slides as SlideData[]) ?? [];
 
   const [current, setCurrent]     = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -101,6 +51,8 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
     const t = setInterval(next, 6000);
     return () => clearInterval(t);
   }, [next]);
+
+  if (slides.length === 0) return null;
 
   const slide = slides[current];
   const Icon  = SLIDE_ICONS[current % SLIDE_ICONS.length];

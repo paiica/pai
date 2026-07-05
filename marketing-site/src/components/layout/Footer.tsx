@@ -25,10 +25,6 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
   {
     title: "Certifications",
     links: [
-      { label: "Certified AI Professional (CAIP)", href: "/certifications/certified-ai-professional" },
-      { label: "Certified AI Manager (CAIM)", href: "/certifications/certified-ai-manager" },
-      { label: "Certified AI Executive (CAIE)", href: "/certifications/certified-ai-executive" },
-      { label: "Certified AI Data Analyst (CAIDA)", href: "/certifications/certified-ai-data-analyst" },
       { label: "View All Certifications", href: "/certifications" },
     ],
   },
@@ -39,16 +35,12 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
       { label: "Our Mission", href: "/about#mission" },
       { label: "Advisory Board", href: "/about#board" },
       { label: "Accreditation", href: "/about#accreditation" },
-      { label: "Press & Media", href: "/press" },
-      { label: "Careers", href: "/careers" },
     ],
   },
   {
     title: "Resources",
     links: [
       { label: "Blog & Insights", href: "/blog" },
-      { label: "AI Glossary", href: "/resources/glossary" },
-      { label: "Study Guides", href: "/resources/study-guides" },
       { label: "Verify Certificate", href: "/verify" },
       { label: "FAQs", href: "/faq" },
     ],
@@ -57,7 +49,6 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
     title: "Organizations",
     links: [
       { label: "Corporate Training", href: "/corporate" },
-      { label: "Group Enrollment", href: "/corporate#group" },
       { label: "Volume Pricing", href: "/corporate#pricing" },
       { label: "Educator Partner Program", href: "/educator" },
       { label: "Become an Affiliate", href: "https://sales.paii.ca" },
@@ -65,18 +56,11 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
   },
 ];
 
-const DEFAULT_TRUST_ITEMS = [
-  "Globally Recognized Credentials",
-  "ISO 17024 Aligned Framework",
-  "3,200+ Certified Professionals",
-  "30-Day Money-Back Guarantee",
-];
+const DEFAULT_TRUST_ITEMS: string[] = [];
 
 const DEFAULT_BOTTOM_LINKS: FooterLink[] = [
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "/terms" },
-  { label: "Cookie Policy", href: "/cookies" },
-  { label: "Accessibility", href: "/accessibility" },
 ];
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";

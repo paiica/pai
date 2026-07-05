@@ -39,7 +39,7 @@ const BOARD = [
 const VALUES = [
   { icon: Shield, title: "Credential Integrity", desc: "Our certifications mean something. Every exam question, every curriculum module, and every assessment criterion undergoes independent review. We never compromise on rigor." },
   { icon: Globe2, title: "Global Accessibility", desc: "World-class AI credentials should be accessible to professionals everywhere. We offer flexible payment, translated materials, and region-adjusted pricing." },
-  { icon: Users2, title: "Community-Driven", desc: "PAII is built by practitioners, for practitioners. Our curriculum is shaped by the 3,200+ professionals in our community and updated quarterly." },
+  { icon: Users2, title: "Community-Driven", desc: "PAII is built by practitioners, for practitioners. Our curriculum is shaped by the professionals in our community and updated quarterly." },
   { icon: Award, title: "Career Impact", desc: "Every program decision is measured against one question: does this help our learners advance their careers? If not, we don't include it." },
 ];
 

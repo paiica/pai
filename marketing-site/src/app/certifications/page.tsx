@@ -34,23 +34,15 @@ const LEVEL_LABEL: Record<string, string> = {
   executive: "Level 3",
 };
 
-const FALLBACK = [
-  { id: "1", acronym: "CAIP",  title: "Certified AI Professional",  slug: "certified-ai-professional",  description: "Master AI fundamentals, tools, workflows, ethics, and practical applications across industries.", level: "foundation", price: 495, popular: true  },
-  { id: "2", acronym: "CAIM",  title: "Certified AI Manager",       slug: "certified-ai-manager",       description: "Lead AI transformation initiatives, manage AI-powered teams, and build data-driven cultures.",   level: "advanced",    price: 595, popular: false },
-  { id: "3", acronym: "CAIE",  title: "Certified AI Educator",      slug: "certified-ai-educator",      description: "Design and deliver AI-powered learning experiences for educators and L&D professionals.",        level: "advanced",    price: 595, popular: false },
-  { id: "4", acronym: "CAIDA", title: "Certified AI Data Analyst",  slug: "certified-ai-data-analyst",  description: "Advanced AI-powered data analysis and machine learning interpretation for data professionals.",   level: "advanced",    price: 595, popular: false },
-];
-
 async function getCertifications(): Promise<any[]> {
   try {
     const res = await fetch(`${API}/courses`, { cache: "no-store" });
-    if (!res.ok) return FALLBACK;
+    if (!res.ok) return [];
     const json = await res.json();
     const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
-    const active = items.filter((c: any) => c.status !== "archived");
-    return active.length > 0 ? active : FALLBACK;
+    return items.filter((c: any) => c.status !== "archived");
   } catch {
-    return FALLBACK;
+    return [];
   }
 }
 
@@ -191,6 +183,9 @@ export default async function CertificationsListPage() {
         {/* Grouped sections */}
         <section className="section-padding bg-white">
           <div className="container-lg space-y-16">
+            {certs.length === 0 && (
+              <div className="text-center py-20 text-ink-500 text-sm">No certifications published yet — check back soon.</div>
+            )}
             {groups.map((group) => (
               <div key={group.key}>
                 {/* Section header */}

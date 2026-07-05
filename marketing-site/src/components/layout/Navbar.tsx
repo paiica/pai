@@ -4,13 +4,7 @@ type NavChild = { id: string; label: string; href: string; open_new_tab: boolean
 type NavItem  = { id: string; label: string; href: string; open_new_tab: boolean; children: NavChild[] };
 
 const FALLBACK_NAV: NavItem[] = [
-  { id: "1", label: "Certifications", href: "/certifications", open_new_tab: false, children: [
-    { id: "1-1", label: "AI Foundations (Free)",           href: "/certifications/ai-foundations",           open_new_tab: false },
-    { id: "1-2", label: "CAIP – Certified AI Professional",href: "/certifications/certified-ai-professional", open_new_tab: false },
-    { id: "1-3", label: "CAIM – Certified AI Manager",     href: "/certifications/certified-ai-manager",     open_new_tab: false },
-    { id: "1-4", label: "CAIE – Certified AI Educator",    href: "/certifications/certified-ai-educator",    open_new_tab: false },
-    { id: "1-5", label: "CAIDA – Certified AI Data Analyst",href: "/certifications/certified-ai-data-analyst",open_new_tab: false },
-  ]},
+  { id: "1", label: "Certifications",    href: "/certifications", open_new_tab: false, children: [] },
   { id: "2", label: "Learning",          href: "/blog",      open_new_tab: false, children: [] },
   { id: "3", label: "Resources",         href: "/faq",       open_new_tab: false, children: [] },
   { id: "4", label: "For Organizations", href: "/corporate", open_new_tab: false, children: [] },

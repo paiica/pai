@@ -93,40 +93,27 @@ function PillarCard({
 }
 
 export default function IdentitySection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
+  // No admin customization yet — nothing real to show, so don't invent it.
+  if (Object.keys(cmsContent).length === 0) return null;
+
   const badge     = cmsContent.badge     ?? "The AI Credential Standard";
-  const headline  = cmsContent.headline  ?? "We don’t teach AI.";
-  const highlight = cmsContent.highlight ?? "We certify the people trusted to lead it.";
-  const body      = cmsContent.body      ?? "Professional Artificial Intelligence Institute was founded on a single belief: the world needs a rigorous, globally recognized credential for AI professionals — one built by practitioners, validated by employers, and designed to evolve as fast as the field itself.";
+  const headline  = cmsContent.headline  ?? "";
+  const highlight = cmsContent.highlight ?? "";
+  const body      = cmsContent.body      ?? "";
 
   const stats = [
-    { value: cmsContent.stat_1_value ?? "12,400+", label: cmsContent.stat_1_label ?? "Professionals Certified" },
-    { value: cmsContent.stat_2_value ?? "48",       label: cmsContent.stat_2_label ?? "Countries Represented" },
-    { value: cmsContent.stat_3_value ?? "94%",      label: cmsContent.stat_3_label ?? "Employer Recognition Rate" },
-    { value: cmsContent.stat_4_value ?? "#1",       label: cmsContent.stat_4_label ?? "AI Certification Body in Canada" },
-  ];
+    { value: cmsContent.stat_1_value, label: cmsContent.stat_1_label },
+    { value: cmsContent.stat_2_value, label: cmsContent.stat_2_label },
+    { value: cmsContent.stat_3_value, label: cmsContent.stat_3_label },
+    { value: cmsContent.stat_4_value, label: cmsContent.stat_4_label },
+  ].filter((s) => s.value && s.label);
 
   const pillars = [
-    {
-      icon:  cmsContent.pillar_1_icon  ?? "🌐",
-      title: cmsContent.pillar_1_title ?? "Global Authority",
-      desc:  cmsContent.pillar_1_desc  ?? "Recognized by AI-forward employers across 48+ countries. Our credential carries the same weight in Toronto, London, and Singapore.",
-    },
-    {
-      icon:  cmsContent.pillar_2_icon  ?? "🎯",
-      title: cmsContent.pillar_2_title ?? "Practitioner-Built",
-      desc:  cmsContent.pillar_2_desc  ?? "Every module is created by working AI professionals. No theory for theory’s sake — only what you need to deploy, lead, and decide.",
-    },
-    {
-      icon:  cmsContent.pillar_3_icon  ?? "🔐",
-      title: cmsContent.pillar_3_title ?? "Career-Defining",
-      desc:  cmsContent.pillar_3_desc  ?? "CAIP holders report accessing roles 35–50% above their previous compensation within 12 months of certification.",
-    },
-    {
-      icon:  cmsContent.pillar_4_icon  ?? "🧠",
-      title: cmsContent.pillar_4_title ?? "Perpetually Current",
-      desc:  cmsContent.pillar_4_desc  ?? "AI moves fast. Our curriculum team reviews and updates every module quarterly so your credential stays at the frontier.",
-    },
-  ];
+    { icon: cmsContent.pillar_1_icon, title: cmsContent.pillar_1_title, desc: cmsContent.pillar_1_desc },
+    { icon: cmsContent.pillar_2_icon, title: cmsContent.pillar_2_title, desc: cmsContent.pillar_2_desc },
+    { icon: cmsContent.pillar_3_icon, title: cmsContent.pillar_3_title, desc: cmsContent.pillar_3_desc },
+    { icon: cmsContent.pillar_4_icon, title: cmsContent.pillar_4_title, desc: cmsContent.pillar_4_desc },
+  ].filter((p) => p.title && p.desc);
 
   return (
     <section className="section-padding bg-white border-b border-sand-300">
@@ -138,36 +125,34 @@ export default function IdentitySection({ cmsContent = {} }: { cmsContent?: Reco
           {/* Left: Text */}
           <div>
             <span className="badge-teal mb-4">{badge}</span>
-            <h2 className="section-title mb-5">
-              {headline}
-              <br />
-              <span className="text-gradient">{highlight}</span>
-            </h2>
-            <p className="text-ink-900 leading-relaxed text-base max-w-lg">{body}</p>
-
-            {/* Decorative rule */}
-            <div className="flex items-center gap-3 mt-8">
-              <div className="h-px w-12 bg-gradient-to-r from-teal-500 to-transparent" />
-              <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-sand-500">
-                Trusted since 2023
-              </span>
-            </div>
+            {(headline || highlight) && (
+              <h2 className="section-title mb-5">
+                {headline}
+                <br />
+                <span className="text-gradient">{highlight}</span>
+              </h2>
+            )}
+            {body && <p className="text-ink-900 leading-relaxed text-base max-w-lg">{body}</p>}
           </div>
 
           {/* Right: Stat cards 2×2 */}
-          <div className="grid grid-cols-2 gap-3">
-            {stats.map((s, i) => (
-              <StatCard key={i} value={s.value} label={s.label} delay={i * 80} />
-            ))}
-          </div>
+          {stats.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {stats.map((s, i) => (
+                <StatCard key={i} value={s.value} label={s.label} delay={i * 80} />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Zone 2 — 4 Pillars */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {pillars.map((p, i) => (
-            <PillarCard key={i} icon={p.icon} title={p.title} desc={p.desc} idx={i} />
-          ))}
-        </div>
+        {/* Zone 2 — Pillars */}
+        {pillars.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {pillars.map((p, i) => (
+              <PillarCard key={i} icon={p.icon} title={p.title} desc={p.desc} idx={i} />
+            ))}
+          </div>
+        )}
 
       </div>
     </section>
