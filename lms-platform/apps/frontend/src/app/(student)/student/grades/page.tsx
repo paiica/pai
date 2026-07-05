@@ -135,13 +135,17 @@ export default function StudentGradesPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const [selectedId, setSelectedId] = useState<string>("");
 
-  const { data: enrollments } = useSWR(
+  const { data: enrollmentsRaw } = useSWR(
     token ? ["/enrollments/my", token] : null,
     ([url, t]) => fetcher(url, t)
   );
+  // The sidebar (mounted on every student page) shares this exact SWR key with
+  // a fetcher that doesn't unwrap the {success, data} envelope — whichever
+  // fetch SWR dedupes to determines the shape everyone sees, so handle both.
+  const enrollments: any[] = Array.isArray(enrollmentsRaw) ? enrollmentsRaw : (enrollmentsRaw?.data ?? []);
 
-  const enrollmentId = selectedId || enrollments?.[0]?.id;
-  const activeCert = enrollments?.find((e: any) => e.id === enrollmentId)?.certification;
+  const enrollmentId = selectedId || enrollments[0]?.id;
+  const activeCert = enrollments.find((e: any) => e.id === enrollmentId)?.certification;
 
   const { data: gradesData, isLoading } = useSWR(
     enrollmentId && token ? [`/learn/${enrollmentId}/grades`, token] : null,
@@ -171,7 +175,7 @@ export default function StudentGradesPage() {
         </div>
 
         {/* Certification switcher */}
-        {enrollments?.length > 1 && (
+        {enrollments.length > 1 && (
           <div className="flex items-center gap-2 flex-wrap mb-6">
             {enrollments.map((e: any) => (
               <button
