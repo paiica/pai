@@ -40,7 +40,7 @@ export default async function PrivacyPage() {
   return (
     <>
       <Navbar />
-      <main className="pt-[148px] pb-20 bg-white">
+      <main className="pb-20 bg-white" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
         <div className="container-md">
           {cms?.content ? (
             <div

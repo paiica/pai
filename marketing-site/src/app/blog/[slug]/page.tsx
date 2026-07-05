@@ -60,7 +60,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <Navbar />
       <main className="bg-white">
         {/* Hero */}
-        <div className="pt-24 pb-10 bg-hero-dark">
+        <div className="pb-10 bg-hero-dark" style={{ paddingTop: "calc(var(--header-height, 88px) + 32px)" }}>
           <div className="container-md text-center">
             {post.category && (
               <span className="inline-block text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-white mb-4">

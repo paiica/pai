@@ -148,8 +148,8 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
       <main>
         {/* ── HERO ── */}
         <section
-          className="pt-[148px] pb-20 relative overflow-hidden"
-          style={{ background: `linear-gradient(135deg, ${grad.from} 0%, ${grad.to} 100%)` }}
+          className="pb-20 relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, ${grad.from} 0%, ${grad.to} 100%)`, paddingTop: "calc(var(--header-height, 88px) + 48px)" }}
         >
           <div className="container-lg relative">
             {/* Breadcrumb */}

@@ -154,7 +154,7 @@ export default async function CertificationsListPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="pt-[148px] pb-20 bg-hero-dark relative overflow-hidden">
+        <section className="pb-20 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
           <div
             className="absolute inset-0 opacity-[0.05]"
             style={{

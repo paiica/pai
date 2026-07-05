@@ -117,7 +117,7 @@ export default function EducatorPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="pt-[148px] pb-24 bg-hero-dark relative overflow-hidden">
+        <section className="pb-24 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
           <div className="container-lg relative text-center">
             <span className="badge-dark mb-5">For Educators</span>
             <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
