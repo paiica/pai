@@ -483,6 +483,20 @@ export class PaymentsService {
     const amount = session.amount_total ? session.amount_total / 100 : 0;
     const paymentIntentId = session.payment_intent as string | undefined;
 
+    // Retrieve Stripe's own hosted receipt URL from the charge, same as the
+    // account-based checkout flows, so guests get a real receipt too.
+    let receiptUrl: string | null = null;
+    const eventWebhookStripeClient = await this.resolveStripe();
+    if (paymentIntentId && eventWebhookStripeClient) {
+      try {
+        const pi = await eventWebhookStripeClient.stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
+        const charge = pi.latest_charge as Stripe.Charge | null;
+        receiptUrl = charge?.receipt_url ?? null;
+      } catch {
+        this.logger.warn("Could not retrieve Stripe charge for event registration receipt URL");
+      }
+    }
+
     const event = await this.prisma.event.findUnique({ where: { id: event_id } });
     if (!event) return;
 
@@ -508,6 +522,7 @@ export class PaymentsService {
         amount_paid: amount,
         stripe_payment_intent_id: paymentIntentId,
         stripe_checkout_session_id: session.id,
+        stripe_receipt_url: receiptUrl,
       },
       update: {
         name: guest_name || guest_email,
@@ -525,6 +540,7 @@ export class PaymentsService {
         amount_paid: amount,
         stripe_payment_intent_id: paymentIntentId,
         stripe_checkout_session_id: session.id,
+        stripe_receipt_url: receiptUrl,
       },
     });
 
@@ -540,6 +556,9 @@ export class PaymentsService {
       eventDate,
       location: event.event_type === "in_person" ? (event.location_address ?? "In person") : "Online",
       meetingLink: event.event_type !== "in_person" ? event.meeting_link ?? undefined : undefined,
+      amountPaid: amount,
+      currency: event.currency,
+      receiptUrl,
     });
 
     this.logger.log(`Event registration paid & confirmed for ${guest_email} — event ${event_id}`);

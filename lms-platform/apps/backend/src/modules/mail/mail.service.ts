@@ -289,14 +289,19 @@ export class MailService {
 
   async sendEventRegistrationConfirmed(opts: {
     to: string; name: string; eventTitle: string; eventDate: string; location: string; meetingLink?: string;
+    amountPaid?: number; currency?: string; receiptUrl?: string | null;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("event_registered");
     if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? `You're registered — ${opts.eventTitle}`);
+    const formattedAmount = opts.amountPaid
+      ? new Intl.NumberFormat("en-US", { style: "currency", currency: (opts.currency ?? "usd").toUpperCase() }).format(opts.amountPaid)
+      : "";
     const html = customHtml
       ? this.applyVars(customHtml, {
           name: opts.name, eventTitle: opts.eventTitle, eventDate: opts.eventDate,
           location: opts.location, meetingLink: opts.meetingLink ?? "",
+          amountPaid: formattedAmount, receiptLink: opts.receiptUrl ?? "#",
         })
       : this.wrapper(this.eventRegisteredBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
@@ -354,7 +359,7 @@ export class MailService {
       case "affiliate_invite":
         return this.sendAffiliateInvite({ to, recipientName: "John", senderName: "Jane Rep", inviteLink: `${this.frontendUrl}/register?ref=SAMPLE` });
       case "event_registered":
-        return this.sendEventRegistrationConfirmed({ to, name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event" });
+        return this.sendEventRegistrationConfirmed({ to, name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event", amountPaid: 49, currency: "usd", receiptUrl: "https://pay.stripe.com/receipts/sample" });
       case "event_announcement":
         return this.sendEventAnnouncement({ to, firstName: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, eventSummary: "A live session on where AI is headed and how professionals can prepare.", registerUrl: "https://paii.ca/events/future-of-ai" });
       default:
@@ -450,8 +455,8 @@ export class MailService {
       {
         key: "event_registered", name: "Event Registration Confirmed",
         defaultSubject: "You're registered — {{eventTitle}}",
-        variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}"],
-        defaultBody: this.eventRegisteredBody({ name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event" }),
+        variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}", "{{amountPaid}}", "{{receiptLink}}"],
+        defaultBody: this.eventRegisteredBody({ name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event", amountPaid: 49, currency: "usd", receiptUrl: "https://pay.stripe.com/receipts/sample" }),
       },
       {
         key: "event_announcement", name: "Event Announcement",
@@ -691,9 +696,18 @@ export class MailService {
     `;
   }
 
-  private eventRegisteredBody(opts: { name: string; eventTitle: string; eventDate: string; location: string; meetingLink?: string }): string {
+  private eventRegisteredBody(opts: {
+    name: string; eventTitle: string; eventDate: string; location: string; meetingLink?: string;
+    amountPaid?: number; currency?: string; receiptUrl?: string | null;
+  }): string {
     const linkRow = opts.meetingLink
       ? `<tr><td style="font-size:13px;color:#64748b;padding:5px 0">Meeting Link</td><td style="font-size:13px;text-align:right;padding:5px 0"><a href="${opts.meetingLink}" style="color:#3b82f6">Join Session</a></td></tr>`
+      : "";
+    const amountRow = opts.amountPaid
+      ? `<tr><td style="font-size:13px;color:#64748b;padding:5px 0">Amount Paid</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">${new Intl.NumberFormat("en-US", { style: "currency", currency: (opts.currency ?? "usd").toUpperCase() }).format(opts.amountPaid)}</td></tr>`
+      : "";
+    const receiptRow = opts.receiptUrl
+      ? `<p style="margin:24px 0 0;text-align:center"><a href="${opts.receiptUrl}" style="display:inline-block;background:#f8fafc;color:#0f172a;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;border:1px solid #e2e8f0">View Receipt →</a></p>`
       : "";
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">You're Registered, ${opts.name}!</p>
@@ -703,9 +717,11 @@ export class MailService {
           <tr><td style="font-size:13px;color:#64748b;padding:5px 0">When</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">${opts.eventDate}</td></tr>
           <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Where</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">${opts.location}</td></tr>
           ${linkRow}
+          ${amountRow}
         </table>
       </div>
-      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>
+      ${receiptRow}
+      <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>
     `;
   }
 

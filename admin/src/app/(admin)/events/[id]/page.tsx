@@ -6,7 +6,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Save, Loader2, Mail, Plus, Trash2, Upload, Users, Calendar,
-  GripVertical, ChevronDown, Briefcase, GraduationCap, MapPin,
+  GripVertical, ChevronDown, Briefcase, GraduationCap, MapPin, Receipt,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -479,6 +479,14 @@ export default function EventEditorPage() {
                                 <div>
                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Years of experience</p>
                                   <p className="text-slate-700">{r.years_experience ?? "—"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Receipt size={10} /> Receipt</p>
+                                  {r.stripe_receipt_url ? (
+                                    <a href={r.stripe_receipt_url} target="_blank" rel="noopener noreferrer" className="text-navy-700 hover:underline">View receipt</a>
+                                  ) : (
+                                    <p className="text-slate-700">—</p>
+                                  )}
                                 </div>
                               </div>
                             </td>

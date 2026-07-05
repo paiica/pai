@@ -361,7 +361,7 @@ const TEMPLATES: TemplateDef[] = [
     category: "Events",
     categoryColor: "cyan",
     defaultSubject: "You're registered — {{eventTitle}}",
-    variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}"],
+    variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}", "{{amountPaid}}", "{{receiptLink}}"],
     defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">You're Registered, {{name}}!</p>
           <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your spot for <strong>{{eventTitle}}</strong> is confirmed. Here are the details:</p>
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
@@ -369,9 +369,11 @@ const TEMPLATES: TemplateDef[] = [
               <tr><td style="font-size:13px;color:#64748b;padding:5px 0">When</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">{{eventDate}}</td></tr>
               <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Where</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">{{location}}</td></tr>
               <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Meeting Link</td><td style="font-size:13px;text-align:right;padding:5px 0"><a href="{{meetingLink}}" style="color:#3b82f6">Join Session</a></td></tr>
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Amount Paid</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">{{amountPaid}}</td></tr>
             </table>
           </div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>`),
+          <p style="margin:24px 0 0;text-align:center"><a href="{{receiptLink}}" style="display:inline-block;background:#f8fafc;color:#0f172a;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;border:1px solid #e2e8f0">View Receipt →</a></p>
+          <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>`),
   },
   {
     key: "event_announcement",

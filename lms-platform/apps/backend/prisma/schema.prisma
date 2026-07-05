@@ -1432,6 +1432,7 @@ model EventRegistration {
   amount_paid  Decimal                 @db.Decimal(10, 2) @default(0)
   stripe_payment_intent_id   String?
   stripe_checkout_session_id String?
+  stripe_receipt_url         String?
   registered_at DateTime @default(now())
 
   @@unique([event_id, email])
