@@ -116,13 +116,13 @@ function EnrollmentRow({ row, token, onRefresh }: { row: any; token: string; onR
       step: 1 as const,
       label: "Step 1",
       sublabel: "Unpaid application",
-      description: "Reverts to application submitted. Removes: payment approval, enrollment, exam bookings, exam attempts, certificate.",
+      description: "Reverts to application submitted. Removes: payment approval, enrollment, exam bookings, exam attempts, certificate, lesson progress, and assignment/quiz grades.",
     },
     {
       step: 2 as const,
       label: "Step 2",
       sublabel: "Payment received",
-      description: "Keeps payment on record but removes approval. Removes: enrollment activation, exam bookings, exam attempts, certificate.",
+      description: "Keeps payment on record but removes approval. Removes: enrollment activation, exam bookings, exam attempts, certificate, lesson progress, and assignment/quiz grades.",
     },
     {
       step: 3 as const,

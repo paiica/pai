@@ -255,6 +255,13 @@ export class CertificatesService {
       } else {
         const targetStatus = step === 1 ? ApplicationStatus.pending_payment : ApplicationStatus.pending_review;
 
+        // Steps 1–2 suspend the enrollment itself — it's no longer a
+        // confirmed/paying student, so clear coursework progress too. A
+        // future re-approval should start the enrollment fresh rather than
+        // resuming with stale grades from a suspended enrollment period.
+        await tx.lessonProgress.deleteMany({ where: { enrollment_id: enrollmentId } });
+        await tx.assignmentSubmission.deleteMany({ where: { enrollment_id: enrollmentId } });
+
         if (!application && userForApp) {
           // Student was enrolled via cart with no application — create a synthetic one
           const fullName = userForApp.profile
@@ -272,12 +279,12 @@ export class CertificatesService {
           // Link enrollment to the newly created application
           await tx.enrollment.update({
             where: { id: enrollmentId },
-            data: { status: "suspended", completed_at: null, application_id: application.id },
+            data: { status: "suspended", completed_at: null, progress_percentage: 0, application_id: application.id },
           });
         } else {
           await tx.enrollment.update({
             where: { id: enrollmentId },
-            data: { status: "suspended", completed_at: null },
+            data: { status: "suspended", completed_at: null, progress_percentage: 0 },
           });
           if (application) {
             await tx.application.update({
