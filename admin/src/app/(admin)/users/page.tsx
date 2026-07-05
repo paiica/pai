@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Users, Search, Download, MoreHorizontal, Shield, Ban, KeyRound,
   Trash2, Check, ChevronLeft, ChevronRight, Loader2, UserCheck, X,
-  ShieldCheck, UserPlus, Lock,
+  ShieldCheck, UserPlus, Lock, ChevronDown, MapPin, Briefcase, GraduationCap,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -33,6 +33,10 @@ const ROLE_COLORS: Record<string, string> = {
   sales_rep:   "bg-teal-100 text-teal-700",
 };
 
+type AddressEntry = { id?: string; label?: string; line1?: string; line2?: string; city?: string; state?: string; zip?: string; country?: string };
+type EducationEntry = { institution?: string; degree?: string; field?: string; start_year?: string; end_year?: string };
+type ExperienceEntry = { title?: string; company?: string; location?: string; start_date?: string; end_date?: string; is_current?: boolean; description?: string };
+
 interface User {
   id: string;
   email: string;
@@ -48,6 +52,14 @@ interface User {
   country: string | null;
   date_of_birth: string | null;
   has_affiliate: boolean;
+  industry: string | null;
+  job_title: string | null;
+  company: string | null;
+  university: string | null;
+  degree_program: string | null;
+  addresses: AddressEntry[] | null;
+  education_entries: EducationEntry[] | null;
+  experience_entries: ExperienceEntry[] | null;
 }
 
 const LIMIT = 25;
@@ -67,6 +79,34 @@ function fullName(u: User) {
 
 function initial(u: User) {
   return (u.first_name || u.email).charAt(0).toUpperCase();
+}
+
+function primaryAddress(u: User): AddressEntry | null {
+  return Array.isArray(u.addresses) && u.addresses.length > 0 ? u.addresses[0] : null;
+}
+
+function cityOf(u: User): string {
+  return primaryAddress(u)?.city || "—";
+}
+
+function formatFullAddress(u: User): string {
+  const a = primaryAddress(u);
+  if (!a) return "No address on file.";
+  return [a.line1, a.line2, a.city, a.state, a.zip, a.country].filter(Boolean).join(", ") || "No address on file.";
+}
+
+function educationSummary(u: User): string {
+  const entries = Array.isArray(u.education_entries) ? u.education_entries : [];
+  const first = entries[0];
+  const institution = u.university || first?.institution;
+  const degree = u.degree_program || first?.degree;
+  if (!institution && !degree) return "—";
+  return [institution, degree].filter(Boolean).join(" — ");
+}
+
+function jobSummary(u: User): string {
+  const entries = Array.isArray(u.experience_entries) ? u.experience_entries : [];
+  return u.job_title || entries[0]?.title || "—";
 }
 
 // Three-state checkbox (supports indeterminate)
@@ -148,6 +188,9 @@ function TabPermissionPicker({ value, onChange }: {
 export default function UsersPage() {
   const { accessToken, user: currentUser } = useAuthStore();
   const isSuperAdmin = currentUser?.role === "super_admin";
+
+  // Row expansion (full address / education / experience detail)
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Filters & pagination
   const [q, setQ]                 = useState("");
@@ -474,11 +517,16 @@ export default function UsersPage() {
                     onChange={toggleSelectAll}
                   />
                 </th>
+                <th className="w-8" />
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">PAII ID</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Country</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">City</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Occupation</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Job Title</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden 2xl:table-cell">Education</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Date of Birth</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Registered</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Last Login</th>
@@ -490,7 +538,7 @@ export default function UsersPage() {
               {isLoading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(11)].map((_, j) => (
+                    {[...Array(16)].map((_, j) => (
                       <td key={j} className="px-4 py-3.5">
                         <div className="h-3.5 bg-slate-100 rounded animate-pulse" style={{ width: `${55 + (j * 17) % 40}%` }} />
                       </td>
@@ -499,24 +547,30 @@ export default function UsersPage() {
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-16 text-center">
+                  <td colSpan={16} className="px-4 py-16 text-center">
                     <Users size={28} className="text-slate-200 mx-auto mb-3" />
                     <p className="text-slate-400 text-sm">No users found.</p>
                   </td>
                 </tr>
               ) : users.map((u) => {
                 const isSelected = selectedIds.has(u.id);
+                const isExpanded = expandedId === u.id;
                 return (
+                <Fragment key={u.id}>
                   <tr
-                    key={u.id}
-                    onClick={() => toggleOne(u.id)}
+                    onClick={() => setExpandedId(isExpanded ? null : u.id)}
                     className={`transition-colors cursor-pointer ${
                       isSelected ? "bg-navy-50" : "hover:bg-slate-50/60"
                     } ${!u.is_active ? "opacity-50" : ""}`}
                   >
                     {/* Checkbox */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <Checkbox checked={isSelected} onChange={() => toggleOne(u.id)} />
+                    </td>
+
+                    {/* Expand toggle */}
+                    <td className="pl-2">
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </td>
 
                     {/* User */}
@@ -554,6 +608,10 @@ export default function UsersPage() {
 
                     <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{u.phone || "—"}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{u.country || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{cityOf(u)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">{u.industry || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">{jobSummary(u)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 hidden 2xl:table-cell">{educationSummary(u)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">
                       {u.date_of_birth ? new Date(u.date_of_birth).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—"}
                     </td>
@@ -620,6 +678,50 @@ export default function UsersPage() {
                       )}
                     </td>
                   </tr>
+                  {isExpanded && (
+                    <tr className="bg-slate-50/60">
+                      <td colSpan={2}></td>
+                      <td colSpan={14} className="px-4 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={10} /> Full Address</p>
+                            <p className="text-slate-700 text-xs leading-relaxed">{formatFullAddress(u)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Briefcase size={10} /> Work History</p>
+                            {Array.isArray(u.experience_entries) && u.experience_entries.length > 0 ? (
+                              <ul className="space-y-1.5">
+                                {u.experience_entries.map((exp, i) => (
+                                  <li key={i} className="text-slate-700 text-xs">
+                                    <span className="font-semibold">{exp.title || "—"}</span>
+                                    {exp.company && <> · {exp.company}</>}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-slate-700 text-xs">{jobSummary(u)}{u.company ? ` · ${u.company}` : ""}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap size={10} /> Education History</p>
+                            {Array.isArray(u.education_entries) && u.education_entries.length > 0 ? (
+                              <ul className="space-y-1.5">
+                                {u.education_entries.map((ed, i) => (
+                                  <li key={i} className="text-slate-700 text-xs">
+                                    <span className="font-semibold">{ed.institution || "—"}</span>
+                                    {ed.degree && <> · {ed.degree}</>}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-slate-700 text-xs">{educationSummary(u)}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
                 );
               })}
             </tbody>

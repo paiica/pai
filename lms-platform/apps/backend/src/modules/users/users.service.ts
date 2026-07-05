@@ -62,6 +62,8 @@ export class UsersService {
       this.prisma.$queryRawUnsafe<any[]>(`
         SELECT u.id, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
                p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth, p.pai_id,
+               p.industry, p.job_title, p.company, p.university, p.degree_program,
+               p.addresses, p.education_entries, p.experience_entries,
                EXISTS (SELECT 1 FROM lms.affiliate_profiles ap WHERE ap.user_id = u.id) AS has_affiliate
         FROM lms.users u
         LEFT JOIN lms.profiles p ON p.user_id = u.id
@@ -124,23 +126,48 @@ export class UsersService {
     const { data } = await this.findAll({ page: 1, limit: 10000, q, role, status });
     const headers = [
       "PAII ID", "ID", "Email", "First Name", "Last Name", "Role", "Status",
-      "Phone", "Country", "Date of Birth", "Email Verified", "Registered", "Last Login",
+      "Phone", "Country", "City", "Full Address", "Date of Birth",
+      "Occupation", "Job Title", "Work History", "Education",
+      "Email Verified", "Registered", "Last Login",
     ];
-    const rows = (data as any[]).map((u) => [
-      u.pai_id ?? "",
-      u.id,
-      u.email,
-      u.first_name ?? "",
-      u.last_name ?? "",
-      u.role,
-      u.is_active ? "Active" : "Inactive",
-      u.phone ?? "",
-      u.country ?? "",
-      u.date_of_birth ? new Date(u.date_of_birth).toISOString().split("T")[0] : "",
-      u.email_verified ? "Yes" : "No",
-      new Date(u.created_at).toISOString().split("T")[0],
-      u.last_login_at ? new Date(u.last_login_at).toISOString().split("T")[0] : "",
-    ]);
+    const rows = (data as any[]).map((u) => {
+      const addresses = Array.isArray(u.addresses) ? u.addresses : [];
+      const educationEntries = Array.isArray(u.education_entries) ? u.education_entries : [];
+      const experienceEntries = Array.isArray(u.experience_entries) ? u.experience_entries : [];
+      const primaryAddress = addresses[0];
+      const city = primaryAddress?.city ?? "";
+      const fullAddress = primaryAddress
+        ? [primaryAddress.line1, primaryAddress.line2, primaryAddress.city, primaryAddress.state, primaryAddress.zip, primaryAddress.country]
+            .filter(Boolean).join(", ")
+        : "";
+      const education = u.university || educationEntries[0]?.institution
+        ? [u.university || educationEntries[0]?.institution, u.degree_program || educationEntries[0]?.degree].filter(Boolean).join(" — ")
+        : "";
+      const workHistory = experienceEntries.length > 0
+        ? experienceEntries.map((e: any) => [e.title, e.company].filter(Boolean).join(" @ ")).join("; ")
+        : [u.job_title, u.company].filter(Boolean).join(" @ ");
+      return [
+        u.pai_id ?? "",
+        u.id,
+        u.email,
+        u.first_name ?? "",
+        u.last_name ?? "",
+        u.role,
+        u.is_active ? "Active" : "Inactive",
+        u.phone ?? "",
+        u.country ?? "",
+        city,
+        fullAddress,
+        u.date_of_birth ? new Date(u.date_of_birth).toISOString().split("T")[0] : "",
+        u.industry ?? "",
+        u.job_title ?? "",
+        workHistory,
+        education,
+        u.email_verified ? "Yes" : "No",
+        new Date(u.created_at).toISOString().split("T")[0],
+        u.last_login_at ? new Date(u.last_login_at).toISOString().split("T")[0] : "",
+      ];
+    });
     return [headers, ...rows]
       .map((row) => row.map((cell: any) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\r\n");
