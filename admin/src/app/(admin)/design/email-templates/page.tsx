@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import {
   Mail, Save, Loader2, ArrowUpRight, ToggleLeft, ToggleRight,
-  Code2, Eye, ChevronDown, ChevronUp, RefreshCw, Tag,
+  Code2, Eye, ChevronDown, ChevronUp, RefreshCw, Tag, Send,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -385,9 +385,11 @@ interface CardProps {
   onSubjectChange: (v: string) => void;
   onEnabledChange: (v: boolean) => void;
   onHtmlChange: (v: string) => void;
+  onSendTest: () => void;
+  testing: boolean;
 }
 
-function TemplateCard({ tpl, subject, enabled, customHtml, onSubjectChange, onEnabledChange, onHtmlChange }: CardProps) {
+function TemplateCard({ tpl, subject, enabled, customHtml, onSubjectChange, onEnabledChange, onHtmlChange, onSendTest, testing }: CardProps) {
   const [showEditor, setShowEditor] = useState(false);
   const [previewMode, setPreviewMode] = useState(true);
 
@@ -411,6 +413,16 @@ function TemplateCard({ tpl, subject, enabled, customHtml, onSubjectChange, onEn
           <h2 className="font-semibold text-navy-900 text-sm">{tpl.name}</h2>
           <p className="text-xs text-slate-400 leading-relaxed mt-0.5">{tpl.description}</p>
         </div>
+        <button
+          type="button"
+          onClick={onSendTest}
+          disabled={testing}
+          className="shrink-0 mt-1 flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800 border border-slate-200 hover:border-navy-300 rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-50"
+          title="Send this template with sample data to your own inbox"
+        >
+          {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+          Test
+        </button>
         <button
           type="button"
           onClick={() => onEnabledChange(!enabled)}
@@ -561,6 +573,21 @@ export default function EmailTemplatesPage() {
   const [enabled,    setEnabled]    = useState<Record<string, boolean>>({});
   const [customHtml, setCustomHtml] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [testingKey, setTestingKey] = useState<string | null>(null);
+
+  async function sendTest(key: string) {
+    setTestingKey(key);
+    try {
+      const r = await api.post<{ sent: boolean; reason?: string }>(`/mail/templates/${key}/test-send`, {}, accessToken!);
+      const result = (r as any).data ?? r;
+      if (result.sent) toast.success("Test email sent — check your inbox");
+      else toast.error(`Not sent: ${result.reason ?? "unknown error"}`);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to send test email");
+    } finally {
+      setTestingKey(null);
+    }
+  }
 
   useEffect(() => {
     if (!settings) return;
@@ -638,6 +665,8 @@ export default function EmailTemplatesPage() {
             onSubjectChange={(v) => setSubjects((prev) => ({ ...prev, [tpl.key]: v }))}
             onEnabledChange={(v) => setEnabled((prev) => ({ ...prev, [tpl.key]: v }))}
             onHtmlChange={(v) => setCustomHtml((prev) => ({ ...prev, [tpl.key]: v }))}
+            onSendTest={() => sendTest(tpl.key)}
+            testing={testingKey === tpl.key}
           />
         ))}
 

@@ -56,17 +56,19 @@ export class MailService {
     );
   }
 
-  private async send(opts: { to: string; subject: string; html: string }) {
+  private async send(opts: { to: string; subject: string; html: string }): Promise<{ sent: boolean; reason?: string }> {
     const client = await this.resolveClient();
     if (!client) {
       this.logger.warn(`[Mail skipped — no RESEND_API_KEY] To: ${opts.to} | ${opts.subject}`);
-      return;
+      return { sent: false, reason: "No Resend API key configured (env or site settings)" };
     }
     try {
       await client.resend.emails.send({ from: client.from, ...opts });
       this.logger.log(`Email sent to ${opts.to}: ${opts.subject}`);
+      return { sent: true };
     } catch (err: any) {
       this.logger.error(`Failed to send email to ${opts.to}: ${err?.message}`);
+      return { sent: false, reason: err?.message ?? "Unknown error" };
     }
   }
 
@@ -74,22 +76,22 @@ export class MailService {
 
   async sendVerificationEmail(to: string, firstName: string, token: string, baseUrl?: string) {
     const { subject, enabled, html: customHtml } = await this.tpl("verification");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const link = `${baseUrl ?? this.frontendUrl}/verify-email?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.verificationBody(firstName, link));
-    await this.send({ to, subject: subject ?? "Verify your PAII email address", html });
+    return this.send({ to, subject: subject ?? "Verify your PAII email address", html });
   }
 
   async sendPasswordResetEmail(to: string, firstName: string, token: string, baseUrl?: string) {
     const { subject, enabled, html: customHtml } = await this.tpl("reset");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const link = `${baseUrl ?? this.frontendUrl}/reset-password?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
       : this.wrapper(this.resetBody(firstName, link));
-    await this.send({ to, subject: subject ?? "Reset your PAII password", html });
+    return this.send({ to, subject: subject ?? "Reset your PAII password", html });
   }
 
   async sendPurchaseConfirmation(opts: {
@@ -97,25 +99,25 @@ export class MailService {
     amount: number; currency: string; receiptUrl: string | null;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("purchase");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Payment confirmed — {item}").replace("{item}", opts.itemName);
     const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency.toUpperCase() }).format(opts.amount);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName, amount: formatted, receiptLink: opts.receiptUrl ?? "#" })
       : this.wrapper(this.purchaseBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendFreeEnrollmentConfirmation(opts: {
     to: string; firstName: string; itemName: string; type: "course" | "certification";
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("free_enrollment");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "You're enrolled — {item}").replace("{item}", opts.itemName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName })
       : this.wrapper(this.freeEnrollmentBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendCertificateIssued(opts: {
@@ -123,7 +125,7 @@ export class MailService {
     certNumber: string; expiresAt: Date; verificationUrl: string;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("certificate");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Congratulations — You've earned your {acronym} certificate!").replace("{acronym}", opts.certAcronym);
     const expiresAtStr = opts.expiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
     const html = customHtml
@@ -132,7 +134,7 @@ export class MailService {
           certNumber: opts.certNumber, expiresAt: expiresAtStr, verificationUrl: opts.verificationUrl,
         })
       : this.wrapper(this.certificateBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendExamBooked(opts: {
@@ -140,7 +142,7 @@ export class MailService {
     sessionTitle: string; examDate: string; meetingLink: string | null;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("exam_booked");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Exam booked — {certTitle}").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, {
@@ -148,7 +150,7 @@ export class MailService {
           examDate: opts.examDate, meetingLink: opts.meetingLink ?? "See your portal for details",
         })
       : this.wrapper(this.examBookedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendExamReminder(opts: {
@@ -156,7 +158,7 @@ export class MailService {
     sessionTitle: string; examDate: string; meetingLink: string | null;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("exam_reminder");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Reminder: Your {certTitle} exam is tomorrow").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, {
@@ -164,26 +166,26 @@ export class MailService {
           examDate: opts.examDate, meetingLink: opts.meetingLink ?? "See your portal for details",
         })
       : this.wrapper(this.examReminderBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendExamPassed(opts: {
     to: string; firstName: string; certTitle: string; score: number;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("exam_passed");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "You passed your {certTitle} exam!").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, certTitle: opts.certTitle, score: `${opts.score}%` })
       : this.wrapper(this.examPassedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendExamFailed(opts: {
     to: string; firstName: string; certTitle: string; score: number; attemptsLeft: number;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("exam_failed");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Exam result — {certTitle}").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, {
@@ -191,26 +193,26 @@ export class MailService {
           score: `${opts.score}%`, attemptsLeft: `${opts.attemptsLeft}`,
         })
       : this.wrapper(this.examFailedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendPaymentFailed(opts: {
     to: string; firstName: string; itemName: string;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("payment_failed");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Payment failed — {item}").replace("{item}", opts.itemName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName })
       : this.wrapper(this.paymentFailedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendCertificateRevoked(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string; certNumber: string;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("certificate_revoked");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Important: Your {acronym} certificate has been revoked").replace("{acronym}", opts.certAcronym);
     const html = customHtml
       ? this.applyVars(customHtml, {
@@ -218,19 +220,19 @@ export class MailService {
           certAcronym: opts.certAcronym, certNumber: opts.certNumber,
         })
       : this.wrapper(this.certificateRevokedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendApplicationApproved(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("application_approved");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Your {acronym} application has been approved!").replace("{acronym}", opts.certAcronym);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym })
       : this.wrapper(this.applicationApprovedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
   async sendTestEmail(to: string) {
@@ -262,19 +264,19 @@ export class MailService {
     senderName: string; inviteLink: string;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("affiliate_invite");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const firstName = opts.recipientName || "there";
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, senderName: opts.senderName, inviteLink: opts.inviteLink })
       : this.wrapper(this.affiliateInviteBody(opts.senderName, firstName, opts.inviteLink));
-    await this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAII`, html });
+    return this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAII`, html });
   }
 
   async sendApplicationRejected(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string; reason: string | null;
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("application_rejected");
-    if (!enabled) return;
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
     const resolvedSubject = (subject ?? "Update on your {acronym} application").replace("{acronym}", opts.certAcronym);
     const html = customHtml
       ? this.applyVars(customHtml, {
@@ -282,7 +284,48 @@ export class MailService {
           reason: opts.reason ?? "No reason provided.",
         })
       : this.wrapper(this.applicationRejectedBody(opts));
-    await this.send({ to: opts.to, subject: resolvedSubject, html });
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  // ─── Per-template test send (admin) ───────────────────────────────────────────
+
+  async sendTemplateTest(key: string, to: string): Promise<{ sent: boolean; reason?: string }> {
+    const sampleDate = "Monday, Jan 27 2026 at 10:00 AM EST";
+    const sampleCert = { certTitle: "Certified AI Professional", certAcronym: "CAIP", certNumber: "PAII-CAIP-2026-ABCD12" };
+    const sampleExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
+
+    switch (key) {
+      case "verification":
+        return this.sendVerificationEmail(to, "John", "sample-test-token");
+      case "reset":
+        return this.sendPasswordResetEmail(to, "John", "sample-test-token");
+      case "purchase":
+        return this.sendPurchaseConfirmation({ to, firstName: "John", itemName: sampleCert.certTitle, amount: 299, currency: "usd", receiptUrl: "https://stripe.com/receipt" });
+      case "free_enrollment":
+        return this.sendFreeEnrollmentConfirmation({ to, firstName: "John", itemName: sampleCert.certTitle, type: "certification" });
+      case "certificate":
+        return this.sendCertificateIssued({ to, firstName: "John", ...sampleCert, expiresAt: sampleExpiry, verificationUrl: `https://paii.ca/verify?id=${sampleCert.certNumber}` });
+      case "exam_booked":
+        return this.sendExamBooked({ to, firstName: "John", certTitle: sampleCert.certTitle, sessionTitle: "CAIP — Session A", examDate: sampleDate, meetingLink: "https://meet.example.com/exam" });
+      case "exam_reminder":
+        return this.sendExamReminder({ to, firstName: "John", certTitle: sampleCert.certTitle, sessionTitle: "CAIP — Session A", examDate: sampleDate, meetingLink: "https://meet.example.com/exam" });
+      case "exam_passed":
+        return this.sendExamPassed({ to, firstName: "John", certTitle: sampleCert.certTitle, score: 85 });
+      case "exam_failed":
+        return this.sendExamFailed({ to, firstName: "John", certTitle: sampleCert.certTitle, score: 58, attemptsLeft: 1 });
+      case "payment_failed":
+        return this.sendPaymentFailed({ to, firstName: "John", itemName: sampleCert.certTitle });
+      case "certificate_revoked":
+        return this.sendCertificateRevoked({ to, firstName: "John", ...sampleCert });
+      case "application_approved":
+        return this.sendApplicationApproved({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym });
+      case "application_rejected":
+        return this.sendApplicationRejected({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, reason: "Sample reason for testing." });
+      case "affiliate_invite":
+        return this.sendAffiliateInvite({ to, recipientName: "John", senderName: "Jane Rep", inviteLink: `${this.frontendUrl}/register?ref=SAMPLE` });
+      default:
+        return { sent: false, reason: `Unknown template: ${key}` };
+    }
   }
 
   // ─── Admin: default template bodies ──────────────────────────────────────────
