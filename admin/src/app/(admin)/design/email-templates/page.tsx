@@ -21,7 +21,9 @@ const MonacoEditor = dynamic(
 // ─── Shell builder ────────────────────────────────────────────────────────────
 // Generates the complete email HTML. Admins edit this entire document.
 
-const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3001";
+// Emails are viewed by external recipients, so this must never fall back to
+// localhost — even in an environment where NEXT_PUBLIC_LMS_URL isn't set.
+const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "https://paii.ca";
 
 function emailShell(body: string): string {
   return `<!DOCTYPE html>
