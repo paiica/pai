@@ -13,7 +13,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
-import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, RefundDto } from "./dto/checkout.dto";
+import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RefundDto } from "./dto/checkout.dto";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -75,6 +75,13 @@ export class PaymentsController {
   @ApiOperation({ summary: "Create Stripe billing portal session for card management" })
   billingPortal(@CurrentUser("id") userId: string) {
     return this.paymentsService.createBillingPortalSession(userId);
+  }
+
+  @Public()
+  @Post("event-checkout")
+  @ApiOperation({ summary: "Register + pay for a paid event (guest — no account required)" })
+  eventCheckout(@Body() dto: EventCheckoutDto) {
+    return this.paymentsService.createEventCheckoutSession(dto);
   }
 
   // ── Admin endpoints ────────────────────────────────────────────────────────

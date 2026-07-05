@@ -354,6 +354,44 @@ const TEMPLATES: TemplateDef[] = [
           </div>
           <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by {{senderName}}. If you didn't expect this email, you can safely ignore it.</p>`),
   },
+  {
+    key: "event_registered",
+    name: "Event Registration Confirmed",
+    description: "Sent to a guest immediately after they register for an event (free or paid).",
+    category: "Events",
+    categoryColor: "cyan",
+    defaultSubject: "You're registered — {{eventTitle}}",
+    variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}"],
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">You're Registered, {{name}}!</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your spot for <strong>{{eventTitle}}</strong> is confirmed. Here are the details:</p>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">When</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">{{eventDate}}</td></tr>
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Where</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">{{location}}</td></tr>
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Meeting Link</td><td style="font-size:13px;text-align:right;padding:5px 0"><a href="{{meetingLink}}" style="color:#3b82f6">Join Session</a></td></tr>
+            </table>
+          </div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>`),
+  },
+  {
+    key: "event_announcement",
+    name: "Event Announcement",
+    description: "Sent to every active student when an admin broadcasts an event from the Events tab.",
+    category: "Events",
+    categoryColor: "cyan",
+    defaultSubject: "New event — {{eventTitle}}",
+    variables: ["{{firstName}}", "{{eventTitle}}", "{{eventDate}}", "{{eventSummary}}", "{{registerUrl}}"],
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi {{firstName}},</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We're hosting a new event you might be interested in:</p>
+          <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:24px;margin:0 0 24px">
+            <p style="margin:0 0 6px;font-size:19px;font-weight:900;color:#78350f">{{eventTitle}}</p>
+            <p style="margin:0 0 10px;font-size:13px;color:#92400e">{{eventDate}}</p>
+            <p style="margin:0;font-size:14px;color:#78350f;line-height:1.5">{{eventSummary}}</p>
+          </div>
+          <div style="text-align:center;margin:32px 0">
+            <a href="{{registerUrl}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Register Now →</a>
+          </div>`),
+  },
 ];
 
 // ─── Category styling ─────────────────────────────────────────────────────────
@@ -367,6 +405,7 @@ const CATEGORY_STYLES: Record<string, { border: string; chip: string }> = {
   red:     { border: "border-l-red-400",     chip: "bg-red-50 text-red-600 border-red-200" },
   indigo:  { border: "border-l-indigo-400",  chip: "bg-indigo-50 text-indigo-600 border-indigo-200" },
   teal:    { border: "border-l-teal-400",    chip: "bg-teal-50 text-teal-600 border-teal-200" },
+  cyan:    { border: "border-l-cyan-400",    chip: "bg-cyan-50 text-cyan-600 border-cyan-200" },
 };
 
 // ─── API helper ───────────────────────────────────────────────────────────────
@@ -649,7 +688,7 @@ export default function EmailTemplatesPage() {
       {/* Legend */}
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs text-slate-400 font-medium">Categories:</span>
-        {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo", Sales: "teal" }).map(([label, color]) => (
+        {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo", Sales: "teal", Events: "cyan" }).map(([label, color]) => (
           <span key={label} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${CATEGORY_STYLES[color].chip}`}>{label}</span>
         ))}
       </div>

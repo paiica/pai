@@ -272,6 +272,67 @@ export class PaymentsService {
     } catch (err) { this.stripeError(err); }
   }
 
+  // ─── Event checkout (guest — no account required) ────────────────────────────
+
+  async createEventCheckoutSession(dto: { event_id: string; name: string; email: string; phone?: string; promo_code?: string }) {
+    const event = await this.prisma.event.findUnique({ where: { id: dto.event_id } });
+    if (!event || event.status !== "published") throw new NotFoundException("Event not found");
+
+    let price = Number(event.price);
+    if (price <= 0) throw new BadRequestException("This event is free — register directly instead of checking out");
+
+    const existing = await this.prisma.eventRegistration.findUnique({
+      where: { event_id_email: { event_id: event.id, email: dto.email } },
+    });
+    if (existing && existing.status === "registered") {
+      throw new BadRequestException("This email is already registered for this event");
+    }
+
+    let promoId: string | undefined;
+    if (dto.promo_code) {
+      // Promo codes aren't scoped to events (no event_id column on promo_codes)
+      // — a general/unscoped code applies fine, one scoped to a course or
+      // certification correctly fails validation here.
+      const result = await this.promoCodes.validate(dto.promo_code, price);
+      if (!result.valid) throw new BadRequestException(result.message);
+      price = Math.max(0, price - result.discount_amount);
+      promoId = result.promo_id;
+    }
+
+    const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+    const successUrl = `${marketingUrl}/events/${event.slug}?registered=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${marketingUrl}/events/${event.slug}`;
+
+    this.ensureStripe();
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: dto.email,
+        metadata: {
+          checkout_type: "event",
+          event_id: event.id,
+          guest_name: dto.name,
+          guest_email: dto.email,
+          guest_phone: dto.phone || "",
+          promo_id: promoId || "",
+          promo_code: dto.promo_code || "",
+          original_price: String(event.price),
+        },
+        line_items: [{
+          price_data: {
+            currency: event.currency,
+            unit_amount: Math.round(price * 100),
+            product_data: { name: event.title, description: event.summary || event.subtitle || "" },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
   // ─── Enrollment helpers ──────────────────────────────────────────────────────
 
   private async enrollInCourse(userId: string, courseId: string, paymentIntentId: string | null, amountPaid: number) {
@@ -359,8 +420,74 @@ export class PaymentsService {
     }).catch(() => {});
   }
 
+  private async handleEventCheckoutCompleted(session: Stripe.Checkout.Session) {
+    const { event_id, guest_name, guest_email, guest_phone, promo_id } = session.metadata || {};
+    if (!event_id || !guest_email) return;
+
+    const existing = await this.prisma.eventRegistration.findUnique({
+      where: { event_id_email: { event_id, email: guest_email } },
+    });
+    if (existing?.stripe_checkout_session_id === session.id) {
+      this.logger.log(`Webhook idempotency: event session ${session.id} already processed, skipping`);
+      return;
+    }
+
+    const amount = session.amount_total ? session.amount_total / 100 : 0;
+    const paymentIntentId = session.payment_intent as string | undefined;
+
+    const event = await this.prisma.event.findUnique({ where: { id: event_id } });
+    if (!event) return;
+
+    await this.prisma.eventRegistration.upsert({
+      where: { event_id_email: { event_id, email: guest_email } },
+      create: {
+        event_id,
+        name: guest_name || guest_email,
+        email: guest_email,
+        phone: guest_phone || null,
+        status: "registered",
+        amount_paid: amount,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_checkout_session_id: session.id,
+      },
+      update: {
+        name: guest_name || guest_email,
+        phone: guest_phone || null,
+        status: "registered",
+        amount_paid: amount,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_checkout_session_id: session.id,
+      },
+    });
+
+    if (promo_id) await this.promoCodes.incrementUsed(promo_id);
+
+    const opts: Intl.DateTimeFormatOptions = { dateStyle: "long", timeStyle: "short" };
+    const eventDate = `${event.start_at.toLocaleString("en-CA", opts)} – ${event.end_at.toLocaleString("en-CA", { timeStyle: "short" })} (${event.timezone})`;
+
+    await this.mail.sendEventRegistrationConfirmed({
+      to: guest_email,
+      name: guest_name || guest_email,
+      eventTitle: event.title,
+      eventDate,
+      location: event.event_type === "in_person" ? (event.location_address ?? "In person") : "Online",
+      meetingLink: event.event_type !== "in_person" ? event.meeting_link ?? undefined : undefined,
+    });
+
+    this.logger.log(`Event registration paid & confirmed for ${guest_email} — event ${event_id}`);
+  }
+
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const { user_id, checkout_type, certification_id, course_id, application_id, promo_id, promo_code } = session.metadata || {};
+
+    // Guest event registration — no user_id, handled entirely separately from
+    // the account-based flows below (no Payment record, no affiliate
+    // commission; the EventRegistration row itself carries the Stripe IDs).
+    if (checkout_type === "event") {
+      await this.handleEventCheckoutCompleted(session);
+      return;
+    }
+
     if (!user_id) return;
 
     // Idempotency guard — skip if this Stripe session was already processed

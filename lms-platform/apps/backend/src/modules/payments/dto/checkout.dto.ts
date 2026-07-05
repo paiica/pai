@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, MaxLength } from "class-validator";
+import { IsString, IsOptional, IsUUID, IsEmail, MaxLength } from "class-validator";
 
 export class CreateCheckoutDto {
   @IsString()
@@ -24,6 +24,28 @@ export class CertificationCheckoutDto {
   @IsString()
   @MaxLength(200)
   certification_slug: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  promo_code?: string;
+}
+
+export class EventCheckoutDto {
+  @IsUUID()
+  event_id: string;
+
+  @IsString()
+  @MaxLength(200)
+  name: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  phone?: string;
 
   @IsOptional()
   @IsString()

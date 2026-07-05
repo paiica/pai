@@ -287,6 +287,36 @@ export class MailService {
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
+  async sendEventRegistrationConfirmed(opts: {
+    to: string; name: string; eventTitle: string; eventDate: string; location: string; meetingLink?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("event_registered");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? `You're registered — ${opts.eventTitle}`);
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          name: opts.name, eventTitle: opts.eventTitle, eventDate: opts.eventDate,
+          location: opts.location, meetingLink: opts.meetingLink ?? "",
+        })
+      : this.wrapper(this.eventRegisteredBody(opts));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendEventAnnouncement(opts: {
+    to: string; firstName: string; eventTitle: string; eventDate: string; eventSummary: string; registerUrl: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("event_announcement");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? `New event — ${opts.eventTitle}`);
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, eventTitle: opts.eventTitle, eventDate: opts.eventDate,
+          eventSummary: opts.eventSummary, registerUrl: opts.registerUrl,
+        })
+      : this.wrapper(this.eventAnnouncementBody(opts));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   // ─── Per-template test send (admin) ───────────────────────────────────────────
 
   async sendTemplateTest(key: string, to: string): Promise<{ sent: boolean; reason?: string }> {
@@ -323,6 +353,10 @@ export class MailService {
         return this.sendApplicationRejected({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, reason: "Sample reason for testing." });
       case "affiliate_invite":
         return this.sendAffiliateInvite({ to, recipientName: "John", senderName: "Jane Rep", inviteLink: `${this.frontendUrl}/register?ref=SAMPLE` });
+      case "event_registered":
+        return this.sendEventRegistrationConfirmed({ to, name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event" });
+      case "event_announcement":
+        return this.sendEventAnnouncement({ to, firstName: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, eventSummary: "A live session on where AI is headed and how professionals can prepare.", registerUrl: "https://paii.ca/events/future-of-ai" });
       default:
         return { sent: false, reason: `Unknown template: ${key}` };
     }
@@ -412,6 +446,18 @@ export class MailService {
         defaultSubject: "Update on your {acronym} application",
         variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{reason}}"],
         defaultBody: this.applicationRejectedBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, reason: "You do not meet the minimum years of experience requirement." }),
+      },
+      {
+        key: "event_registered", name: "Event Registration Confirmed",
+        defaultSubject: "You're registered — {{eventTitle}}",
+        variables: ["{{name}}", "{{eventTitle}}", "{{eventDate}}", "{{location}}", "{{meetingLink}}"],
+        defaultBody: this.eventRegisteredBody({ name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event" }),
+      },
+      {
+        key: "event_announcement", name: "Event Announcement",
+        defaultSubject: "New event — {{eventTitle}}",
+        variables: ["{{firstName}}", "{{eventTitle}}", "{{eventDate}}", "{{eventSummary}}", "{{registerUrl}}"],
+        defaultBody: this.eventAnnouncementBody({ firstName: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, eventSummary: "A live session on where AI is headed and how professionals can prepare.", registerUrl: "https://paii.ca/events/future-of-ai" }),
       },
     ];
   }
@@ -642,6 +688,39 @@ export class MailService {
         <a href="${inviteLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Create My Account →</a>
       </div>
       <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by ${senderName}. If you didn't expect this email, you can safely ignore it.</p>
+    `;
+  }
+
+  private eventRegisteredBody(opts: { name: string; eventTitle: string; eventDate: string; location: string; meetingLink?: string }): string {
+    const linkRow = opts.meetingLink
+      ? `<tr><td style="font-size:13px;color:#64748b;padding:5px 0">Meeting Link</td><td style="font-size:13px;text-align:right;padding:5px 0"><a href="${opts.meetingLink}" style="color:#3b82f6">Join Session</a></td></tr>`
+      : "";
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">You're Registered, ${opts.name}!</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your spot for <strong>${opts.eventTitle}</strong> is confirmed. Here are the details:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="font-size:13px;color:#64748b;padding:5px 0">When</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">${opts.eventDate}</td></tr>
+          <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Where</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">${opts.location}</td></tr>
+          ${linkRow}
+        </table>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">We'll send any updates about this event to this email address. See you there!</p>
+    `;
+  }
+
+  private eventAnnouncementBody(opts: { firstName: string; eventTitle: string; eventDate: string; eventSummary: string; registerUrl: string }): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${opts.firstName},</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">We're hosting a new event you might be interested in:</p>
+      <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:12px;padding:24px;margin:0 0 24px">
+        <p style="margin:0 0 6px;font-size:19px;font-weight:900;color:#78350f">${opts.eventTitle}</p>
+        <p style="margin:0 0 10px;font-size:13px;color:#92400e">${opts.eventDate}</p>
+        ${opts.eventSummary ? `<p style="margin:0;font-size:14px;color:#78350f;line-height:1.5">${opts.eventSummary}</p>` : ""}
+      </div>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${opts.registerUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Register Now →</a>
+      </div>
     `;
   }
 

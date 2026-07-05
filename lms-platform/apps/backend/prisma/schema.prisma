@@ -163,6 +163,31 @@ enum PaymentType {
   retake_fee
   renewal_fee
   corporate_bundle
+  event_registration
+
+  @@schema("lms")
+}
+
+enum EventType {
+  online
+  in_person
+  hybrid
+
+  @@schema("lms")
+}
+
+enum EventStatus {
+  draft
+  published
+  cancelled
+  completed
+
+  @@schema("lms")
+}
+
+enum EventRegistrationStatus {
+  registered
+  cancelled
 
   @@schema("lms")
 }
@@ -275,6 +300,7 @@ model User {
   affiliate_profile        AffiliateProfile?
   affiliate_commissions_as_buyer AffiliateCommission[]
   affiliate_leads_referred AffiliateLead[]
+  event_registrations      EventRegistration[]
 
   @@index([email])
   @@map("users")
@@ -1340,6 +1366,67 @@ model BlogPost {
   updated_at      DateTime  @updatedAt
 
   @@map("blog_posts")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// EVENTS
+// ─────────────────────────────────────────────
+
+model Event {
+  id                String       @id @default(uuid())
+  slug              String       @unique
+  title             String
+  subtitle          String?
+  summary           String?
+  description       String?      @db.Text
+  cover_image_url   String?
+  promo_video_url   String?
+  event_type        EventType    @default(online)
+  location_address  String?
+  meeting_link      String?
+  timezone          String       @default("America/Toronto")
+  start_at          DateTime
+  end_at            DateTime
+  price             Decimal      @db.Decimal(10, 2) @default(0)
+  currency          String       @default("usd")
+  capacity          Int?
+  status            EventStatus  @default(draft)
+  speakers          Json?
+  agenda            Json?
+  topics            String[]     @default([])
+  is_featured       Boolean      @default(false)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+
+  registrations EventRegistration[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("events")
+  @@schema("lms")
+}
+
+model EventRegistration {
+  id     String @id @default(uuid())
+  event_id String
+  event    Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user_id  String?
+  user     User?  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  name  String
+  email String
+  phone String?
+
+  status       EventRegistrationStatus @default(registered)
+  amount_paid  Decimal                 @db.Decimal(10, 2) @default(0)
+  stripe_payment_intent_id   String?
+  stripe_checkout_session_id String?
+  registered_at DateTime @default(now())
+
+  @@unique([event_id, email])
+  @@index([event_id])
+  @@map("event_registrations")
   @@schema("lms")
 }
 
