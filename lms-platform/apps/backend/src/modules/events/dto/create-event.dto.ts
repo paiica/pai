@@ -2,6 +2,7 @@ import {
   IsString, IsOptional, IsUUID, IsEnum, IsDateString, IsNumber, IsInt,
   IsBoolean, IsArray, Min, MaxLength,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { EventType, EventStatus } from "@prisma/client";
 
 export class CreateEventDto {
@@ -32,8 +33,8 @@ export class CreateEventDto {
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsInt() @Min(1) capacity?: number;
   @IsOptional() @IsEnum(EventStatus) status?: EventStatus;
-  @IsOptional() @IsArray() speakers?: any[];
-  @IsOptional() @IsArray() agenda?: any[];
+  @IsOptional() @IsArray() @Type(() => Object) speakers?: any[];
+  @IsOptional() @IsArray() @Type(() => Object) agenda?: any[];
   @IsOptional() @IsArray() topics?: string[];
   @IsOptional() @IsBoolean() is_featured?: boolean;
 }

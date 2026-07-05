@@ -75,8 +75,9 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   const price = Number(event.price);
-  const speakers = Array.isArray(event.speakers) ? event.speakers : [];
-  const agenda = Array.isArray(event.agenda) ? event.agenda : [];
+  const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+  const speakers = Array.isArray(event.speakers) ? event.speakers.filter(isRecord) : [];
+  const agenda = Array.isArray(event.agenda) ? event.agenda.filter(isRecord) : [];
 
   return (
     <>
@@ -140,14 +141,14 @@ export default async function EventDetailPage({
                 <h2 className="text-xl font-display font-black text-ink-900 mb-5">Agenda</h2>
                 <div className="space-y-3">
                   {agenda.map((item) => (
-                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-slate-100 bg-sand-50/40">
+                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-sand-200 bg-sand-50/40">
                       <div className="flex-shrink-0 w-24 text-xs font-bold text-teal-700 pt-0.5">
-                        {item.day_label && <div className="text-slate-400 font-medium mb-0.5">{item.day_label}</div>}
+                        {item.day_label && <div className="text-sand-500 font-medium mb-0.5">{item.day_label}</div>}
                         {item.time}
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-ink-900 text-sm">{item.title}</p>
-                        {item.description && <p className="text-sm text-slate-500 mt-1 leading-relaxed">{item.description}</p>}
+                        {item.description && <p className="text-sm text-ink-500 mt-1 leading-relaxed">{item.description}</p>}
                       </div>
                     </div>
                   ))}
@@ -160,16 +161,16 @@ export default async function EventDetailPage({
                 <h2 className="text-xl font-display font-black text-ink-900 mb-5">Speakers</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {speakers.map((speaker) => (
-                    <div key={speaker.id} className="flex gap-4 p-4 rounded-xl border border-slate-100">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                    <div key={speaker.id} className="flex gap-4 p-4 rounded-xl border border-sand-200">
+                      <div className="w-16 h-16 rounded-full bg-sand-100 overflow-hidden flex-shrink-0">
                         {speaker.photo_url && <img src={speaker.photo_url} alt={speaker.name} className="w-full h-full object-cover" />}
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-ink-900 text-sm">{speaker.name}</p>
-                        <p className="text-xs text-slate-400 mb-1.5">
+                        <p className="text-xs text-sand-500 mb-1.5">
                           {[speaker.title, speaker.company].filter(Boolean).join(" · ")}
                         </p>
-                        {speaker.bio && <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{speaker.bio}</p>}
+                        {speaker.bio && <p className="text-xs text-ink-500 leading-relaxed line-clamp-3">{speaker.bio}</p>}
                       </div>
                     </div>
                   ))}
@@ -190,10 +191,10 @@ export default async function EventDetailPage({
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
               <EventRegisterForm eventId={event.id} price={price} alreadyRegistered={registered === "1"} />
-              <div className="rounded-2xl border border-slate-100 p-4 space-y-2.5 text-sm text-slate-600">
-                <div className="flex items-center gap-2"><Calendar size={14} className="text-slate-400 flex-shrink-0" /> {formatDateTime(event.start_at, event.end_at, event.timezone)}</div>
+              <div className="rounded-2xl border border-sand-200 p-4 space-y-2.5 text-sm text-ink-500">
+                <div className="flex items-center gap-2"><Calendar size={14} className="text-sand-400 flex-shrink-0" /> {formatDateTime(event.start_at, event.end_at, event.timezone)}</div>
                 <div className="flex items-center gap-2">
-                  {event.event_type === "in_person" ? <MapPin size={14} className="text-slate-400 flex-shrink-0" /> : <Globe size={14} className="text-slate-400 flex-shrink-0" />}
+                  {event.event_type === "in_person" ? <MapPin size={14} className="text-sand-400 flex-shrink-0" /> : <Globe size={14} className="text-sand-400 flex-shrink-0" />}
                   {event.event_type === "in_person" ? (event.location_address ?? "In person") : "Online — link sent after registration"}
                 </div>
               </div>

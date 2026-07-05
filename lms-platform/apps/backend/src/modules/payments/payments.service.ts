@@ -5,32 +5,54 @@ import { PaymentType, PaymentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { MailService } from "../mail/mail.service";
+import { SiteSettingsService } from "../site-settings/site-settings.service";
+import { EventCheckoutDto } from "./dto/checkout.dto";
 
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
-  private stripe: Stripe;
+  private readonly envStripe: Stripe | null;
+  private readonly envWebhookSecret: string;
+  private readonly envPublishableKey: string;
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
     private promoCodes: PromoCodesService,
     private mail: MailService,
+    private settings: SiteSettingsService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
-    if (stripeKey && stripeKey.length > 10) {
-      this.stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
-    } else {
-      this.logger.warn("STRIPE_SECRET_KEY not set or invalid — payments disabled");
+    this.envStripe = stripeKey && stripeKey.length > 10
+      ? new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" })
+      : null;
+    this.envWebhookSecret = config.get<string>("stripe.webhookSecret") ?? "";
+    this.envPublishableKey = config.get<string>("stripe.publishableKey") ?? "";
+    if (!this.envStripe) {
+      this.logger.warn("STRIPE_SECRET_KEY not set or invalid — falling back to Settings → APIs at request time");
     }
   }
 
-  private ensureStripe() {
-    if (!this.stripe) {
-      throw new BadRequestException(
-        "Payment processing is not configured. Please add your Stripe key in Settings → APIs."
-      );
+  // Resolve Stripe client, webhook secret, and publishable key — Settings →
+  // APIs takes priority (it's the live, admin-editable source of truth and
+  // takes effect immediately without a restart), falling back to the env var
+  // only if nothing has been configured there yet. Unlike MailService's
+  // env-first pattern, env can't win by default here: a placeholder
+  // .env value (e.g. "sk_test_xxxxxxxxxxxx") still passes a basic
+  // presence check, so it would otherwise permanently shadow a real key
+  // saved via the admin UI.
+  private async resolveStripe(): Promise<{ stripe: Stripe; webhookSecret: string; publishableKey: string } | null> {
+    const all = await this.settings.getAll();
+    const settingsKey = all["stripe_secret_key"];
+    if (settingsKey) {
+      return {
+        stripe: new Stripe(settingsKey, { apiVersion: "2025-02-24.acacia" }),
+        webhookSecret: all["stripe_webhook_secret"] || this.envWebhookSecret,
+        publishableKey: all["stripe_publishable_key"] || this.envPublishableKey,
+      };
     }
+    if (this.envStripe) return { stripe: this.envStripe, webhookSecret: this.envWebhookSecret, publishableKey: this.envPublishableKey };
+    return null;
   }
 
   private stripeError(err: any): never {
@@ -42,7 +64,9 @@ export class PaymentsService {
   // ─── Existing certification checkout (via application) ──────────────────────
 
   async createCheckoutSession(userId: string, certificationSlug: string, applicationId?: string) {
-    this.ensureStripe();
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    const { stripe } = stripeClient;
     const cert = await this.prisma.certification.findUnique({ where: { slug: certificationSlug } });
     if (!cert) throw new NotFoundException("Certification not found");
 
@@ -53,7 +77,7 @@ export class PaymentsService {
     const cancelUrl = `${this.config.get("frontendUrl")}/certifications/${certificationSlug}`;
 
     try {
-      const session = await this.stripe.checkout.sessions.create({
+      const session = await stripe.checkout.sessions.create({
         mode: "payment",
         customer_email: user.email,
         metadata: { user_id: userId, certification_id: cert.id, application_id: applicationId || "" },
@@ -119,9 +143,10 @@ export class PaymentsService {
       return { checkout_url: null, enrolled: true };
     }
 
-    this.ensureStripe();
+    const courseStripeClient = await this.resolveStripe();
+    if (!courseStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await this.stripe.checkout.sessions.create({
+      const session = await courseStripeClient.stripe.checkout.sessions.create({
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -241,9 +266,10 @@ export class PaymentsService {
       return { checkout_url: null, enrolled: false };
     }
 
-    this.ensureStripe();
+    const certStripeClient = await this.resolveStripe();
+    if (!certStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await this.stripe.checkout.sessions.create({
+      const session = await certStripeClient.stripe.checkout.sessions.create({
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -274,7 +300,7 @@ export class PaymentsService {
 
   // ─── Event checkout (guest — no account required) ────────────────────────────
 
-  async createEventCheckoutSession(dto: { event_id: string; name: string; email: string; phone?: string; promo_code?: string }) {
+  async createEventCheckoutSession(dto: EventCheckoutDto) {
     const event = await this.prisma.event.findUnique({ where: { id: dto.event_id } });
     if (!event || event.status !== "published") throw new NotFoundException("Event not found");
 
@@ -300,13 +326,18 @@ export class PaymentsService {
     }
 
     const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
-    const successUrl = `${marketingUrl}/events/${event.slug}?registered=1&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${marketingUrl}/events/${event.slug}`;
+    const returnUrl = `${marketingUrl}/events/${event.slug}?registered=1&session_id={CHECKOUT_SESSION_ID}`;
 
-    this.ensureStripe();
+    const eventStripeClient = await this.resolveStripe();
+    if (!eventStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await this.stripe.checkout.sessions.create({
+      // Embedded Checkout — renders inline on the event page via an iframe
+      // instead of redirecting to a Stripe-hosted page. Fulfillment is
+      // unchanged: this is still a Checkout Session under the hood, so the
+      // existing checkout.session.completed webhook handling applies as-is.
+      const session = await eventStripeClient.stripe.checkout.sessions.create({
         mode: "payment",
+        ui_mode: "embedded",
         customer_email: dto.email,
         metadata: {
           checkout_type: "event",
@@ -314,6 +345,15 @@ export class PaymentsService {
           guest_name: dto.name,
           guest_email: dto.email,
           guest_phone: dto.phone || "",
+          guest_address_line1: dto.address_line1,
+          guest_city: dto.city,
+          guest_state_province: dto.state_province,
+          guest_postal_code: dto.postal_code,
+          guest_country: dto.country,
+          guest_profession: dto.profession,
+          guest_job_title: dto.job_title,
+          guest_education: dto.education,
+          guest_years_experience: String(dto.years_experience),
           promo_id: promoId || "",
           promo_code: dto.promo_code || "",
           original_price: String(event.price),
@@ -326,10 +366,13 @@ export class PaymentsService {
           },
           quantity: 1,
         }],
-        success_url: successUrl,
-        cancel_url: cancelUrl,
+        return_url: returnUrl,
       });
-      return { checkout_url: session.url, session_id: session.id };
+      return {
+        client_secret: session.client_secret,
+        publishable_key: eventStripeClient.publishableKey,
+        session_id: session.id,
+      };
     } catch (err) { this.stripeError(err); }
   }
 
@@ -362,11 +405,12 @@ export class PaymentsService {
   // ─── Webhook ─────────────────────────────────────────────────────────────────
 
   async handleWebhook(rawBody: Buffer, signature: string) {
-    const webhookSecret = this.config.get<string>("stripe.webhookSecret");
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     let event: Stripe.Event;
 
     try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret!);
+      event = stripeClient.stripe.webhooks.constructEvent(rawBody, signature, stripeClient.webhookSecret);
     } catch {
       throw new BadRequestException("Webhook signature verification failed");
     }
@@ -421,7 +465,11 @@ export class PaymentsService {
   }
 
   private async handleEventCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { event_id, guest_name, guest_email, guest_phone, promo_id } = session.metadata || {};
+    const {
+      event_id, guest_name, guest_email, guest_phone, promo_id,
+      guest_address_line1, guest_city, guest_state_province, guest_postal_code, guest_country,
+      guest_profession, guest_job_title, guest_education, guest_years_experience,
+    } = session.metadata || {};
     if (!event_id || !guest_email) return;
 
     const existing = await this.prisma.eventRegistration.findUnique({
@@ -438,6 +486,8 @@ export class PaymentsService {
     const event = await this.prisma.event.findUnique({ where: { id: event_id } });
     if (!event) return;
 
+    const yearsExperience = guest_years_experience ? parseInt(guest_years_experience, 10) : null;
+
     await this.prisma.eventRegistration.upsert({
       where: { event_id_email: { event_id, email: guest_email } },
       create: {
@@ -445,6 +495,15 @@ export class PaymentsService {
         name: guest_name || guest_email,
         email: guest_email,
         phone: guest_phone || null,
+        address_line1: guest_address_line1 || null,
+        city: guest_city || null,
+        state_province: guest_state_province || null,
+        postal_code: guest_postal_code || null,
+        country: guest_country || null,
+        profession: guest_profession || null,
+        job_title: guest_job_title || null,
+        education: guest_education || null,
+        years_experience: yearsExperience,
         status: "registered",
         amount_paid: amount,
         stripe_payment_intent_id: paymentIntentId,
@@ -453,6 +512,15 @@ export class PaymentsService {
       update: {
         name: guest_name || guest_email,
         phone: guest_phone || null,
+        address_line1: guest_address_line1 || null,
+        city: guest_city || null,
+        state_province: guest_state_province || null,
+        postal_code: guest_postal_code || null,
+        country: guest_country || null,
+        profession: guest_profession || null,
+        job_title: guest_job_title || null,
+        education: guest_education || null,
+        years_experience: yearsExperience,
         status: "registered",
         amount_paid: amount,
         stripe_payment_intent_id: paymentIntentId,
@@ -503,9 +571,10 @@ export class PaymentsService {
     // Retrieve Stripe receipt URL from the charge
     let receiptUrl: string | null = null;
     let chargeId: string | null = null;
-    if (paymentIntentId) {
+    const webhookStripeClient = await this.resolveStripe();
+    if (paymentIntentId && webhookStripeClient) {
       try {
-        const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
+        const pi = await webhookStripeClient.stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
         const charge = pi.latest_charge as Stripe.Charge | null;
         receiptUrl = charge?.receipt_url ?? null;
         chargeId = charge?.id ?? null;
@@ -768,7 +837,9 @@ export class PaymentsService {
   }
 
   async issueRefund(paymentIntentId: string) {
-    return this.stripe.refunds.create({ payment_intent: paymentIntentId, reason: "requested_by_customer" });
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    return stripeClient.stripe.refunds.create({ payment_intent: paymentIntentId, reason: "requested_by_customer" });
   }
 
   async getMyPayments(userId: string) {
@@ -841,24 +912,26 @@ export class PaymentsService {
   }
 
   async createBillingPortalSession(userId: string) {
-    this.ensureStripe();
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    const { stripe } = stripeClient;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
 
     const frontendUrl = this.config.get("frontendUrl");
 
     // Find or create Stripe customer by email
-    const customers = await this.stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId: string;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
     } else {
-      const customer = await this.stripe.customers.create({ email: user.email });
+      const customer = await stripe.customers.create({ email: user.email });
       customerId = customer.id;
     }
 
     try {
-      const session = await this.stripe.billingPortal.sessions.create({
+      const session = await stripe.billingPortal.sessions.create({
         customer: customerId,
         return_url: `${frontendUrl}/profile?tab=payment`,
       });
@@ -946,7 +1019,9 @@ export class PaymentsService {
     if (!payment.stripe_payment_intent_id)
       throw new BadRequestException("No Stripe payment intent linked to this payment");
 
-    const refund = await this.stripe.refunds.create({
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    const refund = await stripeClient.stripe.refunds.create({
       payment_intent: payment.stripe_payment_intent_id,
       reason: (reason as any) ?? "requested_by_customer",
     });
