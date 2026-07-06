@@ -3,13 +3,63 @@
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, Key, Database, ExternalLink, CreditCard, BarChart3 } from "lucide-react";
+import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, XCircle, Key, Database, ExternalLink, CreditCard, BarChart3, Bot, Zap } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data ?? r);
 }
+
+// ── AI config constants ────────────────────────────────────────────────────────
+
+type Provider = "openai" | "groq" | "gemini";
+
+const PROVIDERS: { value: Provider; label: string; color: string; desc: string; keyLabel: string; keyPlaceholder: string }[] = [
+  {
+    value: "openai",
+    label: "OpenAI",
+    color: "bg-emerald-600",
+    desc: "GPT-4o, GPT-4o Mini — best quality",
+    keyLabel: "OpenAI API Key",
+    keyPlaceholder: "sk-...",
+  },
+  {
+    value: "groq",
+    label: "Groq",
+    color: "bg-orange-500",
+    desc: "Llama, Mixtral — ultra-fast inference",
+    keyLabel: "Groq API Key",
+    keyPlaceholder: "gsk_...",
+  },
+  {
+    value: "gemini",
+    label: "Gemini",
+    color: "bg-blue-600",
+    desc: "Gemini 2.0 Flash, Pro — Google AI",
+    keyLabel: "Gemini API Key",
+    keyPlaceholder: "AIza...",
+  },
+];
+
+const PROVIDER_MODELS: Record<Provider, { value: string; label: string }[]> = {
+  openai: [
+    { value: "gpt-4o",      label: "GPT-4o (recommended)" },
+    { value: "gpt-4o-mini", label: "GPT-4o Mini (faster, cheaper)" },
+    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+  ],
+  groq: [
+    { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile (recommended)" },
+    { value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B Versatile" },
+    { value: "gemma2-9b-it",            label: "Gemma 2 9B" },
+    { value: "mixtral-8x7b-32768",      label: "Mixtral 8x7B" },
+  ],
+  gemini: [
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (recommended)" },
+    { value: "gemini-1.5-pro",   label: "Gemini 1.5 Pro" },
+    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (faster)" },
+  ],
+};
 
 type ConnStatus = "connected" | "attention" | "disconnected" | "loading";
 
@@ -57,8 +107,11 @@ function SectionHeader({
   );
 }
 
+type SectionId = "database" | "email" | "storage" | "payments" | "analytics" | "ai";
+
 export default function ApiSettingsPage() {
   const { accessToken } = useAuthStore();
+  const [activeSection, setActiveSection] = useState<SectionId>("database");
 
   const { data, mutate } = useSWR(
     accessToken ? ["/site-settings/api-settings", accessToken] : null,
@@ -67,6 +120,11 @@ export default function ApiSettingsPage() {
 
   const { data: payData, mutate: mutatePayment } = useSWR(
     accessToken ? ["/site-settings/payment-settings", accessToken] : null,
+    ([url, t]) => fetcher(url, t)
+  );
+
+  const { data: aiData, mutate: mutateAi } = useSWR(
+    accessToken ? ["/ai/settings", accessToken] : null,
     ([url, t]) => fetcher(url, t)
   );
 
@@ -105,6 +163,17 @@ export default function ApiSettingsPage() {
   const [gaId,      setGaId]      = useState("");
   const [savingGa,  setSavingGa]  = useState(false);
 
+  // AI — Provider
+  const [aiProvider, setAiProvider] = useState<Provider>("openai");
+  const [aiModel,    setAiModel]    = useState("");
+  const [openaiKey,  setOpenaiKey]  = useState("");
+  const [groqKey,    setGroqKey]    = useState("");
+  const [geminiKey,  setGeminiKey]  = useState("");
+  const [showAiKey,  setShowAiKey]  = useState<Record<Provider, boolean>>({ openai: false, groq: false, gemini: false });
+  const [savingAi,   setSavingAi]   = useState(false);
+  const [testingAi,  setTestingAi]  = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   useEffect(() => {
     if (data) {
       setEmailFrom(data.email_from             ?? "");
@@ -124,6 +193,20 @@ export default function ApiSettingsPage() {
       setStripePubKey(payData.stripe_publishable_key ?? "");
     }
   }, [payData]);
+
+  useEffect(() => {
+    if (aiData) {
+      const p = (aiData.provider || "openai") as Provider;
+      setAiProvider(p);
+      setAiModel(aiData.model || PROVIDER_MODELS[p]?.[0]?.value || "");
+    }
+  }, [aiData]);
+
+  function handleProviderChange(p: Provider) {
+    setAiProvider(p);
+    setAiModel(PROVIDER_MODELS[p]?.[0]?.value || "");
+    setAiTestResult(null);
+  }
 
   // ── Connection status, derived from persisted data (not in-progress edits) ────
   const dbStatus: ConnStatus = !data ? "loading"
@@ -150,13 +233,26 @@ export default function ApiSettingsPage() {
     : data.google_analytics_id ? "connected"
     : "disconnected";
 
+  const aiKeyIsSet = aiData ? (
+    aiProvider === "openai" ? aiData.openai_key_set :
+    aiProvider === "groq"   ? aiData.groq_key_set :
+                              aiData.gemini_key_set
+  ) : false;
+
+  const aiStatus: ConnStatus = !aiData ? "loading"
+    : aiKeyIsSet ? "connected"
+    : "disconnected";
+
   const STATUS_STRIP = [
     { id: "database",  label: "Database",  icon: Database,   tile: "bg-navy-800",   status: dbStatus },
     { id: "email",     label: "Email",     icon: Mail,       tile: "bg-gold-600",   status: emailStatus },
     { id: "storage",   label: "Storage",   icon: HardDrive,  tile: "bg-sky-600",    status: storageStatus },
     { id: "payments",  label: "Payments",  icon: CreditCard, tile: "bg-violet-600", status: paymentsStatus },
     { id: "analytics", label: "Analytics", icon: BarChart3,  tile: "bg-teal-600",   status: gaStatus },
+    { id: "ai",        label: "AI",        icon: Bot,        tile: "bg-indigo-600", status: aiStatus },
   ] as const;
+
+  const activeProviderDef = PROVIDERS.find((p) => p.value === aiProvider)!;
 
   async function sendTestEmail() {
     setTestingEmail(true);
@@ -268,11 +364,45 @@ export default function ApiSettingsPage() {
     }
   }
 
+  async function saveAiSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingAi(true);
+    setAiTestResult(null);
+    try {
+      const body: Record<string, string> = { provider: aiProvider, model: aiModel };
+      if (openaiKey.trim()) body.openai_key = openaiKey.trim();
+      if (groqKey.trim())   body.groq_key   = groqKey.trim();
+      if (geminiKey.trim()) body.gemini_key = geminiKey.trim();
+      await api.patch<any>("/ai/settings", body, accessToken!);
+      await mutateAi();
+      setOpenaiKey(""); setGroqKey(""); setGeminiKey("");
+      toast.success("AI settings saved");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save AI settings");
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
+  async function testAiConnection() {
+    setTestingAi(true);
+    setAiTestResult(null);
+    try {
+      const res = await api.post<any>("/ai/test", {}, accessToken!);
+      const d = res.data ?? res;
+      setAiTestResult({ ok: true, msg: `Connected — ${d.provider} / ${d.model}` });
+    } catch (err: any) {
+      setAiTestResult({ ok: false, msg: err.message ?? "Connection failed" });
+    } finally {
+      setTestingAi(false);
+    }
+  }
+
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-8">
+    <div className="p-8 max-w-6xl mx-auto">
 
       {/* Header */}
-      <div>
+      <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Key size={20} className="text-navy-600" />
           <h1 className="text-2xl font-display font-black text-navy-900 tracking-tight">API Integrations</h1>
@@ -280,29 +410,45 @@ export default function ApiSettingsPage() {
         <p className="text-slate-500 text-sm">Credentials for the external services this platform depends on.</p>
       </div>
 
-      {/* Signature element — status strip, one glance at what's wired up */}
-      <div className="card overflow-hidden">
-        <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-          {STATUS_STRIP.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              className="flex-1 flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors"
-            >
-              <div className={`w-9 h-9 rounded-xl ${item.tile} flex items-center justify-center text-white shrink-0`}>
-                <item.icon size={16} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-slate-400 font-medium mb-1">{item.label}</p>
-                <StatusPill status={item.status} />
-              </div>
-            </a>
-          ))}
-        </div>
-      </div>
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
 
-      {/* Database — Supabase */}
-      <form onSubmit={saveSupabase} id="database" className="space-y-4 scroll-mt-6">
+        {/* Nav — status at a glance for every integration, doubles as the section switcher */}
+        <nav className="w-full lg:w-72 shrink-0 lg:sticky lg:top-8">
+          <div className="card overflow-x-auto lg:overflow-visible">
+            <div className="flex lg:flex-col divide-x lg:divide-x-0 lg:divide-y divide-slate-100">
+              {STATUS_STRIP.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={`flex items-center gap-3 px-4 py-3.5 text-left shrink-0 lg:shrink transition-colors border-l-2 ${
+                      isActive ? "bg-navy-50 border-navy-700" : "border-transparent hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${item.tile} flex items-center justify-center text-white shrink-0`}>
+                      <item.icon size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-semibold mb-1 whitespace-nowrap ${isActive ? "text-navy-900" : "text-slate-600"}`}>
+                        {item.label}
+                      </p>
+                      <StatusPill status={item.status} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
+
+        {/* Content pane — only the selected integration's form */}
+        <div className="flex-1 min-w-0 w-full space-y-4">
+
+      {activeSection === "database" && (
+      /* Database — Supabase */
+      <form onSubmit={saveSupabase} className="space-y-4">
         <div className="card p-6">
           <SectionHeader
             id="database" icon={Database} tile="bg-navy-800"
@@ -346,9 +492,11 @@ export default function ApiSettingsPage() {
           Save Database Settings
         </button>
       </form>
+      )}
 
-      {/* Email — Resend */}
-      <form onSubmit={saveEmail} id="email" className="space-y-4 scroll-mt-6">
+      {activeSection === "email" && (
+      /* Email — Resend */
+      <form onSubmit={saveEmail} className="space-y-4">
         <div className="card p-6">
           <SectionHeader
             id="email" icon={Mail} tile="bg-gold-600"
@@ -403,9 +551,11 @@ export default function ApiSettingsPage() {
           </button>
         </div>
       </form>
+      )}
 
-      {/* File Storage — S3 */}
-      <form onSubmit={saveS3} id="storage" className="space-y-4 scroll-mt-6">
+      {activeSection === "storage" && (
+      /* File Storage — S3 */
+      <form onSubmit={saveS3} className="space-y-4">
         <div className="card p-6">
           <SectionHeader
             id="storage" icon={HardDrive} tile="bg-sky-600"
@@ -468,9 +618,11 @@ export default function ApiSettingsPage() {
           Save Storage Settings
         </button>
       </form>
+      )}
 
-      {/* Payment — Stripe */}
-      <form onSubmit={saveStripe} id="payments" className="space-y-4 scroll-mt-6">
+      {activeSection === "payments" && (
+      /* Payment — Stripe */
+      <form onSubmit={saveStripe} className="space-y-4">
         <div className="card p-6">
           <SectionHeader
             id="payments" icon={CreditCard} tile="bg-violet-600"
@@ -558,9 +710,11 @@ export default function ApiSettingsPage() {
           Save Stripe Settings
         </button>
       </form>
+      )}
 
-      {/* Analytics — Google Analytics */}
-      <form onSubmit={saveGa} id="analytics" className="space-y-4 scroll-mt-6">
+      {activeSection === "analytics" && (
+      /* Analytics — Google Analytics */
+      <form onSubmit={saveGa} className="space-y-4">
         <div className="card p-6">
           <SectionHeader
             id="analytics" icon={BarChart3} tile="bg-teal-600"
@@ -592,7 +746,112 @@ export default function ApiSettingsPage() {
           Save Analytics Settings
         </button>
       </form>
+      )}
 
+      {activeSection === "ai" && (
+      /* AI — Provider */
+      <form onSubmit={saveAiSettings} className="space-y-4">
+        <div className="card p-6">
+          <SectionHeader
+            id="ai" icon={Bot} tile="bg-indigo-600"
+            title="AI — Provider" blurb="Powers automatic exam generation and question improvement." status={aiStatus}
+          />
+
+          {/* Provider selector */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {PROVIDERS.map((p) => {
+              const selected = aiProvider === p.value;
+              return (
+                <button key={p.value} type="button" onClick={() => handleProviderChange(p.value)}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-xl border-2 transition-all text-left ${selected ? "border-navy-700 bg-navy-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${p.color}`}>
+                    {p.label.slice(0, 2)}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${selected ? "text-navy-900" : "text-slate-700"}`}>{p.label}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{p.desc}</p>
+                  </div>
+                  {selected && (
+                    <span className="ml-auto mt-auto w-4 h-4 rounded-full bg-navy-700 flex items-center justify-center self-end">
+                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
+                        <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Model selector */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">Model</label>
+            <div className="space-y-2">
+              {PROVIDER_MODELS[aiProvider].map((m) => (
+                <label key={m.value}
+                  className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${aiModel === m.value ? "border-navy-700 bg-navy-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                  <input type="radio" name="aiModel" value={m.value} checked={aiModel === m.value}
+                    onChange={() => setAiModel(m.value)} className="accent-navy-700 shrink-0" />
+                  <p className={`text-sm font-medium ${aiModel === m.value ? "text-navy-900" : "text-slate-700"}`}>{m.label}</p>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* API key */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-700">{activeProviderDef.keyLabel}</label>
+              {aiKeyIsSet && <SavedChip />}
+            </div>
+            <div className="relative">
+              <input
+                type={showAiKey[aiProvider] ? "text" : "password"}
+                value={aiProvider === "openai" ? openaiKey : aiProvider === "groq" ? groqKey : geminiKey}
+                onChange={(e) => {
+                  if (aiProvider === "openai") setOpenaiKey(e.target.value);
+                  else if (aiProvider === "groq") setGroqKey(e.target.value);
+                  else setGeminiKey(e.target.value);
+                }}
+                placeholder={aiKeyIsSet ? "Enter new key to replace…" : activeProviderDef.keyPlaceholder}
+                className="input-base pr-10"
+              />
+              <button type="button"
+                onClick={() => setShowAiKey((prev) => ({ ...prev, [aiProvider]: !prev[aiProvider] }))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                {showAiKey[aiProvider] ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">
+              {aiProvider === "openai" && <>Get your key from <span className="font-mono">platform.openai.com/api-keys</span></>}
+              {aiProvider === "groq"   && <>Get your key from <span className="font-mono">console.groq.com/keys</span></>}
+              {aiProvider === "gemini" && <>Get your key from <span className="font-mono">aistudio.google.com/apikey</span></>}
+            </p>
+          </div>
+
+          {aiTestResult && (
+            <div className={`mt-4 flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm ${aiTestResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+              {aiTestResult.ok ? <CheckCircle2 size={15} className="shrink-0" /> : <XCircle size={15} className="shrink-0" />}
+              {aiTestResult.msg}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button type="submit" disabled={savingAi} className="btn-primary flex-1 justify-center disabled:opacity-60">
+            {savingAi ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            Save AI Settings
+          </button>
+          <button type="button" onClick={testAiConnection} disabled={testingAi}
+            className="btn-outline flex items-center gap-2 px-5 disabled:opacity-60">
+            {testingAi ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+            Test
+          </button>
+        </div>
+      </form>
+      )}
+
+        </div>
+      </div>
     </div>
   );
 }
