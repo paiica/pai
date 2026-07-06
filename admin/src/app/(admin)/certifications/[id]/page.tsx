@@ -114,6 +114,7 @@ function safeMeta(val: unknown): MarketingMeta {
       hero_badge_label:    m.hero_badge_label      ?? DEFAULT_MARKETING.hero_badge_label,
       prerequisites:       m.prerequisites          ?? "",
       enrollment_includes: safeArray<string>(m.enrollment_includes, DEFAULT_MARKETING.enrollment_includes),
+      page_tabs:           m.page_tabs,
     };
   }
   return { ...DEFAULT_MARKETING };
