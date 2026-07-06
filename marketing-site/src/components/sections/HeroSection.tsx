@@ -151,20 +151,34 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-            {[
+          {/* Stats — only render boxes that actually have content */}
+          {(() => {
+            const stats = [
               { value: slide.stat1_value, label: slide.stat1_label },
               { value: slide.stat2_value, label: slide.stat2_label },
               { value: slide.stat3_value, label: slide.stat3_label },
               { value: slide.stat4_value, label: slide.stat4_label },
-            ].map(({ value, label }) => (
-              <div key={label} className="flex flex-col items-center justify-center py-5 px-4">
-                <div className="text-2xl sm:text-3xl font-mono font-semibold text-white">{value}</div>
-                <div className="text-xs text-white mt-1 text-center">{label}</div>
+            ].filter(({ value, label }) => value?.trim() && label?.trim());
+
+            if (stats.length === 0) return null;
+
+            return (
+              <div className={cn(
+                "grid divide-x divide-white/10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden",
+                stats.length === 1 && "grid-cols-1",
+                stats.length === 2 && "grid-cols-2",
+                stats.length === 3 && "grid-cols-3",
+                stats.length === 4 && "grid-cols-2 sm:grid-cols-4",
+              )}>
+                {stats.map(({ value, label }) => (
+                  <div key={label} className="flex flex-col items-center justify-center py-5 px-4">
+                    <div className="text-2xl sm:text-3xl font-mono font-semibold text-white">{value}</div>
+                    <div className="text-xs text-white mt-1 text-center">{label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
 
         {/* Slide controls */}
