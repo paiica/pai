@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.10",
     "@stripe/react-stripe-js": "^6.7.0",
     "@stripe/stripe-js": "^9.9.0",
     "clsx": "^2.1.1",

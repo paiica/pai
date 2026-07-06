@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
@@ -86,13 +87,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getSiteSettings();
+  const gaId = settings.google_analytics_id;
+
   return (
     <html lang="en" className={`${jakarta.variable} ${fraunces.variable} ${plexMono.variable}`}>
       <body>
         <Providers>
           {children}
         </Providers>
+        {gaId && <GoogleAnalytics gaId={gaId} />}
       </body>
     </html>
   );

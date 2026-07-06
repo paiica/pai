@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, Key, Database, ExternalLink, CreditCard } from "lucide-react";
+import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, Key, Database, ExternalLink, CreditCard, BarChart3 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -101,6 +101,10 @@ export default function ApiSettingsPage() {
   const [showS3Secret, setShowS3Secret] = useState(false);
   const [savingS3,    setSavingS3]    = useState(false);
 
+  // Analytics — Google Analytics
+  const [gaId,      setGaId]      = useState("");
+  const [savingGa,  setSavingGa]  = useState(false);
+
   useEffect(() => {
     if (data) {
       setEmailFrom(data.email_from             ?? "");
@@ -110,6 +114,7 @@ export default function ApiSettingsPage() {
       setS3Endpoint(data.s3_endpoint           ?? "");
       setS3Region(data.s3_region               ?? "us-east-1");
       setS3Bucket(data.s3_bucket_name          ?? "");
+      setGaId(data.google_analytics_id         ?? "");
     }
   }, [data]);
 
@@ -141,11 +146,16 @@ export default function ApiSettingsPage() {
     : payData.stripe_secret_key_set ? "attention"
     : "disconnected";
 
+  const gaStatus: ConnStatus = !data ? "loading"
+    : data.google_analytics_id ? "connected"
+    : "disconnected";
+
   const STATUS_STRIP = [
-    { id: "database", label: "Database", icon: Database,   tile: "bg-navy-800",   status: dbStatus },
-    { id: "email",    label: "Email",    icon: Mail,        tile: "bg-gold-600",   status: emailStatus },
-    { id: "storage",  label: "Storage",  icon: HardDrive,   tile: "bg-sky-600",    status: storageStatus },
-    { id: "payments", label: "Payments", icon: CreditCard,  tile: "bg-violet-600", status: paymentsStatus },
+    { id: "database",  label: "Database",  icon: Database,   tile: "bg-navy-800",   status: dbStatus },
+    { id: "email",     label: "Email",     icon: Mail,       tile: "bg-gold-600",   status: emailStatus },
+    { id: "storage",   label: "Storage",   icon: HardDrive,  tile: "bg-sky-600",    status: storageStatus },
+    { id: "payments",  label: "Payments",  icon: CreditCard, tile: "bg-violet-600", status: paymentsStatus },
+    { id: "analytics", label: "Analytics", icon: BarChart3,  tile: "bg-teal-600",   status: gaStatus },
   ] as const;
 
   async function sendTestEmail() {
@@ -239,6 +249,22 @@ export default function ApiSettingsPage() {
       toast.error(err.message ?? "Failed to save");
     } finally {
       setSavingS3(false);
+    }
+  }
+
+  async function saveGa(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingGa(true);
+    try {
+      await api.patch("/site-settings", {
+        google_analytics_id: gaId.trim(),
+      }, accessToken!);
+      await mutate();
+      toast.success("Analytics settings saved");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save");
+    } finally {
+      setSavingGa(false);
     }
   }
 
@@ -530,6 +556,40 @@ export default function ApiSettingsPage() {
         <button type="submit" disabled={savingStripe} className="btn-primary w-full justify-center disabled:opacity-60">
           {savingStripe ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
           Save Stripe Settings
+        </button>
+      </form>
+
+      {/* Analytics — Google Analytics */}
+      <form onSubmit={saveGa} id="analytics" className="space-y-4 scroll-mt-6">
+        <div className="card p-6">
+          <SectionHeader
+            id="analytics" icon={BarChart3} tile="bg-teal-600"
+            title="Analytics — Google Analytics" blurb="Tracks visitor traffic and behavior across the marketing site." status={gaStatus}
+          />
+          <div className="flex items-center justify-end -mt-3 mb-4">
+            <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-navy-600 hover:text-navy-800 font-medium">
+              Google Analytics <ExternalLink size={11} />
+            </a>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Measurement ID
+                <span className="ml-1.5 text-[10px] font-normal text-slate-400">(safe to expose)</span>
+              </label>
+              <input type="text" value={gaId} onChange={(e) => setGaId(e.target.value)}
+                placeholder="G-XXXXXXXXXX" className="input-base font-mono text-xs" />
+              <p className="text-xs text-slate-400 mt-1.5">
+                Found in Google Analytics → Admin → Data Streams → your web stream. Leave blank to stop tracking.
+              </p>
+            </div>
+          </div>
+        </div>
+        <button type="submit" disabled={savingGa} className="btn-primary w-full justify-center disabled:opacity-60">
+          {savingGa ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          Save Analytics Settings
         </button>
       </form>
 
