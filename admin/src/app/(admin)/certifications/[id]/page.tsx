@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap,
+  GraduationCap, Sparkles, X,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -782,6 +782,9 @@ export default function CertEditorPage() {
   const [tab, setTab] = useState<TabId>("overview");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generatingAi, setGeneratingAi] = useState(false);
 
   const { data, isLoading, error, mutate } = useSWR(
     accessToken && id ? [`/admin/certifications/${id}`, accessToken] : null,
@@ -1013,6 +1016,79 @@ export default function CertEditorPage() {
     }
   }
 
+  function applyAiDraft(d: any) {
+    setAcronym(d.acronym ?? acronym);
+    setTitle(d.title ?? title);
+    setLevel(d.level ?? level);
+    setBadgeIcon(d.badge_icon ?? badgeIcon);
+    setDescription(d.description ?? "");
+    setLongDesc(d.long_description ?? "");
+    setOutcomes(safeArray<string>(d.learning_outcomes));
+    setAudience(safeArray<string>(d.target_audience));
+    setSkills(safeArray<string>(d.skills));
+    setCurriculum(safeArray<CurriculumItem>(d.curriculum_overview));
+    setFaqs(safeArray<FaqItem>(d.faqs_json));
+    setTestimonials(safeArray<Testimonial>(d.testimonials));
+    setPrice(String(d.price ?? ""));
+    setDurationWeeks(String(d.duration_weeks ?? ""));
+    setTotalLessons(String(d.total_lessons ?? ""));
+    setTotalHours(String(d.total_hours ?? ""));
+    setPassingScore(String(d.passing_score ?? ""));
+    setExamMins(String(d.exam_duration_minutes ?? ""));
+    setExamQuestions(String(d.exam_questions_count ?? ""));
+    setValidityYears(String(d.validity_years ?? ""));
+    setMaxRetakes(String(d.max_retakes_included ?? ""));
+    setRetakeFee(String(d.retake_fee ?? ""));
+    setMinYearsExp(d.min_years_experience != null ? String(d.min_years_experience) : "");
+    setMinTrainingHours(d.min_training_hours != null ? String(d.min_training_hours) : "");
+
+    const mm = d.marketing_meta ?? {};
+    setReviewsRating(mm.reviews_rating ?? reviewsRating);
+    setReviewsCount(mm.reviews_count ?? reviewsCount);
+    setSocialProof(mm.social_proof ?? "");
+    setHeroBadgeLabel(mm.hero_badge_label ?? heroBadgeLabel);
+    setPrerequisites(mm.prerequisites ?? "");
+    setEnrollmentIncludes(safeArray<string>(mm.enrollment_includes, enrollmentIncludes));
+
+    const pt = mm.page_tabs ?? {};
+    const rfy = pt.right_for_you ?? {};
+    setPtRfyHeadline(rfy.headline ?? "");
+    setPtRfyBody(rfy.body ?? "");
+    setPtRfyStats(safeArray<Stat>(rfy.stats));
+    setPtRfyReqs(safeArray<string>(rfy.requirements));
+    setPtRfyNotReady(rfy.not_ready_text ?? "");
+    setPtRfyNotReadyHref(rfy.not_ready_href ?? "/certifications");
+    const ph = pt.path ?? {};
+    setPtPathHeadline(ph.headline ?? "");
+    setPtPathBody(ph.body ?? "");
+    setPtPathSteps(safeArray<Step>(ph.steps));
+    const pp = pt.prepare ?? {};
+    setPtPrepHeadline(pp.headline ?? "");
+    setPtPrepBody(pp.body ?? "");
+    setPtPrepResources(safeArray<Resource>(pp.resources));
+    const pm = pt.maintenance ?? {};
+    setPtMntHeadline(pm.headline ?? "");
+    setPtMntBody(pm.body ?? "");
+    setPtMntItems(safeArray<string>(pm.renewal_items));
+  }
+
+  async function handleGenerateAi() {
+    if (!aiPrompt.trim()) return;
+    setGeneratingAi(true);
+    try {
+      const res = await api.post<any>("/ai/generate-certification", { prompt: aiPrompt.trim() }, accessToken!);
+      const draft = res.data ?? res;
+      applyAiDraft(draft);
+      setShowAiModal(false);
+      setAiPrompt("");
+      toast.success("Certification drafted — review each tab and edit before saving");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to generate certification");
+    } finally {
+      setGeneratingAi(false);
+    }
+  }
+
   const statusColors: Record<string, string> = {
     active:      "text-emerald-700 bg-emerald-50 border-emerald-200",
     coming_soon: "text-amber-700 bg-amber-50 border-amber-200",
@@ -1067,11 +1143,56 @@ export default function CertEditorPage() {
               </div>
             </div>
           </div>
-          <button onClick={handleSave} disabled={saving} className="btn-primary !py-2 !px-5 !text-xs flex-shrink-0 disabled:opacity-60">
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => setShowAiModal(true)} className="btn-outline !py-2 !px-4 !text-xs flex items-center gap-1.5">
+              <Sparkles size={12} /> Generate with AI
+            </button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary !py-2 !px-5 !text-xs disabled:opacity-60">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+            </button>
+          </div>
         </div>
       </div>
+
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !generatingAi && setShowAiModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 mb-1">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-navy-900 flex items-center justify-center text-white flex-shrink-0">
+                  <Sparkles size={14} />
+                </div>
+                <h2 className="font-display font-black text-lg text-navy-900">Generate with AI</h2>
+              </div>
+              <button onClick={() => !generatingAi && setShowAiModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Describe the certification — what it's about, who it's for, and what should be certified. AI will draft
+              the title, description, curriculum, FAQs, marketing copy, and page content across every tab. This
+              overwrites the fields below with the draft — review and edit anything before saving.
+            </p>
+            <textarea
+              className="input-base h-32 resize-none"
+              placeholder="e.g. A certification for professionals who want to master prompt engineering for large language models — covering fundamentals through advanced multi-agent workflows, aimed at product managers and engineers, roughly 6 weeks of part-time study."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              disabled={generatingAi}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAiModal(false)} disabled={generatingAi} className="btn-outline !py-2 !px-4 !text-xs disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={handleGenerateAi} disabled={generatingAi || !aiPrompt.trim()} className="btn-primary !py-2 !px-5 !text-xs flex items-center gap-1.5 disabled:opacity-60">
+                {generatingAi ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {generatingAi ? "Generating…" : "Generate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1 mb-6 border-b border-slate-100">
         {TABS.map((t) => {

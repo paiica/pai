@@ -521,6 +521,178 @@ Rules:
     }
   }
 
+  async generateCertification(params: { prompt: string }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const { prompt } = params;
+
+    const userPrompt = `Design a complete professional certification program based on this description:
+
+"${prompt}"
+
+Return ONLY a JSON object with this exact shape (fill in every field with realistic, specific content — never placeholders like "Lorem ipsum" or "TBD"):
+
+{
+  "acronym": "3-6 letter code, e.g. CAIP",
+  "title": "Full certification name",
+  "level": "foundation | advanced | specialist | executive",
+  "badge_icon": "single emoji",
+  "description": "1-2 sentence catalog summary",
+  "long_description": "3-5 sentence hero description",
+  "price": 499,
+  "duration_weeks": 6,
+  "total_lessons": 40,
+  "total_hours": 30,
+  "passing_score": 70,
+  "exam_duration_minutes": 90,
+  "exam_questions_count": 75,
+  "validity_years": 2,
+  "max_retakes_included": 2,
+  "retake_fee": 99,
+  "min_years_experience": 0,
+  "min_training_hours": 0,
+  "learning_outcomes": ["5-8 specific outcomes"],
+  "target_audience": ["4-6 audience descriptions"],
+  "skills": ["6-10 specific skills taught"],
+  "curriculum_overview": [{ "title": "Module title", "description": "1 sentence", "lessons": 6 }],
+  "faqs_json": [{ "question": "...", "answer": "..." }],
+  "testimonials": [{ "name": "Full Name", "role": "Job Title", "company": "Company", "quote": "...", "avatar_initials": "AB" }],
+  "marketing_meta": {
+    "reviews_rating": "4.9",
+    "reviews_count": "1,200+",
+    "social_proof": "Join 3,200+ certified professionals",
+    "hero_badge_label": "Professional Certification",
+    "prerequisites": "...",
+    "enrollment_includes": ["4 items"],
+    "page_tabs": {
+      "right_for_you": {
+        "headline": "...", "body": "...",
+        "stats": [{ "value": "...", "label": "..." }],
+        "requirements": ["..."],
+        "not_ready_text": "...", "not_ready_href": "/certifications"
+      },
+      "path":        { "headline": "...", "body": "...", "steps":     [{ "title": "...", "description": "..." }] },
+      "prepare":     { "headline": "...", "body": "...", "resources": [{ "title": "...", "description": "..." }] },
+      "maintenance": { "headline": "...", "body": "...", "renewal_items": ["..."] }
+    }
+  }
+}
+
+Rules:
+- curriculum_overview: 5-8 modules, lesson counts should sum close to total_lessons
+- faqs_json: 5-8 realistic Q&As specific to this certification
+- testimonials: exactly 3, varied names/roles/companies
+- Every string must be real, specific content — never generic filler`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [
+          { role: "system", content: "You are an expert curriculum designer and copywriter for a professional AI certification body. Output only valid JSON, no markdown fences, no commentary." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 4096,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return this.normalizeCertificationDraft(parsed);
+    } catch {
+      this.logger.error("generateCertification raw response:", raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
+  private normalizeCertificationDraft(raw: any) {
+    const s   = (v: any, d = "") => (typeof v === "string" ? v : d);
+    const n   = (v: any, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
+    const arr = (v: any) => (Array.isArray(v) ? v : []);
+    const obj = (v: any) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+    const strs = (v: any) => arr(v).filter((x: any) => typeof x === "string");
+
+    const mm   = obj(raw.marketing_meta);
+    const pt   = obj(mm.page_tabs);
+    const rfy  = obj(pt.right_for_you);
+    const path = obj(pt.path);
+    const prep = obj(pt.prepare);
+    const mnt  = obj(pt.maintenance);
+
+    return {
+      acronym:               s(raw.acronym).toUpperCase().slice(0, 10),
+      title:                 s(raw.title),
+      level:                 ["foundation", "advanced", "specialist", "executive"].includes(raw.level) ? raw.level : "foundation",
+      badge_icon:            s(raw.badge_icon, "🎓"),
+      description:           s(raw.description),
+      long_description:      s(raw.long_description),
+      price:                 n(raw.price, 499),
+      duration_weeks:        n(raw.duration_weeks, 6),
+      total_lessons:         n(raw.total_lessons, 30),
+      total_hours:           n(raw.total_hours, 20),
+      passing_score:         n(raw.passing_score, 70),
+      exam_duration_minutes: n(raw.exam_duration_minutes, 90),
+      exam_questions_count:  n(raw.exam_questions_count, 75),
+      validity_years:        n(raw.validity_years, 2),
+      max_retakes_included:  n(raw.max_retakes_included, 2),
+      retake_fee:            n(raw.retake_fee, 99),
+      min_years_experience:  n(raw.min_years_experience, 0),
+      min_training_hours:    n(raw.min_training_hours, 0),
+      learning_outcomes:     strs(raw.learning_outcomes),
+      target_audience:       strs(raw.target_audience),
+      skills:                strs(raw.skills),
+      curriculum_overview: arr(raw.curriculum_overview).map((c: any) => ({
+        title: s(c?.title), description: s(c?.description), lessons: n(c?.lessons, 4),
+      })),
+      faqs_json: arr(raw.faqs_json).map((f: any) => ({ question: s(f?.question), answer: s(f?.answer) })),
+      testimonials: arr(raw.testimonials).map((t: any) => ({
+        name: s(t?.name), role: s(t?.role), company: s(t?.company), quote: s(t?.quote), avatar_initials: s(t?.avatar_initials),
+      })),
+      marketing_meta: {
+        reviews_rating:      s(mm.reviews_rating, "4.9"),
+        reviews_count:       s(mm.reviews_count, "1,200+"),
+        social_proof:        s(mm.social_proof),
+        hero_badge_label:    s(mm.hero_badge_label, "Professional Certification"),
+        prerequisites:       s(mm.prerequisites),
+        enrollment_includes: strs(mm.enrollment_includes),
+        page_tabs: {
+          right_for_you: {
+            headline:       s(rfy.headline),
+            body:           s(rfy.body),
+            stats:          arr(rfy.stats).map((x: any) => ({ value: s(x?.value), label: s(x?.label) })),
+            requirements:   strs(rfy.requirements),
+            not_ready_text: s(rfy.not_ready_text),
+            not_ready_href: s(rfy.not_ready_href, "/certifications"),
+          },
+          path: {
+            headline: s(path.headline),
+            body:     s(path.body),
+            steps:    arr(path.steps).map((x: any) => ({ title: s(x?.title), description: s(x?.description) })),
+          },
+          prepare: {
+            headline:  s(prep.headline),
+            body:      s(prep.body),
+            resources: arr(prep.resources).map((x: any) => ({ title: s(x?.title), description: s(x?.description) })),
+          },
+          maintenance: {
+            headline:      s(mnt.headline),
+            body:          s(mnt.body),
+            renewal_items: strs(mnt.renewal_items),
+          },
+        },
+      },
+    };
+  }
+
   async improveQuestion(params: { question: object; action: string; cert_name?: string }) {
     const { client, model } = await this.getClientAndModel();
     const { question, action, cert_name } = params;

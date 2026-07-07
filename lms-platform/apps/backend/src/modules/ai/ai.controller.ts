@@ -93,6 +93,12 @@ export class AiController {
     return this.aiService.generateCourseStructure(body);
   }
 
+  @Post("generate-certification")
+  @HttpCode(HttpStatus.OK)
+  generateCertification(@Body() body: { prompt: string }) {
+    return this.aiService.generateCertification(body);
+  }
+
   @Post("improve-question")
   @HttpCode(HttpStatus.OK)
   improveQuestion(
