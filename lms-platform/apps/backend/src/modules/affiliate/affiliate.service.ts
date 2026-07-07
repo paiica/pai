@@ -138,7 +138,7 @@ export class AffiliateService {
         },
       },
     });
-    if (!u || u.role !== ("sales_rep" as any)) throw new NotFoundException("Affiliate not found");
+    if (!u || !u.affiliate_profile) throw new NotFoundException("Affiliate not found");
     return {
       ...this.formatAffiliate(u),
       lead_count: u.affiliate_profile?._count?.leads ?? 0,
@@ -172,7 +172,7 @@ export class AffiliateService {
       where: { id },
       include: { affiliate_profile: true },
     });
-    if (!u || u.role !== ("sales_rep" as any)) throw new NotFoundException("Affiliate not found");
+    if (!u) throw new NotFoundException("User not found");
 
     if (!u.affiliate_profile) {
       await this.prisma.affiliateProfile.create({
