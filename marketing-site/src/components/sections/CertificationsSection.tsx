@@ -75,7 +75,7 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
 
       <div className="p-6 flex flex-col flex-1">
         <p className={cn("text-[12px] font-semibold mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.level}
+          {cert.level && cert.level.charAt(0).toUpperCase() + cert.level.slice(1)}
         </p>
         <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.acronym}®
