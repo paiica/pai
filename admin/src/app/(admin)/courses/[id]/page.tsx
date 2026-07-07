@@ -1076,10 +1076,10 @@ export default function CourseDetailPage() {
                   .map((p: any) => (
                     <React.Fragment key={p.id}>
                       <option value={`${p.id}|0`}>
-                        {p.profile?.first_name} {p.profile?.last_name} ({p.role})
+                        {p.first_name} {p.last_name} ({p.role})
                       </option>
                       <option value={`${p.id}|1`}>
-                        {p.profile?.first_name} {p.profile?.last_name} ({p.role}) ★ Lead
+                        {p.first_name} {p.last_name} ({p.role}) ★ Lead
                       </option>
                     </React.Fragment>
                   ))}

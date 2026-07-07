@@ -763,7 +763,7 @@ function CertInstructorsTab({
           {professors
             .filter((p: any) => !instructors.find((i) => i.user_id === p.id))
             .map((p: any) => (
-              <optgroup key={p.id} label={`${p.profile?.first_name ?? ""} ${p.profile?.last_name ?? ""} (${p.role})`.trim()}>
+              <optgroup key={p.id} label={`${p.first_name ?? ""} ${p.last_name ?? ""} (${p.role})`.trim()}>
                 <option value={`${p.id}|0`}>Add as instructor</option>
                 <option value={`${p.id}|1`}>Add as lead instructor ★</option>
               </optgroup>
