@@ -7,7 +7,8 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import {
   Mail, Save, Loader2, ArrowUpRight, ToggleLeft, ToggleRight,
-  Code2, Eye, ChevronDown, ChevronUp, RefreshCw, Tag, Send,
+  Code2, Eye, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Tag, Send,
+  Search, X, PencilLine,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -355,6 +356,25 @@ const TEMPLATES: TemplateDef[] = [
           <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by {{senderName}}. If you didn't expect this email, you can safely ignore it.</p>`),
   },
   {
+    key: "affiliate_approved",
+    name: "Sales Rep Approved",
+    description: "Sent when an admin approves a pending sales rep application, granting them affiliate access.",
+    category: "Sales",
+    categoryColor: "teal",
+    defaultSubject: "You're approved as a PAII Sales Rep",
+    variables: ["{{firstName}}", "{{referralCode}}", "{{dashboardLink}}"],
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Congratulations, {{firstName}}!</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your application to become a PAII Sales Rep has been approved. You can now start referring students and earning commission on every certification they purchase.</p>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Your Referral Code</p>
+            <p style="margin:0;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:1px">{{referralCode}}</p>
+          </div>
+          <div style="text-align:center;margin:32px 0">
+            <a href="{{dashboardLink}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Go to Your Dashboard →</a>
+          </div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">From your dashboard you can share your referral link, track leads, and view your commission earnings.</p>`),
+  },
+  {
     key: "event_registered",
     name: "Event Registration Confirmed",
     description: "Sent to a guest immediately after they register for an event (free or paid).",
@@ -423,6 +443,8 @@ interface CardProps {
   subject: string;
   enabled: boolean;
   customHtml: string;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onSubjectChange: (v: string) => void;
   onEnabledChange: (v: boolean) => void;
   onHtmlChange: (v: string) => void;
@@ -430,53 +452,74 @@ interface CardProps {
   testing: boolean;
 }
 
-function TemplateCard({ tpl, subject, enabled, customHtml, onSubjectChange, onEnabledChange, onHtmlChange, onSendTest, testing }: CardProps) {
+function TemplateCard({ tpl, subject, enabled, customHtml, expanded, onToggleExpand, onSubjectChange, onEnabledChange, onHtmlChange, onSendTest, testing }: CardProps) {
   const [showEditor, setShowEditor] = useState(false);
   const [previewMode, setPreviewMode] = useState(true);
 
   const hasCustomHtml = customHtml.trim().length > 0;
+  const hasCustomSubject = subject.trim().length > 0;
   const editorValue = hasCustomHtml ? customHtml : tpl.defaultHtml;
   const categoryStyle = CATEGORY_STYLES[tpl.categoryColor] ?? CATEGORY_STYLES.blue;
 
   return (
-    <div className={`card overflow-hidden border-l-4 ${categoryStyle.border}`}>
-      {/* Header */}
-      <div className="p-5 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide ${categoryStyle.chip}`}>
-              {tpl.category}
-            </span>
-            {hasCustomHtml && (
-              <span className="text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded uppercase tracking-wide">Custom</span>
-            )}
+    <div className={`card overflow-hidden border-l-4 transition-colors ${categoryStyle.border} ${!enabled ? "opacity-60" : ""}`}>
+      {/* Header — always visible, click to expand/collapse */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggleExpand}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleExpand(); } }}
+        className="w-full p-5 flex items-start justify-between gap-4 text-left hover:bg-slate-50/60 transition-colors cursor-pointer"
+      >
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <ChevronRight size={15} className={`text-slate-300 shrink-0 mt-1.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide ${categoryStyle.chip}`}>
+                {tpl.category}
+              </span>
+              {(hasCustomHtml || hasCustomSubject) && (
+                <span className="flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                  <PencilLine size={9} /> Custom
+                </span>
+              )}
+            </div>
+            <h2 className="font-semibold text-navy-900 text-sm">{tpl.name}</h2>
+            <p className="text-xs text-slate-400 leading-relaxed mt-0.5">{tpl.description}</p>
           </div>
-          <h2 className="font-semibold text-navy-900 text-sm">{tpl.name}</h2>
-          <p className="text-xs text-slate-400 leading-relaxed mt-0.5">{tpl.description}</p>
         </div>
-        <button
-          type="button"
-          onClick={onSendTest}
-          disabled={testing}
-          className="shrink-0 mt-1 flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800 border border-slate-200 hover:border-navy-300 rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-50"
-          title="Send this template with sample data to your own inbox"
-        >
-          {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-          Test
-        </button>
-        <button
-          type="button"
-          onClick={() => onEnabledChange(!enabled)}
-          className="shrink-0 mt-1 transition-opacity hover:opacity-80"
-          title={enabled ? "Disable this email" : "Enable this email"}
-        >
-          {enabled
-            ? <ToggleRight size={30} className="text-green-500" />
-            : <ToggleLeft size={30} className="text-slate-300" />}
-        </button>
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={onSendTest}
+            disabled={testing}
+            className="flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800 border border-slate-200 hover:border-navy-300 rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-50"
+            title="Send this template with sample data to your own inbox"
+          >
+            {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+            Test
+          </button>
+          <button
+            type="button"
+            onClick={() => onEnabledChange(!enabled)}
+            className="transition-opacity hover:opacity-80"
+            title={enabled ? "Disable this email" : "Enable this email"}
+          >
+            {enabled
+              ? <ToggleRight size={30} className="text-green-500" />
+              : <ToggleLeft size={30} className="text-slate-300" />}
+          </button>
+        </div>
       </div>
 
-      <div className="px-5 pb-5 space-y-4">
+      {!expanded && !enabled && (
+        <div className="px-5 pb-4 -mt-2">
+          <p className="text-xs text-amber-600 font-medium pl-[27px]">Disabled — will not be sent.</p>
+        </div>
+      )}
+
+      {expanded && (
+      <div className="px-5 pb-5 pl-[52px] space-y-4 border-t border-slate-100 pt-4">
         {/* Subject line */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subject Line</label>
@@ -596,6 +639,7 @@ function TemplateCard({ tpl, subject, enabled, customHtml, onSubjectChange, onEn
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -613,8 +657,11 @@ export default function EmailTemplatesPage() {
   const [subjects,   setSubjects]   = useState<Record<string, string>>({});
   const [enabled,    setEnabled]    = useState<Record<string, boolean>>({});
   const [customHtml, setCustomHtml] = useState<Record<string, string>>({});
+  const [expanded,   setExpanded]   = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [testingKey, setTestingKey] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   async function sendTest(key: string) {
     setTestingKey(key);
@@ -635,15 +682,31 @@ export default function EmailTemplatesPage() {
     const s: Record<string, string> = {};
     const e: Record<string, boolean> = {};
     const h: Record<string, string> = {};
+    const x: Record<string, boolean> = {};
     TEMPLATES.forEach((t) => {
       s[t.key] = settings[`email_tpl_${t.key}_subject`] ?? "";
       e[t.key] = settings[`email_tpl_${t.key}_enabled`] !== "false";
       h[t.key] = settings[`email_tpl_${t.key}_html`] ?? "";
+      // Auto-expand templates that have already been customized, so overrides are never hidden.
+      x[t.key] = s[t.key].trim().length > 0 || h[t.key].trim().length > 0;
     });
     setSubjects(s);
     setEnabled(e);
     setCustomHtml(h);
+    setExpanded(x);
   }, [settings]);
+
+  const categoryCounts = TEMPLATES.reduce<Record<string, number>>((acc, t) => {
+    acc[t.category] = (acc[t.category] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const filteredTemplates = TEMPLATES.filter((t) => {
+    if (activeCategory && t.category !== activeCategory) return false;
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.key.toLowerCase().includes(q);
+  });
 
   async function saveAll(ev: React.FormEvent) {
     ev.preventDefault();
@@ -665,44 +728,101 @@ export default function EmailTemplatesPage() {
     }
   }
 
-  return (
-    <div className="p-8 max-w-2xl mx-auto space-y-8">
-      {/* Page header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Mail size={20} className="text-navy-600" />
-          <h1 className="text-2xl font-display font-black text-navy-900">Email Templates</h1>
-        </div>
-        <p className="text-slate-500 text-sm">Manage subjects, enable/disable, and edit the full HTML for each transactional email — including the header and footer.</p>
-      </div>
+  const allExpanded = filteredTemplates.length > 0 && filteredTemplates.every((t) => expanded[t.key]);
 
-      {/* FROM address notice */}
-      <div className="card p-4 flex items-center justify-between gap-4">
+  function toggleExpandAll() {
+    const next = !allExpanded;
+    setExpanded((prev) => {
+      const copy = { ...prev };
+      filteredTemplates.forEach((t) => { copy[t.key] = next; });
+      return copy;
+    });
+  }
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs font-semibold text-slate-700">FROM address &amp; Resend API key</p>
-          <p className="text-xs text-slate-400 mt-0.5">The sender address used for all emails is configured in APIs Settings.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <Mail size={20} className="text-navy-600" />
+            <h1 className="text-2xl font-display font-black text-navy-900">Email Templates</h1>
+          </div>
+          <p className="text-slate-500 text-sm">Manage subjects, enable/disable, and edit the full HTML for each transactional email — including the header and footer.</p>
         </div>
-        <Link href="/settings/apis" className="shrink-0 flex items-center gap-1 text-xs font-semibold text-navy-600 hover:text-navy-800 transition-colors">
-          APIs Settings <ArrowUpRight size={12} />
+        <Link href="/settings/apis" className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800 border border-slate-200 hover:border-navy-300 rounded-lg px-3 py-2 transition-colors">
+          FROM address &amp; Resend key <ArrowUpRight size={12} />
         </Link>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-slate-400 font-medium">Categories:</span>
-        {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo", Sales: "teal", Events: "cyan" }).map(([label, color]) => (
-          <span key={label} className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${CATEGORY_STYLES[color].chip}`}>{label}</span>
-        ))}
+      {/* Search + category filter — the actual way admins will find one template among many */}
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search templates by name or description…"
+              className="input-base !pl-9 !pr-8"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={toggleExpandAll}
+            className="shrink-0 text-xs font-semibold text-slate-500 hover:text-navy-700 border border-slate-200 hover:border-navy-300 rounded-lg px-3 py-2.5 transition-colors whitespace-nowrap"
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <button
+            type="button"
+            onClick={() => setActiveCategory(null)}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide transition-colors ${
+              activeCategory === null ? "bg-navy-900 text-white border-navy-900" : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            All ({TEMPLATES.length})
+          </button>
+          {Object.entries({ Account: "blue", Enrollment: "emerald", Payments: "green", Exams: "purple", Certificates: "amber", Applications: "indigo", Sales: "teal", Events: "cyan" }).map(([label, color]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setActiveCategory(activeCategory === label ? null : label)}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide transition-colors ${
+                activeCategory === label ? `${CATEGORY_STYLES[color].chip} ring-1 ring-offset-1` : "bg-slate-50 text-slate-400 border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              {label} ({categoryCounts[label] ?? 0})
+            </button>
+          ))}
+        </div>
       </div>
 
-      <form onSubmit={saveAll} className="space-y-4">
-        {TEMPLATES.map((tpl) => (
+      <form onSubmit={saveAll} className="space-y-3">
+        {filteredTemplates.length === 0 && (
+          <div className="card p-8 text-center">
+            <p className="text-sm text-slate-500">No templates match your search.</p>
+          </div>
+        )}
+
+        {filteredTemplates.map((tpl) => (
           <TemplateCard
             key={tpl.key}
             tpl={tpl}
             subject={subjects[tpl.key] ?? ""}
             enabled={enabled[tpl.key] !== false}
             customHtml={customHtml[tpl.key] ?? ""}
+            expanded={!!expanded[tpl.key]}
+            onToggleExpand={() => setExpanded((prev) => ({ ...prev, [tpl.key]: !prev[tpl.key] }))}
             onSubjectChange={(v) => setSubjects((prev) => ({ ...prev, [tpl.key]: v }))}
             onEnabledChange={(v) => setEnabled((prev) => ({ ...prev, [tpl.key]: v }))}
             onHtmlChange={(v) => setCustomHtml((prev) => ({ ...prev, [tpl.key]: v }))}
@@ -711,7 +831,7 @@ export default function EmailTemplatesPage() {
           />
         ))}
 
-        <button type="submit" disabled={saving} className="btn-primary w-full justify-center disabled:opacity-60">
+        <button type="submit" disabled={saving} className="btn-primary w-full justify-center disabled:opacity-60 sticky bottom-4 shadow-lg">
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
           Save All Templates
         </button>

@@ -170,15 +170,17 @@ export class AffiliateService {
   async adminApprove(id: string, adminId: string) {
     const u = await this.prisma.user.findUnique({
       where: { id },
-      include: { affiliate_profile: true },
+      include: { affiliate_profile: true, profile: true },
     });
     if (!u) throw new NotFoundException("User not found");
 
+    let referralCode = u.affiliate_profile?.referral_code;
     if (!u.affiliate_profile) {
+      referralCode = this.generateReferralCode();
       await this.prisma.affiliateProfile.create({
         data: {
           user_id: id,
-          referral_code: this.generateReferralCode(),
+          referral_code: referralCode,
           status: "approved",
           approved_at: new Date(),
           approved_by: adminId,
@@ -190,6 +192,12 @@ export class AffiliateService {
         data: { status: "approved", approved_at: new Date(), approved_by: adminId },
       });
     }
+
+    await this.mail.sendAffiliateApproved({
+      to: u.email,
+      firstName: u.profile?.first_name ?? "there",
+      referralCode: referralCode!,
+    });
 
     return { message: "Affiliate approved" };
   }

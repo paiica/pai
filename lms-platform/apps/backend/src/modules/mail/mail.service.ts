@@ -272,6 +272,16 @@ export class MailService {
     return this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAII`, html });
   }
 
+  async sendAffiliateApproved(opts: { to: string; firstName: string; referralCode: string }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("affiliate_approved");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const dashboardLink = this.config.get<string>("AFFILIATE_URL", "https://sales.paii.ca");
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, referralCode: opts.referralCode, dashboardLink })
+      : this.wrapper(this.affiliateApprovedBody(opts.firstName, opts.referralCode, dashboardLink));
+    return this.send({ to: opts.to, subject: subject ?? "You're approved as a PAII Sales Rep", html });
+  }
+
   async sendApplicationRejected(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string; reason: string | null;
   }) {
@@ -358,6 +368,8 @@ export class MailService {
         return this.sendApplicationRejected({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, reason: "Sample reason for testing." });
       case "affiliate_invite":
         return this.sendAffiliateInvite({ to, recipientName: "John", senderName: "Jane Rep", inviteLink: `${this.frontendUrl}/register?ref=SAMPLE` });
+      case "affiliate_approved":
+        return this.sendAffiliateApproved({ to, firstName: "John", referralCode: "SAMPLE1234" });
       case "event_registered":
         return this.sendEventRegistrationConfirmed({ to, name: "John", eventTitle: "The Future of AI in the Workplace", eventDate: sampleDate, location: "Online", meetingLink: "https://meet.example.com/event", amountPaid: 49, currency: "usd", receiptUrl: "https://pay.stripe.com/receipts/sample" });
       case "event_announcement":
@@ -693,6 +705,21 @@ export class MailService {
         <a href="${inviteLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Create My Account →</a>
       </div>
       <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">This invitation was sent by ${senderName}. If you didn't expect this email, you can safely ignore it.</p>
+    `;
+  }
+
+  private affiliateApprovedBody(firstName: string, referralCode: string, dashboardLink: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Congratulations, ${firstName}!</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your application to become a PAII Sales Rep has been approved. You can now start referring students and earning commission on every certification they purchase.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Your Referral Code</p>
+        <p style="margin:0;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:1px">${referralCode}</p>
+      </div>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${dashboardLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Go to Your Dashboard →</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">From your dashboard you can share your referral link, track leads, and view your commission earnings.</p>
     `;
   }
 
