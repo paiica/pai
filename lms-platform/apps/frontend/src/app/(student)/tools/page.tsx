@@ -82,7 +82,7 @@ function ToolCard({ tool, index }: { tool: any; index: number }) {
 // ── Prep Course card ──────────────────────────────────────────────────────────
 function CourseCard({ course, index }: { course: any; index: number }) {
   const grad = GRADIENTS[(index + 2) % GRADIENTS.length];
-  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
   return (
     <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col">
       {course.thumbnail_url ? (

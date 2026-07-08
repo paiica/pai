@@ -1243,7 +1243,7 @@ function PreviewExam({ questions, sections, sessionTitle, durationMinutes }: {
             <span className="text-slate-500 text-xs">{answeredCount} of {questions.length} answered</span>
           </div>
           <button
-            onClick={() => { if (window.opener) { window.close(); } else { window.location.href = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3005"; } }}
+            onClick={() => { if (window.opener) { window.close(); } else { window.location.href = process.env.NEXT_PUBLIC_ADMIN_URL || "https://exam-admin.paii.ca"; } }}
             className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg font-medium transition-colors"
           >
             Close Window

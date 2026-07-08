@@ -81,7 +81,7 @@ export function ProfSidebar() {
       <div className="p-3 border-t border-navy-700 space-y-1">
         {(user?.role === "admin" || user?.role === "super_admin") && (
           <Link
-            href={process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3002"}
+            href={process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.paii.ca"}
             className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-navy-400 hover:text-white hover:bg-navy-700 transition-colors"
             title={collapsed ? "Admin Panel" : undefined}
           >

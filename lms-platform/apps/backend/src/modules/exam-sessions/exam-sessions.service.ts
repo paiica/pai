@@ -351,7 +351,7 @@ export class ExamSessionsService {
       { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: expiresAt - Math.floor(Date.now() / 1000) },
     );
 
-    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "http://localhost:3004";
+    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "https://exams.paii.ca";
     return { url: `${paiiexamsUrl}/join?token=${token}` };
   }
 
@@ -361,7 +361,7 @@ export class ExamSessionsService {
       { sub: adminId, type: "admin_exam_preview", session_id: sessionId },
       { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: "4h" as any },
     );
-    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "http://localhost:3004";
+    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "https://exams.paii.ca";
     return { url: `${paiiexamsUrl}/preview?token=${token}` };
   }
 
@@ -417,7 +417,7 @@ export class ExamSessionsService {
       { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: expiresAt - Math.floor(Date.now() / 1000) },
     );
 
-    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "http://localhost:3004";
+    const paiiexamsUrl = this.config.get<string>("PAIIEXAMS_URL") || "https://exams.paii.ca";
     return {
       token,
       url: `${paiiexamsUrl}/join?token=${token}`,

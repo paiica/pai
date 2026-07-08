@@ -16,7 +16,7 @@ const MonacoEditor = dynamic(
   { ssr: false, loading: () => <div className="bg-slate-900 rounded-xl animate-pulse" style={{ height: 560 }} /> },
 ) as any;
 
-const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3001";
+const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
 
 type Page = {
   id: string;

@@ -472,7 +472,7 @@ function ExamRoomContent() {
               if (window.opener) {
                 window.close();
               } else {
-                window.location.href = (process.env.NEXT_PUBLIC_PORTAL_URL || "http://localhost:3001") + "/dashboard";
+                window.location.href = (process.env.NEXT_PUBLIC_PORTAL_URL || "https://learn.paii.ca") + "/dashboard";
               }
             }}
             className="px-6 py-3 bg-navy-700 hover:bg-navy-600 text-white rounded-xl font-semibold transition-colors"

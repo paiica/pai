@@ -177,7 +177,7 @@ export default function ProfessorRegisterPage() {
         <p className="text-center text-navy-400 text-xs mt-6">
           Not applying to teach?{" "}
           <a
-            href={process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3001"}
+            href={process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca"}
             className="text-gold-400 hover:text-gold-300 font-medium"
           >
             Go to Learning Portal

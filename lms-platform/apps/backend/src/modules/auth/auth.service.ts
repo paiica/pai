@@ -569,7 +569,7 @@ export class AuthService {
       { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: "4h" as any },
     );
 
-    const paiiexamsUrl = this.config.get("PAIIEXAMS_URL", "http://localhost:3004");
+    const paiiexamsUrl = this.config.get("PAIIEXAMS_URL", "https://exams.paii.ca");
     return { preview_url: `${paiiexamsUrl}/preview?token=${token}` };
   }
 
@@ -801,10 +801,10 @@ export class AuthService {
 
   private getBaseUrlForRole(role: string): string | undefined {
     switch (role) {
-      case "sales_rep":   return this.config.get<string>("AFFILIATE_URL",  "http://localhost:3006");
+      case "sales_rep":   return this.config.get<string>("AFFILIATE_URL",  "https://sales.paii.ca");
       case "admin":
-      case "super_admin": return this.config.get<string>("ADMIN_URL",      "http://localhost:3002");
-      case "professor":   return this.config.get<string>("PROFESSOR_URL",  "http://localhost:3003");
+      case "super_admin": return this.config.get<string>("ADMIN_URL",      "https://admin.paii.ca");
+      case "professor":   return this.config.get<string>("PROFESSOR_URL",  "https://professors.paii.ca");
       default:            return undefined; // students fall back to FRONTEND_URL in mail.service
     }
   }

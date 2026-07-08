@@ -303,7 +303,7 @@ export default function CertificationsPage() {
                             {cert.is_featured ? "Featured" : "Feature"}
                           </button>
                           <a
-                            href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/certifications/${cert.slug ?? cert.id}`}
+                            href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}/certifications/${cert.slug ?? cert.id}`}
                             target="_blank"
                             rel="noreferrer"
                             className="btn-outline !py-1.5 !px-2.5 !text-xs"
@@ -315,7 +315,7 @@ export default function CertificationsPage() {
                             <Pencil size={12} />
                           </Link>
                           <a
-                            href={`${process.env.NEXT_PUBLIC_PROFESSORS_URL || "http://localhost:3003"}/certifications/${cert.id}/builder`}
+                            href={`${process.env.NEXT_PUBLIC_PROFESSORS_URL || "https://professors.paii.ca"}/certifications/${cert.id}/builder`}
                             target="_blank"
                             rel="noreferrer"
                             className="btn-outline !py-1.5 !px-2.5 !text-xs"

@@ -2,7 +2,7 @@
 
 import { Shield, ArrowLeft, BookOpen } from "lucide-react";
 
-const STUDENT_PORTAL = process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || "http://localhost:3001/lms";
+const STUDENT_PORTAL = process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || "https://learn.paii.ca";
 
 export default function NoAttemptPage() {
   return (

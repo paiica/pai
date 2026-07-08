@@ -6,7 +6,7 @@ import { Loader2, Shield, Link2, CalendarClock, ExternalLink } from "lucide-reac
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || "http://localhost:3001/lms";
+const PORTAL_URL = process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || "https://learn.paii.ca";
 
 export default function LandingPage() {
   return (

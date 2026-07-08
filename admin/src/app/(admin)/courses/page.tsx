@@ -551,7 +551,7 @@ function CourseCard({
             {course.is_featured ? "Featured" : "Feature"}
           </button>
           <a
-            href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"}/courses/${course.slug}`}
+            href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}/courses/${course.slug}`}
             target="_blank"
             rel="noreferrer"
             className="btn-outline !py-1.5 !px-2.5 !text-xs"

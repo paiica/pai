@@ -102,7 +102,7 @@ export default function AdminLoginPage() {
         <p className="text-center text-navy-400 text-xs mt-6">
           Not an admin?{" "}
           <a
-            href={process.env.NEXT_PUBLIC_LMS_URL || "http://localhost:3001"}
+            href={process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca"}
             className="text-gold-400 hover:text-gold-300 font-medium"
           >
             Go to Learning Portal

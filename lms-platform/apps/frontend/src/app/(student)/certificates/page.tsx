@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL      || "http://localhost:4000/api/v1";
-const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data ?? r);

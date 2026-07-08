@@ -71,8 +71,8 @@ export function getQRCodeUrl(text: string, size = 200): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=0e1e3d`;
 }
 
-const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
-const FRONTEND_URL  = process.env.NEXT_PUBLIC_FRONTEND_URL  || "http://localhost:3001";
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+const FRONTEND_URL  = process.env.NEXT_PUBLIC_FRONTEND_URL  || "https://learn.paii.ca";
 
 export function buildReferralLink(slug: string, referralCode: string): string {
   const base = slug ? `${MARKETING_URL}/${slug}` : MARKETING_URL;

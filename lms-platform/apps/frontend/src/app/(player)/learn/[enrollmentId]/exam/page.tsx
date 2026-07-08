@@ -9,7 +9,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const PAII_EXAMS_URL = process.env.NEXT_PUBLIC_PAIIEXAMS_URL || "http://localhost:3004";
+const PAII_EXAMS_URL = process.env.NEXT_PUBLIC_PAIIEXAMS_URL || "https://exams.paii.ca";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data ?? r);

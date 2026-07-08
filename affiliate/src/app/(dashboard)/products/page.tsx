@@ -13,8 +13,8 @@ import type { AffiliateProduct } from "@/types";
 
 const MARKETING_URL =
   typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000"
-    : process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+    ? process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"
+    : process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 function fullReferralUrl(product: AffiliateProduct) {
   return `${MARKETING_URL}${product.referral_url}`;

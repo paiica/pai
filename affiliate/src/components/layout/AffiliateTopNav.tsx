@@ -38,7 +38,7 @@ export default function AffiliateTopNav() {
   );
   const unreadCount = notifications?.length ?? 0;
 
-  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "http://localhost:3000";
+  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
   const referralLink = user?.referral_code ? `${marketingUrl}?ref=${user.referral_code}` : "";
 
   async function handleCopyLink() {
