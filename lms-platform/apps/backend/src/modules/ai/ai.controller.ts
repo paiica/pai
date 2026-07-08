@@ -1,11 +1,34 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AiService } from "./ai.service";
+
+// Custom in-memory storage that avoids importing multer v2 directly (ESM-only package).
+// Mirrors the same pattern used in uploads.controller.ts — buffers the file stream into
+// file.buffer, no disk write, since this endpoint only needs to read text out of it.
+const RAM_STORAGE: any = {
+  _handleFile(_req: any, file: any, cb: any) {
+    const chunks: Buffer[] = [];
+    file.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    file.stream.on("end", () => cb(null, { buffer: Buffer.concat(chunks) }));
+    file.stream.on("error", (err: Error) => cb(err));
+  },
+  _removeFile(_req: any, _file: any, cb: any) { cb(null); },
+};
 
 @UseGuards(JwtAuthGuard)
 @Controller("ai")
 export class AiController {
   constructor(private readonly aiService: AiService) {}
+
+  @Post("extract-document-text")
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 20 * 1024 * 1024 } }))
+  async extractDocumentText(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException("No file received");
+    const text = await this.aiService.extractDocumentText(file);
+    return { text, filename: file.originalname };
+  }
 
   @Get("settings")
   getSettings() {
@@ -73,8 +96,10 @@ export class AiController {
     @Body() body: {
       course_title?: string;
       module_title: string;
-      topic: string;
-      num_lessons: number;
+      topic?: string;
+      num_lessons?: number;
+      lesson_types?: string[];
+      document_text?: string;
     },
   ) {
     return this.aiService.generateModuleStructure(body);

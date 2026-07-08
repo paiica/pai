@@ -1,6 +1,8 @@
 import { BadRequestException, HttpException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
+import * as pdfParse from "pdf-parse";
+import * as mammoth from "mammoth";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
 
 const PROVIDER_DEFAULTS: Record<string, { baseURL?: string; model: string }> = {
@@ -411,31 +413,70 @@ Required format: {"content":"<h2>...</h2><p>...</p>"}`;
     return [];
   }
 
+  async extractDocumentText(file: Express.Multer.File): Promise<string> {
+    const mime = file.mimetype || "";
+    const name = (file.originalname || "").toLowerCase();
+
+    try {
+      if (mime === "application/pdf" || name.endsWith(".pdf")) {
+        const data = await (pdfParse as any)(file.buffer);
+        return (data.text ?? "").trim();
+      }
+      if (
+        mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        name.endsWith(".docx")
+      ) {
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        return (result.value ?? "").trim();
+      }
+      if (mime.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".md")) {
+        return file.buffer.toString("utf-8").trim();
+      }
+      throw new BadRequestException("Unsupported file type. Upload a PDF, DOCX, or plain text file.");
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      throw new BadRequestException(`Could not read document: ${err?.message ?? "unknown error"}`);
+    }
+  }
+
   async generateModuleStructure(params: {
     course_title?: string;
     module_title: string;
-    topic: string;
-    num_lessons: number;
+    topic?: string;
+    num_lessons?: number;
+    lesson_types?: string[];
+    document_text?: string;
   }) {
     const { client, model, provider } = await this.getClientAndModel();
-    const num = Math.min(12, Math.max(1, params.num_lessons));
+    const num = params.lesson_types?.length
+      ? Math.min(20, params.lesson_types.length)
+      : params.num_lessons != null
+        ? Math.min(20, Math.max(1, params.num_lessons))
+        : undefined;
+
+    const typeInstructions = params.lesson_types?.length
+      ? `Lesson types, in order — use exactly these, one per lesson, in this exact sequence:\n${params.lesson_types.map((t, i) => `${i + 1}. ${t}`).join("\n")}`
+      : "type must be one of: reading, video, quiz, assignment, download, live_session — mix types sensibly, starting with reading/intro and ending with quiz when there are 3+ lessons";
+
+    const sourceMaterial = params.document_text
+      ? `\n\nSOURCE DOCUMENT — base the lessons on this material, breaking it into logical topics/sections in a sensible teaching order:\n"""\n${params.document_text.slice(0, 15000)}\n"""`
+      : "";
 
     const userPrompt = `You are an instructional design expert. Return ONLY a JSON object with no extra text.
 
-Task: Design ${num} lessons for a course module.
+Task: Design ${num != null ? num : "an appropriate number of"} lessons for a course module.
 
 Course: ${params.course_title || "(unspecified)"}
 Module: ${params.module_title}
-Topic / Goals: ${params.topic}
+${params.topic ? `Topic / Goals: ${params.topic}` : ""}${sourceMaterial}
 
 Required JSON format:
 {"lessons":[{"title":"Lesson title","type":"reading","topic":"What this lesson covers"}]}
 
 Rules:
-- Exactly ${num} objects in the lessons array
-- type must be one of: reading, video, quiz, assignment, download, live_session
-- Mix types: start with reading/intro, end with quiz when num >= 3
-- Each title and topic must be specific and unique`;
+${num != null ? `- Exactly ${num} objects in the lessons array` : "- Choose however many lessons best represent the material, typically 3-10"}
+- ${typeInstructions}
+- Each title and topic must be specific and unique${params.document_text ? "\n- Lesson topics must be drawn directly from the source document, covering it in a logical sequence" : ""}`;
 
     let raw = "";
     try {
@@ -443,7 +484,7 @@ Rules:
         model,
         messages: [{ role: "user", content: userPrompt }],
         temperature: 0.5,
-        max_tokens: 2048,
+        max_tokens: 3072,
       };
       if (provider === "openai" || provider === "groq") {
         createParams.response_format = { type: "json_object" };

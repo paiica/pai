@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Edit3, Check, Video, FileText, HelpCircle,
   File, Link2, Download, Eye, EyeOff, X, ChevronDown, ChevronRight,
   Save, Loader2, Search, BookOpen, FileQuestion, CheckCircle,
-  ArrowLeft, ArrowRight,
+  ArrowLeft, ArrowRight, Sparkles, Upload, RotateCcw, Paperclip,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -50,6 +50,7 @@ const LESSON_TYPE_LABEL: Record<string, string> = {
   video: "Video", reading: "Reading", quiz: "Quiz",
   assignment: "Assignment", download: "Download / PDF", live_session: "Live Session", html: "HTML Page",
 };
+const LESSON_TYPE_OPTIONS = ["reading", "video", "html", "download", "quiz", "assignment", "live_session"];
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-100 text-emerald-700",
@@ -61,12 +62,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 function CertSidebar({
   modules, selectedLessonId, onSelectLesson, onAddModule, onDeleteModule,
-  onAddLesson, onDeleteLesson, onToggleModulePublish,
+  onAddLesson, onDeleteLesson, onToggleModulePublish, onGenerateAi,
 }: {
   modules: Module[]; selectedLessonId: string | null; onSelectLesson: (l: Lesson, m: Module) => void;
   onAddModule: () => void; onDeleteModule: (m: Module) => void;
   onAddLesson: (m: Module) => void; onDeleteLesson: (l: Lesson, m: Module) => void;
-  onToggleModulePublish: (m: Module) => void;
+  onToggleModulePublish: (m: Module) => void; onGenerateAi: () => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -161,7 +162,10 @@ function CertSidebar({
         ))}
       </div>
 
-      <div className="p-3 border-t border-slate-100">
+      <div className="p-3 border-t border-slate-100 space-y-2">
+        <button onClick={onGenerateAi} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-navy-900 hover:bg-navy-800 text-sm text-white transition-all">
+          <Sparkles size={14} /> Generate with AI
+        </button>
         <button onClick={onAddModule} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-sm text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
           <Plus size={14} /> New Module
         </button>
@@ -852,6 +856,259 @@ function StudentCertView({ modules, cert }: { modules: Module[]; cert: any }) {
   );
 }
 
+// ─── AI Module Assistant ──────────────────────────────────────────────────────
+
+type ProposedLesson = { title: string; type: string; topic: string };
+
+function AiModuleAssistantModal({
+  certId, certTitle, token, onClose, onCreated,
+}: { certId: string; certTitle: string; token: string; onClose: () => void; onCreated: () => void }) {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+  const [moduleTitle, setModuleTitle] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [numLessons, setNumLessons] = useState<number | "">("");
+  const [lessonTypes, setLessonTypes] = useState<string[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [documentText, setDocumentText] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [proposed, setProposed] = useState<ProposedLesson[] | null>(null);
+
+  function updateNumLessons(raw: string) {
+    if (raw === "") { setNumLessons(""); setLessonTypes([]); return; }
+    const n = Math.max(1, Math.min(20, parseInt(raw, 10) || 1));
+    setNumLessons(n);
+    setLessonTypes((prev) => {
+      const next = [...prev];
+      while (next.length < n) next.push("reading");
+      next.length = n;
+      return next;
+    });
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    e.target.value = "";
+    setExtracting(true);
+    setDocumentText("");
+    try {
+      const formData = new FormData();
+      formData.append("file", f);
+      const res = await fetch(`${API_BASE}/ai/extract-document-text`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message ?? `Extraction failed: ${res.status}`);
+      const text: string = data?.text ?? data?.data?.text ?? "";
+      if (!text.trim()) throw new Error("No readable text found in this document");
+      setDocumentText(text);
+      setFile(f);
+      toast.success(`Extracted text from ${f.name}`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to read document");
+      setFile(null);
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  async function handleGenerate() {
+    if (!moduleTitle.trim()) { toast.error("Module title is required"); return; }
+    if (!prompt.trim() && !documentText.trim()) { toast.error("Describe the module or upload a document"); return; }
+    setGenerating(true);
+    try {
+      const body: Record<string, any> = { course_title: certTitle, module_title: moduleTitle.trim() };
+      if (prompt.trim()) body.topic = prompt.trim();
+      if (typeof numLessons === "number") body.num_lessons = numLessons;
+      if (lessonTypes.length) body.lesson_types = lessonTypes;
+      if (documentText.trim()) body.document_text = documentText.trim();
+
+      const res = await api.post<any>("/ai/generate-module-structure", body, token);
+      const data = res.data ?? res;
+      const lessons = Array.isArray(data.lessons) ? data.lessons : [];
+      if (!lessons.length) throw new Error("AI returned no lessons");
+      setProposed(lessons.map((l: any) => ({
+        title: l.title || "Untitled lesson",
+        type: LESSON_TYPE_OPTIONS.includes(l.type) ? l.type : "reading",
+        topic: l.topic || "",
+      })));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to generate module");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleConfirmCreate() {
+    if (!proposed || !proposed.length) return;
+    setCreating(true);
+    try {
+      const modRes = await api.post<any>(`/prof/certifications/${certId}/modules`, {
+        title: moduleTitle.trim(),
+        description: prompt.trim() || undefined,
+      }, token);
+      const modData = modRes.data ?? modRes;
+      const newModuleId: string = modData.id ?? modData.data?.id;
+      if (!newModuleId) throw new Error("Module was created but no ID was returned");
+      for (const lesson of proposed) {
+        await api.post(`/prof/modules/${newModuleId}/lessons`, {
+          title: lesson.title, type: lesson.type, duration_minutes: 10,
+          description: lesson.topic || undefined,
+        }, token);
+      }
+      toast.success(`Module created with ${proposed.length} lesson${proposed.length !== 1 ? "s" : ""}`);
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to create module");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function updateProposedLesson(i: number, patch: Partial<ProposedLesson>) {
+    setProposed((prev) => prev ? prev.map((l, idx) => idx === i ? { ...l, ...patch } : l) : prev);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl max-h-[88vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-navy-900 flex items-center justify-center text-white flex-shrink-0">
+              <Sparkles size={14} />
+            </div>
+            <div>
+              <p className="font-bold text-navy-900 text-sm">Generate Module with AI</p>
+              <p className="text-xs text-slate-400">{proposed ? "Review before creating" : "From a prompt, or an uploaded document"}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+        </div>
+
+        <div className="px-6 py-5 overflow-y-auto flex-1">
+          {!proposed ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Module Title</label>
+                <input value={moduleTitle} onChange={(e) => setModuleTitle(e.target.value)} className="input-base" placeholder="e.g. Prompt Engineering Fundamentals" autoFocus />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Describe this module <span className="text-slate-400 font-normal">(optional if you upload a document below)</span>
+                </label>
+                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} className="input-base h-20 resize-none text-sm" placeholder="What should this module teach? Any topics, tone, or level to focus on…" />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Or build from a document <span className="text-slate-400 font-normal">(PDF, DOCX, or text — its content becomes the lessons)</span>
+                </label>
+                {documentText ? (
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <Paperclip size={15} className="text-emerald-600 flex-shrink-0" />
+                    <span className="text-sm text-emerald-800 truncate flex-1">{file?.name}</span>
+                    <button onClick={() => { setFile(null); setDocumentText(""); }} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className={cn("flex items-center justify-center gap-2 h-16 border-2 border-dashed rounded-xl cursor-pointer transition-colors", extracting ? "border-navy-200 bg-navy-50" : "border-slate-200 hover:border-navy-300 hover:bg-navy-50")}>
+                    {extracting ? <Loader2 size={17} className="animate-spin text-navy-500" /> : <Upload size={17} className="text-slate-400" />}
+                    <span className="text-sm text-slate-500">{extracting ? "Reading document…" : "Click to upload a document"}</span>
+                    <input type="file" className="hidden" accept=".pdf,.docx,.txt,.md" onChange={handleFileSelect} disabled={extracting} />
+                  </label>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Number of Lessons <span className="text-slate-400 font-normal">(optional — leave blank to let AI decide)</span>
+                </label>
+                <input type="number" min={1} max={20} value={numLessons} onChange={(e) => updateNumLessons(e.target.value)} className="input-base w-28 text-sm" placeholder="Auto" />
+              </div>
+
+              {lessonTypes.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Type of Each Lesson</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {lessonTypes.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 w-14 flex-shrink-0">Lesson {i + 1}</span>
+                        <select
+                          value={t}
+                          onChange={(e) => setLessonTypes((prev) => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                          className="input-base py-1.5 text-xs flex-1"
+                        >
+                          {LESSON_TYPE_OPTIONS.map((opt) => <option key={opt} value={opt}>{LESSON_TYPE_LABEL[opt]}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {proposed.map((lesson, i) => {
+                const Icon = LESSON_ICONS[lesson.type] ?? FileText;
+                return (
+                  <div key={i} className="p-3 border border-slate-200 rounded-xl bg-white">
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", LESSON_COLORS[lesson.type] ?? "text-slate-600 bg-slate-100")}>
+                        <Icon size={13} />
+                      </div>
+                      <input
+                        value={lesson.title}
+                        onChange={(e) => updateProposedLesson(i, { title: e.target.value })}
+                        className="input-base py-1.5 text-sm flex-1"
+                      />
+                      <select
+                        value={lesson.type}
+                        onChange={(e) => updateProposedLesson(i, { type: e.target.value })}
+                        className="input-base py-1.5 text-xs w-36 flex-shrink-0"
+                      >
+                        {LESSON_TYPE_OPTIONS.map((opt) => <option key={opt} value={opt}>{LESSON_TYPE_LABEL[opt]}</option>)}
+                      </select>
+                    </div>
+                    {lesson.topic && <p className="text-xs text-slate-400 mt-1.5 pl-9">{lesson.topic}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100 flex-shrink-0">
+          {!proposed ? (
+            <>
+              <button onClick={onClose} className="btn-outline !py-2 !px-4 !text-sm">Cancel</button>
+              <button onClick={handleGenerate} disabled={generating || extracting} className="btn-primary !py-2 !px-4 !text-sm flex items-center gap-1.5 disabled:opacity-60">
+                {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                {generating ? "Generating…" : "Generate"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setProposed(null)} disabled={creating} className="btn-outline !py-2 !px-4 !text-sm flex items-center gap-1.5 disabled:opacity-60">
+                <RotateCcw size={13} /> Back
+              </button>
+              <button onClick={handleConfirmCreate} disabled={creating} className="btn-primary !py-2 !px-4 !text-sm flex items-center gap-1.5 disabled:opacity-60">
+                {creating ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {creating ? "Creating…" : `Create Module & ${proposed.length} Lesson${proposed.length !== 1 ? "s" : ""}`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function CertBuilderPage() {
@@ -861,6 +1118,7 @@ export default function CertBuilderPage() {
   const [selectedLesson, setSelectedLesson] = useState<{ lesson: Lesson; module: Module } | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "settings">("content");
   const [showStudentView, setShowStudentView] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
 
   const { data: certRaw, mutate } = useSWR(
     token && certId ? [`/prof/certifications/${certId}`, token] as const : null,
@@ -1001,6 +1259,7 @@ export default function CertBuilderPage() {
             onAddLesson={handleAddLesson}
             onDeleteLesson={handleDeleteLesson}
             onToggleModulePublish={handleToggleModulePublish}
+            onGenerateAi={() => setShowAiModal(true)}
           />
         </div>
 
@@ -1089,6 +1348,17 @@ export default function CertBuilderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Generate module with AI */}
+      {showAiModal && (
+        <AiModuleAssistantModal
+          certId={certId as string}
+          certTitle={cert.title}
+          token={token}
+          onClose={() => setShowAiModal(false)}
+          onCreated={mutate}
+        />
       )}
     </div>
   );
