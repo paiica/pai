@@ -93,14 +93,14 @@ function SimpleEditor({ block, fields, token, onSave }: {
 // ─── Hero editor ─────────────────────────────────────────────────────────────
 
 type HeroSlide = {
-  image_url: string; badge: string; headline: string; highlight: string; sub: string;
+  image_url: string; video_url: string; badge: string; headline: string; highlight: string; sub: string;
   cta_label: string; cta_href: string; cta2_label: string; cta2_href: string;
   stat1_value: string; stat1_label: string; stat2_value: string; stat2_label: string;
   stat3_value: string; stat3_label: string; stat4_value: string; stat4_label: string;
 };
 
 const HERO_DEFAULT_SLIDE: HeroSlide = {
-  image_url: "", badge: "", headline: "", highlight: "", sub: "",
+  image_url: "", video_url: "", badge: "", headline: "", highlight: "", sub: "",
   cta_label: "", cta_href: "", cta2_label: "", cta2_href: "",
   stat1_value: "", stat1_label: "", stat2_value: "", stat2_label: "",
   stat3_value: "", stat3_label: "", stat4_value: "", stat4_label: "",
@@ -109,6 +109,7 @@ const HERO_DEFAULT_SLIDE: HeroSlide = {
 const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
+    video_url: "",
     badge: "The AI Credential Standard",
     headline: "Prove Your AI Expertise.",
     highlight: "Advance Your Career.",
@@ -122,6 +123,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   },
   {
     image_url: "",
+    video_url: "",
     badge: "Trusted by Professionals Worldwide",
     headline: "Your Industry Needs AI-Verified",
     highlight: "Talent.",
@@ -135,6 +137,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   },
   {
     image_url: "",
+    video_url: "",
     badge: "Enterprise AI Certification",
     headline: "Upskill Your Entire Team.",
     highlight: "All at Once.",
@@ -209,9 +212,15 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
       {/* Slide fields */}
       <div className="grid grid-cols-1 gap-3">
         <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-xs text-slate-500">
-          <ImageIcon size={12} /> Background image URL (leave blank to use gradient)
+          <ImageIcon size={12} /> Background image or video (leave both blank to use gradient)
         </div>
         <Field label="Image URL" value={s.image_url} onChange={(v) => upd("image_url", v)} placeholder="https://... or leave blank for gradient" />
+        <Field label="Video URL" value={s.video_url} onChange={(v) => upd("video_url", v)} placeholder="https://.../background.mp4 — optional, plays muted and looped" />
+        {s.video_url && (
+          <p className="text-[11px] text-slate-400 -mt-1.5">
+            When a video is set it plays instead of the image. Use a direct .mp4 link (autoplay requires no audio) — the image above is still used as the poster frame while the video loads.
+          </p>
+        )}
         <Field label="Badge text" value={s.badge} onChange={(v) => upd("badge", v)} />
 
         <div className="grid grid-cols-2 gap-3">

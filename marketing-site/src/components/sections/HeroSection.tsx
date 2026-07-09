@@ -15,6 +15,7 @@ const SLIDE_ICONS = [Award, Users, Building2];
 
 type SlideData = {
   image_url?: string;
+  video_url?: string;
   badge: string;
   headline: string;
   highlight: string;
@@ -63,13 +64,26 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
       style={{ paddingTop: "var(--header-height, 88px)" }}
     >
 
-      {/* Backgrounds — one per slide, cross-fade */}
+      {/* Backgrounds — one per slide, cross-fade. Video only mounts for the active slide so
+          inactive slides don't download/decode video in the background. */}
       {slides.map((s, i) => (
         <div
           key={i}
           className={cn("absolute inset-0 transition-opacity duration-700", i === current ? "opacity-100" : "opacity-0")}
         >
-          {s.image_url ? (
+          {s.video_url && i === current ? (
+            <>
+              <video
+                key={s.video_url}
+                autoPlay muted loop playsInline
+                poster={s.image_url || undefined}
+                className="absolute inset-0 w-full h-full object-cover"
+              >
+                <source src={s.video_url} type="video/mp4" />
+              </video>
+              <div className="absolute inset-0 bg-black/60" />
+            </>
+          ) : s.image_url ? (
             <>
               <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
