@@ -1226,6 +1226,7 @@ export default function CertEditorPage() {
                 <option value="advanced">Level 2 — Advanced</option>
                 <option value="specialist">Level 2 — Specialist</option>
                 <option value="executive">Level 3 — Executive</option>
+                <option value="other">Other</option>
               </select>
             </Field>
             <Field label="Status">

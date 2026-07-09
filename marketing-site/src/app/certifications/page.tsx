@@ -21,17 +21,21 @@ const CERT_THEMES = [
 ];
 
 const LEVEL_GROUPS = [
-  { key: "pre_certificate", label: "Pre-Certification", description: "Start your AI journey — no prior experience required." },
-  { key: "foundation",      label: "Level 1",           description: "Core credentials for professionals entering the AI field." },
-  { key: "advanced",        label: "Level 2",           description: "Advanced specializations for experienced AI practitioners." },
-  { key: "executive",       label: "Level 3",           description: "Executive and leadership-level AI credentials." },
+  { key: "pre_certificate", label: "Pre-Certification",     description: "Start your AI journey — no prior experience required." },
+  { key: "foundation",      label: "Level 1",               description: "Core credentials for professionals entering the AI field." },
+  { key: "advanced",        label: "Level 2",               description: "Advanced specializations for experienced AI practitioners." },
+  { key: "specialist",      label: "Level 2 — Specialist",  description: "Focused specialist tracks for niche AI domains." },
+  { key: "executive",       label: "Level 3",               description: "Executive and leadership-level AI credentials." },
+  { key: "other",           label: "Other Certifications",  description: "Specialized programs that don't fit our standard tracks." },
 ];
 
 const LEVEL_LABEL: Record<string, string> = {
   pre_certificate: "Pre-Certification",
   foundation: "Level 1",
   advanced: "Level 2",
+  specialist: "Level 2 — Specialist",
   executive: "Level 3",
+  other: "Other",
 };
 
 async function getCertifications(): Promise<any[]> {
@@ -141,13 +145,14 @@ export default async function CertificationsListPage() {
   // Assign a stable global theme index before grouping so colours vary across the whole page
   const certsWithIdx = certs.map((cert: any, i: number) => ({ ...cert, _themeIdx: i }));
 
-  const groups = LEVEL_GROUPS
-    .map((g) => ({ ...g, certs: certsWithIdx.filter((c: any) => c.level === g.key) }))
-    .filter((g) => g.certs.length > 0);
-
-  // Any cert whose level doesn't match the four known groups falls into "Other"
+  // "other" also catches any cert whose level doesn't match a known group (e.g. legacy/unrecognised values)
   const knownKeys = new Set(LEVEL_GROUPS.map((g) => g.key));
-  const ungrouped = certsWithIdx.filter((c: any) => !knownKeys.has(c.level));
+  const groups = LEVEL_GROUPS
+    .map((g) => ({
+      ...g,
+      certs: certsWithIdx.filter((c: any) => g.key === "other" ? (c.level === "other" || !knownKeys.has(c.level)) : c.level === g.key),
+    }))
+    .filter((g) => g.certs.length > 0);
 
   return (
     <>
@@ -203,20 +208,6 @@ export default async function CertificationsListPage() {
                 </div>
               </div>
             ))}
-
-            {/* Catch-all for any cert with an unrecognised level */}
-            {ungrouped.length > 0 && (
-              <div>
-                <div className="mb-8 pb-4 border-b border-sand-200">
-                  <h2 className="text-2xl font-display font-black text-ink-900">Other Certifications</h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {ungrouped.map((cert: any) => (
-                    <CertCard key={cert.id ?? cert.slug} cert={cert} idx={cert._themeIdx} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </section>
       </main>

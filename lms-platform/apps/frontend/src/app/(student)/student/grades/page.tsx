@@ -17,6 +17,7 @@ const LEVEL_ACCENT: Record<string, string> = {
   executive: "from-amber-400 to-amber-600",
   specialist: "from-purple-400 to-purple-600",
   pre_certificate: "from-slate-400 to-slate-600",
+  other: "from-navy-500 to-navy-700",
 };
 
 function pctOf(item: any) {

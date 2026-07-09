@@ -8,7 +8,7 @@ import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, 
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
-const LEVELS   = ["pre_certificate", "foundation", "advanced", "executive", "specialist"] as const;
+const LEVELS   = ["pre_certificate", "foundation", "advanced", "executive", "specialist", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
 
 const GROUPS = [
@@ -16,6 +16,7 @@ const GROUPS = [
   { id: "foundation",      label: "Level 1",         sublabel: "Foundation",             levels: ["foundation"] },
   { id: "advanced",        label: "Level 2",         sublabel: "Advanced & Specialist",  levels: ["advanced", "specialist"] },
   { id: "executive",       label: "Level 3",         sublabel: "Executive",              levels: ["executive"] },
+  { id: "other",           label: "Other",           sublabel: "Uncategorized",          levels: ["other"] },
 ];
 
 type Cert = {
@@ -169,6 +170,7 @@ export default function CertificationsPage() {
                     <option value="advanced">Level 2 — Advanced</option>
                     <option value="specialist">Level 2 — Specialist</option>
                     <option value="executive">Level 3 — Executive</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 <div>

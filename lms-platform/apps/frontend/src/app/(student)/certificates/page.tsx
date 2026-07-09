@@ -73,21 +73,27 @@ const LEVEL_LABEL: Record<string, string> = {
   pre_certificate: "Pre-Certificate",
   foundation:      "Foundation",
   advanced:        "Advanced",
+  specialist:      "Specialist",
   executive:       "Executive",
+  other:           "Other",
 };
 
 const LEVEL_COLOR: Record<string, string> = {
   pre_certificate: "bg-slate-100 text-slate-600 border border-slate-200",
   foundation:      "bg-emerald-50 text-emerald-700 border border-emerald-100",
   advanced:        "bg-blue-50 text-blue-700 border border-blue-100",
+  specialist:      "bg-indigo-50 text-indigo-700 border border-indigo-100",
   executive:       "bg-purple-50 text-purple-700 border border-purple-100",
+  other:           "bg-slate-100 text-slate-600 border border-slate-200",
 };
 
 const LEVEL_GROUPS = [
-  { key: "pre_certificate", label: "Pre-Certification", description: "No prior experience required. Start your AI journey here." },
-  { key: "foundation",      label: "Foundation",        description: "Core credentials for professionals entering the AI field." },
-  { key: "advanced",        label: "Advanced",          description: "Advanced specializations for experienced AI practitioners." },
-  { key: "executive",       label: "Executive",         description: "Executive and leadership-level AI credentials." },
+  { key: "pre_certificate", label: "Pre-Certification",      description: "No prior experience required. Start your AI journey here." },
+  { key: "foundation",      label: "Foundation",             description: "Core credentials for professionals entering the AI field." },
+  { key: "advanced",        label: "Advanced",               description: "Advanced specializations for experienced AI practitioners." },
+  { key: "specialist",      label: "Specialist",             description: "Focused specialist tracks for niche AI domains." },
+  { key: "executive",       label: "Executive",              description: "Executive and leadership-level AI credentials." },
+  { key: "other",           label: "Other",                  description: "Specialized programs that don't fit our standard tracks." },
 ];
 
 // ─── Catalog card ─────────────────────────────────────────────────────────────
@@ -186,15 +192,12 @@ function CertCatalogCard({ cert, enrolled }: { cert: any; enrolled: boolean }) {
 // ─── Catalog grouped by level ─────────────────────────────────────────────────
 
 function CatalogByLevel({ catalog, enrolledCertIds }: { catalog: any[]; enrolledCertIds: Set<string> }) {
-  const grouped = LEVEL_GROUPS.map(g => ({
-    ...g, certs: catalog.filter((c: any) => c.level === g.key),
+  // "other" also catches any cert whose level doesn't match a known group (e.g. legacy/unrecognised values)
+  const knownKeys = new Set(LEVEL_GROUPS.map(g => g.key));
+  const allGroups = LEVEL_GROUPS.map(g => ({
+    ...g,
+    certs: catalog.filter((c: any) => g.key === "other" ? (c.level === "other" || !knownKeys.has(c.level)) : c.level === g.key),
   })).filter(g => g.certs.length > 0);
-
-  const ungrouped = catalog.filter((c: any) => !LEVEL_GROUPS.some(g => g.key === c.level));
-  const allGroups = [
-    ...grouped,
-    ...(ungrouped.length > 0 ? [{ key: "__other", label: "Other", description: "", certs: ungrouped }] : []),
-  ];
 
   const [open, setOpen] = useState<Record<string, boolean>>(
     Object.fromEntries(allGroups.map(g => [g.key, true]))

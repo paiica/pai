@@ -248,6 +248,7 @@ enum CertificationLevel {
   advanced
   executive
   specialist
+  other
 
   @@schema("lms")
 }
