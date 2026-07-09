@@ -189,7 +189,7 @@ export default function ExamPage() {
       <div className="flex items-center gap-4 mb-8">
         <span className="text-5xl">{cert?.badge_icon}</span>
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{cert?.acronym}® Certification Exam</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{cert?.acronym}™ Certification Exam</p>
           <h1 className="text-2xl font-display font-black text-navy-900 leading-tight">{cert?.title}</h1>
         </div>
       </div>

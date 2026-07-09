@@ -34,7 +34,7 @@ function AcronymBadge({ acronym, dark = false }: { acronym: string; dark?: boole
   if (dark) {
     return (
       <div className="flex-shrink-0 border-2 border-white/30 rounded-lg px-3 py-1.5">
-        <span className="text-white font-display font-black text-sm tracking-wide">{acronym}®</span>
+        <span className="text-white font-display font-black text-sm tracking-wide">{acronym}™</span>
       </div>
     );
   }

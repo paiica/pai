@@ -107,7 +107,7 @@ function CertBannerCard({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{cert?.acronym}®</span>
+            <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{cert?.acronym}™</span>
             <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", statusClass)}>
               <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", dotClass)} />
               {statusText}

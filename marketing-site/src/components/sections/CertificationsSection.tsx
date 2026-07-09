@@ -78,7 +78,7 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
           {cert.level && cert.level.charAt(0).toUpperCase() + cert.level.slice(1)}
         </p>
         <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.acronym}®
+          {cert.acronym}™
         </p>
         <h3 className={cn("font-display font-black text-[19px] leading-snug mb-3.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.title}
