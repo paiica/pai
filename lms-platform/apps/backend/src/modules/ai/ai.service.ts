@@ -310,7 +310,7 @@ All option objects must have sort_order (0-indexed integer) and is_correct (bool
 
     const useJsonMode = provider === "openai" || provider === "groq";
     const sourceMaterial = params.document_text
-      ? `\n\nSOURCE DOCUMENT — base the content on this material rather than general knowledge:\n"""\n${params.document_text.slice(0, 15000)}\n"""`
+      ? `\n\nSOURCE DOCUMENT — base the content on this material rather than general knowledge:\n"""\n${params.document_text.slice(0, 60000)}\n"""`
       : "";
 
     if (params.lesson_type === "quiz") {
@@ -360,6 +360,11 @@ Rules: exactly 4 string options, correct_index is 0-based, no HTML in question t
     };
     const guide = typeGuide[params.lesson_type] ?? typeGuide.reading;
     const wordCount = Math.min(2500, Math.max(50, params.word_count ?? 500));
+    // A single "approximately N words" mention is routinely under-followed by LLMs, which tend to
+    // stop once the content feels structurally complete rather than actually hitting the target.
+    // Restating the requirement as a firm minimum, plus a concrete section plan, gives the model
+    // a reason to keep going instead of wrapping up early.
+    const sectionCount = Math.max(2, Math.round(wordCount / 300));
 
     const userPrompt = `Return ONLY a JSON object. Create ${guide}
 
@@ -368,9 +373,13 @@ Module: ${params.module_title || "(unspecified)"}
 Lesson: ${params.lesson_title}
 Topic/Focus: ${params.topic || params.lesson_title}${sourceMaterial}
 
-Requirements: ${params.tone ?? "professional"} tone, approximately ${wordCount} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.${params.document_text ? " Content must be drawn directly from the source document, not general knowledge." : ""}
+LENGTH REQUIREMENT — READ CAREFULLY: The content must be AT LEAST ${wordCount} words. This is a firm minimum, not a rough guide. Structure it as roughly ${sectionCount} distinct <h2>/<h3> sections, each with multiple full paragraphs, so the length comes from real depth and detail (more examples, more explanation, more nuance) — not from padding or repetition. If you reach a natural stopping point before ${wordCount} words, keep going: add another section, more examples, or deeper explanation rather than ending the lesson short.
 
-Required format: {"content":"<h2>...</h2><p>...</p>"}`;
+Requirements: ${params.tone ?? "professional"} tone, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.${params.document_text ? " Content must be drawn directly from the source document, not general knowledge." : ""}
+
+Required format: {"content":"<h2>...</h2><p>...</p>"}
+
+Before finishing, check your draft: if it is under ${wordCount} words, expand it further.`;
 
     let raw = "";
     try {
@@ -468,7 +477,7 @@ Required format: {"content":"<h2>...</h2><p>...</p>"}`;
       : "type must be one of: reading, video, quiz, assignment, download, live_session — mix types sensibly, starting with reading/intro and ending with quiz when there are 3+ lessons";
 
     const sourceMaterial = params.document_text
-      ? `\n\nSOURCE DOCUMENT — base the lessons on this material, breaking it into logical topics/sections in a sensible teaching order:\n"""\n${params.document_text.slice(0, 15000)}\n"""`
+      ? `\n\nSOURCE DOCUMENT — base the lessons on this material, breaking it into logical topics/sections in a sensible teaching order:\n"""\n${params.document_text.slice(0, 60000)}\n"""`
       : "";
 
     const userPrompt = `You are an instructional design expert. Return ONLY a JSON object with no extra text.
