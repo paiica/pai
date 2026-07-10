@@ -85,6 +85,7 @@ export class AiController {
       word_count?: number;
       tone?: string;
       level?: string;
+      document_text?: string;
     },
   ) {
     return this.aiService.generateCourseContent(body);

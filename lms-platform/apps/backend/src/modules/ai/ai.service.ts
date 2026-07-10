@@ -304,10 +304,14 @@ All option objects must have sort_order (0-indexed integer) and is_correct (bool
     word_count?: number;
     tone?: string;
     level?: string;
+    document_text?: string;
   }) {
     const { client, model, provider } = await this.getClientAndModel();
 
     const useJsonMode = provider === "openai" || provider === "groq";
+    const sourceMaterial = params.document_text
+      ? `\n\nSOURCE DOCUMENT — base the content on this material rather than general knowledge:\n"""\n${params.document_text.slice(0, 15000)}\n"""`
+      : "";
 
     if (params.lesson_type === "quiz") {
       const n = params.num_questions || 5;
@@ -316,11 +320,11 @@ All option objects must have sort_order (0-indexed integer) and is_correct (bool
 Course: ${params.course_title || "(unspecified)"}
 Module: ${params.module_title || "(unspecified)"}
 Lesson: ${params.lesson_title}
-Topic: ${params.topic || params.lesson_title}
+Topic: ${params.topic || params.lesson_title}${sourceMaterial}
 
 Required format: {"questions":[{"question_text":"...","question_type":"multiple_choice","options":["A","B","C","D"],"correct_index":0,"explanation":"..."}]}
 
-Rules: exactly 4 string options, correct_index is 0-based, no HTML in question text.`;
+Rules: exactly 4 string options, correct_index is 0-based, no HTML in question text.${params.document_text ? " Questions must test material actually covered in the source document." : ""}`;
 
       let raw = "";
       try {
@@ -361,9 +365,9 @@ Rules: exactly 4 string options, correct_index is 0-based, no HTML in question t
 Course: ${params.course_title || "(unspecified)"}
 Module: ${params.module_title || "(unspecified)"}
 Lesson: ${params.lesson_title}
-Topic/Focus: ${params.topic || params.lesson_title}
+Topic/Focus: ${params.topic || params.lesson_title}${sourceMaterial}
 
-Requirements: ${params.tone ?? "professional"} tone, approximately ${params.word_count ?? 500} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.
+Requirements: ${params.tone ?? "professional"} tone, approximately ${params.word_count ?? 500} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.${params.document_text ? " Content must be drawn directly from the source document, not general knowledge." : ""}
 
 Required format: {"content":"<h2>...</h2><p>...</p>"}`;
 

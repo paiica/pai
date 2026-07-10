@@ -180,6 +180,16 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
   const [content, setContent] = useState(lesson.content_body ?? "");
   const [saving, setSaving] = useState(false);
 
+  const [showAi, setShowAi] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiWordCount, setAiWordCount] = useState(500);
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiDocText, setAiDocText] = useState("");
+  const [aiExtracting, setAiExtracting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
   useEffect(() => { setContent(lesson.content_body ?? ""); }, [lesson.id, lesson.content_body]);
 
   async function save() {
@@ -191,10 +201,100 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
     finally { setSaving(false); }
   }
 
+  async function handleAiFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    e.target.value = "";
+    setAiExtracting(true);
+    setAiDocText("");
+    try {
+      const formData = new FormData();
+      formData.append("file", f);
+      const res = await fetch(`${API_BASE}/ai/extract-document-text`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message ?? `Extraction failed: ${res.status}`);
+      const text: string = data?.text ?? data?.data?.text ?? "";
+      if (!text.trim()) throw new Error("No readable text found in this document");
+      setAiDocText(text);
+      setAiFile(f);
+      toast.success(`Extracted text from ${f.name}`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to read document");
+      setAiFile(null);
+    } finally {
+      setAiExtracting(false);
+    }
+  }
+
+  async function handleGenerateAi() {
+    if (!aiPrompt.trim() && !aiDocText.trim()) { toast.error("Describe the lesson or upload a document"); return; }
+    if (content.trim() && !confirm("This will replace the current content. Continue?")) return;
+    setAiGenerating(true);
+    try {
+      const body: Record<string, any> = { lesson_title: lesson.title, lesson_type: "reading", word_count: aiWordCount };
+      if (aiPrompt.trim()) body.topic = aiPrompt.trim();
+      if (aiDocText.trim()) body.document_text = aiDocText.trim();
+      const res = await api.post<any>("/ai/generate-course-content", body, token);
+      const data = res.data ?? res;
+      const generated: string = data.content ?? "";
+      if (!generated.trim()) throw new Error("AI returned no content");
+      setContent(generated);
+      setShowAi(false);
+      setAiPrompt(""); setAiFile(null); setAiDocText("");
+      toast.success("Content generated — review and save");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to generate content");
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Content</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Content</label>
+          <button type="button" onClick={() => setShowAi((v) => !v)} className="flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800">
+            <Sparkles size={12} /> Generate with AI
+          </button>
+        </div>
+
+        {showAi && (
+          <div className="mb-3 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} className="input-base h-16 resize-none text-sm" placeholder="Describe what this lesson should cover…" />
+            <div>
+              <label className="text-xs font-semibold text-slate-500 mb-1 block">Or upload a document <span className="text-slate-400 font-normal">(its content becomes the lesson)</span></label>
+              {aiDocText ? (
+                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <Paperclip size={13} className="text-emerald-600 flex-shrink-0" />
+                  <span className="text-xs text-emerald-800 truncate flex-1">{aiFile?.name}</span>
+                  <button onClick={() => { setAiFile(null); setAiDocText(""); }} className="text-emerald-500 hover:text-emerald-700"><X size={13} /></button>
+                </div>
+              ) : (
+                <label className={cn("flex items-center justify-center gap-2 h-11 border-2 border-dashed rounded-lg cursor-pointer transition-colors text-xs", aiExtracting ? "border-navy-200 bg-navy-50" : "border-slate-200 hover:border-navy-300 hover:bg-white")}>
+                  {aiExtracting ? <Loader2 size={14} className="animate-spin text-navy-500" /> : <Upload size={14} className="text-slate-400" />}
+                  <span className="text-slate-500">{aiExtracting ? "Reading…" : "Click to upload"}</span>
+                  <input type="file" className="hidden" accept=".pdf,.docx,.txt,.md" onChange={handleAiFileSelect} disabled={aiExtracting} />
+                </label>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-500">Word count</label>
+                <input type="number" min={50} max={3000} step={50} value={aiWordCount} onChange={(e) => setAiWordCount(Math.max(50, +e.target.value || 500))} className="input-base w-20 py-1 text-xs" />
+              </div>
+              <button onClick={handleGenerateAi} disabled={aiGenerating || aiExtracting} className="btn-primary !py-1.5 !px-3 !text-xs flex items-center gap-1.5 disabled:opacity-60">
+                {aiGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {aiGenerating ? "Generating…" : "Generate"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <textarea
           value={content}
           onChange={e => setContent(e.target.value)}
