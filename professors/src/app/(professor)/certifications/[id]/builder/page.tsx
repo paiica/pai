@@ -285,7 +285,7 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold text-slate-500">Word count</label>
-                <input type="number" min={50} max={3000} step={50} value={aiWordCount} onChange={(e) => setAiWordCount(Math.max(50, +e.target.value || 500))} className="input-base w-20 py-1 text-xs" />
+                <input type="number" min={50} max={2500} step={50} value={aiWordCount} onChange={(e) => setAiWordCount(Math.min(2500, Math.max(50, +e.target.value || 500)))} className="input-base w-20 py-1 text-xs" />
               </div>
               <button onClick={handleGenerateAi} disabled={aiGenerating || aiExtracting} className="btn-primary !py-1.5 !px-3 !text-xs flex items-center gap-1.5 disabled:opacity-60">
                 {aiGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}

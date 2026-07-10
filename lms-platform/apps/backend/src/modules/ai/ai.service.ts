@@ -359,6 +359,7 @@ Rules: exactly 4 string options, correct_index is 0-based, no HTML in question t
       download:     "a description and usage guide for the downloadable resource in HTML.",
     };
     const guide = typeGuide[params.lesson_type] ?? typeGuide.reading;
+    const wordCount = Math.min(2500, Math.max(50, params.word_count ?? 500));
 
     const userPrompt = `Return ONLY a JSON object. Create ${guide}
 
@@ -367,7 +368,7 @@ Module: ${params.module_title || "(unspecified)"}
 Lesson: ${params.lesson_title}
 Topic/Focus: ${params.topic || params.lesson_title}${sourceMaterial}
 
-Requirements: ${params.tone ?? "professional"} tone, approximately ${params.word_count ?? 500} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.${params.document_text ? " Content must be drawn directly from the source document, not general knowledge." : ""}
+Requirements: ${params.tone ?? "professional"} tone, approximately ${wordCount} words, ${params.level ?? "intermediate"} level, well-structured, HTML formatted.${params.document_text ? " Content must be drawn directly from the source document, not general knowledge." : ""}
 
 Required format: {"content":"<h2>...</h2><p>...</p>"}`;
 
@@ -377,6 +378,10 @@ Required format: {"content":"<h2>...</h2><p>...</p>"}`;
         model,
         messages: [{ role: "user", content: userPrompt }],
         temperature: 0.7,
+        // Without an explicit cap, some providers (notably Groq) fall back to a low
+        // default completion length regardless of what the prompt asks for — scale
+        // this with the requested word count so longer lessons aren't silently cut off.
+        max_tokens: Math.min(8000, wordCount * 2 + 300),
       };
       if (useJsonMode) createParams.response_format = { type: "json_object" };
       const res = await client.chat.completions.create(createParams);
