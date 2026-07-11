@@ -117,6 +117,7 @@ enum ExamAttemptStatus {
 enum CertificateStatus {
   active
   expired
+  lapsed
   revoked
   suspended
 
@@ -323,9 +324,22 @@ model User {
   affiliate_commissions_as_buyer AffiliateCommission[]
   affiliate_leads_referred AffiliateLead[]
   event_registrations      EventRegistration[]
+  admin_permission         AdminPermission?
 
   @@index([email])
   @@map("users")
+  @@schema("lms")
+}
+
+model AdminPermission {
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tabs       String[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("admin_permissions")
   @@schema("lms")
 }
 
@@ -435,6 +449,11 @@ model Certification {
   validity_years        Int     @default(2)
   max_retakes_included  Int     @default(2)
   retake_fee            Decimal @db.Decimal(10, 2) @default(99.00)
+
+  renewal_pdu_required      Int     @default(0)
+  renewal_window_days       Int     @default(90)
+  renewal_grace_period_days Int     @default(180)
+  renewal_fee               Decimal @db.Decimal(10, 2) @default(99.00)
 
   curriculum_overview     Json     @default("[]")
   faqs_json               Json     @default("[]")
@@ -638,6 +657,7 @@ model Course {
   preview_video_url    String?
   level                CourseLevel  @default(beginner)
   duration_hours       Decimal      @db.Decimal(5, 1) @default(0)
+  pdu_value            Decimal      @db.Decimal(5, 1) @default(0)
   total_lessons        Int          @default(0)
 
   // Marketing content shown on the public course detail page (overview,
@@ -716,6 +736,7 @@ model CourseEnrollment {
   amount_paid                Decimal? @db.Decimal(10, 2)
 
   assignment_submissions AssignmentSubmission[]
+  lesson_progress        LessonProgress[]
 
   @@unique([user_id, course_id])
   @@index([user_id])
@@ -879,11 +900,13 @@ model Enrollment {
 }
 
 model LessonProgress {
-  id            String     @id @default(uuid())
-  user_id       String
-  user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  enrollment_id String
-  enrollment    Enrollment @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  id                    String            @id @default(uuid())
+  user_id               String
+  user                  User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  enrollment_id         String?
+  enrollment            Enrollment?       @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  course_enrollment_id  String?
+  course_enrollment     CourseEnrollment? @relation(fields: [course_enrollment_id], references: [id], onDelete: Cascade)
   lesson_id     String
   lesson        Lesson     @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
   completed     Boolean    @default(false)
@@ -898,6 +921,7 @@ model LessonProgress {
 
   @@unique([user_id, lesson_id])
   @@index([enrollment_id])
+  @@index([course_enrollment_id])
   @@map("lesson_progress")
   @@schema("lms")
 }
@@ -1215,6 +1239,12 @@ model Certificate {
 
   linkedin_added    Boolean  @default(false)
   linkedin_added_at DateTime?
+
+  renewed_at                       DateTime?
+  renewal_count                    Int       @default(0)
+  renewal_stripe_payment_intent_id String?
+  renewal_amount_paid              Decimal?  @db.Decimal(10, 2)
+  last_renewal_reminder_days_out   Int?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

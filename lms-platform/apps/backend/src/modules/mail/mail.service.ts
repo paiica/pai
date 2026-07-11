@@ -223,6 +223,61 @@ export class MailService {
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
+  async sendCertificateRenewed(opts: {
+    to: string; firstName: string; certTitle: string; certAcronym: string;
+    certNumber: string; newExpiresAt: Date; verificationUrl: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("certificate_renewed");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? "Your {acronym} certificate has been renewed!").replace("{acronym}", opts.certAcronym);
+    const newExpiresAtStr = opts.newExpiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
+          certNumber: opts.certNumber, newExpiresAt: newExpiresAtStr, verificationUrl: opts.verificationUrl,
+        })
+      : this.wrapper(this.certificateRenewedBody({ ...opts, newExpiresAt: opts.newExpiresAt }));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendCertificateExpiringReminder(opts: {
+    to: string; firstName: string; certTitle: string; certAcronym: string;
+    expiresAt: Date; daysRemaining: number; pduEarned: number; pduRequired: number;
+    renewalFee: number; renewLink: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("certificate_expiring");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? "Your {acronym} certificate expires in {days} days")
+      .replace("{acronym}", opts.certAcronym).replace("{days}", String(opts.daysRemaining));
+    const expiresAtStr = opts.expiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
+          expiresAt: expiresAtStr, daysRemaining: String(opts.daysRemaining),
+          pduEarned: String(opts.pduEarned), pduRequired: String(opts.pduRequired),
+          renewalFee: opts.renewalFee.toFixed(2), renewLink: opts.renewLink,
+        })
+      : this.wrapper(this.certificateExpiringBody(opts));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendCertificateLapsed(opts: {
+    to: string; firstName: string; certTitle: string; certAcronym: string;
+    expiredAt: Date; contactUrl: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("certificate_lapsed");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? "Your {acronym} certificate renewal window has closed").replace("{acronym}", opts.certAcronym);
+    const expiredAtStr = opts.expiredAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
+          expiredAt: expiredAtStr, contactUrl: opts.contactUrl,
+        })
+      : this.wrapper(this.certificateLapsedBody(opts));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   async sendApplicationApproved(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string;
   }) {
@@ -362,6 +417,12 @@ export class MailService {
         return this.sendPaymentFailed({ to, firstName: "John", itemName: sampleCert.certTitle });
       case "certificate_revoked":
         return this.sendCertificateRevoked({ to, firstName: "John", ...sampleCert });
+      case "certificate_renewed":
+        return this.sendCertificateRenewed({ to, firstName: "John", ...sampleCert, newExpiresAt: sampleExpiry, verificationUrl: `https://paii.ca/verify?id=${sampleCert.certNumber}` });
+      case "certificate_expiring":
+        return this.sendCertificateExpiringReminder({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiresAt: sampleExpiry, daysRemaining: 30, pduEarned: 15, pduRequired: 20, renewalFee: 99, renewLink: `${this.frontendUrl}/certificates` });
+      case "certificate_lapsed":
+        return this.sendCertificateLapsed({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiredAt: new Date(), contactUrl: "https://paii.ca/contact" });
       case "application_approved":
         return this.sendApplicationApproved({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym });
       case "application_rejected":
@@ -451,6 +512,24 @@ export class MailService {
         defaultSubject: "Important: Your {acronym} certificate has been revoked",
         variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{certNumber}}"],
         defaultBody: this.certificateRevokedBody({ firstName: "John", ...sampleCert }),
+      },
+      {
+        key: "certificate_renewed", name: "Certificate Renewed",
+        defaultSubject: "Your {acronym} certificate has been renewed!",
+        variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{certNumber}}", "{{newExpiresAt}}", "{{verificationUrl}}"],
+        defaultBody: this.certificateRenewedBody({ firstName: "John", ...sampleCert, newExpiresAt: sampleExpiry, verificationUrl: `https://paii.ca/verify?id=${sampleCert.certNumber}` }),
+      },
+      {
+        key: "certificate_expiring", name: "Certificate Expiring Soon",
+        defaultSubject: "Your {acronym} certificate expires in {days} days",
+        variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{expiresAt}}", "{{daysRemaining}}", "{{pduEarned}}", "{{pduRequired}}", "{{renewalFee}}", "{{renewLink}}"],
+        defaultBody: this.certificateExpiringBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiresAt: sampleExpiry, daysRemaining: 30, pduEarned: 15, pduRequired: 20, renewalFee: 99, renewLink: `${this.frontendUrl}/certificates` }),
+      },
+      {
+        key: "certificate_lapsed", name: "Certificate Lapsed",
+        defaultSubject: "Your {acronym} certificate renewal window has closed",
+        variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{expiredAt}}", "{{contactUrl}}"],
+        defaultBody: this.certificateLapsedBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiredAt: new Date(), contactUrl: "https://paii.ca/contact" }),
       },
       {
         key: "application_approved", name: "Application Approved",
@@ -662,6 +741,63 @@ export class MailService {
         </table>
       </div>
       <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">If you believe this is an error or would like to appeal this decision, please contact us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>.</p>
+    `;
+  }
+
+  private certificateRenewedBody(opts: { firstName: string; certTitle: string; certAcronym: string; certNumber: string; newExpiresAt: Date; verificationUrl: string }): string {
+    const newExpiryStr = opts.newExpiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewed, ${opts.firstName}!</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAII certificate has been successfully renewed. Thanks for keeping your credential current.</p>
+      <div style="background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border:1px solid #86efac;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center">
+        <p style="margin:0 0 4px;font-size:28px;font-weight:900;color:#15803d;letter-spacing:2px">${opts.certAcronym}</p>
+        <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#166534">${opts.certTitle}</p>
+        <p style="margin:0;font-size:12px;color:#15803d;letter-spacing:1px">CERTIFICATE NO. ${opts.certNumber}</p>
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="font-size:13px;color:#64748b;padding:4px 0">New Valid Until</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:4px 0">${newExpiryStr}</td></tr>
+          <tr><td style="font-size:13px;color:#64748b;padding:4px 0">Verify At</td><td style="font-size:13px;text-align:right;padding:4px 0"><a href="${opts.verificationUrl}" style="color:#3b82f6">paii.ca/verify</a></td></tr>
+        </table>
+      </div>
+      <div style="text-align:center;margin:28px 0">
+        <a href="${this.frontendUrl}/certificates" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">View My Certificate →</a>
+      </div>
+    `;
+  }
+
+  private certificateExpiringBody(opts: { firstName: string; certTitle: string; certAcronym: string; expiresAt: Date; daysRemaining: number; pduEarned: number; pduRequired: number; renewalFee: number; renewLink: string }): string {
+    const expiryStr = opts.expiresAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    const pduMet = opts.pduEarned >= opts.pduRequired;
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewal Reminder — ${opts.firstName}</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your <strong>${opts.certAcronym} — ${opts.certTitle}</strong> certificate expires on <strong>${expiryStr}</strong> (${opts.daysRemaining} day${opts.daysRemaining !== 1 ? "s" : ""} from now).</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="font-size:13px;color:#64748b;padding:5px 0">PDUs Earned</td><td style="font-size:13px;font-weight:600;text-align:right;padding:5px 0;color:${pduMet ? "#15803d" : "#0f172a"}">${opts.pduEarned} / ${opts.pduRequired}</td></tr>
+          <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Renewal Fee</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">$${opts.renewalFee}</td></tr>
+        </table>
+      </div>
+      <p style="margin:0 0 16px;font-size:13px;color:#64748b;line-height:1.6">${pduMet
+        ? "You've met the PDU requirement — you can renew right away."
+        : "Complete more prep courses linked to this certification to earn the remaining PDUs before you can renew."}</p>
+      <div style="text-align:center;margin:24px 0">
+        <a href="${opts.renewLink}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Review Renewal →</a>
+      </div>
+    `;
+  }
+
+  private certificateLapsedBody(opts: { firstName: string; certTitle: string; certAcronym: string; expiredAt: Date; contactUrl: string }): string {
+    const expiredAtStr = opts.expiredAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewal Window Closed — ${opts.firstName}</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your <strong>${opts.certAcronym} — ${opts.certTitle}</strong> certificate expired on ${expiredAtStr}, and its renewal window has now closed. It can no longer be renewed through your portal.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:13px;color:#dc2626;line-height:1.6">To earn this credential again, you'll need to reapply and complete the certification program from the start.</p>
+      </div>
+      <div style="text-align:center;margin:28px 0">
+        <a href="${opts.contactUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Contact Us →</a>
+      </div>
     `;
   }
 

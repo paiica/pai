@@ -934,7 +934,13 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
         {/* Action bar */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center gap-2 flex-wrap">
           <p className="text-xs text-slate-500 mr-auto">
-            Valid until <span className="font-semibold text-slate-700">{fmt(issuedCert.expires_at)}</span>
+            Valid until{" "}
+            <span className={cn(
+              "font-semibold",
+              issuedCert.status === "lapsed" || issuedCert.status === "expired" ? "text-red-600" :
+              new Date(issuedCert.expires_at).getTime() - Date.now() < 90 * 24 * 60 * 60 * 1000 ? "text-amber-600" :
+              "text-slate-700",
+            )}>{fmt(issuedCert.expires_at)}</span>
           </p>
 
           <Link href={verifyUrl} target="_blank" rel="noopener noreferrer"
@@ -965,6 +971,102 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
             <Twitter size={12} /> Share
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Renewal ──────────────────────────────────────────────────────────── */
+function RenewalSection({ certificateId, token }: { certificateId: string; token: string }) {
+  const { data, mutate } = useSWR(
+    token ? [`/certificates/${certificateId}/renewal-progress`, token] : null,
+    ([url, t]) => api.get<any>(url, t),
+    { revalidateOnFocus: true },
+  );
+  const [renewing, setRenewing] = useState(false);
+
+  const progress: any = data?.data ?? data ?? null;
+  if (!progress || progress.pdu_required <= 0) return null;
+
+  const pduPct = Math.min(100, Math.round((progress.pdu_earned / progress.pdu_required) * 100));
+  const isLapsed = progress.status === "lapsed";
+
+  async function handleRenew() {
+    if (!token) return;
+    setRenewing(true);
+    try {
+      const res = await api.post<any>("/payments/renewal-checkout", { certificate_id: certificateId }, token);
+      const url = res?.data?.checkout_url ?? res?.checkout_url;
+      if (url) window.location.href = url;
+      else toast.error("Could not start checkout");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to start renewal checkout");
+    } finally {
+      setRenewing(false);
+    }
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 lg:px-8 pt-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h2 className="text-lg font-display font-black text-navy-900 flex items-center gap-2">
+            <RefreshCw size={18} className="text-teal-500" /> Certificate Renewal
+          </h2>
+          {!isLapsed && (
+            <span className="text-xs font-semibold text-slate-500">
+              {progress.pdu_earned} / {progress.pdu_required} PDUs earned
+            </span>
+          )}
+        </div>
+
+        {isLapsed ? (
+          <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <p className="text-sm text-red-700">
+              This certificate's renewal window has closed. <Link href="/contact" className="underline font-semibold">Contact us</Link> about reapplying.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden mb-4">
+              <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: `${pduPct}%` }} />
+            </div>
+
+            {progress.courses?.length > 0 && (
+              <div className="space-y-2 mb-5">
+                {progress.courses.map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {c.completed
+                        ? <CheckCircle2 size={14} className="text-teal-500 flex-shrink-0" />
+                        : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 flex-shrink-0" />}
+                      <span className={cn("truncate", c.completed ? "text-slate-700" : "text-slate-400")}>{c.title}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-400 flex-shrink-0 ml-2">{c.pdu_value} PDU{Number(c.pdu_value) !== 1 ? "s" : ""}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+              <p className="text-xs text-slate-400">
+                {progress.eligible
+                  ? `Renewal fee: $${Number(progress.fee).toFixed(2)}`
+                  : progress.pdu_earned < progress.pdu_required
+                    ? `Complete ${progress.pdu_required - progress.pdu_earned} more PDU(s) to unlock renewal.`
+                    : `Renewal opens ${fmt(progress.window_opens_at)}.`}
+              </p>
+              <button
+                onClick={handleRenew}
+                disabled={!progress.eligible || renewing}
+                className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {renewing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                Renew for ${Number(progress.fee).toFixed(2)}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1308,6 +1410,11 @@ export default function CertDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Renewal ───────────────────────────────────────────────────────── */}
+      {issuedCert && issuedCert.status !== "revoked" && token && (
+        <RenewalSection certificateId={issuedCert.id} token={token} />
       )}
 
       {/* ── Prep Courses ─────────────────────────────────────────────────── */}

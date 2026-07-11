@@ -298,6 +298,72 @@ const TEMPLATES: TemplateDef[] = [
           <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">If you believe this is an error or would like to appeal this decision, please contact us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>.</p>`),
   },
   {
+    key: "certificate_renewed",
+    name: "Certificate Renewed",
+    description: "Sent when a student successfully renews an expiring/expired certificate.",
+    category: "Certificates",
+    categoryColor: "amber",
+    defaultSubject: "Your {acronym} certificate has been renewed!",
+    variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{certNumber}}", "{{newExpiresAt}}", "{{verificationUrl}}"],
+    note: "{acronym} → cert acronym.",
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewed, {{firstName}}!</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your PAII certificate has been successfully renewed. Thanks for keeping your credential current.</p>
+          <div style="background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border:1px solid #86efac;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center">
+            <p style="margin:0 0 4px;font-size:28px;font-weight:900;color:#15803d;letter-spacing:2px">{{certAcronym}}</p>
+            <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#166534">{{certTitle}}</p>
+            <p style="margin:0;font-size:12px;color:#15803d;letter-spacing:1px">CERTIFICATE NO. {{certNumber}}</p>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="font-size:13px;color:#64748b;padding:4px 0">New Valid Until</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:4px 0">{{newExpiresAt}}</td></tr>
+              <tr><td style="font-size:13px;color:#64748b;padding:4px 0">Verify At</td><td style="font-size:13px;text-align:right;padding:4px 0"><a href="{{verificationUrl}}" style="color:#3b82f6">paii.ca/verify</a></td></tr>
+            </table>
+          </div>
+          <div style="text-align:center;margin:28px 0">
+            <a href="#" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">View My Certificate →</a>
+          </div>`),
+  },
+  {
+    key: "certificate_expiring",
+    name: "Certificate Expiring Soon",
+    description: "Sent automatically as a certificate approaches (or passes) its expiry date — runs daily at 9 AM UTC.",
+    category: "Certificates",
+    categoryColor: "amber",
+    defaultSubject: "Your {acronym} certificate expires in {days} days",
+    variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{expiresAt}}", "{{daysRemaining}}", "{{pduEarned}}", "{{pduRequired}}", "{{renewalFee}}", "{{renewLink}}"],
+    note: "{acronym} → cert acronym. {days} → days remaining.",
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewal Reminder — {{firstName}}</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your <strong>{{certAcronym}} — {{certTitle}}</strong> certificate expires on <strong>{{expiresAt}}</strong> ({{daysRemaining}} days from now).</p>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">PDUs Earned</td><td style="font-size:13px;font-weight:600;text-align:right;padding:5px 0">{{pduEarned}} / {{pduRequired}}</td></tr>
+              <tr><td style="font-size:13px;color:#64748b;padding:5px 0">Renewal Fee</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:5px 0">\${{renewalFee}}</td></tr>
+            </table>
+          </div>
+          <p style="margin:0 0 16px;font-size:13px;color:#64748b;line-height:1.6">Complete more prep courses linked to this certification to earn any remaining PDUs, then renew from your portal.</p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="{{renewLink}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Review Renewal →</a>
+          </div>`),
+  },
+  {
+    key: "certificate_lapsed",
+    name: "Certificate Lapsed",
+    description: "Sent automatically when a certificate passes its renewal grace period and becomes permanently non-renewable — runs daily at 1 AM UTC.",
+    category: "Certificates",
+    categoryColor: "amber",
+    defaultSubject: "Your {acronym} certificate renewal window has closed",
+    variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{expiredAt}}", "{{contactUrl}}"],
+    note: "{acronym} → cert acronym.",
+    defaultHtml: emailShell(`          <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Renewal Window Closed — {{firstName}}</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your <strong>{{certAcronym}} — {{certTitle}}</strong> certificate expired on {{expiredAt}}, and its renewal window has now closed. It can no longer be renewed through your portal.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+            <p style="margin:0;font-size:13px;color:#dc2626;line-height:1.6">To earn this credential again, you'll need to reapply and complete the certification program from the start.</p>
+          </div>
+          <div style="text-align:center;margin:28px 0">
+            <a href="{{contactUrl}}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Contact Us →</a>
+          </div>`),
+  },
+  {
     key: "application_approved",
     name: "Application Approved",
     description: "Sent when an admin approves a certification application.",

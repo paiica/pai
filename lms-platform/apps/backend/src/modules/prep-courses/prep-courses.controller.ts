@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Public } from "../../common/decorators/public.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { PrepCoursesService } from "./prep-courses.service";
 import { SubmitAssignmentDto } from "../learning/dto/submit-assignment.dto";
+import { CompleteLessonDto } from "../learning/dto/complete-lesson.dto";
+import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
 
 @ApiTags("Prep Courses — Public")
 @Controller("prep-courses")
@@ -62,6 +64,34 @@ export class PrepCoursesController {
     @CurrentUser("id") userId: string,
   ) {
     return this.service.getCourseLessonContent(enrollmentId, lessonId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch("learn/:enrollmentId/lesson/:lessonId/progress")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update video position / watch time (heartbeat)" })
+  updateCourseLessonProgress(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: UpdateProgressDto,
+  ) {
+    return this.service.updateCourseLessonProgress(enrollmentId, lessonId, userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("learn/:enrollmentId/lesson/:lessonId/complete")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Mark a prep-course lesson as completed" })
+  completeCourseLesson(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: CompleteLessonDto,
+  ) {
+    return this.service.completeCourseLesson(enrollmentId, lessonId, userId, dto);
   }
 
   @ApiBearerAuth()

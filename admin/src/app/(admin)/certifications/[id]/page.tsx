@@ -71,6 +71,8 @@ type Cert = {
   passing_score: number; exam_duration_minutes: number;
   exam_questions_count: number; validity_years: number;
   max_retakes_included: number; retake_fee: number;
+  renewal_pdu_required: number; renewal_window_days: number;
+  renewal_grace_period_days: number; renewal_fee: number;
   min_years_experience?: number | null;
   min_training_hours?: number | null;
   is_featured?: boolean;
@@ -81,7 +83,7 @@ type Cert = {
   }[];
 };
 
-const LEVELS   = ["foundation", "advanced", "executive", "specialist"] as const;
+const LEVELS   = ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
 
 const TABS = [
@@ -823,6 +825,10 @@ export default function CertEditorPage() {
   const [validityYears,      setValidityYears]      = useState("");
   const [maxRetakes,         setMaxRetakes]         = useState("");
   const [retakeFee,          setRetakeFee]          = useState("");
+  const [renewalPduRequired,     setRenewalPduRequired]     = useState("");
+  const [renewalWindowDays,      setRenewalWindowDays]      = useState("");
+  const [renewalGracePeriodDays, setRenewalGracePeriodDays] = useState("");
+  const [renewalFee,             setRenewalFee]             = useState("");
   const [reviewsRating,      setReviewsRating]      = useState(DEFAULT_MARKETING.reviews_rating);
   const [reviewsCount,       setReviewsCount]       = useState(DEFAULT_MARKETING.reviews_count);
   const [socialProof,        setSocialProof]        = useState(DEFAULT_MARKETING.social_proof);
@@ -898,6 +904,10 @@ export default function CertEditorPage() {
     setValidityYears(String(cert.validity_years ?? ""));
     setMaxRetakes(String(cert.max_retakes_included ?? ""));
     setRetakeFee(String(cert.retake_fee ?? ""));
+    setRenewalPduRequired(String(cert.renewal_pdu_required ?? ""));
+    setRenewalWindowDays(String(cert.renewal_window_days ?? ""));
+    setRenewalGracePeriodDays(String(cert.renewal_grace_period_days ?? ""));
+    setRenewalFee(String(cert.renewal_fee ?? ""));
     const meta = safeMeta(cert.marketing_meta);
     setReviewsRating(meta.reviews_rating);
     setReviewsCount(meta.reviews_count);
@@ -995,6 +1005,10 @@ export default function CertEditorPage() {
         validity_years:        parseInt(validityYears) || 2,
         max_retakes_included:  parseInt(maxRetakes) || 2,
         retake_fee:            parseFloat(retakeFee) || 99,
+        renewal_pdu_required:      parseInt(renewalPduRequired) || 0,
+        renewal_window_days:       parseInt(renewalWindowDays) || 90,
+        renewal_grace_period_days: parseInt(renewalGracePeriodDays) || 180,
+        renewal_fee:               parseFloat(renewalFee) || 99,
       }, accessToken!);
       toast.success("Saved!");
       mutate();
@@ -1222,10 +1236,10 @@ export default function CertEditorPage() {
             <Field label="Level">
               <select className="input-base" value={level} onChange={(e) => setLevel(e.target.value)}>
                 <option value="pre_certificate">Pre-Certificate</option>
-                <option value="foundation">Level 1 — Foundation</option>
-                <option value="advanced">Level 2 — Advanced</option>
-                <option value="specialist">Level 2 — Specialist</option>
-                <option value="executive">Level 3 — Executive</option>
+                <option value="foundation">Foundation</option>
+                <option value="advanced">Advanced</option>
+                <option value="specialist">Specialist</option>
+                <option value="executive">Executive</option>
                 <option value="other">Other</option>
               </select>
             </Field>
@@ -1366,6 +1380,18 @@ export default function CertEditorPage() {
               <Field label="Passing Score %"><input className="input-base" type="number" min="1" max="100" value={passingScore} onChange={(e) => setPassingScore(e.target.value)} /></Field>
               <Field label="Validity (years)"><input className="input-base" type="number" min="1" value={validityYears} onChange={(e) => setValidityYears(e.target.value)} /></Field>
               <Field label="Retakes Included"><input className="input-base" type="number" min="0" value={maxRetakes} onChange={(e) => setMaxRetakes(e.target.value)} /></Field>
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-4 space-y-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Renewal</p>
+            <p className="text-xs text-slate-400 -mt-2">
+              Students earn PDUs by completing this certification&apos;s prep courses. Set to 0 PDUs required to leave renewal disabled for this certification.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="PDUs Required to Renew"><input className="input-base" type="number" min="0" value={renewalPduRequired} onChange={(e) => setRenewalPduRequired(e.target.value)} /></Field>
+              <Field label="Renewal Fee (USD)"><input className="input-base" type="number" min="0" value={renewalFee} onChange={(e) => setRenewalFee(e.target.value)} /></Field>
+              <Field label="Renewal Window (days before expiry)"><input className="input-base" type="number" min="0" value={renewalWindowDays} onChange={(e) => setRenewalWindowDays(e.target.value)} /></Field>
+              <Field label="Grace Period After Expiry (days)"><input className="input-base" type="number" min="0" value={renewalGracePeriodDays} onChange={(e) => setRenewalGracePeriodDays(e.target.value)} /></Field>
             </div>
           </div>
         </div>

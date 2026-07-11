@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { ApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -21,6 +21,160 @@ export class CertificatesService {
     if (result.count > 0) {
       this.logger.log(`Marked ${result.count} certificate(s) as expired`);
     }
+
+    await this.lapseCertificatesPastGracePeriod();
+  }
+
+  // A certificate that's sat `expired` past its certification's
+  // `renewal_grace_period_days` becomes permanently non-renewable through
+  // this flow — the holder must reapply from scratch. Grace period varies
+  // per certification, so this needs a join (raw SQL, same pattern used
+  // throughout prep-courses.service.ts).
+  private async lapseCertificatesPastGracePeriod() {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      UPDATE lms.certificates c
+      SET status = 'lapsed', updated_at = now()
+      FROM lms.certifications cert
+      WHERE c.certification_id = cert.id
+        AND c.status = 'expired'
+        AND now() > c.expires_at + (cert.renewal_grace_period_days || ' days')::interval
+      RETURNING c.id, c.user_id, c.certificate_number, c.certification_title,
+                c.certification_acronym, c.expires_at
+    `);
+    if (!rows.length) return;
+
+    this.logger.log(`Marked ${rows.length} certificate(s) as lapsed`);
+
+    for (const cert of rows) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: cert.user_id },
+        select: { email: true, profile: { select: { first_name: true } } },
+      });
+      if (!user) continue;
+      await this.mail.sendCertificateLapsed({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        certTitle: cert.certification_title,
+        certAcronym: cert.certification_acronym,
+        expiredAt: cert.expires_at,
+        contactUrl: "https://paii.ca/contact",
+      }).catch((err: any) => this.logger.error(`Lapse email failed for certificate ${cert.id}: ${err?.message}`));
+    }
+  }
+
+  // ─── Renewal ────────────────────────────────────────────────────────
+
+  private async computePduEarned(userId: string, certificationId: string): Promise<number> {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT COALESCE(SUM(c.pdu_value), 0)::float AS total
+      FROM lms.course_enrollments ce
+      JOIN lms.courses c ON c.id = ce.course_id
+      WHERE ce.user_id = $1
+        AND ce.completed_at IS NOT NULL
+        AND (c.certification_id = $2
+             OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
+    `, userId, certificationId);
+    return rows[0]?.total ?? 0;
+  }
+
+  async getRenewalProgress(certificateId: string, userId: string) {
+    const cert = await this.prisma.certificate.findUnique({
+      where: { id: certificateId },
+      include: { certification: true },
+    });
+    if (!cert) throw new NotFoundException("Certificate not found");
+    if (cert.user_id !== userId) throw new ForbiddenException("This is not your certificate");
+
+    const pduEarned = await this.computePduEarned(userId, cert.certification_id);
+    const pduRequired = cert.certification.renewal_pdu_required;
+
+    const windowOpensAt = new Date(cert.expires_at);
+    windowOpensAt.setDate(windowOpensAt.getDate() - cert.certification.renewal_window_days);
+
+    const hardDeadline = new Date(cert.expires_at);
+    hardDeadline.setDate(hardDeadline.getDate() + cert.certification.renewal_grace_period_days);
+
+    const now = new Date();
+    const eligible =
+      cert.status !== "lapsed" &&
+      cert.status !== "revoked" &&
+      now >= windowOpensAt &&
+      now <= hardDeadline &&
+      pduEarned >= pduRequired;
+
+    const courses = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT DISTINCT c.id, c.title, c.slug, c.pdu_value::float AS pdu_value,
+             ce.completed_at IS NOT NULL AS completed, ce.progress_percentage
+      FROM lms.courses c
+      LEFT JOIN lms.course_enrollments ce ON ce.course_id = c.id AND ce.user_id = $1
+      WHERE c.status = 'active'
+        AND (c.certification_id = $2
+             OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
+      ORDER BY c.title
+    `, userId, cert.certification_id);
+
+    return {
+      status: cert.status,
+      expires_at: cert.expires_at,
+      pdu_earned: pduEarned,
+      pdu_required: pduRequired,
+      fee: cert.certification.renewal_fee,
+      window_opens_at: windowOpensAt,
+      hard_deadline: hardDeadline,
+      eligible,
+      courses,
+    };
+  }
+
+  // Called only from the payments webhook after a successful renewal
+  // checkout — never exposed directly to the student, so eligibility is
+  // re-validated here as a safety net even though checkout creation
+  // already checked it.
+  async renew(certificateId: string, userId: string, stripePaymentIntentId: string, amountPaid: number) {
+    const cert = await this.prisma.certificate.findUnique({
+      where: { id: certificateId },
+      include: { certification: true, user: { include: { profile: true } } },
+    });
+    if (!cert) throw new NotFoundException("Certificate not found");
+    if (cert.user_id !== userId) throw new ForbiddenException("This is not your certificate");
+    if (cert.status === "revoked") throw new BadRequestException("Revoked certificates cannot be renewed");
+    if (cert.status === "lapsed") throw new BadRequestException("This certificate's renewal window has closed");
+
+    const progress = await this.getRenewalProgress(certificateId, userId);
+    if (!progress.eligible) {
+      throw new BadRequestException(
+        progress.pdu_earned < progress.pdu_required
+          ? `You need ${progress.pdu_required - progress.pdu_earned} more PDU(s) to renew this certificate.`
+          : "This certificate is not currently eligible for renewal.",
+      );
+    }
+
+    const newExpiresAt = new Date();
+    newExpiresAt.setFullYear(newExpiresAt.getFullYear() + cert.certification.validity_years);
+
+    const updated = await this.prisma.certificate.update({
+      where: { id: certificateId },
+      data: {
+        status: "active",
+        expires_at: newExpiresAt,
+        renewed_at: new Date(),
+        renewal_count: { increment: 1 },
+        renewal_stripe_payment_intent_id: stripePaymentIntentId,
+        renewal_amount_paid: amountPaid,
+      },
+    });
+
+    await this.mail.sendCertificateRenewed({
+      to: cert.user.email,
+      firstName: cert.user.profile?.first_name ?? "there",
+      certTitle: cert.certification_title,
+      certAcronym: cert.certification_acronym,
+      certNumber: cert.certificate_number,
+      newExpiresAt: updated.expires_at,
+      verificationUrl: cert.verification_url,
+    }).catch((err: any) => this.logger.error(`Renewal email failed for certificate ${cert.id}: ${err?.message}`));
+
+    return updated;
   }
 
   async getMyCertificates(userId: string) {

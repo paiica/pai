@@ -303,9 +303,11 @@ export default function CertificatesPage() {
                           "flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full",
                           cert.status === "active"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                            : cert.status === "expired"
+                            ? "bg-amber-50 text-amber-700 border border-amber-100"
                             : "bg-red-50 text-red-700 border border-red-100"
                         )}>
-                          {cert.status === "active" ? "Active" : "Revoked"}
+                          {cert.status === "active" ? "Active" : cert.status === "expired" ? "Expired" : cert.status === "lapsed" ? "Lapsed" : "Revoked"}
                         </span>
                       </div>
 
@@ -313,12 +315,26 @@ export default function CertificatesPage() {
                         <p className="text-xs text-red-500 mt-2">
                           This certificate has been revoked and is no longer valid.
                         </p>
+                      ) : cert.status === "lapsed" ? (
+                        <p className="text-xs text-red-500 mt-2">
+                          This certificate's renewal window has closed.
+                        </p>
                       ) : (
                         <div className="flex items-center gap-5 mt-3 pt-3 border-t border-slate-100">
                           <p className="text-xs text-slate-400 flex-1">
                             Valid until{" "}
                             <span className="font-semibold text-slate-700">{formatDate(cert.expires_at)}</span>
                           </p>
+                          {(() => {
+                            const daysLeft = Math.ceil((new Date(cert.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+                            if (cert.status === "expired") {
+                              return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Renewal available</span>;
+                            }
+                            if (daysLeft <= 90) {
+                              return <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Expires in {Math.max(daysLeft, 0)}d</span>;
+                            }
+                            return null;
+                          })()}
                           <Link
                             href={`/certificates/${cert.certification_id}`}
                             className="text-xs font-semibold text-navy-700 hover:text-navy-900 transition-colors"

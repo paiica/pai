@@ -29,6 +29,17 @@ export class CertificatesController {
   }
 
   @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get(":certificateId/renewal-progress")
+  @ApiOperation({ summary: "Get PDU progress and eligibility toward renewing my certificate" })
+  getRenewalProgress(
+    @Param("certificateId", ParseUUIDPipe) certificateId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.certificatesService.getRenewalProgress(certificateId, userId);
+  }
+
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.admin, Role.super_admin)
   @Get()

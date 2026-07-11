@@ -7,6 +7,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { SubmitAssignmentDto } from "../learning/dto/submit-assignment.dto";
 import { GradeSubmissionDto } from "../courses/dto/grade-submission.dto";
+import { CompleteLessonDto } from "../learning/dto/complete-lesson.dto";
+import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
 
 @Injectable()
 export class PrepCoursesService {
@@ -117,6 +119,93 @@ export class PrepCoursesService {
     }
 
     return lesson;
+  }
+
+  // ─── Progress (student) ───────────────────────────────────────────────
+
+  private async assertCourseEnrollment(enrollmentId: string, userId: string) {
+    const enrollment = await this.prisma.courseEnrollment.findFirst({
+      where: { id: enrollmentId, user_id: userId },
+    });
+    if (!enrollment) throw new ForbiddenException("Enrollment not found");
+    return enrollment;
+  }
+
+  async updateCourseLessonProgress(enrollmentId: string, lessonId: string, userId: string, dto: UpdateProgressDto) {
+    await this.assertCourseEnrollment(enrollmentId, userId);
+    return this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: {
+        user_id: userId,
+        course_enrollment_id: enrollmentId,
+        lesson_id: lessonId,
+        watch_seconds: dto.watch_seconds ?? 0,
+        last_position: dto.last_position ?? 0,
+      },
+      update: {
+        watch_seconds: dto.watch_seconds,
+        last_position: dto.last_position,
+        updated_at: new Date(),
+      },
+    });
+  }
+
+  async completeCourseLesson(enrollmentId: string, lessonId: string, userId: string, dto: CompleteLessonDto) {
+    await this.assertCourseEnrollment(enrollmentId, userId);
+
+    const progress = await this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: {
+        user_id: userId,
+        course_enrollment_id: enrollmentId,
+        lesson_id: lessonId,
+        completed: true,
+        completed_at: new Date(),
+        watch_seconds: dto.watch_seconds ?? 0,
+        last_position: dto.last_position ?? 0,
+      },
+      update: {
+        completed: true,
+        completed_at: new Date(),
+        watch_seconds: dto.watch_seconds,
+        last_position: dto.last_position,
+        updated_at: new Date(),
+      },
+    });
+
+    await this.recalculateCourseProgress(enrollmentId);
+    return progress;
+  }
+
+  private async recalculateCourseProgress(courseEnrollmentId: string) {
+    const enrollment = await this.prisma.courseEnrollment.findUnique({
+      where: { id: courseEnrollmentId },
+      include: {
+        course: {
+          include: {
+            modules: {
+              include: {
+                lessons: { where: { is_published: true }, select: { id: true } },
+              },
+            },
+          },
+        },
+        lesson_progress: { where: { completed: true }, select: { lesson_id: true } },
+      },
+    });
+    if (!enrollment) return;
+
+    const totalLessons = enrollment.course.modules.reduce((sum, m) => sum + m.lessons.length, 0);
+    const completedLessons = enrollment.lesson_progress.length;
+    const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+    await this.prisma.courseEnrollment.update({
+      where: { id: courseEnrollmentId },
+      data: {
+        progress_percentage: pct,
+        ...(pct === 100 && !enrollment.completed_at ? { completed_at: new Date() } : {}),
+      },
+    });
   }
 
   // ─── Assignment Submission (student) ──────────────────────────────────
@@ -454,6 +543,7 @@ export class PrepCoursesService {
       SELECT c.*,
         c.price::float AS price,
         c.duration_hours::float AS duration_hours,
+        c.pdu_value::float AS pdu_value,
         (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
         (
@@ -498,30 +588,30 @@ export class PrepCoursesService {
     const {
       slug, title, subtitle, description, price = 0, status = 'draft',
       thumbnail_url, preview_video_url, level = 'beginner',
-      duration_hours = 0, certification_id, sort_order = 0,
+      duration_hours = 0, pdu_value = 0, certification_id, sort_order = 0,
     } = dto;
     if (!slug || !title) throw new BadRequestException("slug and title are required");
 
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       INSERT INTO lms.courses (
         id, slug, title, subtitle, description, price, status,
-        thumbnail_url, preview_video_url, level, duration_hours,
+        thumbnail_url, preview_video_url, level, duration_hours, pdu_value,
         certification_id, sort_order, created_at, updated_at
       ) VALUES (
         gen_random_uuid(), $1, $2, $3, $4, $5::numeric, $6::lms."CourseStatus",
-        $7, $8, $9::lms."CourseLevel", $10::numeric,
-        $11, $12, now(), now()
+        $7, $8, $9::lms."CourseLevel", $10::numeric, $11::numeric,
+        $12, $13, now(), now()
       ) RETURNING *
     `, slug, title, subtitle ?? null, description ?? null,
        price, status, thumbnail_url ?? null, preview_video_url ?? null,
-       level, duration_hours, certification_id ?? null, sort_order);
+       level, duration_hours, pdu_value, certification_id ?? null, sort_order);
     return rows[0];
   }
 
   async adminUpdate(id: string, dto: Record<string, any>) {
     const allowed = [
       'title', 'subtitle', 'description', 'price', 'status', 'thumbnail_url',
-      'preview_video_url', 'level', 'duration_hours', 'certification_id',
+      'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
       'sort_order', 'slug', 'total_lessons', 'is_featured', 'content',
     ];
     const sets: string[] = [];
@@ -534,7 +624,7 @@ export class PrepCoursesService {
         sets.push(`"${key}" = $${p}::lms."CourseStatus"`);
       } else if (key === 'level') {
         sets.push(`"${key}" = $${p}::lms."CourseLevel"`);
-      } else if (['price', 'duration_hours'].includes(key)) {
+      } else if (['price', 'duration_hours', 'pdu_value'].includes(key)) {
         sets.push(`"${key}" = $${p}::numeric`);
       } else if (['sort_order', 'total_lessons'].includes(key)) {
         sets.push(`"${key}" = $${p}::int`);

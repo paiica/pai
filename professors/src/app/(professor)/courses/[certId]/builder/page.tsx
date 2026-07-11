@@ -100,6 +100,7 @@ function OverviewTab({ course, courseId, token, onSaved }: { course: any; course
     status: (course.status ?? "draft") as typeof STATUSES[number],
     duration_hours: String(course.duration_hours ?? 0),
     price: String(course.price ?? 0),
+    pdu_value: String(course.pdu_value ?? 0),
   });
   const [saving, setSaving] = useState(false);
 
@@ -120,6 +121,7 @@ function OverviewTab({ course, courseId, token, onSaved }: { course: any; course
         status: form.status,
         duration_hours: parseFloat(form.duration_hours) || 0,
         price: parseFloat(form.price) || 0,
+        pdu_value: parseFloat(form.pdu_value) || 0,
       }, token);
       toast.success("Course updated!");
       onSaved();
@@ -159,9 +161,10 @@ function OverviewTab({ course, courseId, token, onSaved }: { course: any; course
 
       <div className="card p-5 space-y-4">
         <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Settings</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Duration (hours)" value={form.duration_hours} onChange={(v) => set("duration_hours", v)} type="number" placeholder="8" />
           <Field label="Price (USD)" value={form.price} onChange={(v) => set("price", v)} type="number" placeholder="99.00" />
+          <Field label="PDU Value" value={form.pdu_value} onChange={(v) => set("pdu_value", v)} type="number" placeholder="1.0" />
         </div>
       </div>
 

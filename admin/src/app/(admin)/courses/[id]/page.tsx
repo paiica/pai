@@ -28,6 +28,7 @@ type Course = {
   status: string;
   level: string;
   duration_hours: number;
+  pdu_value: number;
   certification_id?: string;
   cert_acronym?: string;
   cert_title?: string;
@@ -262,6 +263,7 @@ export default function CourseDetailPage() {
     level: "beginner" as typeof LEVELS[number],
     status: "draft" as typeof STATUSES[number],
     duration_hours: "0",
+    pdu_value: "0",
     certification_id: "",
     is_featured: false,
   });
@@ -293,6 +295,7 @@ export default function CourseDetailPage() {
         level: (course.level as typeof LEVELS[number]) || "beginner",
         status: (course.status as typeof STATUSES[number]) || "draft",
         duration_hours: String(course.duration_hours ?? 0),
+        pdu_value: String(course.pdu_value ?? 0),
         certification_id: course.certification_id || "",
         is_featured: course.is_featured ?? false,
       });
@@ -335,6 +338,7 @@ export default function CourseDetailPage() {
         level: form.level,
         status: form.status,
         duration_hours: parseFloat(form.duration_hours) || 0,
+        pdu_value: parseFloat(form.pdu_value) || 0,
         certification_id: form.certification_id || null,
         is_featured: form.is_featured,
       }, token);
@@ -737,7 +741,7 @@ export default function CourseDetailPage() {
           {/* Settings Section */}
           <div className="card p-6 space-y-5">
             <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Settings</p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Price (USD)</label>
                 <input
@@ -760,6 +764,18 @@ export default function CourseDetailPage() {
                   placeholder="8"
                   value={form.duration_hours}
                   onChange={(e) => setField("duration_hours", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">PDU Value</label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="1.0"
+                  value={form.pdu_value}
+                  onChange={(e) => setField("pdu_value", e.target.value)}
                 />
               </div>
               <div>

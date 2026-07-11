@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { MailService } from "../mail/mail.service";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
+import { CertificatesService } from "../certificates/certificates.service";
 import { EventCheckoutDto } from "./dto/checkout.dto";
 
 @Injectable()
@@ -21,6 +22,7 @@ export class PaymentsService {
     private promoCodes: PromoCodesService,
     private mail: MailService,
     private settings: SiteSettingsService,
+    private certificatesService: CertificatesService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
     this.envStripe = stripeKey && stripeKey.length > 10
@@ -287,6 +289,62 @@ export class PaymentsService {
             product_data: {
               name: `${cert.title} (${cert.acronym}) — PAII Certification`,
               description: cert.description,
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  // ─── Certificate renewal checkout ────────────────────────────────────────
+
+  async createRenewalCheckoutSession(userId: string, certificateId: string) {
+    const progress = await this.certificatesService.getRenewalProgress(certificateId, userId);
+    if (!progress.eligible) {
+      throw new BadRequestException(
+        progress.pdu_earned < progress.pdu_required
+          ? `You need ${progress.pdu_required - progress.pdu_earned} more PDU(s) to renew this certificate.`
+          : "This certificate is not currently eligible for renewal.",
+      );
+    }
+
+    const cert = await this.prisma.certificate.findUnique({ where: { id: certificateId } });
+    if (!cert) throw new NotFoundException("Certificate not found");
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const price = Number(progress.fee);
+    const frontendUrl = this.config.get("frontendUrl");
+    // The detail page's [certId] route param is actually the certification_id
+    // (it looks up the issued certificate within that program), not the
+    // Certificate row's own id — route accordingly.
+    const successUrl = `${frontendUrl}/certificates/${cert.certification_id}?renewed=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/certificates/${cert.certification_id}`;
+
+    const renewalStripeClient = await this.resolveStripe();
+    if (!renewalStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await renewalStripeClient.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "renewal",
+          certificate_id: cert.id,
+          original_price: String(price),
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: `${cert.certification_acronym} — Certificate Renewal`,
+              description: `Renews ${cert.certification_title} (${cert.certificate_number})`,
             },
           },
           quantity: 1,
@@ -565,7 +623,7 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { user_id, checkout_type, certification_id, course_id, application_id, promo_id, promo_code } = session.metadata || {};
+    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, promo_id, promo_code } = session.metadata || {};
 
     // Guest event registration — no user_id, handled entirely separately from
     // the account-based flows below (no Payment record, no affiliate
@@ -684,6 +742,10 @@ export class PaymentsService {
       const cert = await this.prisma.certification.findUnique({ where: { id: certification_id } });
       description = cert ? `${cert.acronym} — ${cert.title}` : "Certification Enrollment";
 
+    } else if (checkout_type === "renewal" && certificate_id) {
+      const renewed = await this.certificatesService.renew(certificate_id, user_id, paymentIntentId!, amount);
+      description = `Certificate Renewal: ${renewed.certification_acronym} — ${renewed.certification_title}`;
+
     } else if (application_id) {
       await this.prisma.application.update({
         where: { id: application_id },
@@ -712,7 +774,7 @@ export class PaymentsService {
         where: { stripe_payment_intent_id: paymentIntentId },
         create: {
           user_id,
-          type: PaymentType.enrollment,
+          type: checkout_type === "renewal" ? PaymentType.renewal_fee : PaymentType.enrollment,
           status: PaymentStatus.succeeded,
           amount,
           currency: session.currency ?? "usd",

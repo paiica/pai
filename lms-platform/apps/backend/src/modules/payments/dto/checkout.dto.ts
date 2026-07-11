@@ -89,6 +89,11 @@ export class EventCheckoutDto {
   promo_code?: string;
 }
 
+export class RenewalCheckoutDto {
+  @IsUUID()
+  certificate_id: string;
+}
+
 export class RefundDto {
   @IsOptional()
   @IsString()
