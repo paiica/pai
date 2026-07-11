@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  LayoutDashboard, Users, BookOpen, Award,
+  LayoutDashboard, Users, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
   Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { useAuthStore } from "@/store/auth.store";
 // ── Tab keys ──────────────────────────────────────────────────────────────────
 export const ADMIN_TAB_KEYS = [
   "dashboard", "applications", "assignments", "exam_sessions",
-  "users", "blog", "pages", "online_tools", "events",
+  "users", "students", "blog", "pages", "online_tools", "events",
   "sales", "payments", "prep_courses", "certificates", "design", "settings",
 ] as const;
 
@@ -26,6 +26,7 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
   assignments:   { label: "Assignments",      description: "Assignment management" },
   exam_sessions: { label: "Exam Sessions",    description: "Schedule & manage exams" },
   users:         { label: "Users",            description: "User management" },
+  students:      { label: "Students",         description: "Full student profiles — courses, certificates, renewals, payments" },
   blog:          { label: "Blog",             description: "Blog posts" },
   pages:         { label: "Pages",            description: "Static pages" },
   online_tools:  { label: "Online Tools",     description: "Online tools catalog" },
@@ -46,6 +47,7 @@ const NAV = [
   { href: "/assignments",  label: "Assignments",   icon: ListChecks,                  tab: "assignments"    },
   { href: "/exam-sessions",label: "Exam Sessions", icon: CalendarDays,                tab: "exam_sessions"  },
   { href: "/users",        label: "Users",         icon: Users,                       tab: "users"          },
+  { href: "/students",     label: "Students",      icon: GraduationCap,               tab: "students"       },
   { href: "/blog",         label: "Blog",          icon: Rss,                         tab: "blog"           },
   { href: "/pages",        label: "Pages",         icon: FileText,                    tab: "pages"          },
   { href: "/online-tools", label: "Online Tools",  icon: Wrench,                      tab: "online_tools"   },

@@ -35,6 +35,103 @@ export class UsersService {
     return { ...user, profile: rows[0] ?? null };
   }
 
+  // Full cross-domain view of one student for the admin "Students" tab —
+  // certification enrollments (+ certificate/renewal, exam attempts,
+  // bookings, assignments), prep-course enrollments (+ assignments),
+  // and payment history, all in one call.
+  async adminGetStudentDetail(userId: string) {
+    const base = await this.findById(userId);
+
+    const [enrollments, courseEnrollments, payments] = await Promise.all([
+      this.prisma.enrollment.findMany({
+        where: { user_id: userId },
+        include: {
+          certification: {
+            select: {
+              id: true, acronym: true, title: true, level: true,
+              validity_years: true, renewal_pdu_required: true,
+              renewal_window_days: true, renewal_grace_period_days: true,
+              renewal_fee: true,
+            },
+          },
+          application: {
+            select: { id: true, status: true, payment_status: true, amount_paid: true, paid_at: true, reviewed_at: true, rejection_reason: true },
+          },
+          certificate: true,
+          exam_attempts: { orderBy: { started_at: "desc" }, take: 5 },
+          exam_bookings: {
+            include: { exam_session: { select: { id: true, title: true, scheduled_at: true } } },
+            orderBy: { booked_at: "desc" },
+          },
+          assignment_submissions: {
+            include: { lesson: { select: { title: true } } },
+            orderBy: { submitted_at: "desc" },
+          },
+        },
+        orderBy: { enrolled_at: "desc" },
+      }),
+      this.prisma.courseEnrollment.findMany({
+        where: { user_id: userId },
+        include: {
+          course: { select: { id: true, title: true, slug: true, pdu_value: true, certification_id: true, status: true } },
+          assignment_submissions: {
+            include: { lesson: { select: { title: true } } },
+            orderBy: { submitted_at: "desc" },
+          },
+        },
+        orderBy: { enrolled_at: "desc" },
+      }),
+      this.prisma.payment.findMany({ where: { user_id: userId }, orderBy: { created_at: "desc" } }),
+    ]);
+
+    // Attach PDU-earned + eligibility to each issued certificate — same
+    // computation CertificatesService.getRenewalProgress uses.
+    const enrollmentsWithRenewal = await Promise.all(
+      enrollments.map(async (e) => {
+        if (!e.certificate || !e.certification) return e;
+        const pduRows = await this.prisma.$queryRawUnsafe<any[]>(`
+          SELECT COALESCE(SUM(c.pdu_value), 0)::float AS total
+          FROM lms.course_enrollments ce
+          JOIN lms.courses c ON c.id = ce.course_id
+          WHERE ce.user_id = $1
+            AND ce.completed_at IS NOT NULL
+            AND (c.certification_id = $2
+                 OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
+        `, userId, e.certification.id);
+        const pduEarned = pduRows[0]?.total ?? 0;
+        const pduRequired = e.certification.renewal_pdu_required;
+        const windowOpensAt = new Date(e.certificate.expires_at);
+        windowOpensAt.setDate(windowOpensAt.getDate() - e.certification.renewal_window_days);
+        const hardDeadline = new Date(e.certificate.expires_at);
+        hardDeadline.setDate(hardDeadline.getDate() + e.certification.renewal_grace_period_days);
+        const now = new Date();
+        const eligible =
+          pduRequired > 0 &&
+          e.certificate.status !== "lapsed" && e.certificate.status !== "revoked" &&
+          now >= windowOpensAt && now <= hardDeadline && pduEarned >= pduRequired;
+
+        return {
+          ...e,
+          certificate: {
+            ...e.certificate,
+            pdu_earned: pduEarned,
+            pdu_required: pduRequired,
+            renewal_window_opens_at: windowOpensAt,
+            renewal_hard_deadline: hardDeadline,
+            renewal_eligible: eligible,
+          },
+        };
+      }),
+    );
+
+    return {
+      ...base,
+      enrollments: enrollmentsWithRenewal,
+      course_enrollments: courseEnrollments,
+      payments,
+    };
+  }
+
   async findAll({ page = 1, limit = 25, q, role, status }: {
     page: number; limit: number; q?: string; role?: string; status?: string;
   }) {

@@ -159,6 +159,13 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
+  @Get(":id/full")
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Get full cross-domain student detail — enrollments, certificates, courses, payments (admin)" })
+  findOneFull(@Param("id", ParseUUIDPipe) id: string) {
+    return this.usersService.adminGetStudentDetail(id);
+  }
+
   @Patch(":id/role")
   @Roles(Role.super_admin)
   @ApiOperation({ summary: "Change user role (super_admin)" })

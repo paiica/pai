@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { DeleteCourseEnrollmentButton } from "@/components/CourseEnrollmentActions";
 
 const LEVELS = ["beginner", "intermediate", "advanced"] as const;
 const STATUSES = ["draft", "active", "archived"] as const;
@@ -358,28 +359,10 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
     ([url, t]) => api.get<any>(url, t),
     { shouldRetryOnError: true, errorRetryInterval: 3000 }
   );
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const enrollments: any[] = (() => {
     const d = (enrollmentsRaw as any)?.data ?? enrollmentsRaw;
     return Array.isArray(d) ? d : [];
   })();
-
-  async function handleDelete(enrollment: any) {
-    const courseName = courses.find((c) => c.id === enrollment.course_id)?.title ?? "this course";
-    const studentName = `${enrollment.first_name ?? ""} ${enrollment.last_name ?? ""}`.trim() || enrollment.email;
-    if (!confirm(`Delete ${studentName}'s enrollment in "${courseName}"? This cannot be undone.`)) return;
-    setDeletingId(enrollment.id);
-    try {
-      await api.delete(`/admin/courses/enrollments/${enrollment.id}`, token);
-      toast.success("Enrollment deleted");
-      mutate();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to delete enrollment");
-    } finally {
-      setDeletingId(null);
-    }
-  }
 
   return (
     <div className="space-y-4">
@@ -447,16 +430,14 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{enrolledDate}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          disabled={deletingId === enrollment.id}
-                          onClick={() => handleDelete(enrollment)}
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-40"
-                          title="Delete enrollment"
-                        >
-                          {deletingId === enrollment.id
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <Trash2 size={14} />}
-                        </button>
+                        <DeleteCourseEnrollmentButton
+                          variant="icon"
+                          enrollmentId={enrollment.id}
+                          studentName={`${enrollment.first_name ?? ""} ${enrollment.last_name ?? ""}`.trim() || enrollment.email}
+                          courseName={course?.title ?? "this course"}
+                          token={token}
+                          onRefresh={() => mutate()}
+                        />
                       </td>
                     </tr>
                   );
