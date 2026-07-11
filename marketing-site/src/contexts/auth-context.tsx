@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { getRefCookie } from "@/lib/referral";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
@@ -71,7 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Both apps share localhost:3000 as their origin (student portal is proxied at /lms/*).
   // localStorage is the same, so a plain link is all that's needed — no SSO params.
-  const ssoLink = useCallback((path: string) => `${LMS}${path}`, []);
+  // Forwards a captured affiliate ref code explicitly (on top of the shared cookie) so
+  // attribution survives even if cross-subdomain cookie sharing doesn't work in some
+  // browser/privacy setting — same mechanism the invite link already relies on.
+  const ssoLink = useCallback((path: string) => {
+    const ref = getRefCookie();
+    if (!ref) return `${LMS}${path}`;
+    const sep = path.includes("?") ? "&" : "?";
+    return `${LMS}${path}${sep}ref=${encodeURIComponent(ref)}`;
+  }, []);
 
   const logout = useCallback(() => {
     const token = accessToken;

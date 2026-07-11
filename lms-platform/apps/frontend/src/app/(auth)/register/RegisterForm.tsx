@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { ApiError } from "@/lib/api";
+import { getRefCookie } from "@/lib/referral";
 
 const COUNTRIES = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia",
@@ -74,7 +75,9 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
         phone: payload.phone || undefined,
         country: payload.country || undefined,
         date_of_birth: payload.date_of_birth || undefined,
-        referral_code: initialRef,
+        // Falls back to a referral captured earlier in the visit (e.g. from a product
+        // link on the marketing site) when this registration page's own URL has none.
+        referral_code: initialRef || getRefCookie() || undefined,
       });
       setDone(true);
     } catch (err) {

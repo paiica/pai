@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Fraunces, IBM_Plex_Mono } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import ReferralCapture from "@/components/ReferralCapture";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -94,6 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${jakarta.variable} ${fraunces.variable} ${plexMono.variable}`}>
       <body>
+        <ReferralCapture />
         <Providers>
           {children}
         </Providers>
