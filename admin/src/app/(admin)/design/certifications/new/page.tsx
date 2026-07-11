@@ -9,10 +9,10 @@ import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, BookOpen, Pencil, Ale
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
-const LEVELS   = ["foundation", "advanced", "executive", "specialist"] as const;
+const LEVELS   = ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
 
-const LEVEL_ORDER: Record<string, number> = { foundation: 1, advanced: 2, specialist: 2, executive: 3 };
+const LEVEL_ORDER: Record<string, number> = { pre_certificate: 0, foundation: 1, advanced: 2, specialist: 3, executive: 4, other: 5 };
 
 type Cert = {
   id: string; acronym: string; title: string; level: string;
@@ -74,10 +74,12 @@ export default function CertificationsPage() {
   }
 
   const levelLabel: Record<string, string> = {
-    foundation: "Level 1 · Foundation",
-    advanced:   "Level 2 · Advanced",
-    specialist: "Level 2 · Specialist",
-    executive:  "Level 3 · Executive",
+    pre_certificate: "Pre-Certificate",
+    foundation: "Foundation",
+    advanced:   "Advanced",
+    specialist: "Specialist",
+    executive:  "Executive",
+    other:      "Other",
   };
 
   const statusColors: Record<string, string> = {
@@ -126,7 +128,7 @@ export default function CertificationsPage() {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Level</label>
                   <select className="input-base" value={form.level} onChange={(e) => set("level", e.target.value)}>
-                    {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                    {LEVELS.map((l) => <option key={l} value={l}>{levelLabel[l] ?? l}</option>)}
                   </select>
                 </div>
                 <div>

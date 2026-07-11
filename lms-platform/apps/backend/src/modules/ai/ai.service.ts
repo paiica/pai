@@ -593,7 +593,7 @@ Return ONLY a JSON object with this exact shape (fill in every field with realis
 {
   "acronym": "3-6 letter code, e.g. CAIP",
   "title": "Full certification name",
-  "level": "foundation | advanced | specialist | executive",
+  "level": "pre_certificate | foundation | advanced | specialist | executive",
   "badge_icon": "single emoji",
   "description": "1-2 sentence catalog summary",
   "long_description": "3-5 sentence hero description",
@@ -690,7 +690,7 @@ Rules:
     return {
       acronym:               s(raw.acronym).toUpperCase().slice(0, 10),
       title:                 s(raw.title),
-      level:                 ["foundation", "advanced", "specialist", "executive"].includes(raw.level) ? raw.level : "foundation",
+      level:                 ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"].includes(raw.level) ? raw.level : "foundation",
       badge_icon:            s(raw.badge_icon, "🎓"),
       description:           s(raw.description),
       long_description:      s(raw.long_description),

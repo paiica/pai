@@ -21,20 +21,20 @@ const CERT_THEMES = [
 ];
 
 const LEVEL_GROUPS = [
-  { key: "pre_certificate", label: "Pre-Certification",     description: "Start your AI journey — no prior experience required." },
-  { key: "foundation",      label: "Level 1",               description: "Core credentials for professionals entering the AI field." },
-  { key: "advanced",        label: "Level 2",               description: "Advanced specializations for experienced AI practitioners." },
-  { key: "specialist",      label: "Level 2 — Specialist",  description: "Focused specialist tracks for niche AI domains." },
-  { key: "executive",       label: "Level 3",               description: "Executive and leadership-level AI credentials." },
-  { key: "other",           label: "Other Certifications",  description: "Specialized programs that don't fit our standard tracks." },
+  { key: "pre_certificate", label: "Pre-Certification", description: "Start your AI journey — no prior experience required." },
+  { key: "foundation",      label: "Foundation",        description: "Core credentials for professionals entering the AI field." },
+  { key: "advanced",        label: "Advanced",          description: "Advanced specializations for experienced AI practitioners." },
+  { key: "specialist",      label: "Specialist",        description: "Focused specialist tracks for niche AI domains." },
+  { key: "executive",       label: "Executive",         description: "Executive and leadership-level AI credentials." },
+  { key: "other",           label: "Other Certifications", description: "Specialized programs that don't fit our standard tracks." },
 ];
 
 const LEVEL_LABEL: Record<string, string> = {
   pre_certificate: "Pre-Certification",
-  foundation: "Level 1",
-  advanced: "Level 2",
-  specialist: "Level 2 — Specialist",
-  executive: "Level 3",
+  foundation: "Foundation",
+  advanced: "Advanced",
+  specialist: "Specialist",
+  executive: "Executive",
   other: "Other",
 };
 

@@ -12,11 +12,12 @@ const LEVELS   = ["pre_certificate", "foundation", "advanced", "executive", "spe
 const STATUSES = ["coming_soon", "active", "archived"] as const;
 
 const GROUPS = [
-  { id: "pre_certificate", label: "Pre-Certificate", sublabel: "Introductory programs", levels: ["pre_certificate"] },
-  { id: "foundation",      label: "Level 1",         sublabel: "Foundation",             levels: ["foundation"] },
-  { id: "advanced",        label: "Level 2",         sublabel: "Advanced & Specialist",  levels: ["advanced", "specialist"] },
-  { id: "executive",       label: "Level 3",         sublabel: "Executive",              levels: ["executive"] },
-  { id: "other",           label: "Other",           sublabel: "Uncategorized",          levels: ["other"] },
+  { id: "pre_certificate", label: "Pre-Certificate", sublabel: "Introductory programs",        levels: ["pre_certificate"] },
+  { id: "foundation",      label: "Foundation",      sublabel: "Entry-level credentials",       levels: ["foundation"] },
+  { id: "advanced",        label: "Advanced",        sublabel: "Advanced practitioner tracks",  levels: ["advanced"] },
+  { id: "specialist",      label: "Specialist",      sublabel: "Focused specialist tracks",     levels: ["specialist"] },
+  { id: "executive",       label: "Executive",       sublabel: "Leadership-level credentials",  levels: ["executive"] },
+  { id: "other",           label: "Other",           sublabel: "Uncategorized",                 levels: ["other"] },
 ];
 
 type Cert = {
@@ -166,10 +167,10 @@ export default function CertificationsPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Level</label>
                   <select className="input-base" value={form.level} onChange={(e) => set("level", e.target.value)}>
                     <option value="pre_certificate">Pre-Certificate</option>
-                    <option value="foundation">Level 1 — Foundation</option>
-                    <option value="advanced">Level 2 — Advanced</option>
-                    <option value="specialist">Level 2 — Specialist</option>
-                    <option value="executive">Level 3 — Executive</option>
+                    <option value="foundation">Foundation</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="specialist">Specialist</option>
+                    <option value="executive">Executive</option>
                     <option value="other">Other</option>
                   </select>
                 </div>

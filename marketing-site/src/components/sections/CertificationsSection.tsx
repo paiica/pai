@@ -14,6 +14,15 @@ const CERT_THEMES = [
   { dark: false, bg: "bg-[#eaf5ef]", shapeColor: "#059669", shapeType: "pentagon" },
 ];
 
+const LEVEL_LABEL: Record<string, string> = {
+  pre_certificate: "Pre-Certification",
+  foundation: "Foundation",
+  advanced: "Advanced",
+  specialist: "Specialist",
+  executive: "Executive",
+  other: "Other",
+};
+
 type CertCard = {
   acronym: string;
   title: string;
@@ -75,7 +84,7 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
 
       <div className="p-6 flex flex-col flex-1">
         <p className={cn("text-[12px] font-semibold mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.level && cert.level.charAt(0).toUpperCase() + cert.level.slice(1)}
+          {cert.level && (LEVEL_LABEL[cert.level] ?? cert.level)}
         </p>
         <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
           {cert.acronym}™

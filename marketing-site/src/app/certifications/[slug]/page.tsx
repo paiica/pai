@@ -57,10 +57,12 @@ type Cert = {
 // source upper-left, fading to a dark edge) so the mark reads as dimensional
 // rather than a flat color fill, and the color itself signals the tier.
 const LEVEL_SPHERE_GRADIENT: Record<string, string> = {
+  pre_certificate: "radial-gradient(circle at 32% 28%, #e2e8f0 0%, #64748b 42%, #1e293b 100%)",
   foundation: "radial-gradient(circle at 32% 28%, #99f6e4 0%, #14b8a6 42%, #0a3d3a 100%)",
   advanced:   "radial-gradient(circle at 32% 28%, #7dd3fc 0%, #0891b2 42%, #0c2b3d 100%)",
   executive:  "radial-gradient(circle at 32% 28%, #fde68a 0%, #d97706 42%, #451a03 100%)",
   specialist: "radial-gradient(circle at 32% 28%, #d8b4fe 0%, #9333ea 42%, #2e1065 100%)",
+  other:      "radial-gradient(circle at 32% 28%, #e2e8f0 0%, #64748b 42%, #1e293b 100%)",
 };
 
 async function getCert(slug: string): Promise<Cert | null> {

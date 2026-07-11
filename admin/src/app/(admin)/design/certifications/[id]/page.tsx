@@ -62,8 +62,17 @@ type Cert = {
   _count?: { enrollments: number; applications: number };
 };
 
-const LEVELS   = ["foundation", "advanced", "executive", "specialist"] as const;
+const LEVELS   = ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
+
+const LEVEL_LABEL: Record<string, string> = {
+  pre_certificate: "Pre-Certificate",
+  foundation: "Foundation",
+  advanced:   "Advanced",
+  specialist: "Specialist",
+  executive:  "Executive",
+  other:      "Other",
+};
 
 const TABS = [
   { id: "overview",     label: "Overview",       icon: Award },
@@ -493,7 +502,7 @@ export default function CertEditorPage() {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Level">
               <select className="input-base" value={level} onChange={(e) => setLevel(e.target.value)}>
-                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                {LEVELS.map((l) => <option key={l} value={l}>{LEVEL_LABEL[l] ?? l}</option>)}
               </select>
             </Field>
             <Field label="Status">
