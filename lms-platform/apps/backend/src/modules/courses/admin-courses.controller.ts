@@ -1,9 +1,10 @@
 import {
-  Controller, Get, Patch, Post, Delete, Body, Param, UseGuards, ParseUUIDPipe, NotFoundException,
+  Controller, Get, Patch, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe, NotFoundException,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { CoursesService } from "./courses.service";
+import { PrepCoursesService } from "../prep-courses/prep-courses.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -15,7 +16,25 @@ import { AssignInstructorDto } from "./dto/assign-instructor.dto";
 @Roles(Role.admin, Role.super_admin)
 @Controller("admin/certifications")
 export class AdminCoursesController {
-  constructor(private coursesService: CoursesService) {}
+  constructor(
+    private coursesService: CoursesService,
+    private prepCoursesService: PrepCoursesService,
+  ) {}
+
+  @Get(":certId/courses")
+  @ApiOperation({ summary: "Get all courses with selected/required flags for this certification" })
+  getCourses(@Param("certId", ParseUUIDPipe) certId: string) {
+    return this.prepCoursesService.adminGetCoursesForCertification(certId);
+  }
+
+  @Put(":certId/courses")
+  @ApiOperation({ summary: "Set which courses are related/required for this certification" })
+  setCourses(
+    @Param("certId", ParseUUIDPipe) certId: string,
+    @Body("courses") courses: { course_id: string; is_required?: boolean }[],
+  ) {
+    return this.prepCoursesService.adminSetCoursesForCertification(certId, courses ?? []);
+  }
 
   @Get()
   @ApiOperation({ summary: "List all certifications with stats" })

@@ -7,6 +7,7 @@ import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { MailService } from "../mail/mail.service";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
 import { CertificatesService } from "../certificates/certificates.service";
+import { PrepCoursesService } from "../prep-courses/prep-courses.service";
 import { EventCheckoutDto } from "./dto/checkout.dto";
 
 @Injectable()
@@ -23,6 +24,7 @@ export class PaymentsService {
     private mail: MailService,
     private settings: SiteSettingsService,
     private certificatesService: CertificatesService,
+    private prepCourses: PrepCoursesService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
     this.envStripe = stripeKey && stripeKey.length > 10
@@ -112,6 +114,8 @@ export class PaymentsService {
       `SELECT id FROM lms.course_enrollments WHERE user_id = $1 AND course_id = $2`, userId, courseId
     );
     if (existing.length) throw new BadRequestException("You are already enrolled in this course");
+
+    await this.prepCourses.assertPrerequisitesMet(userId, courseId);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");

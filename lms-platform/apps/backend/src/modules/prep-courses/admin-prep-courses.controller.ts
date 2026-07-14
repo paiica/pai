@@ -234,8 +234,23 @@ export class AdminPrepCoursesController {
   @ApiOperation({ summary: "Replace recommended certifications for this course" })
   setRecommendations(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body("certification_ids") certificationIds: string[],
+    @Body("certifications") certifications: { certification_id: string; is_required?: boolean }[],
   ) {
-    return this.service.adminSetRecommendations(id, certificationIds ?? []);
+    return this.service.adminSetRecommendations(id, certifications ?? []);
+  }
+
+  @Get(":id/prerequisites")
+  @ApiOperation({ summary: "Get prerequisite/co-requisite courses for this course" })
+  getPrerequisites(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminGetPrerequisites(id);
+  }
+
+  @Put(":id/prerequisites")
+  @ApiOperation({ summary: "Replace prerequisite/co-requisite courses for this course" })
+  setPrerequisites(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body("prerequisites") prerequisites: { course_id: string; type: "prerequisite" | "corequisite" }[],
+  ) {
+    return this.service.adminSetPrerequisites(id, prerequisites ?? []);
   }
 }

@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap, Sparkles, X,
+  GraduationCap, Sparkles, X, Layers,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -89,6 +89,7 @@ const STATUSES = ["coming_soon", "active", "archived"] as const;
 const TABS = [
   { id: "overview",     label: "Overview",          icon: Award },
   { id: "content",      label: "Content",           icon: BookOpen },
+  { id: "prep_courses", label: "Prep Courses",      icon: Layers },
   { id: "audience",     label: "Audience",          icon: Users },
   { id: "exam",         label: "Exam & Pricing",    icon: Settings },
   { id: "enrollments",  label: "Enrollments",       icon: Users },
@@ -1030,6 +1031,42 @@ export default function CertEditorPage() {
     }
   }
 
+  // ── Prep course requirements ──────────────────────────────────────────
+  const { data: certCoursesRaw, mutate: mutateCertCourses } = useSWR(
+    accessToken && id && tab === "prep_courses" ? [`/admin/certifications/${id}/courses`, accessToken] : null,
+    ([url, token]) => api.get<any>(url, token),
+  );
+  const certCourses: any[] = (() => {
+    const d = (certCoursesRaw as any)?.data ?? certCoursesRaw;
+    return Array.isArray(d) ? d : [];
+  })();
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [requiredCourseIds, setRequiredCourseIds] = useState<string[]>([]);
+  const [savingCourses, setSavingCourses] = useState(false);
+
+  useEffect(() => {
+    if (!certCourses.length) return;
+    setSelectedCourseIds(certCourses.filter((c) => c.is_selected).map((c) => c.id));
+    setRequiredCourseIds(certCourses.filter((c) => c.is_required).map((c) => c.id));
+  }, [certCoursesRaw]);
+
+  async function handleSaveCertCourses() {
+    setSavingCourses(true);
+    try {
+      const courses = selectedCourseIds.map((course_id) => ({
+        course_id,
+        is_required: requiredCourseIds.includes(course_id),
+      }));
+      await api.put(`/admin/certifications/${id}/courses`, { courses }, accessToken!);
+      toast.success("Prep course requirements saved!");
+      mutateCertCourses();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save prep course requirements");
+    } finally {
+      setSavingCourses(false);
+    }
+  }
+
   function applyAiDraft(d: any) {
     setAcronym(d.acronym ?? acronym);
     setTitle(d.title ?? title);
@@ -1290,6 +1327,77 @@ export default function CertEditorPage() {
           <div className="border-t border-slate-100 pt-5">
             <CurriculumEditor items={curriculum} onChange={setCurriculum} />
           </div>
+        </div>
+      )}
+
+      {tab === "prep_courses" && (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Prep Courses</p>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-2xl">
+                Select which courses are related to this certification. Mark a course as{" "}
+                <span className="font-semibold text-amber-700">Required</span> to block students from booking or
+                starting the exam until they've completed it — leave it unmarked for courses that are just
+                recommended.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveCertCourses}
+              disabled={savingCourses}
+              className="btn-outline !py-1.5 !px-3 !text-xs flex items-center gap-1.5 flex-shrink-0"
+            >
+              {savingCourses ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+            </button>
+          </div>
+
+          {certCourses.length === 0 ? (
+            <p className="text-sm text-slate-400 italic">No courses available yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {certCourses.map((c: any) => {
+                const selected = selectedCourseIds.includes(c.id);
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCourseIds((prev) => [...prev, c.id]);
+                          } else {
+                            setSelectedCourseIds((prev) => prev.filter((id) => id !== c.id));
+                            setRequiredCourseIds((prev) => prev.filter((id) => id !== c.id));
+                          }
+                        }}
+                        className="rounded border-slate-300 text-navy-700 focus:ring-navy-500"
+                      />
+                      <span className="text-sm text-slate-700 truncate">{c.title}</span>
+                    </label>
+                    {selected && (
+                      <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 text-xs font-semibold text-amber-700">
+                        <input
+                          type="checkbox"
+                          checked={requiredCourseIds.includes(c.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setRequiredCourseIds((prev) => [...prev, c.id]);
+                            } else {
+                              setRequiredCourseIds((prev) => prev.filter((id) => id !== c.id));
+                            }
+                          }}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Required for exam
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

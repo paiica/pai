@@ -366,7 +366,7 @@ export class PrepCoursesService {
 
   async adminGetRecommendations(courseId: string) {
     return this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT r.certification_id, cert.title, cert.acronym, cert.slug
+      SELECT r.certification_id, r.is_required, cert.title, cert.acronym, cert.slug
       FROM lms.course_cert_recommendations r
       JOIN lms.certifications cert ON cert.id = r.certification_id
       WHERE r.course_id = $1
@@ -374,18 +374,122 @@ export class PrepCoursesService {
     `, courseId);
   }
 
-  async adminSetRecommendations(courseId: string, certificationIds: string[]) {
+  async adminSetRecommendations(courseId: string, items: { certification_id: string; is_required?: boolean }[]) {
     await this.prisma.$executeRawUnsafe(
       `DELETE FROM lms.course_cert_recommendations WHERE course_id = $1`, courseId
     );
-    for (const certId of certificationIds) {
+    for (const item of items) {
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id)
-         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        courseId, certId
+        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required)
+         VALUES ($1, $2, $3::boolean) ON CONFLICT DO NOTHING`,
+        courseId, item.certification_id, item.is_required ?? false,
       );
     }
     return this.adminGetRecommendations(courseId);
+  }
+
+  // ─── Certification-side course picker (reverse of the above) ─────────
+  // Powers the certification editor's "Prep Courses" section — every
+  // active course, flagged with whether it's linked to this certification
+  // and whether it's required (vs. merely related/recommended).
+
+  async adminGetCoursesForCertification(certificationId: string) {
+    return this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT c.id, c.title, c.slug,
+             (r.course_id IS NOT NULL) AS is_selected,
+             COALESCE(r.is_required, false) AS is_required
+      FROM lms.courses c
+      LEFT JOIN lms.course_cert_recommendations r
+        ON r.course_id = c.id AND r.certification_id = $1
+      WHERE c.status != 'archived'
+      ORDER BY c.title
+    `, certificationId);
+  }
+
+  async adminSetCoursesForCertification(certificationId: string, items: { course_id: string; is_required?: boolean }[]) {
+    await this.prisma.$executeRawUnsafe(
+      `DELETE FROM lms.course_cert_recommendations WHERE certification_id = $1`, certificationId
+    );
+    for (const item of items) {
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required)
+         VALUES ($1, $2, $3::boolean) ON CONFLICT DO NOTHING`,
+        item.course_id, certificationId, item.is_required ?? false,
+      );
+    }
+    return this.adminGetCoursesForCertification(certificationId);
+  }
+
+  // ─── Prerequisites / Co-requisites (course ↔ course, self-referential) ─
+
+  async adminGetPrerequisites(courseId: string) {
+    return this.prisma.coursePrerequisite.findMany({
+      where: { course_id: courseId },
+      include: { prerequisite_course: { select: { id: true, title: true, slug: true } } },
+      orderBy: { prerequisite_course: { title: "asc" } },
+    });
+  }
+
+  async adminSetPrerequisites(courseId: string, items: { course_id: string; type: "prerequisite" | "corequisite" }[]) {
+    await this.prisma.coursePrerequisite.deleteMany({ where: { course_id: courseId } });
+    const filtered = items.filter((i) => i.course_id !== courseId);
+    if (filtered.length) {
+      await this.prisma.coursePrerequisite.createMany({
+        data: filtered.map((i) => ({ course_id: courseId, prerequisite_course_id: i.course_id, type: i.type })),
+        skipDuplicates: true,
+      });
+    }
+    return this.adminGetPrerequisites(courseId);
+  }
+
+  async profGetPrerequisites(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminGetPrerequisites(courseId);
+  }
+
+  async profSetPrerequisites(courseId: string, items: { course_id: string; type: "prerequisite" | "corequisite" }[], userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.adminSetPrerequisites(courseId, items);
+  }
+
+  // ─── Gating: prerequisites must be completed before enrolling ────────
+
+  async assertPrerequisitesMet(userId: string, courseId: string) {
+    const prereqs = await this.prisma.coursePrerequisite.findMany({
+      where: { course_id: courseId, type: "prerequisite" },
+      include: { prerequisite_course: { select: { id: true, title: true } } },
+    });
+    if (!prereqs.length) return;
+
+    const missing: string[] = [];
+    for (const p of prereqs) {
+      const done = await this.prisma.courseEnrollment.findFirst({
+        where: { user_id: userId, course_id: p.prerequisite_course_id, completed_at: { not: null } },
+      });
+      if (!done) missing.push(p.prerequisite_course.title);
+    }
+    if (missing.length) {
+      throw new BadRequestException(`Complete the following prerequisite course(s) first: ${missing.join(", ")}`);
+    }
+  }
+
+  // ─── Gating: required courses must be completed before the exam ──────
+
+  async getIncompleteRequiredCourses(userId: string, certificationId: string): Promise<string[]> {
+    const required = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: certificationId, is_required: true },
+      include: { course: { select: { id: true, title: true } } },
+    });
+    if (!required.length) return [];
+
+    const missing: string[] = [];
+    for (const r of required) {
+      const done = await this.prisma.courseEnrollment.findFirst({
+        where: { user_id: userId, course_id: r.course_id, completed_at: { not: null } },
+      });
+      if (!done) missing.push(r.course.title);
+    }
+    return missing;
   }
 
   async getRecommendedCoursesByCert(certificationId: string) {
@@ -578,9 +682,17 @@ export class PrepCoursesService {
     `, id);
     if (!rows.length) throw new NotFoundException("Course not found");
     const course = rows[0];
-    course.recommended_cert_ids = (await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT certification_id FROM lms.course_cert_recommendations WHERE course_id = $1`, id
-    )).map((r) => r.certification_id);
+    const recs = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT certification_id, is_required FROM lms.course_cert_recommendations WHERE course_id = $1`, id
+    );
+    course.recommended_cert_ids = recs.map((r) => r.certification_id);
+    course.required_cert_ids = recs.filter((r) => r.is_required).map((r) => r.certification_id);
+    const prereqs = await this.prisma.coursePrerequisite.findMany({
+      where: { course_id: id },
+      select: { prerequisite_course_id: true, type: true },
+    });
+    course.prerequisite_course_ids = prereqs.filter((p) => p.type === "prerequisite").map((p) => p.prerequisite_course_id);
+    course.corequisite_course_ids = prereqs.filter((p) => p.type === "corequisite").map((p) => p.prerequisite_course_id);
     return course;
   }
 

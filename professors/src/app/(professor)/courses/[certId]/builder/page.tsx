@@ -104,6 +104,43 @@ function OverviewTab({ course, courseId, token, onSaved }: { course: any; course
   });
   const [saving, setSaving] = useState(false);
 
+  const { data: allCoursesRaw } = useSWR(
+    ["/prep-courses", token],
+    ([url, t]) => fetcher(url, t),
+  );
+  const allCourses: any[] = (Array.isArray(allCoursesRaw) ? allCoursesRaw : []).filter((c: any) => c.id !== courseId);
+
+  const { data: prereqsRaw, mutate: mutatePrereqs } = useSWR(
+    token && courseId ? [`/prof/courses/${courseId}/prerequisites`, token] : null,
+    ([url, t]) => fetcher(url, t),
+  );
+  const [prerequisiteCourseIds, setPrerequisiteCourseIds] = useState<string[]>([]);
+  const [corequisiteCourseIds, setCorequisiteCourseIds] = useState<string[]>([]);
+  const [savingPrereqs, setSavingPrereqs] = useState(false);
+
+  useEffect(() => {
+    const rows: any[] = Array.isArray(prereqsRaw) ? prereqsRaw : [];
+    setPrerequisiteCourseIds(rows.filter((r) => r.type === "prerequisite").map((r) => r.prerequisite_course_id));
+    setCorequisiteCourseIds(rows.filter((r) => r.type === "corequisite").map((r) => r.prerequisite_course_id));
+  }, [prereqsRaw]);
+
+  async function savePrerequisites() {
+    setSavingPrereqs(true);
+    try {
+      const prerequisites = [
+        ...prerequisiteCourseIds.map((course_id) => ({ course_id, type: "prerequisite" as const })),
+        ...corequisiteCourseIds.map((course_id) => ({ course_id, type: "corequisite" as const })),
+      ];
+      await api.put(`/prof/courses/${courseId}/prerequisites`, { prerequisites }, token);
+      toast.success("Prerequisites saved!");
+      mutatePrereqs();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save prerequisites");
+    } finally {
+      setSavingPrereqs(false);
+    }
+  }
+
   function set(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
@@ -171,6 +208,76 @@ function OverviewTab({ course, courseId, token, onSaved }: { course: any; course
       <button type="submit" disabled={saving} className="btn-primary !py-2.5 !px-6 !text-sm disabled:opacity-60">
         {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Changes
       </button>
+
+      {allCourses.length > 0 && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Prerequisites &amp; Co-requisites</p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Prerequisites must be completed before a student can enroll in this course. Co-requisites are shown
+                as recommended alongside it but aren't enforced.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={savePrerequisites}
+              disabled={savingPrereqs}
+              className="btn-outline !py-1.5 !px-3 !text-xs flex items-center gap-1.5 flex-shrink-0"
+            >
+              {savingPrereqs ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Prerequisites</p>
+              <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                {allCourses.map((c: any) => (
+                  <label key={c.id} className="flex items-center gap-2.5 cursor-pointer p-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={prerequisiteCourseIds.includes(c.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setPrerequisiteCourseIds((prev) => [...prev, c.id]);
+                          setCorequisiteCourseIds((prev) => prev.filter((id) => id !== c.id));
+                        } else {
+                          setPrerequisiteCourseIds((prev) => prev.filter((id) => id !== c.id));
+                        }
+                      }}
+                      className="rounded border-slate-300 text-navy-700 focus:ring-navy-500"
+                    />
+                    <span className="text-sm text-slate-700 truncate">{c.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Co-requisites</p>
+              <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                {allCourses.map((c: any) => (
+                  <label key={c.id} className="flex items-center gap-2.5 cursor-pointer p-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={corequisiteCourseIds.includes(c.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCorequisiteCourseIds((prev) => [...prev, c.id]);
+                          setPrerequisiteCourseIds((prev) => prev.filter((id) => id !== c.id));
+                        } else {
+                          setCorequisiteCourseIds((prev) => prev.filter((id) => id !== c.id));
+                        }
+                      }}
+                      className="rounded border-slate-300 text-navy-700 focus:ring-navy-500"
+                    />
+                    <span className="text-sm text-slate-700 truncate">{c.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

@@ -8,6 +8,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { PrepCoursesService } from "../prep-courses/prep-courses.service";
 
 @Injectable()
 export class ExamSessionsService {
@@ -16,6 +17,7 @@ export class ExamSessionsService {
     private jwtService: JwtService,
     private config: ConfigService,
     private mail: MailService,
+    private prepCourses: PrepCoursesService,
   ) {}
 
   // ── Admin: CRUD ────────────────────────────────────────────────────────────
@@ -152,6 +154,11 @@ export class ExamSessionsService {
     });
     if (!enrollment) throw new ForbiddenException("You must be enrolled to book an exam session");
 
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, session.certification_id);
+    if (missingRequired.length) {
+      throw new BadRequestException(`Complete the following required course(s) before booking the exam: ${missingRequired.join(", ")}`);
+    }
+
     // Check seat availability
     if (session.max_seats != null) {
       const booked = await (this.prisma as any).examBooking.count({
@@ -278,6 +285,13 @@ export class ExamSessionsService {
       where: { enrollment_id: enrollment.id, status: "in_progress" },
     });
     if (existingInProgress) return { attemptId: existingInProgress.id };
+
+    // Same check book() enforces — re-checked here in case a required course
+    // got added (or the student's completion got reset) after they booked.
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, cert.id);
+    if (missingRequired.length) {
+      throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
+    }
 
     // Same cap startExam() enforces — without it, a student whose booked-session
     // attempt timed out could keep re-triggering this endpoint for unlimited

@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { CertificatesService } from "../certificates/certificates.service";
+import { PrepCoursesService } from "../prep-courses/prep-courses.service";
 
 // Buffer added on top of the stored time limit to absorb network/render latency
 // around the moment a client submits — NOT extra thinking time. The deadline is
@@ -17,6 +18,7 @@ export class ExamsService {
     private prisma: PrismaService,
     private mail: MailService,
     private certificates: CertificatesService,
+    private prepCourses: PrepCoursesService,
   ) {}
 
   async startExam(userId: string, enrollmentId: string) {
@@ -27,6 +29,11 @@ export class ExamsService {
     if (!enrollment) throw new NotFoundException("Enrollment not found");
     if (enrollment.progress_percentage < 100) {
       throw new BadRequestException("You must complete all lessons before taking the exam");
+    }
+
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, enrollment.certification_id);
+    if (missingRequired.length) {
+      throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
     }
 
     const existingAttempts = await this.prisma.examAttempt.count({

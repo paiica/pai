@@ -682,6 +682,12 @@ model Course {
   affiliate_commissions  AffiliateCommission[]
   documents        CourseDocument[]
 
+  // Prerequisites/co-requisites — self-referential. `prerequisites` = rows
+  // where this course is the one being gated ("this course requires X");
+  // `required_for` = rows where this course is the one doing the gating.
+  prerequisites    CoursePrerequisite[] @relation("CourseHasPrereqs")
+  required_for     CoursePrerequisite[] @relation("CourseIsPrereqFor")
+
   @@index([slug])
   @@index([status])
   @@map("courses")
@@ -751,8 +757,38 @@ model CourseCertRecommendation {
   certification_id String
   certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
 
+  // When true, this course must be completed before the student can book/
+  // start the certification exam — set from the certification editor's
+  // "required" toggle, distinct from merely being "related"/recommended.
+  is_required      Boolean       @default(false)
+
   @@id([course_id, certification_id])
   @@map("course_cert_recommendations")
+  @@schema("lms")
+}
+
+enum CoursePrerequisiteType {
+  prerequisite
+  corequisite
+
+  @@schema("lms")
+}
+
+// Self-referential many-to-many on Course. `type: prerequisite` is enforced
+// at enrollment time (course_id can't be enrolled in until
+// prerequisite_course_id shows a completed CourseEnrollment).
+// `type: corequisite` is informational only — "take together" — and is not
+// gated.
+model CoursePrerequisite {
+  course_id              String
+  course                 Course                 @relation("CourseHasPrereqs", fields: [course_id], references: [id], onDelete: Cascade)
+  prerequisite_course_id String
+  prerequisite_course    Course                 @relation("CourseIsPrereqFor", fields: [prerequisite_course_id], references: [id], onDelete: Cascade)
+  type                   CoursePrerequisiteType @default(prerequisite)
+  created_at             DateTime               @default(now())
+
+  @@id([course_id, prerequisite_course_id])
+  @@map("course_prerequisites")
   @@schema("lms")
 }
 

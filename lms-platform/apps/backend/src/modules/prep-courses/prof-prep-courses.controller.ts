@@ -240,4 +240,25 @@ export class ProfPrepCoursesController {
   ) {
     return this.service.gradeCourseSubmission(submissionId, dto, userId, role);
   }
+
+  @Get(":courseId/prerequisites")
+  @ApiOperation({ summary: "Get prerequisite/co-requisite courses for this course" })
+  getPrerequisites(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profGetPrerequisites(courseId, userId, role);
+  }
+
+  @Put(":courseId/prerequisites")
+  @ApiOperation({ summary: "Replace prerequisite/co-requisite courses for this course" })
+  setPrerequisites(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Body("prerequisites") prerequisites: { course_id: string; type: "prerequisite" | "corequisite" }[],
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profSetPrerequisites(courseId, prerequisites ?? [], userId, role);
+  }
 }
