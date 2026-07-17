@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
@@ -13,6 +14,11 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const RichTextEditor = dynamic(
+  () => import("@/components/RichTextEditor"),
+  { ssr: false, loading: () => <div className="h-72 bg-slate-50 animate-pulse rounded-xl" /> }
+);
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data);
@@ -295,13 +301,7 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
           </div>
         )}
 
-        <textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          className="w-full h-72 input-base resize-none text-sm leading-relaxed font-mono"
-          placeholder="Write your lesson content here..."
-        />
-        <p className="text-xs text-slate-400 mt-1">Supports plain text. HTML tags will be rendered.</p>
+        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." />
       </div>
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes

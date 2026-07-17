@@ -36,3 +36,12 @@
     @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full;
   }
 }
+
+/* TipTap RichTextEditor placeholder text (shown only on the empty first node) */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: theme(colors.slate.400);
+  pointer-events: none;
+  height: 0;
+}

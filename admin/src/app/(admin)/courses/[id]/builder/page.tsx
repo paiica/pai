@@ -23,6 +23,11 @@ const MonacoEditor = dynamic(
   { ssr: false, loading: () => <div className="h-48 bg-slate-50 animate-pulse rounded-lg" /> }
 );
 
+const RichTextEditor = dynamic(
+  () => import("@/components/RichTextEditor"),
+  { ssr: false, loading: () => <div className="h-72 bg-slate-50 animate-pulse rounded-xl" /> }
+);
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type QuizQuestion = {
@@ -190,13 +195,7 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson:
     <div className="space-y-4">
       <div>
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Content</label>
-        <textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          className="w-full h-72 input-base resize-none text-sm leading-relaxed font-mono"
-          placeholder="Write your lesson content here..."
-        />
-        <p className="text-xs text-slate-400 mt-1">Supports plain text. HTML tags will be rendered.</p>
+        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." />
       </div>
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
