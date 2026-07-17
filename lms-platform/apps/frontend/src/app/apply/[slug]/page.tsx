@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
 import { api, ApiError } from "@/lib/api";
+import { getRefCookie } from "@/lib/referral";
 
 type Cert = {
   id: string; slug: string; acronym: string; title: string;
@@ -276,6 +277,10 @@ export default function ApplyPage() {
         try {
           await api.post("/auth/register", {
             email, password, first_name: firstName, last_name: lastName,
+            // Falls back to the referral cookie set on first landing (e.g. from
+            // a product link on the marketing site) since this form has no
+            // ref param of its own — see RegisterForm.tsx for the same pattern.
+            referral_code: getRefCookie() || undefined,
           });
         } catch (err: any) {
           if (err instanceof ApiError && err.status === 409) {

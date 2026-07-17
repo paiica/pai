@@ -15,7 +15,7 @@ export class PromoCodesService {
       code.toUpperCase()
     );
     const promo = rows[0];
-    if (!promo) return { valid: false, discount_amount: 0, message: "Invalid promo code" };
+    if (!promo) return this.validateAffiliateCode(code, subtotal);
     if (!promo.is_active) return { valid: false, discount_amount: 0, message: "Promo code is no longer active" };
     if (promo.expires_at && new Date(promo.expires_at) < new Date()) return { valid: false, discount_amount: 0, message: "Promo code has expired" };
     if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return { valid: false, discount_amount: 0, message: "Promo code usage limit reached" };
@@ -52,11 +52,48 @@ export class PromoCodesService {
     return { valid: true, discount_amount, message: `${promo.discount_type === "percentage" ? val + "% off" : "$" + val + " off"} applied`, promo_id: promo.id };
   }
 
+  // Falls back to an affiliate rep's own promo code (lms.affiliate_promo_codes)
+  // when no match exists in the general table — these aren't product-scoped,
+  // only min-order-value scoped, and only redeemable while the issuing
+  // affiliate is still approved (a suspended rep's codes stop working).
+  private async validateAffiliateCode(
+    code: string,
+    subtotal: number,
+  ): Promise<{ valid: boolean; discount_amount: number; message: string; promo_id?: string }> {
+    const promo = await this.prisma.affiliatePromoCode.findUnique({
+      where: { code: code.toUpperCase() },
+      include: { affiliate: { select: { status: true } } },
+    });
+    if (!promo) return { valid: false, discount_amount: 0, message: "Invalid promo code" };
+    if (!promo.is_active) return { valid: false, discount_amount: 0, message: "Promo code is no longer active" };
+    if (promo.affiliate.status !== "approved") return { valid: false, discount_amount: 0, message: "Promo code is no longer active" };
+    if (promo.expires_at && promo.expires_at < new Date()) return { valid: false, discount_amount: 0, message: "Promo code has expired" };
+    if (promo.max_uses !== null && promo.uses_count >= promo.max_uses) return { valid: false, discount_amount: 0, message: "Promo code usage limit reached" };
+    if (promo.min_order_value != null && subtotal < Number(promo.min_order_value)) {
+      return { valid: false, discount_amount: 0, message: `This promo code requires a minimum order of $${Number(promo.min_order_value)}` };
+    }
+
+    const val = Number(promo.discount_value);
+    const discount_amount = promo.discount_type === "percentage"
+      ? Math.round(subtotal * (val / 100) * 100) / 100
+      : Math.min(val, subtotal);
+
+    return { valid: true, discount_amount, message: `${promo.discount_type === "percentage" ? val + "% off" : "$" + val + " off"} applied`, promo_id: promo.id };
+  }
+
   async incrementUsed(promoId: string, userId?: string) {
-    await this.prisma.$executeRawUnsafe(
+    const result = await this.prisma.$executeRawUnsafe(
       `UPDATE lms.promo_codes SET used_count = used_count + 1, updated_at = now() WHERE id = $1`,
       promoId
     );
+    if (result === 0) {
+      // Not a general promo code — must be an affiliate code instead.
+      await this.prisma.affiliatePromoCode.updateMany({
+        where: { id: promoId },
+        data: { uses_count: { increment: 1 } },
+      });
+      return;
+    }
     if (userId) {
       await this.prisma.$executeRawUnsafe(
         `INSERT INTO lms.promo_redemptions (id, promo_id, user_id) VALUES (gen_random_uuid(), $1, $2)`,

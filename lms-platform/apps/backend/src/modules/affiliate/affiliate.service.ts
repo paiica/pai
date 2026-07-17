@@ -384,6 +384,11 @@ export class AffiliateService {
   }
 
   async adminApproveCommission(id: string) {
+    const commission = await this.prisma.affiliateCommission.findUnique({ where: { id } });
+    if (!commission) throw new NotFoundException("Commission not found");
+    if (commission.status !== "pending") {
+      throw new BadRequestException(`Cannot approve a commission with status "${commission.status}"`);
+    }
     return this.prisma.affiliateCommission.update({
       where: { id },
       data: { status: "approved" },
@@ -391,6 +396,11 @@ export class AffiliateService {
   }
 
   async adminMarkCommissionPaid(id: string) {
+    const commission = await this.prisma.affiliateCommission.findUnique({ where: { id } });
+    if (!commission) throw new NotFoundException("Commission not found");
+    if (commission.status !== "approved") {
+      throw new BadRequestException(`Cannot mark a commission with status "${commission.status}" as paid — it must be approved first`);
+    }
     return this.prisma.affiliateCommission.update({
       where: { id },
       data: { status: "paid", paid_at: new Date() },

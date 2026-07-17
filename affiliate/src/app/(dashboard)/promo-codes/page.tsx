@@ -41,7 +41,7 @@ export default function PromoCodesPage() {
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                       <span className="font-semibold text-gold-600">
-                        {pc.discount_type === "percent"
+                        {pc.discount_type === "percentage"
                           ? `${pc.discount_value}% off`
                           : `${formatCurrency(pc.discount_value)} off`}
                       </span>

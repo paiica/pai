@@ -64,7 +64,7 @@ export interface AffiliateProduct {
 
 // ── Promo Codes ───────────────────────────────────────────────────────────────
 
-export type DiscountType = "percent" | "fixed";
+export type DiscountType = "percentage" | "fixed";
 export type PromoStatus = "active" | "expired" | "exhausted";
 
 export interface AffiliatePromoCode {

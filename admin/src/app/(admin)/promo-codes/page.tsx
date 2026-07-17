@@ -266,7 +266,7 @@ function GeneralCodesTab() {
 // ─── Affiliate promo code form ────────────────────────────────────────────────
 
 const EMPTY_AFFILIATE = {
-  code: "", discount_type: "percent", discount_value: "",
+  code: "", discount_type: "percentage", discount_value: "",
   description: "", expires_at: "", max_uses: "", affiliate_id: "",
 };
 
@@ -384,13 +384,13 @@ function AffiliateCodesTab() {
                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Type</label>
                 <select className="input-base" value={form.discount_type}
                   onChange={(e) => setForm((f) => ({ ...f, discount_type: e.target.value }))}>
-                  <option value="percent">Percent (%)</option>
+                  <option value="percentage">Percent (%)</option>
                   <option value="fixed">Fixed ($)</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">
-                  Value {form.discount_type === "percent" ? "(%)" : "($)"} *
+                  Value {form.discount_type === "percentage" ? "(%)" : "($)"} *
                 </label>
                 <input required type="number" min="0" className="input-base"
                   value={form.discount_value} onChange={(e) => setForm((f) => ({ ...f, discount_value: e.target.value }))} />
@@ -490,7 +490,7 @@ function AffiliateCodesTab() {
                       ) : <span className="text-slate-400">—</span>}
                     </td>
                     <td className="px-4 py-3 font-semibold text-navy-800">
-                      {c.discount_type === "percent" ? `${c.discount_value}%` : `$${c.discount_value}`}
+                      {c.discount_type === "percentage" ? `${c.discount_value}%` : `$${c.discount_value}`}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {c.uses_count ?? 0}{c.max_uses ? ` / ${c.max_uses}` : ""}

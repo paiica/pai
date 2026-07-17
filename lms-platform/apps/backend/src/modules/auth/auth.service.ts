@@ -109,10 +109,12 @@ export class AuthService {
 
     this.logger.log(`New user registered: ${user.email} (role: ${isSalesRep ? "sales_rep" : isProfessor ? "professor" : "student"}, verified: ${skipVerification})`);
 
-    // Wire up affiliate lead immediately for any referred registration
+    // Wire up affiliate lead immediately for any referred registration —
+    // only for a currently-approved affiliate, so a suspended/pending rep's
+    // old shared links stop generating new leads.
     if (!isSalesRep && dto.referral_code) {
       const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
-        where: { referral_code: dto.referral_code },
+        where: { referral_code: dto.referral_code, status: "approved" },
       });
       if (affiliateProfile) {
         const name = `${dto.first_name} ${dto.last_name}`.trim();
@@ -369,7 +371,7 @@ export class AuthService {
     // Fallback: create lead if not already created during registration
     if (pendingReferralCode) {
       const affiliateProfile = await this.prisma.affiliateProfile.findFirst({
-        where: { referral_code: pendingReferralCode },
+        where: { referral_code: pendingReferralCode, status: "approved" },
       });
       if (affiliateProfile) {
         const existing = await this.prisma.affiliateLead.findFirst({

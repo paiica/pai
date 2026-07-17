@@ -820,9 +820,20 @@ export class PaymentsService {
           promoId: promo_id || undefined,
           promoCode: promo_code || undefined,
           saleAmount: amount,
+          paymentIntentId: paymentIntentId || undefined,
         });
       }
     }
+  }
+
+  // Normalizes an email for same-person detection (lowercase, strip a
+  // plus-addressed suffix from the local part) — used only to block a rep
+  // from earning commission on their own purchases via an alt address, not
+  // as a general identity match.
+  private normalizeEmailForSelfCheck(email: string): string {
+    const [local, domain] = email.toLowerCase().trim().split("@");
+    if (!domain) return email.toLowerCase().trim();
+    return `${local.split("+")[0]}@${domain}`;
   }
 
   private async _handleAffiliateCommission(opts: {
@@ -833,6 +844,7 @@ export class PaymentsService {
     promoId?: string;
     promoCode?: string;
     saleAmount: number;
+    paymentIntentId?: string;
   }) {
     if (opts.saleAmount <= 0) return;
 
@@ -848,9 +860,14 @@ export class PaymentsService {
       if (promo?.affiliate_id) affiliateProfileId = promo.affiliate_id;
     }
 
-    // Also check for a referral lead — use it regardless of promo (same or different affiliate)
+    // Also check for a referral lead — use it regardless of promo (same or
+    // different affiliate). Matched by user_id first (the permanent link set
+    // at email verification) falling back to email, with NO status filter —
+    // a lead that already converted once must still match on every future
+    // purchase, otherwise the referring rep only ever gets paid on the
+    // customer's first sale.
     const lead = await this.prisma.affiliateLead.findFirst({
-      where: { email: opts.userEmail, status: { in: ["registered" as any, "invited" as any] } },
+      where: { OR: [{ user_id: opts.userId }, { email: opts.userEmail }] },
       orderBy: { created_at: "desc" },
     });
     if (lead) {
@@ -861,12 +878,26 @@ export class PaymentsService {
 
     if (!affiliateProfileId) return;
 
-    // Get base commission rate from affiliate profile
+    // Get base commission rate + status + owner email from affiliate profile
     const affiliateProfile = await this.prisma.affiliateProfile.findUnique({
       where: { id: affiliateProfileId },
-      select: { commission_rate: true },
+      select: { commission_rate: true, status: true, user: { select: { email: true } } },
     });
     if (!affiliateProfile) return;
+
+    // A suspended/pending rep's old links or promo codes shouldn't keep
+    // generating payable commissions.
+    if (affiliateProfile.status !== "approved") {
+      this.logger.warn(`Skipped commission for affiliate=${affiliateProfileId}: profile status is ${affiliateProfile.status}, not approved`);
+      return;
+    }
+
+    // Self-referral guard — a rep buying under their own (possibly
+    // plus-addressed) alt account shouldn't earn commission on themselves.
+    if (this.normalizeEmailForSelfCheck(affiliateProfile.user.email) === this.normalizeEmailForSelfCheck(opts.userEmail)) {
+      this.logger.warn(`Skipped commission for affiliate=${affiliateProfileId}: purchaser email matches the affiliate's own account (self-referral)`);
+      return;
+    }
 
     let commissionRate = Number(affiliateProfile.commission_rate);
 
@@ -896,11 +927,13 @@ export class PaymentsService {
         amount: commissionAmount,
         commission_rate: commissionRate,
         promo_code: opts.promoCode ?? null,
+        stripe_payment_intent_id: opts.paymentIntentId ?? null,
         status: "pending" as any,
       },
     });
 
-    // Advance lead status to purchased
+    // Advance lead status to purchased (informational — no longer gates
+    // future commission lookups, see the query above)
     if (leadId) {
       await this.prisma.affiliateLead.update({
         where: { id: leadId },
@@ -1111,7 +1144,7 @@ export class PaymentsService {
       reason: (reason as any) ?? "requested_by_customer",
     });
 
-    return this.prisma.payment.update({
+    const updated = await this.prisma.payment.update({
       where: { id: paymentId },
       data: {
         status: PaymentStatus.refunded,
@@ -1120,5 +1153,24 @@ export class PaymentsService {
         refunded_at: new Date(),
       },
     });
+
+    // Void any commission this payment generated — a refunded sale
+    // shouldn't leave the referring rep with a payable/paid commission.
+    const commission = await this.prisma.affiliateCommission.findUnique({
+      where: { stripe_payment_intent_id: payment.stripe_payment_intent_id },
+    });
+    if (commission && commission.status !== "voided") {
+      await this.prisma.affiliateCommission.update({
+        where: { id: commission.id },
+        data: {
+          status: "voided",
+          voided_at: new Date(),
+          void_reason: reason ? `Payment refunded: ${reason}` : "Payment refunded",
+        },
+      });
+      this.logger.log(`Voided commission ${commission.id} — underlying payment ${paymentId} was refunded`);
+    }
+
+    return updated;
   }
 }

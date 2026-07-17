@@ -1707,7 +1707,7 @@ model AffiliatePromoCode {
   affiliate_id     String
   affiliate        AffiliateProfile    @relation(fields: [affiliate_id], references: [id], onDelete: Cascade)
   code             String              @unique
-  discount_type    String              @default("percent")
+  discount_type    String              @default("percentage")
   discount_value   Decimal             @db.Decimal(10, 2)
   description      String?
   min_order_value  Decimal?            @db.Decimal(10, 2)
@@ -1742,9 +1742,11 @@ model AffiliateLead {
   // Set once, at email verification, from the referred visitor's own account —
   // a permanent link that survives them later using a different email on an
   // application form. `email` is kept as a fallback match for leads created
-  // before this field existed.
+  // before this field existed. Cascades on delete: an admin deleting the
+  // underlying user should remove the lead too, not leave a stale row
+  // (with its own cached email/name) still showing on the leads page.
   user_id String?
-  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   commissions AffiliateCommission[]
 
@@ -1773,6 +1775,9 @@ model AffiliateCommission {
   // referral-link lead). Recorded at creation time since nothing else on
   // this record can be joined back to the checkout that produced it.
   promo_code       String?
+  // Correlates back to the Payment that generated this commission (Payment.
+  // stripe_payment_intent_id is unique) — lets a refund find and void it.
+  stripe_payment_intent_id String?              @unique
   status           AffiliateCommissionStatus @default(pending)
   paid_at          DateTime?
   voided_at        DateTime?

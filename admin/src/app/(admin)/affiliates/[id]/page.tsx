@@ -51,7 +51,7 @@ export default function AffiliateDetailPage({ params }: { params: Promise<{ id: 
 
   // Promo code form
   const [promoForm, setPromoForm] = useState({
-    code: "", discount_type: "percent", discount_value: "10",
+    code: "", discount_type: "percentage", discount_value: "10",
     description: "", expires_at: "", max_uses: "",
   });
 
@@ -160,7 +160,7 @@ export default function AffiliateDetailPage({ params }: { params: Promise<{ id: 
         max_uses: promoForm.max_uses ? parseInt(promoForm.max_uses) : undefined,
       }, accessToken!);
       toast.success("Promo code created");
-      setPromoForm({ code: "", discount_type: "percent", discount_value: "10", description: "", expires_at: "", max_uses: "" });
+      setPromoForm({ code: "", discount_type: "percentage", discount_value: "10", description: "", expires_at: "", max_uses: "" });
       mutate();
     } catch { toast.error("Failed to create promo code"); }
   }
@@ -495,7 +495,7 @@ export default function AffiliateDetailPage({ params }: { params: Promise<{ id: 
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-1">Type</label>
                   <select className="input-base" value={promoForm.discount_type}
                     onChange={(e) => setPromoForm((f) => ({ ...f, discount_type: e.target.value }))}>
-                    <option value="percent">Percent (%)</option>
+                    <option value="percentage">Percent (%)</option>
                     <option value="fixed">Fixed ($)</option>
                   </select>
                 </div>
@@ -540,7 +540,7 @@ export default function AffiliateDetailPage({ params }: { params: Promise<{ id: 
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {c.discount_type === "percent" ? `${c.discount_value}% off` : `$${c.discount_value} off`}
+                      {c.discount_type === "percentage" ? `${c.discount_value}% off` : `$${c.discount_value} off`}
                       {c.max_uses ? ` · ${c.uses_count}/${c.max_uses} uses` : " · unlimited uses"}
                       {c.expires_at ? ` · expires ${formatDate(c.expires_at)}` : ""}
                     </p>
