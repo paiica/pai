@@ -50,12 +50,17 @@ export default function TopBar({
   return (
     <>
       <div className="bg-teal-900 border-b border-white/[0.08] flex items-center transition-[height] duration-150" style={{ height: `${barHeight}px` }}>
-        {/* Logo — anchored flush against the viewport edge, outside the centered content column */}
+        {/* Logo — anchored flush against the viewport edge, outside the centered content column.
+            The default PAII mark uses a pre-whitened asset instead of a runtime CSS filter: some
+            mobile browsers fail to preserve PNG alpha through `filter: brightness(0) invert(1)`,
+            rendering the whole bounding box as a solid white block instead of the wordmark. A
+            custom logo uploaded via admin site settings has no pre-whitened variant, so it still
+            relies on the filter as a best-effort fallback. */}
         <Link href="/" className="flex items-center flex-shrink-0 pl-4 sm:pl-6 pr-4 sm:pr-6">
           <img
-            src={logoUrl || "/paii.logo.png"}
+            src={logoUrl || "/paii.logo.white.png"}
             alt="Professional Artificial Intelligence Institute"
-            style={{ height: `${logoHeight}px`, filter: "brightness(0) invert(1)" }}
+            style={logoUrl ? { height: `${logoHeight}px`, filter: "brightness(0) invert(1)" } : { height: `${logoHeight}px` }}
             className="w-auto object-contain"
           />
         </Link>
