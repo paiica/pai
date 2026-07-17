@@ -511,21 +511,16 @@ export class UsersService {
   // ── Admin Permissions ────────────────────────────────────────────────────────
 
   async getAdminPermissions(userId: string) {
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT tabs FROM lms.admin_permissions WHERE user_id = $1`,
-      userId,
-    );
-    return { tabs: rows[0]?.tabs ?? [] };
+    const row = await this.prisma.adminPermission.findUnique({ where: { user_id: userId } });
+    return { tabs: row?.tabs ?? [] };
   }
 
   async setAdminPermissions(userId: string, tabs: string[]) {
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO lms.admin_permissions (user_id, tabs)
-       VALUES ($1, $2::text[])
-       ON CONFLICT (user_id) DO UPDATE SET tabs = $2::text[], updated_at = NOW()`,
-      userId,
-      tabs,
-    );
+    await this.prisma.adminPermission.upsert({
+      where: { user_id: userId },
+      create: { user_id: userId, tabs },
+      update: { tabs },
+    });
     return { tabs };
   }
 
