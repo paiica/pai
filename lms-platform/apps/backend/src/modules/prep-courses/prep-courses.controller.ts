@@ -96,6 +96,20 @@ export class PrepCoursesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Post("learn/:enrollmentId/lesson/:lessonId/scorm-progress")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Report SCORM completion/score from the in-page bridge script" })
+  updateCourseScormProgress(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: { completed: boolean; score?: number; cmi_snapshot: any },
+  ) {
+    return this.service.updateCourseScormProgress(enrollmentId, lessonId, userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post("learn/:enrollmentId/lesson/:lessonId/assignment/submit")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Submit an assignment (file URL or text)" })

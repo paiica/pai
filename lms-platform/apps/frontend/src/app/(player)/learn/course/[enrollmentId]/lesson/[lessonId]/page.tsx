@@ -3,12 +3,13 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import { CheckCircle, Download, ExternalLink, Loader2, XCircle, RotateCcw, Award, Upload, AlertCircle, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { enhanceSortingExercises } from "@/lib/interactive-content";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -63,10 +64,65 @@ function VideoLesson({ lesson }: { lesson: any }) {
   );
 }
 
-function ReadingLesson({ lesson }: { lesson: any }) {
+function ReadingLesson({
+  lesson, enrollmentId, token, onComplete,
+}: { lesson: any; enrollmentId?: string; token?: string; onComplete?: () => void }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    if (!contentRef.current) return;
+    return enhanceSortingExercises(contentRef.current);
+  }, [lesson.content_body]);
+
+  // SCORM packages carry a bridge script (injected at import time) that
+  // implements window.API in-memory and reports out via postMessage, since
+  // the SCO is hosted cross-origin on R2 and can't read window.parent.API
+  // directly. Only messages from this exact iframe's contentWindow are
+  // trusted — anything else on the page could otherwise spoof progress.
+  useEffect(() => {
+    if (!enrollmentId || !token) return;
+    function onScormMessage(event: MessageEvent) {
+      if (event.data?.type !== "scorm-event") return;
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const cmi = event.data.cmi ?? {};
+      const status = cmi["cmi.core.lesson_status"];
+      const completed = status === "completed" || status === "passed";
+      const rawScore = cmi["cmi.core.score.raw"];
+      const score = rawScore !== undefined && rawScore !== "" && !Number.isNaN(Number(rawScore))
+        ? Number(rawScore)
+        : undefined;
+      api.post<any>(
+        `/prep-courses/learn/${enrollmentId}/lesson/${lesson.id}/scorm-progress`,
+        { completed, score, cmi_snapshot: cmi },
+        token
+      ).then(() => { if (completed) onComplete?.(); }).catch(() => {});
+    }
+    window.addEventListener("message", onScormMessage);
+    return () => window.removeEventListener("message", onScormMessage);
+  }, [enrollmentId, lesson.id, token]);
+
+  // "Preserve Original Design" imports point here instead of shipping
+  // content_body — a real navigation (not innerHTML injection) so the
+  // hosted course's own relative asset paths resolve correctly. Fills the
+  // page's html-type container (the parent page skips the max-w-3xl reading
+  // column for this case) rather than a 100vw viewport hack, which
+  // overshoots/undershoots depending on the sidebar's open/collapsed width.
+  // key={lesson.id} forces a fresh <iframe> DOM node per lesson rather than
+  // React reusing one across switches — this branch has no `sandbox`
+  // attribute so it doesn't hit the exact reused-node sandbox bug found in
+  // the other four render sites (which do sandbox this iframe), but a
+  // clean node per lesson is the safer default regardless.
+  if (lesson.external_url) {
+    return (
+      <div key={lesson.id} style={{ width: "100%", height: "calc(100vh - 220px)" }}>
+        <iframe key={lesson.id} ref={iframeRef} src={lesson.external_url} className="w-full h-full border-0" title={lesson.title} allow="fullscreen" />
+      </div>
+    );
+  }
+
   return lesson.content_body ? (
     isHTML(lesson.content_body)
-      ? <div className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+      ? <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
       : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
   ) : (
     <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">Content not available.</div>
@@ -449,10 +505,14 @@ export default function CoursePrepLessonPage() {
 
   if (!lesson) return null;
 
+  // Preserve-mode ("Preserve Original Design") html lessons embed a whole
+  // hosted course via iframe — full width, not the narrow reading column.
+  const isFullBleed = lesson.type === "html" && lesson.external_url;
+
   return (
-    <div className="max-w-3xl mx-auto p-8">
+    <div className="p-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-slate-400 mb-6">
+      <div className={cn("flex items-center gap-2 text-xs text-slate-400 mb-6", !isFullBleed && "max-w-3xl mx-auto")}>
         <Link href={`/learn/course/${enrollmentId}`} className="hover:text-navy-700 transition-colors">
           Course Overview
         </Link>
@@ -463,7 +523,7 @@ export default function CoursePrepLessonPage() {
       </div>
 
       {/* Lesson title */}
-      <div className="mb-6">
+      <div className={cn("mb-6", !isFullBleed && "max-w-3xl mx-auto")}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 capitalize">
             {lesson.type}
@@ -476,9 +536,11 @@ export default function CoursePrepLessonPage() {
       </div>
 
       {/* Lesson content */}
-      <div className="mb-8">
+      <div className={cn("mb-8", !isFullBleed && "max-w-3xl mx-auto")}>
         {lesson.type === "video" && <VideoLesson lesson={lesson} />}
-        {(lesson.type === "reading" || lesson.type === "html") && <ReadingLesson lesson={lesson} />}
+        {(lesson.type === "reading" || lesson.type === "html") && (
+          <ReadingLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} />
+        )}
         {lesson.type === "download" && <DownloadLesson lesson={lesson} />}
         {lesson.type === "assignment" && (
           <AssignmentLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} />
@@ -496,7 +558,7 @@ export default function CoursePrepLessonPage() {
       </div>
 
       {/* Done indicator */}
-      <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium p-4 bg-emerald-50 rounded-xl">
+      <div className={cn("flex items-center gap-2 text-sm text-emerald-600 font-medium p-4 bg-emerald-50 rounded-xl", !isFullBleed && "max-w-3xl mx-auto")}>
         <CheckCircle size={16} />
         You're viewing this lesson
       </div>

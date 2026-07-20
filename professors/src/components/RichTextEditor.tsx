@@ -227,11 +227,12 @@ function Toolbar({ editor }: { editor: Editor }) {
 // `setContent` state without touching the surrounding save logic. Output is
 // always HTML (even a single unformatted paragraph becomes `<p>...</p>`),
 // matching what content_body already expects downstream.
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280 }: {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, maxHeight = 500 }: {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
+  maxHeight?: number;
 }) {
   const editor = useEditor({
     extensions: [
@@ -269,7 +270,11 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   return (
     <div className="rounded-xl">
       <Toolbar editor={editor} />
-      <div className="border border-slate-200 rounded-b-xl bg-white overflow-y-auto" style={{ minHeight }}>
+      {/* Grows with content between minHeight and maxHeight (a long
+          paragraph shouldn't be stuck showing two lines) — past maxHeight
+          it switches to an internal scrollbar instead of growing forever
+          and pushing everything else off-screen. */}
+      <div className="border border-slate-200 rounded-b-xl bg-white overflow-y-auto" style={{ minHeight, maxHeight }}>
         <EditorContent editor={editor} />
       </div>
     </div>

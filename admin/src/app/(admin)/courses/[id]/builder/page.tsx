@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -9,14 +9,28 @@ import toast from "react-hot-toast";
 import {
   Plus, Trash2, Edit3, Check, Video, FileText, HelpCircle,
   File, Link2, Download, Eye, EyeOff, X, ChevronLeft,
-  ChevronDown, ChevronRight, Save, Upload, GripVertical,
+  ChevronDown, ChevronRight, ChevronUp, Save, Upload, GripVertical,
   BookOpen, Clock, Search, AlertCircle, Loader2, Settings,
   ArrowLeft, ArrowRight, CheckCircle, FileQuestion, Paperclip,
-  Sparkles, Code2,
+  Sparkles, Code2, PanelLeftClose, PanelLeft, Bold, Italic, List, ListOrdered,
+  Type, Image as ImageIcon, Layers, Columns, Milestone, ListChecks, Shuffle, Minus, LayoutGrid, Info,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import ImportContentButton from "@/components/ImportContentButton";
+import { enhanceSortingExercises } from "@/lib/interactive-content";
+
+// Wraps a dangerouslySetInnerHTML render with the click-to-categorize sorting
+// enhancer (accordion/tabs/flashcards need no JS — this is only for sorting).
+function ReadingContent({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    return enhanceSortingExercises(ref.current);
+  }, [html]);
+  return <div ref={ref} className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 const MonacoEditor = dynamic(
   () => import("@monaco-editor/react").then((m) => m.default),
@@ -27,6 +41,8 @@ const RichTextEditor = dynamic(
   () => import("@/components/RichTextEditor"),
   { ssr: false, loading: () => <div className="h-72 bg-slate-50 animate-pulse rounded-xl" /> }
 );
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +57,7 @@ type Lesson = {
   external_url?: string; is_published: boolean; duration_minutes: number; order_index: number;
   passing_score?: number; max_attempts?: number; max_score?: number; due_date?: string;
   allow_text_response?: boolean; text_word_limit?: number;
+  blocks_json?: any[] | null;
 };
 
 type Module = { id: string; title: string; description?: string; is_published: boolean; order_index: number; lessons: Lesson[] };
@@ -164,10 +181,15 @@ function CourseSidebar({
 
       {/* Add module */}
       {!studentView && (
-        <div className="p-3 border-t border-slate-100">
+        <div className="p-3 border-t border-slate-100 space-y-2">
           <button onClick={onAddModule} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-sm text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
             <Plus size={14} /> New Module
           </button>
+          <ImportContentButton
+            uploadUrl={`${API_BASE}/admin/courses/${courseId}/import`}
+            token={token}
+            onImported={onRefresh}
+          />
         </div>
       )}
     </div>
@@ -550,19 +572,549 @@ function QuizEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Le
   );
 }
 
-// ─── HTML Editor ─────────────────────────────────────────────────────────────
+// ─── Block Builder ───────────────────────────────────────────────────────────
+// Composes a lesson page from a palette of blocks — each block's shape
+// matches the Rise export schema exactly (confirmed while building the
+// redesign/migrations earlier this session), so it renders through the
+// same shared backend dispatch (`renderBlockItems` in rise-html-blocks.ts)
+// used for Rise imports. No new rendering logic, just a UI that produces
+// the same item shapes by hand.
 
-function HtmlEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Lesson; courseId: string; moduleId: string; token: string; onSaved: () => void }) {
-  const [code, setCode] = useState(lesson.content ?? "");
-  const [preview, setPreview] = useState(false);
+type LessonBlock = { _id: string; type: string; [key: string]: any };
+
+function newBlockId(): string {
+  return `blk${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const BLOCK_TYPES: Array<{ key: string; label: string; icon: React.ElementType; create: () => LessonBlock }> = [
+  { key: "text", label: "Text", icon: Type, create: () => ({ _id: newBlockId(), type: "text", items: [{ heading: "", paragraph: "" }] }) },
+  { key: "list", label: "List", icon: List, create: () => ({ _id: newBlockId(), type: "list", variant: "bulleted", items: [{ paragraph: "" }] }) },
+  { key: "image", label: "Image", icon: ImageIcon, create: () => ({ _id: newBlockId(), type: "image", url: "", alt: "" }) },
+  { key: "divider", label: "Divider", icon: Minus, create: () => ({ _id: newBlockId(), type: "divider" }) },
+  { key: "flashcards", label: "Flashcards", icon: Layers, create: () => ({ _id: newBlockId(), type: "interactive", family: "flashcard", items: [{ front: { description: "" }, back: { description: "" } }] }) },
+  { key: "accordion", label: "Accordion", icon: Layers, create: () => ({ _id: newBlockId(), type: "interactive", family: "interactive", variant: "accordion", items: [{ title: "", description: "" }] }) },
+  { key: "tabs", label: "Tabs", icon: Columns, create: () => ({ _id: newBlockId(), type: "interactive", family: "interactive", variant: "tabs", items: [{ title: "", description: "" }] }) },
+  { key: "timeline", label: "Timeline", icon: Milestone, create: () => ({ _id: newBlockId(), type: "interactive", family: "interactive-fullscreen", variant: "timeline", items: [{ date: "", title: "", description: "" }] }) },
+  { key: "process", label: "Process", icon: ListChecks, create: () => ({ _id: newBlockId(), type: "interactive", family: "interactive-fullscreen", variant: "process", items: [{ type: "step", title: "", description: "" }] }) },
+  { key: "sorting", label: "Sorting", icon: Shuffle, create: () => ({ _id: newBlockId(), type: "interactive", family: "interactive-fullscreen", variant: "sorting", piles: [{ id: newBlockId(), title: "" }], items: [] }) },
+  { key: "knowledgeCheck", label: "Knowledge Check", icon: HelpCircle, create: () => ({ _id: newBlockId(), type: "knowledgeCheck", items: [{ title: "", answers: [{ title: "", correct: true, feedback: "" }, { title: "", correct: false, feedback: "" }] }] }) },
+  { key: "video", label: "Video", icon: Video, create: () => ({ _id: newBlockId(), type: "video", url: "", caption: "" }) },
+  { key: "callout", label: "Callout", icon: Info, create: () => ({ _id: newBlockId(), type: "callout", variant: "note", text: "" }) },
+  { key: "code", label: "Code", icon: Code2, create: () => ({ _id: newBlockId(), type: "code", language: "", code: "" }) },
+];
+
+function blockTypeMeta(block: LessonBlock) {
+  if (block.type === "interactive") {
+    const key = block.family === "flashcard" ? "flashcards" : block.variant;
+    return BLOCK_TYPES.find((t) => t.key === key);
+  }
+  return BLOCK_TYPES.find((t) => t.key === block.type);
+}
+
+function BlockField({ label, value, onChange, textarea, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; textarea?: boolean; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-slate-500 mb-1 block">{label}</label>
+      {textarea ? (
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="input-base text-sm resize-none h-20" />
+      ) : (
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="input-base text-sm" />
+      )}
+    </div>
+  );
+}
+
+function TextBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  const item = block.items?.[0] ?? {};
+  function update(patch: any) { onChange({ ...block, items: [{ ...item, ...patch }] }); }
+  return (
+    <div className="space-y-3">
+      <BlockField label="Heading (optional)" value={item.heading ?? ""} onChange={(v) => update({ heading: v })} placeholder="Section heading" />
+      <div>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Paragraph</label>
+        <RichTextEditor
+          value={item.paragraph ?? ""}
+          onChange={(html) => update({ paragraph: html })}
+          placeholder="Write the paragraph text…"
+          minHeight={140}
+        />
+      </div>
+      <label className="flex items-center gap-2 text-xs text-slate-600">
+        <input type="checkbox" checked={block.variant === "b"} onChange={(e) => onChange({ ...block, variant: e.target.checked ? "b" : undefined })} />
+        Style as pull-quote
+      </label>
+    </div>
+  );
+}
+
+function VideoBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  return (
+    <div className="space-y-3">
+      <BlockField label="Video URL (YouTube, Vimeo, or direct .mp4)" value={block.url ?? ""} onChange={(v) => onChange({ ...block, url: v })} placeholder="https://youtube.com/watch?v=…" />
+      <BlockField label="Caption (optional)" value={block.caption ?? ""} onChange={(v) => onChange({ ...block, caption: v })} placeholder="Shown below the video" />
+    </div>
+  );
+}
+
+const CALLOUT_VARIANTS = [
+  { key: "note", label: "Note" },
+  { key: "tip", label: "Tip" },
+  { key: "warning", label: "Warning" },
+];
+
+function CalloutBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  return (
+    <div className="space-y-3">
+      <select value={block.variant ?? "note"} onChange={(e) => onChange({ ...block, variant: e.target.value })} className="input-base text-sm">
+        {CALLOUT_VARIANTS.map((v) => <option key={v.key} value={v.key}>{v.label}</option>)}
+      </select>
+      <BlockField label="Text" value={block.text ?? ""} onChange={(v) => onChange({ ...block, text: v })} textarea placeholder="Write the callout text…" />
+    </div>
+  );
+}
+
+function CodeBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  return (
+    <div className="space-y-3">
+      <BlockField label="Language (optional)" value={block.language ?? ""} onChange={(v) => onChange({ ...block, language: v })} placeholder="e.g. Python, TypeScript" />
+      <div>
+        <label className="text-xs font-semibold text-slate-500 mb-1 block">Code</label>
+        <textarea
+          value={block.code ?? ""}
+          onChange={(e) => onChange({ ...block, code: e.target.value })}
+          placeholder={"def hello():\n    print(\"Hello, world!\")"}
+          className="w-full font-mono text-sm border border-slate-200 rounded-lg p-3 resize-none h-32 bg-slate-950 text-emerald-400 focus:outline-none"
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ListBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  const items: any[] = block.items ?? [];
+  function updateItem(i: number, paragraph: string) {
+    const next = [...items]; next[i] = { paragraph }; onChange({ ...block, items: next });
+  }
+  function addItem() { onChange({ ...block, items: [...items, { paragraph: "" }] }); }
+  function removeItem(i: number) { onChange({ ...block, items: items.filter((_, idx) => idx !== i) }); }
+  return (
+    <div className="space-y-3">
+      <select value={block.variant ?? "bulleted"} onChange={(e) => onChange({ ...block, variant: e.target.value })} className="input-base text-sm">
+        <option value="bulleted">Bulleted</option>
+        <option value="numbered">Numbered</option>
+      </select>
+      {items.map((it, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input value={it.paragraph ?? ""} onChange={(e) => updateItem(i, e.target.value)} className="input-base text-sm flex-1" placeholder={`Item ${i + 1}`} />
+          <button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+        </div>
+      ))}
+      <button onClick={addItem} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1"><Plus size={12} /> Add item</button>
+    </div>
+  );
+}
+
+function ImageBlockForm({ block, onChange, token }: { block: LessonBlock; onChange: (b: LessonBlock) => void; token: string }) {
+  const [uploading, setUploading] = useState(false);
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1"}/uploads/content-image`;
+      let activeToken = token;
+      let res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${activeToken}` }, body: formData });
+      if (res.status === 401) {
+        const refreshed = await useAuthStore.getState().refreshTokens();
+        if (!refreshed) throw new Error("Session expired");
+        activeToken = useAuthStore.getState().accessToken!;
+        res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${activeToken}` }, body: formData });
+      }
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.message ?? "Upload failed");
+      const url = json?.data?.url ?? json?.url;
+      onChange({ ...block, url });
+    } catch (err: any) { toast.error(err?.message ?? "Upload failed"); }
+    finally { setUploading(false); }
+  }
+  return (
+    <div className="space-y-3">
+      {block.url && <img src={block.url} alt="" className="max-h-40 rounded-lg border border-slate-200" />}
+      <label className="flex items-center gap-2 text-xs font-medium text-navy-700 cursor-pointer w-fit">
+        <Upload size={13} /> {uploading ? "Uploading…" : block.url ? "Replace image" : "Upload image"}
+        <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={uploading} />
+      </label>
+      <BlockField label="Alt text (optional)" value={block.alt ?? ""} onChange={(v) => onChange({ ...block, alt: v })} placeholder="Describe the image" />
+    </div>
+  );
+}
+
+function EntriesListForm({ block, onChange, showDate, showStepType }: {
+  block: LessonBlock; onChange: (b: LessonBlock) => void; showDate?: boolean; showStepType?: boolean;
+}) {
+  const items: any[] = block.items ?? [];
+  function updateItem(i: number, patch: any) {
+    const next = [...items]; next[i] = { ...next[i], ...patch }; onChange({ ...block, items: next });
+  }
+  function addItem() {
+    onChange({ ...block, items: [...items, showStepType ? { type: "step", title: "", description: "" } : { title: "", description: "" }] });
+  }
+  function removeItem(i: number) { onChange({ ...block, items: items.filter((_, idx) => idx !== i) }); }
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Entry {i + 1}</span>
+            <button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-500"><X size={13} /></button>
+          </div>
+          {showStepType && (
+            <select value={it.type ?? "step"} onChange={(e) => updateItem(i, { type: e.target.value })} className="input-base text-sm">
+              <option value="intro">Intro</option>
+              <option value="step">Step</option>
+              <option value="summary">Summary</option>
+            </select>
+          )}
+          {showDate && (
+            <input value={it.date ?? ""} onChange={(e) => updateItem(i, { date: e.target.value })} className="input-base text-sm" placeholder="Date (e.g. 2024)" />
+          )}
+          <input value={it.title ?? ""} onChange={(e) => updateItem(i, { title: e.target.value })} className="input-base text-sm" placeholder="Title" />
+          <textarea value={it.description ?? ""} onChange={(e) => updateItem(i, { description: e.target.value })} className="input-base text-sm resize-none h-16" placeholder="Description" />
+        </div>
+      ))}
+      <button onClick={addItem} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1"><Plus size={12} /> Add entry</button>
+    </div>
+  );
+}
+
+function FlashcardsBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  const items: any[] = block.items ?? [];
+  function updateItem(i: number, side: "front" | "back", description: string) {
+    const next = [...items]; next[i] = { ...next[i], [side]: { description } }; onChange({ ...block, items: next });
+  }
+  function addItem() { onChange({ ...block, items: [...items, { front: { description: "" }, back: { description: "" } }] }); }
+  function removeItem(i: number) { onChange({ ...block, items: items.filter((_, idx) => idx !== i) }); }
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Card {i + 1}</span>
+            <button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-500"><X size={13} /></button>
+          </div>
+          <input value={it.front?.description ?? ""} onChange={(e) => updateItem(i, "front", e.target.value)} className="input-base text-sm" placeholder="Front" />
+          <input value={it.back?.description ?? ""} onChange={(e) => updateItem(i, "back", e.target.value)} className="input-base text-sm" placeholder="Back" />
+        </div>
+      ))}
+      <button onClick={addItem} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1"><Plus size={12} /> Add card</button>
+    </div>
+  );
+}
+
+function SortingBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  const piles: any[] = block.piles ?? [];
+  const items: any[] = block.items ?? [];
+
+  function updatePile(i: number, title: string) {
+    const next = [...piles]; next[i] = { ...next[i], title }; onChange({ ...block, piles: next });
+  }
+  function addPile() { onChange({ ...block, piles: [...piles, { id: newBlockId(), title: "" }] }); }
+  function removePile(i: number) {
+    const removed = piles[i];
+    onChange({ ...block, piles: piles.filter((_, idx) => idx !== i), items: items.filter((it) => it.pileId !== removed.id) });
+  }
+  function updateSortItem(i: number, patch: any) {
+    const next = [...items]; next[i] = { ...next[i], ...patch }; onChange({ ...block, items: next });
+  }
+  function addSortItem() { onChange({ ...block, items: [...items, { title: "", pileId: piles[0]?.id ?? "" }] }); }
+  function removeSortItem(i: number) { onChange({ ...block, items: items.filter((_, idx) => idx !== i) }); }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold text-slate-500 mb-2">Categories</p>
+        <div className="space-y-2">
+          {piles.map((p, i) => (
+            <div key={p.id} className="flex items-center gap-2">
+              <input value={p.title ?? ""} onChange={(e) => updatePile(i, e.target.value)} className="input-base text-sm flex-1" placeholder={`Category ${i + 1}`} />
+              <button onClick={() => removePile(i)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addPile} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1 mt-2"><Plus size={12} /> Add category</button>
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-500 mb-2">Items to sort</p>
+        <div className="space-y-2">
+          {items.map((it, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={it.title ?? ""} onChange={(e) => updateSortItem(i, { title: e.target.value })} className="input-base text-sm flex-1" placeholder="Item text" />
+              <select value={it.pileId ?? ""} onChange={(e) => updateSortItem(i, { pileId: e.target.value })} className="input-base text-sm w-40">
+                <option value="">Category…</option>
+                {piles.map((p) => <option key={p.id} value={p.id}>{p.title || "Untitled"}</option>)}
+              </select>
+              <button onClick={() => removeSortItem(i)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addSortItem} disabled={!piles.length} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1 mt-2 disabled:opacity-40"><Plus size={12} /> Add item</button>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeCheckBlockForm({ block, onChange }: { block: LessonBlock; onChange: (b: LessonBlock) => void }) {
+  const q = block.items?.[0] ?? { title: "", answers: [] };
+  const answers: any[] = q.answers ?? [];
+
+  function updateQuestion(title: string) { onChange({ ...block, items: [{ ...q, title }] }); }
+  function updateAnswer(i: number, patch: any) {
+    const next = [...answers]; next[i] = { ...next[i], ...patch }; onChange({ ...block, items: [{ ...q, answers: next }] });
+  }
+  function setCorrect(i: number) {
+    onChange({ ...block, items: [{ ...q, answers: answers.map((a, idx) => ({ ...a, correct: idx === i })) }] });
+  }
+  function addAnswer() { onChange({ ...block, items: [{ ...q, answers: [...answers, { title: "", correct: false, feedback: "" }] }] }); }
+  function removeAnswer(i: number) { onChange({ ...block, items: [{ ...q, answers: answers.filter((_, idx) => idx !== i) }] }); }
+
+  return (
+    <div className="space-y-3">
+      <BlockField label="Question" value={q.title ?? ""} onChange={updateQuestion} placeholder="Which of the following…?" />
+      <p className="text-xs font-semibold text-slate-500">Answer options (select the correct one)</p>
+      {answers.map((a, i) => (
+        <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input type="radio" checked={!!a.correct} onChange={() => setCorrect(i)} title="Correct answer" />
+            <input value={a.title ?? ""} onChange={(e) => updateAnswer(i, { title: e.target.value })} className="input-base text-sm flex-1" placeholder={`Option ${i + 1}`} />
+            <button onClick={() => removeAnswer(i)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+          </div>
+          <input value={a.feedback ?? ""} onChange={(e) => updateAnswer(i, { feedback: e.target.value })} className="input-base text-sm" placeholder="Feedback shown for this option" />
+        </div>
+      ))}
+      <button onClick={addAnswer} className="text-xs font-medium text-navy-700 hover:text-navy-900 flex items-center gap-1"><Plus size={12} /> Add option</button>
+    </div>
+  );
+}
+
+function BlockForm({ block, onChange, token }: { block: LessonBlock; onChange: (b: LessonBlock) => void; token: string }) {
+  if (block.type === "text") return <TextBlockForm block={block} onChange={onChange} />;
+  if (block.type === "list") return <ListBlockForm block={block} onChange={onChange} />;
+  if (block.type === "image") return <ImageBlockForm block={block} onChange={onChange} token={token} />;
+  if (block.type === "divider") return <p className="text-xs text-slate-400 italic">A horizontal divider — no content needed.</p>;
+  if (block.type === "knowledgeCheck") return <KnowledgeCheckBlockForm block={block} onChange={onChange} />;
+  if (block.type === "video") return <VideoBlockForm block={block} onChange={onChange} />;
+  if (block.type === "callout") return <CalloutBlockForm block={block} onChange={onChange} />;
+  if (block.type === "code") return <CodeBlockForm block={block} onChange={onChange} />;
+  if (block.type === "interactive") {
+    if (block.family === "flashcard") return <FlashcardsBlockForm block={block} onChange={onChange} />;
+    if (block.variant === "accordion" || block.variant === "tabs") return <EntriesListForm block={block} onChange={onChange} />;
+    if (block.variant === "timeline") return <EntriesListForm block={block} onChange={onChange} showDate />;
+    if (block.variant === "process") return <EntriesListForm block={block} onChange={onChange} showStepType />;
+    if (block.variant === "sorting") return <SortingBlockForm block={block} onChange={onChange} />;
+  }
+  return <p className="text-xs text-slate-400">Unknown block type.</p>;
+}
+
+function BlockCard({ block, index, total, onChange, onRemove, onMoveUp, onMoveDown, token }: {
+  block: LessonBlock; index: number; total: number;
+  onChange: (b: LessonBlock) => void; onRemove: () => void; onMoveUp: () => void; onMoveDown: () => void;
+  token: string;
+}) {
+  const [open, setOpen] = useState(true);
+  const meta = blockTypeMeta(block);
+  const Icon = meta?.icon ?? Type;
+  return (
+    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-100">
+        <GripVertical size={14} className="text-slate-300 flex-shrink-0" />
+        <Icon size={14} className="text-navy-600 flex-shrink-0" />
+        <button onClick={() => setOpen((o) => !o)} className="text-xs font-semibold text-navy-800 flex-1 text-left">
+          {meta?.label ?? block.type}
+        </button>
+        <button onClick={onMoveUp} disabled={index === 0} className="text-slate-400 hover:text-navy-700 disabled:opacity-30 p-1"><ChevronUp size={14} /></button>
+        <button onClick={onMoveDown} disabled={index === total - 1} className="text-slate-400 hover:text-navy-700 disabled:opacity-30 p-1"><ChevronDown size={14} /></button>
+        <button onClick={onRemove} className="text-slate-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
+      </div>
+      {open && <div className="p-3">
+        <BlockForm block={block} onChange={onChange} token={token} />
+      </div>}
+    </div>
+  );
+}
+
+function BlocksEditor({ lesson, courseId, moduleId, token, onSaved, onContentSaved }: {
+  lesson: Lesson; courseId: string; moduleId: string; token: string; onSaved: () => void; onContentSaved: (html: string) => void;
+}) {
+  const [blocks, setBlocks] = useState<LessonBlock[]>(() => (lesson.blocks_json ?? []).map((b: any) => ({ _id: b._id ?? newBlockId(), ...b })));
   const [saving, setSaving] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
 
-  useEffect(() => { setCode(lesson.content ?? ""); }, [lesson.id]);
+  useEffect(() => {
+    setBlocks((lesson.blocks_json ?? []).map((b: any) => ({ _id: b._id ?? newBlockId(), ...b })));
+  }, [lesson.id]);
+
+  useEffect(() => {
+    if (!showPreview) return;
+    const t = setTimeout(async () => {
+      try {
+        const res: any = await api.post(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}/blocks/preview`, { blocks }, token);
+        setPreviewHtml(res?.data?.content_body ?? res?.content_body ?? "");
+      } catch { /* preview is best-effort */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [blocks, lesson.id, courseId, moduleId, token, showPreview]);
+
+  function addBlock(key: string) {
+    const meta = BLOCK_TYPES.find((t) => t.key === key);
+    if (!meta) return;
+    setBlocks((prev) => [...prev, meta.create()]);
+    setShowPalette(false);
+  }
+  function updateBlock(i: number, next: LessonBlock) { setBlocks((prev) => prev.map((b, idx) => (idx === i ? next : b))); }
+  function removeBlock(i: number) { setBlocks((prev) => prev.filter((_, idx) => idx !== i)); }
+  function moveBlock(i: number, dir: -1 | 1) {
+    setBlocks((prev) => {
+      const next = [...prev];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
 
   async function save() {
     setSaving(true);
     try {
-      await api.patch(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`, { content_body: code }, token);
+      const res: any = await api.put(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}/blocks`, { blocks }, token);
+      const html = res?.data?.content_body ?? res?.content_body ?? "";
+      onContentSaved(html);
+      toast.success("Saved"); onSaved();
+    } catch { toast.error("Failed to save"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <button onClick={() => setShowPreview((p) => !p)} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors", showPreview ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
+          {showPreview ? "Hide Preview" : "Show Preview"}
+        </button>
+      </div>
+
+      {blocks.length === 0 && (
+        <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
+          No blocks yet — add one below to start building this page.
+        </div>
+      )}
+      <div className="space-y-3">
+        {blocks.map((b, i) => (
+          <BlockCard
+            key={b._id}
+            block={b}
+            index={i}
+            total={blocks.length}
+            token={token}
+            onChange={(next) => updateBlock(i, next)}
+            onRemove={() => removeBlock(i)}
+            onMoveUp={() => moveBlock(i, -1)}
+            onMoveDown={() => moveBlock(i, 1)}
+          />
+        ))}
+      </div>
+
+      <div className="relative">
+        <button onClick={() => setShowPalette((p) => !p)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-navy-200 hover:border-navy-400 text-navy-600 hover:bg-navy-50 transition-all text-sm font-medium">
+          <Plus size={14} /> Add block
+        </button>
+        {showPalette && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg p-2 grid grid-cols-2 gap-1.5">
+            {BLOCK_TYPES.map((t) => {
+              const TIcon = t.icon;
+              return (
+                <button key={t.key} onClick={() => addBlock(t.key)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-sm text-slate-700 text-left">
+                  <TIcon size={14} className="text-navy-500 flex-shrink-0" /> {t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showPreview && (
+        <div className="border border-slate-200 rounded-xl overflow-hidden" style={{ height: 400 }}>
+          <iframe srcDoc={previewHtml} className="w-full h-full" title="Block Preview" sandbox="allow-scripts" style={{ border: "none" }} />
+        </div>
+      )}
+
+      <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
+        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
+      </button>
+    </div>
+  );
+}
+
+// ─── HTML Editor ─────────────────────────────────────────────────────────────
+
+function VisualToolbarButton({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      title={title}
+      className="flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-slate-100 transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
+function HtmlEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Lesson; courseId: string; moduleId: string; token: string; onSaved: () => void }) {
+  const [code, setCode] = useState(lesson.content ?? "");
+  const [mode, setMode] = useState<"blocks" | "code" | "visual" | "preview">(
+    () => (lesson.blocks_json?.length || !lesson.content) ? "blocks" : "code"
+  );
+  const [saving, setSaving] = useState(false);
+  const liveRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCode(lesson.content ?? "");
+    setMode((lesson.blocks_json?.length || !lesson.content) ? "blocks" : "code");
+  }, [lesson.id]);
+
+  // Visual mode edits the exact same markup Preview renders, in place —
+  // not a schema-based editor like TipTap (which only knows headings/
+  // paragraphs/lists/links and silently drops anything else), so Rise-
+  // imported checkpoints (tabs, knowledge checks, sorting) and custom
+  // styling survive untouched; only the text nodes the professor actually
+  // edits change. Scripts don't execute via innerHTML (browsers block
+  // that), so the sorting exercise's click-to-categorize is re-wired via
+  // the same enhancer used everywhere else content renders this way —
+  // tabs/knowledge-check need no JS at all (pure CSS + radio inputs).
+  useEffect(() => {
+    if (mode !== "visual" || !liveRef.current) return;
+    liveRef.current.innerHTML = code;
+    return enhanceSortingExercises(liveRef.current);
+  }, [mode, lesson.id]);
+
+  function exec(command: string, value?: string) {
+    liveRef.current?.focus();
+    document.execCommand(command, false, value);
+  }
+
+  async function save() {
+    const finalCode = mode === "visual" && liveRef.current ? liveRef.current.innerHTML : code;
+    if (mode === "visual") setCode(finalCode);
+    setSaving(true);
+    try {
+      await api.patch(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`, { content_body: finalCode }, token);
       toast.success("Saved"); onSaved();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
@@ -571,14 +1123,58 @@ function HtmlEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Le
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">HTML Code</label>
-        <button onClick={() => setPreview(p => !p)} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors", preview ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
-          {preview ? "Edit Code" : "Preview"}
-        </button>
+        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+          {mode === "blocks" ? "Blocks" : mode === "code" ? "HTML Code" : mode === "visual" ? "Visual Editor" : "Preview"}
+        </label>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setMode("blocks")} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors flex items-center gap-1", mode === "blocks" ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
+            <LayoutGrid size={11} /> Blocks
+          </button>
+          <button onClick={() => setMode("code")} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors", mode === "code" ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
+            Code
+          </button>
+          <button onClick={() => setMode("visual")} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors", mode === "visual" ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
+            Visual
+          </button>
+          <button onClick={() => setMode("preview")} className={cn("text-xs px-3 py-1 rounded-lg border transition-colors", mode === "preview" ? "bg-orange-50 border-orange-200 text-orange-700" : "border-slate-200 text-slate-600 hover:border-slate-300")}>
+            Preview
+          </button>
+        </div>
       </div>
-      {preview ? (
+      {mode === "blocks" ? (
+        <BlocksEditor
+          lesson={lesson}
+          courseId={courseId}
+          moduleId={moduleId}
+          token={token}
+          onSaved={onSaved}
+          onContentSaved={(html) => setCode(html)}
+        />
+      ) : mode === "preview" ? (
         <div className="border border-slate-200 rounded-xl overflow-hidden" style={{ height: 500 }}>
           <iframe srcDoc={code} className="w-full h-full" title="HTML Preview" sandbox="allow-scripts" style={{ border: "none" }} />
+        </div>
+      ) : mode === "visual" ? (
+        <div>
+          <div className="flex items-center gap-1 flex-wrap p-1.5 border border-slate-200 border-b-0 rounded-t-xl bg-slate-50">
+            <VisualToolbarButton title="Bold" onClick={() => exec("bold")}><Bold size={14} /></VisualToolbarButton>
+            <VisualToolbarButton title="Italic" onClick={() => exec("italic")}><Italic size={14} /></VisualToolbarButton>
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+            <VisualToolbarButton title="Heading" onClick={() => exec("formatBlock", "<h2>")}><span className="text-xs font-bold px-0.5">H2</span></VisualToolbarButton>
+            <VisualToolbarButton title="Subheading" onClick={() => exec("formatBlock", "<h3>")}><span className="text-xs font-bold px-0.5">H3</span></VisualToolbarButton>
+            <VisualToolbarButton title="Paragraph" onClick={() => exec("formatBlock", "<p>")}><span className="text-xs font-bold px-0.5">P</span></VisualToolbarButton>
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+            <VisualToolbarButton title="Bullet list" onClick={() => exec("insertUnorderedList")}><List size={14} /></VisualToolbarButton>
+            <VisualToolbarButton title="Numbered list" onClick={() => exec("insertOrderedList")}><ListOrdered size={14} /></VisualToolbarButton>
+            <VisualToolbarButton title="Link" onClick={() => { const url = window.prompt("URL", "https://"); if (url) exec("createLink", url); }}><Link2 size={14} /></VisualToolbarButton>
+          </div>
+          <div
+            ref={liveRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="border border-slate-200 rounded-b-xl p-4 overflow-y-auto focus:outline-none"
+            style={{ height: 500 }}
+          />
         </div>
       ) : (
         <textarea
@@ -590,9 +1186,11 @@ function HtmlEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Le
           spellCheck={false}
         />
       )}
-      <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
-        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
-      </button>
+      {mode !== "blocks" && (
+        <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
+        </button>
+      )}
     </div>
   );
 }
@@ -855,6 +1453,7 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const init: Record<string, boolean> = {};
@@ -879,41 +1478,51 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
   return (
     <div className="flex h-[calc(100vh-80px)] border border-slate-200 rounded-xl overflow-hidden">
       {/* Sidebar */}
-      <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
-        <div className="px-4 py-3.5 border-b border-slate-100 bg-navy-900">
-          <p className="text-sm font-bold text-white truncate">{course.title}</p>
-        </div>
-        <div className="p-3 border-b border-slate-100">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input placeholder="Search titles, descriptions" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none" readOnly />
+      {sidebarOpen && (
+        <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+          <div className="px-4 py-3.5 border-b border-slate-100 bg-navy-900 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-white truncate">{course.title}</p>
+            <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white flex-shrink-0" title="Collapse sidebar">
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
+          <div className="p-3 border-b border-slate-100">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input placeholder="Search titles, descriptions" className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none" readOnly />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto py-2">
+            {modules.map(mod => (
+              <div key={mod.id}>
+                <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-slate-50 text-left">
+                  {expanded[mod.id] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  <span className="text-sm font-semibold text-navy-800 flex-1">{mod.title}</span>
+                </button>
+                {expanded[mod.id] && mod.lessons.map(l => {
+                  const Icon = LESSON_ICONS[l.type] ?? FileText;
+                  const isSelected = l.id === selectedId;
+                  return (
+                    <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2.5 w-full pl-8 pr-3 py-2.5 text-left transition-colors", isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700")}>
+                      <GripVertical size={13} className={isSelected ? "text-blue-300" : "text-slate-300"} />
+                      <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                      <span className={cn("text-sm flex-1 truncate", isSelected ? "text-white" : "text-slate-700")}>{l.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {modules.map(mod => (
-            <div key={mod.id}>
-              <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-slate-50 text-left">
-                {expanded[mod.id] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
-                <span className="text-sm font-semibold text-navy-800 flex-1">{mod.title}</span>
-              </button>
-              {expanded[mod.id] && mod.lessons.map(l => {
-                const Icon = LESSON_ICONS[l.type] ?? FileText;
-                const isSelected = l.id === selectedId;
-                return (
-                  <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2.5 w-full pl-8 pr-3 py-2.5 text-left transition-colors", isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700")}>
-                    <GripVertical size={13} className={isSelected ? "text-blue-300" : "text-slate-300"} />
-                    <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
-                    <span className={cn("text-sm flex-1 truncate", isSelected ? "text-white" : "text-slate-700")}>{l.title}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Content pane — PDF/HTML get full-height layout, everything else scrolls */}
-      <div className={cn("flex-1 bg-white", (lesson?.download_url && /\.pdf$/i.test(lesson.download_url)) || lesson?.type === "html" ? "flex flex-col overflow-hidden" : "overflow-y-auto")}>
+      <div className={cn("flex-1 bg-white relative", (lesson?.download_url && /\.pdf$/i.test(lesson.download_url)) || lesson?.type === "html" ? "flex flex-col overflow-hidden" : "overflow-y-auto")}>
+        {!sidebarOpen && (
+          <button onClick={() => setSidebarOpen(true)} className="absolute top-3 left-3 z-10 w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-navy-700 hover:bg-slate-50" title="Show modules">
+            <PanelLeft size={16} />
+          </button>
+        )}
         {lesson ? (
           (lesson.download_url && /\.pdf$/i.test(lesson.download_url)) || lesson.type === "html" ? (
             /* ── Full-height PDF / HTML layout ── */
@@ -934,13 +1543,32 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
                 </div>
               </div>
               {lesson.type === "html" ? (
-                <iframe
-                  srcDoc={lesson.content ?? ""}
-                  className="flex-1 w-full"
-                  title={lesson.title}
-                  style={{ border: "none" }}
-                  sandbox="allow-scripts"
-                />
+                lesson.external_url ? (
+                  // "Preserve Original Design" imports — real navigation so
+                  // the hosted course's own relative asset paths resolve.
+                  // key={lesson.id} forces a fresh <iframe> DOM node per
+                  // lesson — reusing the same node across this branch and
+                  // the srcDoc branch below left `sandbox` applying
+                  // inconsistently, so the hosted Rise app threw "sandboxed
+                  // and lacks the allow-same-origin flag" and never booted.
+                  <iframe
+                    key={lesson.id}
+                    src={lesson.external_url}
+                    className="flex-1 w-full"
+                    title={lesson.title}
+                    style={{ border: "none" }}
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                ) : (
+                  <iframe
+                    key={lesson.id}
+                    srcDoc={lesson.content ?? ""}
+                    className="flex-1 w-full"
+                    title={lesson.title}
+                    style={{ border: "none" }}
+                    sandbox="allow-scripts"
+                  />
+                )
               ) : (
                 <iframe
                   src={lesson.download_url}
@@ -974,7 +1602,7 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
             )}
 
             {(lesson.type === "reading" || lesson.type === "live_session") && lesson.content && (
-              <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: lesson.content }} />
+              <ReadingContent html={lesson.content} />
             )}
 
             {lesson.download_url && !(/\.pdf$/i.test(lesson.download_url)) && (

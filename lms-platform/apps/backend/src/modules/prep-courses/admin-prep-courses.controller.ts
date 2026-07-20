@@ -1,12 +1,25 @@
 import {
-  Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe,
+  BadRequestException, Controller, Get, Post, Put, Patch, Delete, Body, Param, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { PrepCoursesService } from "./prep-courses.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+
+// In-memory storage that avoids importing multer v2 directly (ESM-only
+// package) — same pattern as ai.controller.ts / uploads.controller.ts.
+const RAM_STORAGE: any = {
+  _handleFile(_req: any, file: any, cb: any) {
+    const chunks: Buffer[] = [];
+    file.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    file.stream.on("end", () => cb(null, { buffer: Buffer.concat(chunks) }));
+    file.stream.on("error", (err: Error) => cb(err));
+  },
+  _removeFile(_req: any, _file: any, cb: any) { cb(null); },
+};
 
 @ApiTags("Admin — Courses")
 @ApiBearerAuth()
@@ -108,6 +121,18 @@ export class AdminPrepCoursesController {
     return this.service.adminDeleteDocument(id, documentId);
   }
 
+  @Post(":id/import")
+  @ApiOperation({ summary: "Import an Articulate Rise 360 export (.zip) as new modules/lessons" })
+  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 150 * 1024 * 1024 } }))
+  importRiseExport(
+    @Param("id", ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body("mode") mode?: "decompose" | "preserve" | "scorm",
+  ) {
+    if (!file) throw new BadRequestException("No file received");
+    return this.service.adminImportRiseExport(id, file.buffer, mode);
+  }
+
   @Post(":id/publish-all")
   @ApiOperation({ summary: "Publish all modules and lessons for a course" })
   publishAll(@Param("id", ParseUUIDPipe) id: string) {
@@ -167,6 +192,28 @@ export class AdminPrepCoursesController {
     @Body() dto: any,
   ) {
     return this.service.adminUpdateLesson(id, moduleId, lessonId, dto);
+  }
+
+  @Post(":id/modules/:moduleId/lessons/:lessonId/blocks/preview")
+  @ApiOperation({ summary: "Render a block list to HTML without saving (block builder live preview)" })
+  previewLessonBlocks(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("blocks") blocks: any[],
+  ) {
+    return this.service.adminPreviewLessonBlocks(id, moduleId, lessonId, blocks ?? []);
+  }
+
+  @Put(":id/modules/:moduleId/lessons/:lessonId/blocks")
+  @ApiOperation({ summary: "Save a lesson's block list (renders + persists blocks_json and content_body)" })
+  saveLessonBlocks(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("blocks") blocks: any[],
+  ) {
+    return this.service.adminSaveLessonBlocks(id, moduleId, lessonId, blocks ?? []);
   }
 
   @Delete(":id/modules/:moduleId/lessons/:lessonId")

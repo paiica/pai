@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import {
   ChevronLeft, ChevronRight, ChevronDown,
   Video, FileText, HelpCircle, File, Download, Link2,
-  Menu, Search, X, BookOpen,
+  Menu, Search, X, BookOpen, Maximize, Minimize,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -79,6 +79,22 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
   const token = useAuthStore((s) => s.accessToken)!;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }
 
   const lessonMatch = pathname.match(/\/lesson\/([^/]+)/);
   const currentLessonId = lessonMatch?.[1] ?? null;
@@ -89,13 +105,19 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
   );
 
   const modules: any[] = data?.modules ?? [];
-  const allLessons = useMemo(() => modules.flatMap((m: any) => Array.isArray(m.lessons) ? m.lessons : []), [modules]);
+  const allLessons = useMemo(
+    () => modules.flatMap((m: any) =>
+      (Array.isArray(m.lessons) ? m.lessons : []).map((l: any) => ({ ...l, moduleId: m.id, moduleTitle: m.title }))
+    ),
+    [modules]
+  );
   const currentIdx = allLessons.findIndex((l: any) => l.id === currentLessonId);
   const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
   const nextLesson = currentIdx >= 0 && currentIdx < allLessons.length - 1 ? allLessons[currentIdx + 1] : null;
+  const nextStartsNewModule = !!nextLesson && allLessons[currentIdx]?.moduleId !== nextLesson.moduleId;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white">
+    <div ref={containerRef} className="flex flex-col h-screen overflow-hidden bg-white">
       {/* Top bar */}
       <div className="h-14 bg-[#1a1f3c] flex items-center px-4 gap-3 flex-shrink-0 border-b border-white/10">
         <button
@@ -103,6 +125,13 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
           className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
         >
           <Menu size={17} />
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          title={isFullscreen ? "Exit full screen" : "Full screen"}
+        >
+          {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
         <div className="h-5 w-px bg-white/20" />
         <Link href="/learn" className="flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap">
@@ -179,7 +208,31 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
             </div>
           </div>
         )}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-white">{children}</main>
+        <main className="flex-1 min-w-0 overflow-y-auto bg-white">
+          {children}
+          {currentLessonId && (
+            <div className="max-w-3xl mx-auto px-6 pb-16 pt-2">
+              <div className="flex items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400 font-medium mb-0.5">
+                    {nextLesson ? (nextStartsNewModule ? "Next module" : "Up next") : "Course complete"}
+                  </p>
+                  <p className="text-sm font-semibold text-navy-900 truncate">
+                    {nextLesson
+                      ? (nextStartsNewModule ? nextLesson.moduleTitle : nextLesson.title)
+                      : "You've reached the end of this course"}
+                  </p>
+                </div>
+                <Link
+                  href={nextLesson ? `/learn/course/${enrollmentId}/lesson/${nextLesson.id}` : `/learn/course/${enrollmentId}`}
+                  className="btn-primary !py-2.5 !px-5 flex items-center gap-2 flex-shrink-0"
+                >
+                  {nextLesson ? (nextStartsNewModule ? "Next Module" : "Next Lesson") : "Finish"} <ChevronRight size={16} />
+                </Link>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

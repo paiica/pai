@@ -66,6 +66,18 @@ export class LearningController {
     return this.learningService.completeLesson(enrollmentId, lessonId, userId, dto);
   }
 
+  @Post(":enrollmentId/lesson/:lessonId/scorm-progress")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Report SCORM completion/score from the in-page bridge script" })
+  updateScormProgress(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: { completed: boolean; score?: number; cmi_snapshot: any },
+  ) {
+    return this.learningService.updateScormProgress(enrollmentId, lessonId, userId, dto);
+  }
+
   @Post(":enrollmentId/lesson/:lessonId/quiz/submit")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Submit quiz answers — returns score and pass/fail" })

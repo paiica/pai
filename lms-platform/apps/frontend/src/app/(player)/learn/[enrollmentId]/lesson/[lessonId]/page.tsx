@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { enhanceSortingExercises } from "@/lib/interactive-content";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
@@ -113,6 +114,12 @@ function VideoLesson({
 function ReadingLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!contentRef.current) return;
+    return enhanceSortingExercises(contentRef.current);
+  }, [lesson.content_body]);
+
   async function complete() {
     await toast.promise(
       api.post<any>(`/learn/${enrollmentId}/lesson/${lesson.id}/complete`, {}, token).then(onComplete),
@@ -124,6 +131,7 @@ function ReadingLesson({
     <div className="space-y-6">
       {lesson.content_body ? (
         <div
+          ref={contentRef}
           className="prose prose-slate prose-lg max-w-none"
           dangerouslySetInnerHTML={{ __html: lesson.content_body }}
         />
@@ -323,15 +331,74 @@ function QuizLesson({
 function HtmlLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   async function complete() {
     await api.post<any>(`/learn/${enrollmentId}/lesson/${lesson.id}/complete`, {}, token);
     onComplete();
   }
 
+  // SCORM packages carry a bridge script (injected at import time) that
+  // implements window.API in-memory and reports out via postMessage, since
+  // the SCO is hosted cross-origin on R2 and can't read window.parent.API
+  // directly. Only messages from this exact iframe's contentWindow are
+  // trusted — anything else on the page could otherwise spoof progress.
+  useEffect(() => {
+    function onScormMessage(event: MessageEvent) {
+      if (event.data?.type !== "scorm-event") return;
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const cmi = event.data.cmi ?? {};
+      const status = cmi["cmi.core.lesson_status"];
+      const completed = status === "completed" || status === "passed";
+      const rawScore = cmi["cmi.core.score.raw"];
+      const score = rawScore !== undefined && rawScore !== "" && !Number.isNaN(Number(rawScore))
+        ? Number(rawScore)
+        : undefined;
+      api.post<any>(
+        `/learn/${enrollmentId}/lesson/${lesson.id}/scorm-progress`,
+        { completed, score, cmi_snapshot: cmi },
+        token
+      ).then(() => { if (completed) onComplete(); }).catch(() => {});
+    }
+    window.addEventListener("message", onScormMessage);
+    return () => window.removeEventListener("message", onScormMessage);
+  }, [enrollmentId, lesson.id, token]);
+
+  // "Preserve Original Design" imports set external_url instead of shipping
+  // content_body — a real navigation (not innerHTML injection) so the
+  // hosted course's own relative asset paths resolve correctly. Fills the
+  // page's html-type container (see the parent page's width={100%} branch
+  // that skips the max-w-3xl reading column for this lesson type) rather
+  // than a 100vw viewport hack, which overshoots/undershoots depending on
+  // the sidebar's open/collapsed width.
+  // key={lesson.id} forces a fresh <iframe> DOM node per lesson — since
+  // this component returns different JSX depending on external_url, React
+  // can otherwise reuse the same underlying iframe element across lesson
+  // switches, and `sandbox` doesn't reliably re-apply on a reused element
+  // that's already mid-navigation: the hosted Rise app would throw
+  // "sandboxed and lacks the allow-same-origin flag" reading
+  // document.cookie and never boot, even with the correct attribute value.
+  if (lesson.external_url) {
+    return (
+      <div key={lesson.id} style={{ width: "100%", height: "calc(100vh - 180px)", minHeight: 500 }}>
+        <iframe
+          key={lesson.id}
+          ref={iframeRef}
+          src={lesson.external_url}
+          className="w-full h-full border-0"
+          title={lesson.title}
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={complete}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: 400 }}>
+    <div key={lesson.id} className="flex flex-col" style={{ width: "100%", height: "calc(100vh - 220px)", minHeight: 400 }}>
       {lesson.content_body ? (
         <iframe
+          key={lesson.id}
           srcDoc={lesson.content_body}
           className="flex-1 w-full rounded-xl border border-slate-200"
           title={lesson.title}
@@ -586,10 +653,12 @@ export default function LessonPage() {
 
   const { lesson, progress, submission } = data;
 
+  const isHtmlLesson = lesson.type === "html";
+
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
+    <div className="px-6 py-8">
       {/* Lesson header */}
-      <div className="mb-7">
+      <div className={cn("mb-7", !isHtmlLesson && "max-w-3xl mx-auto")}>
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className="badge bg-slate-100 text-slate-600 capitalize">{lesson.type.replace("_", " ")}</span>
           <span className="text-sm text-slate-400 flex items-center gap-1">
@@ -610,7 +679,7 @@ export default function LessonPage() {
       </div>
 
       {/* Content */}
-      <div className="mb-8">
+      <div className={cn("mb-8", !isHtmlLesson && "max-w-3xl mx-auto")}>
         {lesson.type === "video" && (
           <VideoLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} />
         )}
@@ -633,7 +702,7 @@ export default function LessonPage() {
 
       {/* Resources */}
       {lesson.resources?.length > 0 && (
-        <div className="rounded-xl border border-slate-100 p-4">
+        <div className={cn("rounded-xl border border-slate-100 p-4", !isHtmlLesson && "max-w-3xl mx-auto")}>
           <p className="text-sm font-semibold text-navy-800 mb-3">Resources</p>
           <div className="space-y-2">
             {lesson.resources.map((r: any) => (

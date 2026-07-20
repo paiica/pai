@@ -44,7 +44,7 @@ export class SiteSettingsService {
   async getApiSettings() {
     const keys = [
       "resend_api_key", "email_from", "email_from_name",
-      "s3_endpoint", "s3_region", "s3_bucket_name", "s3_access_key_id", "s3_secret_access_key",
+      "s3_endpoint", "s3_region", "s3_bucket_name", "s3_access_key_id", "s3_secret_access_key", "s3_public_url_base",
       "supabase_project_url", "supabase_anon_key",
       "google_analytics_id",
     ];
@@ -59,6 +59,7 @@ export class SiteSettingsService {
       s3_endpoint:              map.s3_endpoint              ?? "",
       s3_region:                map.s3_region                ?? "us-east-1",
       s3_bucket_name:           map.s3_bucket_name           ?? "",
+      s3_public_url_base:       map.s3_public_url_base       ?? "",
       supabase_project_url:     map.supabase_project_url     ?? "",
       supabase_anon_key:        map.supabase_anon_key        ?? "",
       google_analytics_id:      map.google_analytics_id      ?? "",

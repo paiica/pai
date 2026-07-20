@@ -9,6 +9,9 @@ import { SubmitAssignmentDto } from "../learning/dto/submit-assignment.dto";
 import { GradeSubmissionDto } from "../courses/dto/grade-submission.dto";
 import { CompleteLessonDto } from "../learning/dto/complete-lesson.dto";
 import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
+import { ContentImportService } from "../content-import/content-import.service";
+import { UploadsService } from "../uploads/uploads.service";
+import { renderBlockItems, wrapLessonContent, ImportPlan } from "../content-import/rise-html-blocks";
 
 @Injectable()
 export class PrepCoursesService {
@@ -17,6 +20,8 @@ export class PrepCoursesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private contentImport: ContentImportService,
+    private uploads: UploadsService,
   ) {}
 
   // ─── Auth helpers ────────────────────────────────────────────────────
@@ -174,6 +179,38 @@ export class PrepCoursesService {
     });
 
     await this.recalculateCourseProgress(enrollmentId);
+    return progress;
+  }
+
+  async updateCourseScormProgress(
+    enrollmentId: string,
+    lessonId: string,
+    userId: string,
+    dto: { completed: boolean; score?: number; cmi_snapshot: any },
+  ) {
+    await this.assertCourseEnrollment(enrollmentId, userId);
+
+    const progress = await this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: {
+        user_id: userId,
+        course_enrollment_id: enrollmentId,
+        lesson_id: lessonId,
+        completed: dto.completed,
+        completed_at: dto.completed ? new Date() : undefined,
+        quiz_score: dto.score,
+        scorm_data: dto.cmi_snapshot,
+      },
+      update: {
+        completed: dto.completed,
+        completed_at: dto.completed ? new Date() : undefined,
+        quiz_score: dto.score,
+        scorm_data: dto.cmi_snapshot,
+        updated_at: new Date(),
+      },
+    });
+
+    if (dto.completed) await this.recalculateCourseProgress(enrollmentId);
     return progress;
   }
 
@@ -773,6 +810,15 @@ export class PrepCoursesService {
   }
 
   async adminDelete(id: string) {
+    // Module/Lesson cascade at the DB level, which would silently skip R2
+    // cleanup (that only happens in the per-module/per-lesson delete methods
+    // above) — clean up every lesson under this course first.
+    const lessons = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT content_body, external_url FROM lms.lessons WHERE module_id IN (SELECT id FROM lms.modules WHERE course_id = $1)`,
+      id,
+    );
+    await Promise.all(lessons.map((l) => this.uploads.cleanupLessonStorage(l)));
+
     // CourseEnrollment has no onDelete: Cascade in schema, so delete manually first.
     // CourseTeacher and Module (→ Lesson etc.) do have Cascade and are handled by the DB.
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.course_enrollments WHERE course_id = $1`, id);
@@ -972,6 +1018,50 @@ export class PrepCoursesService {
     return rows[0];
   }
 
+  // Imports an Articulate Rise 360 export (.zip) as new modules/lessons on
+  // top of whatever's already in the course — an additive alternative to
+  // building modules by hand, not a replacement for it. `mode: "preserve"`
+  // hosts the original course design/experience as one embedded lesson;
+  // `mode: "decompose"` (default) reconstructs it as editable PAII content.
+  async adminImportRiseExport(courseId: string, zipBuffer: Buffer, mode: "decompose" | "preserve" | "scorm" = "decompose") {
+    let plan: ImportPlan;
+    if (mode === "scorm") {
+      const { title, launchHref, contentRoot } = this.contentImport.parseScormManifest(zipBuffer);
+      const { launchUrl } = await this.contentImport.hostScormPackageAsStaticSite(zipBuffer, contentRoot, launchHref);
+      plan = this.contentImport.buildScormPlan(title, launchUrl);
+    } else {
+      const { course, assets } = this.contentImport.parseRiseExport(zipBuffer);
+      plan = mode === "preserve"
+        ? this.contentImport.buildOriginalDesignPlan(course, (await this.contentImport.hostRiseExportAsStaticSite(zipBuffer)).indexUrl)
+        : await this.contentImport.buildImportPlan(course, assets);
+    }
+
+    let modulesCreated = 0, lessonsCreated = 0, questionsCreated = 0;
+    for (const [mi, plannedModule] of plan.modules.entries()) {
+      const mod = await this.adminCreateModule(courseId, { title: plannedModule.title, order_index: mi });
+      modulesCreated++;
+      for (const [li, lesson] of plannedModule.lessons.entries()) {
+        const created = await this.adminCreateLesson(courseId, mod.id, {
+          title: lesson.title, type: lesson.type, content: lesson.content_html ?? null,
+          external_url: lesson.external_url ?? null, order_index: li,
+        });
+        lessonsCreated++;
+        for (const [qi, q] of (lesson.questions ?? []).entries()) {
+          await this.adminCreateQuestion(courseId, mod.id, created.id, { ...q, sort_order: qi });
+          questionsCreated++;
+        }
+      }
+    }
+
+    return {
+      modules_created: modulesCreated,
+      lessons_created: lessonsCreated,
+      questions_created: questionsCreated,
+      images_uploaded: plan.images_uploaded,
+      flagged: plan.flagged,
+    };
+  }
+
   async adminUpdateModule(courseId: string, moduleId: string, dto: Record<string, any>) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT id FROM lms.modules WHERE id = $1 AND course_id = $2`,
@@ -1015,12 +1105,19 @@ export class PrepCoursesService {
       moduleId, courseId,
     );
     if (!rows.length) throw new NotFoundException("Module not found");
+    // Clean up any R2 objects this module's lessons referenced before the
+    // rows (and with them, our only record of what to clean up) are gone.
+    const lessons = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT content_body, external_url FROM lms.lessons WHERE module_id = $1`,
+      moduleId,
+    );
+    await Promise.all(lessons.map((l) => this.uploads.cleanupLessonStorage(l)));
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.modules WHERE id = $1`, moduleId);
     return { message: "Module deleted" };
   }
 
   async adminCreateLesson(courseId: string, moduleId: string, dto: Record<string, any>) {
-    const { title, content, duration_minutes, order_index, type } = dto;
+    const { title, content, external_url, duration_minutes, order_index, type } = dto;
     if (!title?.trim()) throw new BadRequestException("Lesson title is required");
 
     const moduleRows = await this.prisma.$queryRawUnsafe<any[]>(
@@ -1031,9 +1128,9 @@ export class PrepCoursesService {
 
     const lessonType = type || 'reading';
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
-      INSERT INTO lms.lessons (id, module_id, title, content_body, type, duration_minutes, sort_order, is_published, is_free_preview, created_at, updated_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4::lms."LessonType", $5, $6, true, false, now(), now()) RETURNING *
-    `, moduleId, title, content || null, lessonType, duration_minutes ?? 0, order_index ?? 0);
+      INSERT INTO lms.lessons (id, module_id, title, content_body, external_url, type, duration_minutes, sort_order, is_published, is_free_preview, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::lms."LessonType", $6, $7, true, false, now(), now()) RETURNING *
+    `, moduleId, title, content || null, external_url || null, lessonType, duration_minutes ?? 0, order_index ?? 0);
     return rows[0];
   }
 
@@ -1079,6 +1176,42 @@ export class PrepCoursesService {
     return updated[0];
   }
 
+  private async assertAdminLessonInCourse(courseId: string, moduleId: string, lessonId: string) {
+    const moduleRows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM lms.modules WHERE id = $1 AND course_id = $2`,
+      moduleId, courseId,
+    );
+    if (!moduleRows.length) throw new NotFoundException("Module not found");
+    const lessonRows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM lms.lessons WHERE id = $1 AND module_id = $2`,
+      lessonId, moduleId,
+    );
+    if (!lessonRows.length) throw new NotFoundException("Lesson not found");
+  }
+
+  // Renders a manually-built block list to HTML the same way Rise imports
+  // are rendered (shared dispatch in rise-html-blocks.ts) — no persistence,
+  // used for the block builder's live preview.
+  async adminPreviewLessonBlocks(courseId: string, moduleId: string, lessonId: string, blocks: any[]) {
+    await this.assertAdminLessonInCourse(courseId, moduleId, lessonId);
+    const flags: string[] = [];
+    const { html } = await renderBlockItems(blocks, new Map(), this.uploads.uploadBufferServerSide.bind(this.uploads), flags);
+    return { content_body: wrapLessonContent(html), flags };
+  }
+
+  // Renders and persists — both `blocks_json` (so the builder can reopen
+  // the same blocks later) and `content_body` (what students/Preview
+  // actually render) are written together so they never drift apart.
+  async adminSaveLessonBlocks(courseId: string, moduleId: string, lessonId: string, blocks: any[]) {
+    await this.assertAdminLessonInCourse(courseId, moduleId, lessonId);
+    const flags: string[] = [];
+    const { html } = await renderBlockItems(blocks, new Map(), this.uploads.uploadBufferServerSide.bind(this.uploads), flags);
+    return this.prisma.lesson.update({
+      where: { id: lessonId },
+      data: { blocks_json: blocks, content_body: wrapLessonContent(html) },
+    });
+  }
+
   async adminDeleteLesson(courseId: string, moduleId: string, lessonId: string) {
     const moduleRows = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT id FROM lms.modules WHERE id = $1 AND course_id = $2`,
@@ -1087,11 +1220,12 @@ export class PrepCoursesService {
     if (!moduleRows.length) throw new NotFoundException("Module not found");
 
     const lessonRows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM lms.lessons WHERE id = $1 AND module_id = $2`,
+      `SELECT id, content_body, external_url FROM lms.lessons WHERE id = $1 AND module_id = $2`,
       lessonId, moduleId,
     );
     if (!lessonRows.length) throw new NotFoundException("Lesson not found");
 
+    await this.uploads.cleanupLessonStorage(lessonRows[0]);
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.lessons WHERE id = $1`, lessonId);
     return { message: "Lesson deleted" };
   }
@@ -1205,8 +1339,60 @@ export class PrepCoursesService {
 
   async deleteCourseModule(moduleId: string, userId: string, role: Role) {
     await this.assertModuleCourseAccess(moduleId, userId, role);
+    const lessons = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT content_body, external_url FROM lms.lessons WHERE module_id = $1`,
+      moduleId,
+    );
+    await Promise.all(lessons.map((l) => this.uploads.cleanupLessonStorage(l)));
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.modules WHERE id = $1`, moduleId);
     return { message: "Module deleted" };
+  }
+
+  // Professor counterpart to adminImportRiseExport — createCourseModule only
+  // takes a title and createCourseLesson doesn't accept content at creation
+  // time, so content is applied via a follow-up updateCourseLesson call.
+  async profImportRiseExport(courseId: string, zipBuffer: Buffer, userId: string, role: Role, mode: "decompose" | "preserve" | "scorm" = "decompose") {
+    await this.assertTeacherAccess(courseId, userId, role);
+
+    let plan: ImportPlan;
+    if (mode === "scorm") {
+      const { title, launchHref, contentRoot } = this.contentImport.parseScormManifest(zipBuffer);
+      const { launchUrl } = await this.contentImport.hostScormPackageAsStaticSite(zipBuffer, contentRoot, launchHref);
+      plan = this.contentImport.buildScormPlan(title, launchUrl);
+    } else {
+      const { course, assets } = this.contentImport.parseRiseExport(zipBuffer);
+      plan = mode === "preserve"
+        ? this.contentImport.buildOriginalDesignPlan(course, (await this.contentImport.hostRiseExportAsStaticSite(zipBuffer)).indexUrl)
+        : await this.contentImport.buildImportPlan(course, assets);
+    }
+
+    let modulesCreated = 0, lessonsCreated = 0, questionsCreated = 0;
+    for (const plannedModule of plan.modules) {
+      const mod = await this.createCourseModule(courseId, plannedModule.title, userId, role);
+      modulesCreated++;
+      for (const lesson of plannedModule.lessons) {
+        const created = await this.createCourseLesson(mod.id, { title: lesson.title, type: lesson.type }, userId, role);
+        lessonsCreated++;
+        if (lesson.content_html || lesson.external_url) {
+          const update: Record<string, any> = {};
+          if (lesson.content_html) update.content_body = lesson.content_html;
+          if (lesson.external_url) update.external_url = lesson.external_url;
+          await this.updateCourseLesson(created.id, update, userId, role);
+        }
+        for (const q of lesson.questions ?? []) {
+          await this.profCreateQuestion(created.id, q, userId, role);
+          questionsCreated++;
+        }
+      }
+    }
+
+    return {
+      modules_created: modulesCreated,
+      lessons_created: lessonsCreated,
+      questions_created: questionsCreated,
+      images_uploaded: plan.images_uploaded,
+      flagged: plan.flagged,
+    };
   }
 
   // ─── Lessons (course builder) ─────────────────────────────────────────
@@ -1257,8 +1443,36 @@ export class PrepCoursesService {
     return rows[0];
   }
 
+  // Renders a manually-built block list to HTML the same way Rise imports
+  // are rendered (shared dispatch in rise-html-blocks.ts) — no persistence,
+  // used for the block builder's live preview.
+  async previewCourseLessonBlocks(lessonId: string, blocks: any[], userId: string, role: Role) {
+    await this.assertLessonCourseAccess(lessonId, userId, role);
+    const flags: string[] = [];
+    const { html } = await renderBlockItems(blocks, new Map(), this.uploads.uploadBufferServerSide.bind(this.uploads), flags);
+    return { content_body: wrapLessonContent(html), flags };
+  }
+
+  // Renders and persists — both `blocks_json` (so the builder can reopen
+  // the same blocks later) and `content_body` (what students/Preview
+  // actually render) are written together so they never drift apart.
+  async saveCourseLessonBlocks(lessonId: string, blocks: any[], userId: string, role: Role) {
+    await this.assertLessonCourseAccess(lessonId, userId, role);
+    const flags: string[] = [];
+    const { html } = await renderBlockItems(blocks, new Map(), this.uploads.uploadBufferServerSide.bind(this.uploads), flags);
+    return this.prisma.lesson.update({
+      where: { id: lessonId },
+      data: { blocks_json: blocks, content_body: wrapLessonContent(html) },
+    });
+  }
+
   async deleteCourseLesson(lessonId: string, userId: string, role: Role) {
     await this.assertLessonCourseAccess(lessonId, userId, role);
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT content_body, external_url FROM lms.lessons WHERE id = $1`,
+      lessonId,
+    );
+    if (rows[0]) await this.uploads.cleanupLessonStorage(rows[0]);
     await this.prisma.$executeRawUnsafe(`DELETE FROM lms.lessons WHERE id = $1`, lessonId);
     return { message: "Lesson deleted" };
   }

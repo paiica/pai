@@ -533,6 +533,7 @@ model Lesson {
   video_url          String?
   video_duration_sec Int?
   content_body       String?  @db.Text
+  blocks_json        Json?
   download_url       String?
   allow_download     Boolean  @default(true)
   external_url       String?
@@ -952,6 +953,7 @@ model LessonProgress {
   quiz_passed   Boolean?
   quiz_attempts Int        @default(0)
   last_position Int        @default(0)
+  scorm_data    Json?
   started_at    DateTime   @default(now())
   updated_at    DateTime   @updatedAt
 

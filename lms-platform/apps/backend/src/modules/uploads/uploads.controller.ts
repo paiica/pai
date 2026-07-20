@@ -102,6 +102,15 @@ export class UploadsController {
     };
   }
 
+  @Post("content-image")
+  @ApiOperation({ summary: "Upload an image for lesson content (block builder, rich text editors)" })
+  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 15 * 1024 * 1024 } }))
+  async uploadContentImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException("No file received");
+    const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+    return { url };
+  }
+
   @Post("document")
   @ApiOperation({ summary: "Upload a document to local disk (dev — swap for S3 later)" })
   @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 50 * 1024 * 1024 } }))

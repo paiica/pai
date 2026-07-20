@@ -8,7 +8,7 @@ import Link from "next/link";
 import {
   Mail, Save, Loader2, ArrowUpRight, ToggleLeft, ToggleRight,
   Code2, Eye, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Tag, Send,
-  Search, X, PencilLine,
+  Search, X, PencilLine, LayoutGrid, AlertTriangle,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -18,6 +18,32 @@ const MonacoEditor = dynamic(
   () => import("@monaco-editor/react"),
   { ssr: false, loading: () => <div className="h-96 bg-slate-900 rounded-xl animate-pulse" /> },
 ) as any;
+
+const RichTextEditor = dynamic(
+  () => import("@/components/RichTextEditor"),
+  { ssr: false, loading: () => <div className="h-40 bg-slate-50 animate-pulse rounded-xl" /> },
+);
+
+// Every template is built from emailShell(body) — the body sits between
+// these two markers. Visual mode edits only that inner fragment so the
+// branded header/footer (a fixed table layout) never goes anywhere near
+// TipTap's schema, which can't represent it.
+const BODY_TD_RE = /(<!-- BODY[\s\S]*?<td[^>]*style="padding:40px"[^>]*>\s*)([\s\S]*?)(\s*<\/td>\s*<\/tr>\s*\n\s*<!-- FOOTER)/;
+
+function extractBody(html: string): string | null {
+  const m = html.match(BODY_TD_RE);
+  return m ? m[2] : null;
+}
+
+function injectBody(html: string, newBody: string): string {
+  if (!BODY_TD_RE.test(html)) return html;
+  return html.replace(BODY_TD_RE, (_m, pre, _old, post) => `${pre}${newBody}${post}`);
+}
+
+// TipTap only knows headings/paragraphs/lists/bold-italic/links — a styled
+// CTA button or a data table (both common in these templates) would
+// silently flatten to plain text the moment it's opened here.
+const EMAIL_BODY_HAS_RICH_MARKUP = /<table|<div style|<td style/i;
 
 // ─── Shell builder ────────────────────────────────────────────────────────────
 // Generates the complete email HTML. Admins edit this entire document.
@@ -520,12 +546,14 @@ interface CardProps {
 
 function TemplateCard({ tpl, subject, enabled, customHtml, expanded, onToggleExpand, onSubjectChange, onEnabledChange, onHtmlChange, onSendTest, testing }: CardProps) {
   const [showEditor, setShowEditor] = useState(false);
-  const [previewMode, setPreviewMode] = useState(true);
+  const [mode, setMode] = useState<"code" | "visual" | "preview">("preview");
 
   const hasCustomHtml = customHtml.trim().length > 0;
   const hasCustomSubject = subject.trim().length > 0;
   const editorValue = hasCustomHtml ? customHtml : tpl.defaultHtml;
   const categoryStyle = CATEGORY_STYLES[tpl.categoryColor] ?? CATEGORY_STYLES.blue;
+  const bodyFragment = extractBody(editorValue);
+  const bodyHasRichMarkup = !!bodyFragment && EMAIL_BODY_HAS_RICH_MARKUP.test(bodyFragment);
 
   return (
     <div className={`card overflow-hidden border-l-4 transition-colors ${categoryStyle.border} ${!enabled ? "opacity-60" : ""}`}>
@@ -630,15 +658,24 @@ function TemplateCard({ tpl, subject, enabled, customHtml, expanded, onToggleExp
                 <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
                   <button
                     type="button"
-                    onClick={() => setPreviewMode(false)}
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors ${!previewMode ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    onClick={() => setMode("code")}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors ${mode === "code" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                   >
                     <Code2 size={12} /> Code
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPreviewMode(true)}
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors ${previewMode ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    onClick={() => setMode("visual")}
+                    disabled={!bodyFragment}
+                    title={bodyFragment ? undefined : "Visual editing needs the standard email shell — this template's structure couldn't be matched"}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-40 ${mode === "visual" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <LayoutGrid size={12} /> Visual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("preview")}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors ${mode === "preview" ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                   >
                     <Eye size={12} /> Preview
                   </button>
@@ -654,8 +691,8 @@ function TemplateCard({ tpl, subject, enabled, customHtml, expanded, onToggleExp
                 )}
               </div>
 
-              {/* Preview (iframe) or code editor */}
-              {previewMode ? (
+              {/* Preview (iframe), visual body editor, or full code editor */}
+              {mode === "preview" ? (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="bg-slate-50 px-3 py-1.5 text-xs text-slate-500 font-medium border-b border-slate-200 flex items-center gap-1.5">
                     <Eye size={11} />
@@ -667,6 +704,24 @@ function TemplateCard({ tpl, subject, enabled, customHtml, expanded, onToggleExp
                     className="w-full border-0 block"
                     style={{ height: 560, background: "#f7f8fa" }}
                   />
+                </div>
+              ) : mode === "visual" ? (
+                <div className="space-y-2">
+                  {bodyHasRichMarkup && (
+                    <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                      <span>This template's message has a styled button, table, or box that plain text formatting can't show. Editing here is fine for wording — but saving from this view will strip that styling. Use Code mode to change layout or button styles.</span>
+                    </div>
+                  )}
+                  <RichTextEditor
+                    value={bodyFragment ?? ""}
+                    onChange={(html: string) => onHtmlChange(injectBody(editorValue, html))}
+                    placeholder="Write the email message…"
+                    minHeight={200}
+                  />
+                  <p className="text-xs text-slate-400">
+                    Editing just the message — the branded header and footer stay as-is. Switch to Code mode to change layout, buttons, or the header/footer.
+                  </p>
                 </div>
               ) : (
                 <div className="rounded-xl overflow-hidden border border-slate-200">

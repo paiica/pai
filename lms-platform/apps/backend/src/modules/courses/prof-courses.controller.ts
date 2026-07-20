@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe,
+  BadRequestException, Controller, Get, Post, Put, Delete, Body, Param, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { CoursesService } from "./courses.service";
@@ -9,6 +10,18 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { CreateModuleDto } from "./dto/create-module.dto";
+
+// In-memory storage that avoids importing multer v2 directly (ESM-only
+// package) — same pattern as ai.controller.ts / uploads.controller.ts.
+const RAM_STORAGE: any = {
+  _handleFile(_req: any, file: any, cb: any) {
+    const chunks: Buffer[] = [];
+    file.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    file.stream.on("end", () => cb(null, { buffer: Buffer.concat(chunks) }));
+    file.stream.on("error", (err: Error) => cb(err));
+  },
+  _removeFile(_req: any, _file: any, cb: any) { cb(null); },
+};
 import { UpdateModuleDto } from "./dto/update-module.dto";
 import { CreateLessonDto } from "./dto/create-lesson.dto";
 import { UpdateLessonDto } from "./dto/update-lesson.dto";
@@ -43,6 +56,20 @@ export class ProfCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.coursesService.getCertificationForBuilder(certId, userId, role);
+  }
+
+  @Post("certifications/:certId/import")
+  @ApiOperation({ summary: "Import an Articulate Rise 360 export (.zip) as new modules/lessons" })
+  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 150 * 1024 * 1024 } }))
+  importRiseExport(
+    @Param("certId", ParseUUIDPipe) certId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+    @Body("mode") mode?: "decompose" | "preserve" | "scorm",
+  ) {
+    if (!file) throw new BadRequestException("No file received");
+    return this.coursesService.importRiseExport(certId, file.buffer, userId, role, mode);
   }
 
   // ─── Modules ─────────────────────────────────────────────────────────
@@ -122,6 +149,28 @@ export class ProfCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.coursesService.deleteLesson(lessonId, userId, role);
+  }
+
+  @Post("lessons/:lessonId/blocks/preview")
+  @ApiOperation({ summary: "Render a block list to HTML without saving (block builder live preview)" })
+  previewLessonBlocks(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("blocks") blocks: any[],
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.previewLessonBlocks(lessonId, blocks ?? [], userId, role);
+  }
+
+  @Put("lessons/:lessonId/blocks")
+  @ApiOperation({ summary: "Save a lesson's block list (renders + persists blocks_json and content_body)" })
+  saveLessonBlocks(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("blocks") blocks: any[],
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.saveLessonBlocks(lessonId, blocks ?? [], userId, role);
   }
 
   @Post("modules/:moduleId/lessons/reorder")

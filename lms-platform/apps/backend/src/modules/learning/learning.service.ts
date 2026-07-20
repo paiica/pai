@@ -267,6 +267,38 @@ export class LearningService {
     return progress;
   }
 
+  async updateScormProgress(
+    enrollmentId: string,
+    lessonId: string,
+    userId: string,
+    dto: { completed: boolean; score?: number; cmi_snapshot: any },
+  ) {
+    await this.assertEnrollment(enrollmentId, userId);
+
+    const progress = await this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: {
+        user_id: userId,
+        enrollment_id: enrollmentId,
+        lesson_id: lessonId,
+        completed: dto.completed,
+        completed_at: dto.completed ? new Date() : undefined,
+        quiz_score: dto.score,
+        scorm_data: dto.cmi_snapshot,
+      },
+      update: {
+        completed: dto.completed,
+        completed_at: dto.completed ? new Date() : undefined,
+        quiz_score: dto.score,
+        scorm_data: dto.cmi_snapshot,
+        updated_at: new Date(),
+      },
+    });
+
+    if (dto.completed) await this.recalculateProgress(enrollmentId, userId);
+    return progress;
+  }
+
   // ─── Assignment Grading ───────────────────────────────────────────────
 
   async completeGradedAssignment(enrollmentId: string, lessonId: string, userId: string) {

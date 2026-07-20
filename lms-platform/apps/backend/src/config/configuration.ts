@@ -33,6 +33,9 @@ export default () => ({
     accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
     bucketName: process.env.S3_BUCKET_NAME || "pai-lms-assets",
+    // Only needed for S3-compatible providers (e.g. Cloudflare R2) whose
+    // upload endpoint isn't also the public read URL.
+    publicUrlBase: process.env.S3_PUBLIC_URL_BASE || "",
   },
 
   email: {

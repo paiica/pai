@@ -61,6 +61,74 @@ const PROVIDER_MODELS: Record<Provider, { value: string; label: string }[]> = {
   ],
 };
 
+// ── Storage config constants ───────────────────────────────────────────────────
+
+type StorageProvider = "aws" | "r2" | "b2" | "other";
+
+const STORAGE_PROVIDERS: {
+  value: StorageProvider; label: string; color: string; desc: string;
+  endpointPlaceholder: string; endpointHelp: string;
+  regionDefault: string; regionHelp: string;
+  showPublicUrlBase: boolean; publicUrlBaseHelp: string;
+}[] = [
+  {
+    value: "aws",
+    label: "AWS S3",
+    color: "bg-orange-500",
+    desc: "Pay-per-use — no free tier",
+    endpointPlaceholder: "",
+    endpointHelp: "Leave blank to use AWS's default endpoint.",
+    regionDefault: "us-east-1",
+    regionHelp: "The AWS region your bucket was created in.",
+    showPublicUrlBase: false,
+    publicUrlBaseHelp: "",
+  },
+  {
+    value: "r2",
+    label: "Cloudflare R2",
+    color: "bg-amber-500",
+    desc: "10GB free, zero egress fees",
+    endpointPlaceholder: "https://<account-id>.r2.cloudflarestorage.com",
+    endpointHelp: "Your Account ID is shown in the Cloudflare dashboard sidebar under R2.",
+    regionDefault: "auto",
+    regionHelp: "R2 always uses \"auto\" — it doesn't have regions like AWS.",
+    showPublicUrlBase: true,
+    publicUrlBaseHelp: "R2's upload endpoint isn't publicly reachable. Turn on \"Public access\" on your bucket, then paste the r2.dev URL (or your custom domain) it gives you.",
+  },
+  {
+    value: "b2",
+    label: "Backblaze B2",
+    color: "bg-red-500",
+    desc: "10GB free storage",
+    endpointPlaceholder: "https://s3.<region>.backblazeb2.com",
+    endpointHelp: "Shown on your bucket's details page in the Backblaze dashboard.",
+    regionDefault: "",
+    regionHelp: "e.g. \"us-west-004\" — shown alongside the endpoint on your bucket's details page.",
+    showPublicUrlBase: false,
+    publicUrlBaseHelp: "",
+  },
+  {
+    value: "other",
+    label: "Other",
+    color: "bg-slate-500",
+    desc: "MinIO, Spaces, Wasabi, etc.",
+    endpointPlaceholder: "https://your-provider-endpoint",
+    endpointHelp: "Any S3-compatible endpoint works here.",
+    regionDefault: "",
+    regionHelp: "Check your provider's docs — some require a placeholder value even if regions don't apply.",
+    showPublicUrlBase: true,
+    publicUrlBaseHelp: "Only needed if the endpoint above isn't itself publicly reachable.",
+  },
+];
+
+function inferStorageProvider(endpoint: string): StorageProvider {
+  if (!endpoint) return "aws";
+  if (endpoint.includes("r2.cloudflarestorage.com")) return "r2";
+  if (endpoint.includes("backblazeb2.com")) return "b2";
+  if (endpoint.includes("amazonaws.com")) return "aws";
+  return "other";
+}
+
 type ConnStatus = "connected" | "attention" | "disconnected" | "loading";
 
 const STATUS_STYLES: Record<ConnStatus, { dot: string; pill: string; label: string }> = {
@@ -151,9 +219,11 @@ export default function ApiSettingsPage() {
   const [savingStripe,     setSavingStripe]      = useState(false);
 
   // Storage
+  const [storageProvider, setStorageProvider] = useState<StorageProvider>("aws");
   const [s3Endpoint,  setS3Endpoint]  = useState("");
   const [s3Region,    setS3Region]    = useState("us-east-1");
   const [s3Bucket,    setS3Bucket]    = useState("");
+  const [s3PublicUrlBase, setS3PublicUrlBase] = useState("");
   const [s3AccessKey, setS3AccessKey] = useState("");
   const [s3SecretKey, setS3SecretKey] = useState("");
   const [showS3Secret, setShowS3Secret] = useState(false);
@@ -183,6 +253,8 @@ export default function ApiSettingsPage() {
       setS3Endpoint(data.s3_endpoint           ?? "");
       setS3Region(data.s3_region               ?? "us-east-1");
       setS3Bucket(data.s3_bucket_name          ?? "");
+      setS3PublicUrlBase(data.s3_public_url_base ?? "");
+      setStorageProvider(inferStorageProvider(data.s3_endpoint ?? ""));
       setGaId(data.google_analytics_id         ?? "");
     }
   }, [data]);
@@ -206,6 +278,16 @@ export default function ApiSettingsPage() {
     setAiProvider(p);
     setAiModel(PROVIDER_MODELS[p]?.[0]?.value || "");
     setAiTestResult(null);
+  }
+
+  function handleStorageProviderChange(p: StorageProvider) {
+    setStorageProvider(p);
+    // Only touch fields the user hasn't already filled in — switching tabs
+    // to look around shouldn't wipe out something they already typed.
+    const def = STORAGE_PROVIDERS.find((sp) => sp.value === p)!;
+    if (!s3Region.trim() || s3Region === STORAGE_PROVIDERS.find((sp) => sp.value === storageProvider)?.regionDefault) {
+      setS3Region(def.regionDefault);
+    }
   }
 
   // ── Connection status, derived from persisted data (not in-progress edits) ────
@@ -253,6 +335,7 @@ export default function ApiSettingsPage() {
   ] as const;
 
   const activeProviderDef = PROVIDERS.find((p) => p.value === aiProvider)!;
+  const activeStorageProviderDef = STORAGE_PROVIDERS.find((p) => p.value === storageProvider)!;
 
   async function sendTestEmail() {
     setTestingEmail(true);
@@ -334,6 +417,7 @@ export default function ApiSettingsPage() {
         s3_endpoint:   s3Endpoint,
         s3_region:     s3Region,
         s3_bucket_name: s3Bucket,
+        s3_public_url_base: s3PublicUrlBase,
       };
       if (s3AccessKey.trim()) body.s3_access_key_id     = s3AccessKey.trim();
       if (s3SecretKey.trim()) body.s3_secret_access_key = s3SecretKey.trim();
@@ -559,21 +643,42 @@ export default function ApiSettingsPage() {
         <div className="card p-6">
           <SectionHeader
             id="storage" icon={HardDrive} tile="bg-sky-600"
-            title="File Storage — S3" blurb="Stores uploaded lesson files, documents, and images." status={storageStatus}
+            title="File Storage" blurb="Stores uploaded lesson files, documents, and images." status={storageStatus}
           />
+
+          {/* Provider selector */}
+          <div className="grid grid-cols-4 gap-3 mb-5">
+            {STORAGE_PROVIDERS.map((p) => {
+              const selected = storageProvider === p.value;
+              return (
+                <button key={p.value} type="button" onClick={() => handleStorageProviderChange(p.value)}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-xl border-2 transition-all text-left ${selected ? "border-navy-700 bg-navy-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${p.color}`}>
+                    {p.label.slice(0, 2)}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${selected ? "text-navy-900" : "text-slate-700"}`}>{p.label}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{p.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Endpoint URL</label>
               <input type="url" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)}
-                placeholder="https://s3.us-east-1.amazonaws.com" className="input-base" />
-              <p className="text-xs text-slate-400 mt-1.5">Leave blank for AWS default. Required for R2, Backblaze, etc.</p>
+                placeholder={activeStorageProviderDef.endpointPlaceholder || "https://s3.us-east-1.amazonaws.com"} className="input-base" />
+              <p className="text-xs text-slate-400 mt-1.5">{activeStorageProviderDef.endpointHelp}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Region</label>
                 <input type="text" value={s3Region} onChange={(e) => setS3Region(e.target.value)}
-                  placeholder="us-east-1" className="input-base" />
+                  placeholder={activeStorageProviderDef.regionDefault || "auto"} className="input-base" />
+                <p className="text-xs text-slate-400 mt-1.5">{activeStorageProviderDef.regionHelp}</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Bucket Name</label>
@@ -581,6 +686,15 @@ export default function ApiSettingsPage() {
                   placeholder="pai-lms-assets" className="input-base" />
               </div>
             </div>
+
+            {activeStorageProviderDef.showPublicUrlBase && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Public URL Base</label>
+                <input type="url" value={s3PublicUrlBase} onChange={(e) => setS3PublicUrlBase(e.target.value)}
+                  placeholder="https://pub-xxxxxxxx.r2.dev" className="input-base" />
+                <p className="text-xs text-slate-400 mt-1.5">{activeStorageProviderDef.publicUrlBaseHelp}</p>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1.5">

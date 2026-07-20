@@ -5,9 +5,11 @@ import { ProfCoursesController } from "./prof-courses.controller";
 import { AdminCoursesController } from "./admin-courses.controller";
 import { LearningModule } from "../learning/learning.module";
 import { PrepCoursesModule } from "../prep-courses/prep-courses.module";
+import { ContentImportModule } from "../content-import/content-import.module";
+import { UploadsModule } from "../uploads/uploads.module";
 
 @Module({
-  imports: [LearningModule, PrepCoursesModule],
+  imports: [LearningModule, PrepCoursesModule, ContentImportModule, UploadsModule],
   providers: [CoursesService],
   controllers: [CoursesController, ProfCoursesController, AdminCoursesController],
   exports: [CoursesService],
