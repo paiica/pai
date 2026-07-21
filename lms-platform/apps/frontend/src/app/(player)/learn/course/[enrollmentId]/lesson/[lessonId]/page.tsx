@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
+import TableOfContents from "@/components/TableOfContents";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -122,7 +123,12 @@ function ReadingLesson({
 
   return lesson.content_body ? (
     isHTML(lesson.content_body)
-      ? <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+      ? (
+        <>
+          <TableOfContents containerRef={contentRef} contentKey={lesson.content_body} />
+          <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+        </>
+      )
       : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
   ) : (
     <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">Content not available.</div>

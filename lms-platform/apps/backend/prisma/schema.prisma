@@ -304,6 +304,7 @@ model User {
   applications        Application[]
   enrollments         Enrollment[]
   lesson_progress     LessonProgress[]
+  lesson_notes        LessonNote[]
   exam_attempts       ExamAttempt[]
   certificates        Certificate[]
   payments            Payment[]
@@ -467,6 +468,7 @@ model Certification {
   min_training_hours    Int?
 
   is_featured           Boolean  @default(false)
+  ai_professor_enabled  Boolean  @default(false)
   sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -557,6 +559,7 @@ model Lesson {
   resources               LessonResource[]
   assignment_submissions  AssignmentSubmission[]
   uploaded_files          UploadedFile[]
+  notes                   LessonNote[]
 
   @@index([module_id, sort_order])
   @@map("lessons")
@@ -670,6 +673,7 @@ model Course {
   certification        Certification? @relation(fields: [certification_id], references: [id], onDelete: SetNull)
 
   is_featured  Boolean  @default(false)
+  ai_professor_enabled Boolean @default(false)
   sort_order   Int      @default(0)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
@@ -961,6 +965,24 @@ model LessonProgress {
   @@index([enrollment_id])
   @@index([course_enrollment_id])
   @@map("lesson_progress")
+  @@schema("lms")
+}
+
+// A student's private, personal notes for a lesson — one per user per
+// lesson, editable, not visible to anyone else (no instructor/admin read
+// path exists for these on purpose).
+model LessonNote {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  lesson_id  String
+  lesson     Lesson   @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([user_id, lesson_id])
+  @@map("lesson_notes")
   @@schema("lms")
 }
 

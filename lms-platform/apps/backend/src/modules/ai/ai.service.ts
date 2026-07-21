@@ -928,6 +928,56 @@ Rules:
     }
   }
 
+  // The "AI Professor" corner chat a student can open while viewing a
+  // lesson. Grounded in the actual lesson content (an excerpt, same
+  // stripHtmlExcerpt helper the overview-from-build features use) so
+  // answers stay relevant to what the student is looking at rather than
+  // drifting into generic chit-chat. Plain request/response, no
+  // streaming — matches every other method in this service, and this
+  // codebase has no WebSocket/SSE infrastructure to stream over yet.
+  async chatWithAiProfessor(params: {
+    courseTitle: string;
+    lessonTitle: string;
+    lessonExcerpt: string;
+    message: string;
+    history: { role: "user" | "assistant"; content: string }[];
+  }) {
+    const { client, model } = await this.getClientAndModel();
+    const { courseTitle, lessonTitle, lessonExcerpt, message, history } = params;
+
+    const systemPrompt = `You are the AI Professor for "${courseTitle}" — a friendly, encouraging expert helping a student who is currently on the lesson "${lessonTitle}".
+
+Here is the content of the lesson the student is looking at right now:
+"""
+${lessonExcerpt || "(no excerpt available for this lesson)"}
+"""
+
+Explain concepts and theories clearly, give concrete real-world examples, and check for understanding. Keep answers focused and conversational — a few short paragraphs, not an essay. Stay grounded in this course's subject matter; if the student asks something wildly unrelated to the lesson or course, gently steer the conversation back.`;
+
+    let raw = "";
+    try {
+      const res = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...history.map((h) => ({ role: h.role, content: h.content })),
+          { role: "user", content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      });
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    if (!raw.trim()) {
+      throw new BadRequestException("The AI Professor didn't return a response. Please try again.");
+    }
+    return { reply: raw };
+  }
+
   async improveQuestion(params: { question: object; action: string; cert_name?: string }) {
     const { client, model } = await this.getClientAndModel();
     const { question, action, cert_name } = params;

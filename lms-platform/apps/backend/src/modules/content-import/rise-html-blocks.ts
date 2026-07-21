@@ -188,6 +188,18 @@ function extractPlainText(html: string | undefined | null): string {
   return (html ?? "").replace(/<[^>]+>/g, "").trim();
 }
 
+// Strips a lesson's stored HTML down to a short plain-text excerpt for
+// AI prompts (the "Fill from Build" overview drafting and the AI Professor
+// chat both need this) — script/style blocks are removed first, since the
+// block builder's checkpoint-styled interactive blocks embed sizeable
+// <style> blocks that would otherwise pollute the excerpt with CSS.
+export function stripHtmlExcerpt(html: string | null | undefined, maxLen = 400): string {
+  if (!html) return "";
+  const withoutScriptsStyles = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  const text = withoutScriptsStyles.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
+
 // Only needs to be unique within a single generated lesson (scopes the
 // radio-input `name`/`id`s for the CSS-only tabs technique) — not a
 // cryptographic ID, just cheap collision avoidance.

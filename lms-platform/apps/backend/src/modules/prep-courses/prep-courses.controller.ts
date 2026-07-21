@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Public } from "../../common/decorators/public.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -106,6 +106,46 @@ export class PrepCoursesController {
     @Body() dto: { completed: boolean; score?: number; cmi_snapshot: any },
   ) {
     return this.service.updateCourseScormProgress(enrollmentId, lessonId, userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get("learn/:enrollmentId/lesson/:lessonId/note")
+  @ApiOperation({ summary: "Get my private note for a lesson" })
+  getCourseNote(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.service.getCourseNote(enrollmentId, lessonId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Put("learn/:enrollmentId/lesson/:lessonId/note")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Save my private note for a lesson" })
+  upsertCourseNote(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body("content") content: string,
+  ) {
+    return this.service.upsertCourseNote(enrollmentId, lessonId, userId, content ?? "");
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("learn/:enrollmentId/lesson/:lessonId/ai-professor")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Ask the AI Professor about the current lesson" })
+  chatWithCourseAiProfessor(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
+  ) {
+    return this.service.chatWithCourseAiProfessor(enrollmentId, lessonId, userId, dto);
   }
 
   @ApiBearerAuth()

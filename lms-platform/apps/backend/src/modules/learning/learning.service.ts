@@ -3,6 +3,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { AiService } from "../ai/ai.service";
+import { stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 import { CompleteLessonDto } from "./dto/complete-lesson.dto";
 import { SubmitQuizDto } from "./dto/submit-quiz.dto";
 import { SubmitAssignmentDto } from "./dto/submit-assignment.dto";
@@ -13,6 +15,7 @@ export class LearningService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private aiService: AiService,
   ) {}
 
   // ─── Course Access ────────────────────────────────────────────────────
@@ -119,6 +122,7 @@ export class LearningService {
         acronym: enrollment.certification.acronym,
         badge_icon: enrollment.certification.badge_icon,
         passing_score: enrollment.certification.passing_score,
+        ai_professor_enabled: enrollment.certification.ai_professor_enabled,
       },
       linked_courses: linkedCourses,
       modules,
@@ -217,6 +221,80 @@ export class LearningService {
         total: siblings.length,
       },
     };
+  }
+
+  // ─── Notes ────────────────────────────────────────────────────────────
+  // A student's private per-lesson notes — one row per user+lesson, never
+  // visible to instructors/admins.
+
+  async getNote(enrollmentId: string, lessonId: string, userId: string) {
+    await this.assertEnrollment(enrollmentId, userId);
+    const note = await this.prisma.lessonNote.findUnique({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+    });
+    return { content: note?.content ?? "" };
+  }
+
+  async upsertNote(enrollmentId: string, lessonId: string, userId: string, content: string) {
+    await this.assertEnrollment(enrollmentId, userId);
+    const note = await this.prisma.lessonNote.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: { user_id: userId, lesson_id: lessonId, content },
+      update: { content },
+    });
+    return { content: note.content };
+  }
+
+  // ─── AI Professor ─────────────────────────────────────────────────────
+
+  async chatWithAiProfessor(
+    enrollmentId: string,
+    lessonId: string,
+    userId: string,
+    dto: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
+  ) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, user_id: userId, status: "active" },
+      include: {
+        certification: {
+          select: {
+            id: true, title: true, ai_professor_enabled: true,
+            prep_courses: { select: { id: true }, where: { status: "active" } },
+          },
+        },
+      },
+    });
+    if (!enrollment) throw new ForbiddenException("No active enrollment found");
+    if (!enrollment.certification.ai_professor_enabled) {
+      throw new BadRequestException("The AI Professor isn't enabled for this certification.");
+    }
+
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: {
+        title: true, content_body: true,
+        module: { select: { certification_id: true, course_id: true } },
+      },
+    });
+    if (!lesson) throw new NotFoundException("Lesson not found");
+
+    // Same ownership check as getLessonContent — without it a student could
+    // probe excerpts of lessons outside their enrollment via this endpoint.
+    const certId = enrollment.certification.id;
+    const linkedCourseIds = new Set(enrollment.certification.prep_courses.map((c) => c.id));
+    const belongsToCert = lesson.module.certification_id === certId;
+    const belongsToLinkedCourse = !!lesson.module.course_id && linkedCourseIds.has(lesson.module.course_id);
+    if (!belongsToCert && !belongsToLinkedCourse) {
+      throw new ForbiddenException("Lesson is not part of your enrollment");
+    }
+
+    return this.aiService.chatWithAiProfessor({
+      courseTitle: enrollment.certification.title,
+      lessonTitle: lesson.title,
+      lessonExcerpt: stripHtmlExcerpt(lesson.content_body),
+      message: dto.message,
+      history: dto.history ?? [],
+    });
   }
 
   // ─── Progress ─────────────────────────────────────────────────────────

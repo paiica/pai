@@ -35,6 +35,7 @@ type Course = {
   module_count: number;
   enrollment_count: number;
   is_featured?: boolean;
+  ai_professor_enabled?: boolean;
   instructors?: { user_id: string; is_lead: boolean; first_name: string; last_name: string }[];
   content?: CourseContent;
 };
@@ -277,6 +278,7 @@ export default function CourseDetailPage() {
     pdu_value: "0",
     certification_id: "",
     is_featured: false,
+    ai_professor_enabled: false,
   });
 
   const [contentForm, setContentForm] = useState<CourseContent>({
@@ -313,6 +315,7 @@ export default function CourseDetailPage() {
         pdu_value: String(course.pdu_value ?? 0),
         certification_id: course.certification_id || "",
         is_featured: course.is_featured ?? false,
+        ai_professor_enabled: course.ai_professor_enabled ?? false,
       });
 
       setRecommendedCertIds((course as any).recommended_cert_ids ?? []);
@@ -359,6 +362,7 @@ export default function CourseDetailPage() {
         pdu_value: parseFloat(form.pdu_value) || 0,
         certification_id: form.certification_id || null,
         is_featured: form.is_featured,
+        ai_professor_enabled: form.ai_professor_enabled,
       }, token);
       toast.success("Course updated!");
       mutate();
@@ -741,6 +745,25 @@ export default function CourseDetailPage() {
                 <span className={cn(
                   "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
                   form.is_featured ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Enable AI Professor</p>
+                <p className="text-[11px] text-slate-400">Let students in this course chat with an AI that explains concepts and gives examples from the lesson they're viewing</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, ai_professor_enabled: !f.ai_professor_enabled }))}
+                className={cn(
+                  "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+                  form.ai_professor_enabled ? "bg-navy-700" : "bg-slate-300"
+                )}
+              >
+                <span className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+                  form.ai_professor_enabled ? "translate-x-4" : "translate-x-0"
                 )} />
               </button>
             </div>

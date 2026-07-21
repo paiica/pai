@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus,
+  Controller, Get, Post, Put, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { LearningService } from "./learning.service";
@@ -109,5 +109,39 @@ export class LearningController {
     @CurrentUser("id") userId: string,
   ) {
     return this.learningService.getMyGrades(enrollmentId, userId);
+  }
+
+  @Get(":enrollmentId/lesson/:lessonId/note")
+  @ApiOperation({ summary: "Get my private note for a lesson" })
+  getNote(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.learningService.getNote(enrollmentId, lessonId, userId);
+  }
+
+  @Put(":enrollmentId/lesson/:lessonId/note")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Save my private note for a lesson" })
+  upsertNote(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body("content") content: string,
+  ) {
+    return this.learningService.upsertNote(enrollmentId, lessonId, userId, content ?? "");
+  }
+
+  @Post(":enrollmentId/lesson/:lessonId/ai-professor")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Ask the AI Professor about the current lesson" })
+  chatWithAiProfessor(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @Body() dto: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
+  ) {
+    return this.learningService.chatWithAiProfessor(enrollmentId, lessonId, userId, dto);
   }
 }

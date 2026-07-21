@@ -12,6 +12,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
+import TableOfContents from "@/components/TableOfContents";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
@@ -130,11 +131,14 @@ function ReadingLesson({
   return (
     <div className="space-y-6">
       {lesson.content_body ? (
-        <div
-          ref={contentRef}
-          className="prose prose-slate prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: lesson.content_body }}
-        />
+        <>
+          <TableOfContents containerRef={contentRef} contentKey={lesson.content_body} />
+          <div
+            ref={contentRef}
+            className="prose prose-slate prose-lg max-w-none"
+            dangerouslySetInnerHTML={{ __html: lesson.content_body }}
+          />
+        </>
       ) : (
         <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">
           Content not available.

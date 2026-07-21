@@ -12,18 +12,7 @@ import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
-import { renderBlockItems, wrapLessonContent, ImportPlan } from "../content-import/rise-html-blocks";
-
-// Strips a lesson's stored HTML down to a short plain-text excerpt for the
-// AI overview-from-build prompt — script/style blocks are removed first
-// (the block builder's checkpoint-styled interactive blocks embed sizeable
-// <style> blocks that would otherwise pollute the excerpt with CSS).
-function stripHtmlExcerpt(html: string | null | undefined, maxLen = 400): string {
-  if (!html) return "";
-  const withoutScriptsStyles = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
-  const text = withoutScriptsStyles.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
-}
+import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 
 @Injectable()
 export class PrepCoursesService {
@@ -73,6 +62,7 @@ export class PrepCoursesService {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT ce.id, ce.course_id, ce.progress_percentage, ce.enrolled_at,
              c.title, c.slug, c.description, c.thumbnail_url, c.level, c.duration_hours,
+             c.ai_professor_enabled,
              cert.acronym AS cert_acronym, cert.title AS cert_title
       FROM lms.course_enrollments ce
       JOIN lms.courses c ON c.id = ce.course_id
@@ -225,6 +215,67 @@ export class PrepCoursesService {
 
     if (dto.completed) await this.recalculateCourseProgress(enrollmentId);
     return progress;
+  }
+
+  // ─── Notes ────────────────────────────────────────────────────────────
+  // A student's private per-lesson notes — one row per user+lesson, never
+  // visible to instructors/admins. Shares the LessonNote table with the
+  // certification-track player (learning.service.ts).
+
+  async getCourseNote(enrollmentId: string, lessonId: string, userId: string) {
+    await this.assertCourseEnrollment(enrollmentId, userId);
+    const note = await this.prisma.lessonNote.findUnique({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+    });
+    return { content: note?.content ?? "" };
+  }
+
+  async upsertCourseNote(enrollmentId: string, lessonId: string, userId: string, content: string) {
+    await this.assertCourseEnrollment(enrollmentId, userId);
+    const note = await this.prisma.lessonNote.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: { user_id: userId, lesson_id: lessonId, content },
+      update: { content },
+    });
+    return { content: note.content };
+  }
+
+  // ─── AI Professor ─────────────────────────────────────────────────────
+
+  async chatWithCourseAiProfessor(
+    enrollmentId: string,
+    lessonId: string,
+    userId: string,
+    dto: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
+  ) {
+    const enrollRows = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT ce.course_id, c.title AS course_title, c.ai_professor_enabled
+      FROM lms.course_enrollments ce
+      JOIN lms.courses c ON c.id = ce.course_id
+      WHERE ce.id = $1 AND ce.user_id = $2
+    `, enrollmentId, userId);
+    if (!enrollRows.length) throw new ForbiddenException("Enrollment not found");
+    const enrollment = enrollRows[0];
+    if (!enrollment.ai_professor_enabled) {
+      throw new BadRequestException("The AI Professor isn't enabled for this course.");
+    }
+
+    const lessonRows = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT l.title, l.content_body
+      FROM lms.lessons l
+      JOIN lms.modules m ON m.id = l.module_id
+      WHERE l.id = $1 AND m.course_id = $2
+    `, lessonId, enrollment.course_id);
+    if (!lessonRows.length) throw new NotFoundException("Lesson not found");
+    const lesson = lessonRows[0];
+
+    return this.aiService.chatWithAiProfessor({
+      courseTitle: enrollment.course_title,
+      lessonTitle: lesson.title,
+      lessonExcerpt: stripHtmlExcerpt(lesson.content_body),
+      message: dto.message,
+      history: dto.history ?? [],
+    });
   }
 
   private async recalculateCourseProgress(courseEnrollmentId: string) {

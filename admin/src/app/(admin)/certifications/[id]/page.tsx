@@ -76,6 +76,7 @@ type Cert = {
   min_years_experience?: number | null;
   min_training_hours?: number | null;
   is_featured?: boolean;
+  ai_professor_enabled?: boolean;
   _count?: { enrollments: number; applications: number };
   instructors?: {
     id: string; user_id: string; is_lead: boolean;
@@ -799,6 +800,7 @@ export default function CertEditorPage() {
   const cert: Cert | null = data?.data ?? data ?? null;
 
   const [isFeatured,         setIsFeatured]         = useState(false);
+  const [aiProfessorEnabled, setAiProfessorEnabled] = useState(false);
   const [acronym,            setAcronym]            = useState("");
   const [title,              setTitle]              = useState("");
   const [slug,               setSlug]               = useState("");
@@ -878,6 +880,7 @@ export default function CertEditorPage() {
   useEffect(() => {
     if (!cert) return;
     setIsFeatured(cert.is_featured ?? false);
+    setAiProfessorEnabled(cert.ai_professor_enabled ?? false);
     setAcronym(cert.acronym ?? "");
     setTitle(cert.title ?? "");
     setSlug(cert.slug ?? "");
@@ -949,6 +952,7 @@ export default function CertEditorPage() {
     try {
       await api.patch(`/admin/certifications/${id}`, {
         is_featured: isFeatured,
+        ai_professor_enabled: aiProfessorEnabled,
         acronym, title, slug, level, status,
         badge_icon:              badgeIcon,
         description,
@@ -1336,6 +1340,25 @@ export default function CertEditorPage() {
               <span className={cn(
                 "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
                 isFeatured ? "translate-x-4" : "translate-x-0"
+              )} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div>
+              <p className="text-xs font-semibold text-slate-700">Enable AI Professor</p>
+              <p className="text-[11px] text-slate-400">Let students in this certification chat with an AI that explains concepts and gives examples from the lesson they're viewing</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAiProfessorEnabled((v) => !v)}
+              className={cn(
+                "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+                aiProfessorEnabled ? "bg-navy-700" : "bg-slate-300"
+              )}
+            >
+              <span className={cn(
+                "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+                aiProfessorEnabled ? "translate-x-4" : "translate-x-0"
               )} />
             </button>
           </div>

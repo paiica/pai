@@ -14,18 +14,7 @@ import { LearningService } from "../learning/learning.service";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
-import { renderBlockItems, wrapLessonContent, ImportPlan } from "../content-import/rise-html-blocks";
-
-// Strips a lesson's stored HTML down to a short plain-text excerpt for the
-// AI overview-from-build prompt — script/style blocks are removed first
-// (the block builder's checkpoint-styled interactive blocks embed sizeable
-// <style> blocks that would otherwise pollute the excerpt with CSS).
-function stripHtmlExcerpt(html: string | null | undefined, maxLen = 400): string {
-  if (!html) return "";
-  const withoutScriptsStyles = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
-  const text = withoutScriptsStyles.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
-}
+import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 
 @Injectable()
 export class CoursesService {
