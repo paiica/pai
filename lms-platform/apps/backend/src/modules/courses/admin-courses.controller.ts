@@ -48,6 +48,12 @@ export class AdminCoursesController {
     return this.coursesService.adminGetCertification(certId);
   }
 
+  @Post(":certId/ai-overview-from-build")
+  @ApiOperation({ summary: "Draft the Overview/Content fields from this certification's actual built modules/lessons" })
+  generateOverviewFromBuild(@Param("certId", ParseUUIDPipe) certId: string) {
+    return this.coursesService.generateOverviewFromBuild(certId);
+  }
+
   @Get(":certId/enrollments")
   @ApiOperation({ summary: "List all enrollments for a certification" })
   getCertEnrollments(@Param("certId", ParseUUIDPipe) certId: string) {

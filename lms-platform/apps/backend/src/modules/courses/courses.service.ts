@@ -13,7 +13,19 @@ import { GradeSubmissionDto } from "./dto/grade-submission.dto";
 import { LearningService } from "../learning/learning.service";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { AiService } from "../ai/ai.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan } from "../content-import/rise-html-blocks";
+
+// Strips a lesson's stored HTML down to a short plain-text excerpt for the
+// AI overview-from-build prompt — script/style blocks are removed first
+// (the block builder's checkpoint-styled interactive blocks embed sizeable
+// <style> blocks that would otherwise pollute the excerpt with CSS).
+function stripHtmlExcerpt(html: string | null | undefined, maxLen = 400): string {
+  if (!html) return "";
+  const withoutScriptsStyles = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  const text = withoutScriptsStyles.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
 
 @Injectable()
 export class CoursesService {
@@ -22,6 +34,7 @@ export class CoursesService {
     private learningService: LearningService,
     private contentImport: ContentImportService,
     private uploads: UploadsService,
+    private aiService: AiService,
   ) {}
 
   // ─── Public ──────────────────────────────────────────────────────────
@@ -512,6 +525,55 @@ export class CoursesService {
       certId,
     );
     return { ...cert, is_featured: raw?.is_featured ?? false };
+  }
+
+  // Drafts the Overview/Content tab fields (badge icon, description,
+  // long description, curriculum overview) from the certification's actual
+  // built modules/lessons, rather than a free-text prompt — for certs where
+  // the curriculum already exists but the catalog copy is blank or stale.
+  async generateOverviewFromBuild(certId: string) {
+    const cert = await this.prisma.certification.findUnique({
+      where: { id: certId },
+      select: {
+        title: true,
+        acronym: true,
+        level: true,
+        modules: {
+          orderBy: { sort_order: "asc" },
+          select: {
+            title: true,
+            lessons: {
+              orderBy: { sort_order: "asc" },
+              select: { title: true, type: true, description: true, content_body: true },
+            },
+          },
+        },
+      },
+    });
+    if (!cert) throw new NotFoundException("Certification not found");
+
+    const hasLessons = cert.modules.some((m) => m.lessons.length > 0);
+    if (!cert.modules.length || !hasLessons) {
+      throw new BadRequestException(
+        "This certification doesn't have any built modules or lessons yet — add content in the builder first.",
+      );
+    }
+
+    const modules = cert.modules.map((m) => ({
+      title: m.title,
+      lessons: m.lessons.map((l) => ({
+        title: l.title,
+        type: l.type,
+        excerpt: stripHtmlExcerpt(l.content_body) || l.description || "",
+      })),
+    }));
+
+    return this.aiService.generateCertificationOverviewFromBuild({
+      title: cert.title,
+      acronym: cert.acronym,
+      level: cert.level,
+      modules,
+    });
   }
 
   async adminGetCertificationEnrollments(certId: string) {

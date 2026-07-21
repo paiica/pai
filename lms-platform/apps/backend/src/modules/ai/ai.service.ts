@@ -752,6 +752,89 @@ Rules:
     };
   }
 
+  // Unlike generateCertification (which drafts everything from a free-text
+  // prompt for a brand-new cert), this drafts only the catalog-facing
+  // Overview/Content fields — grounded strictly in the certification's
+  // actual built modules/lessons, for certs where the curriculum already
+  // exists but the marketing copy is blank or stale.
+  async generateCertificationOverviewFromBuild(params: {
+    title: string;
+    acronym: string;
+    level: string;
+    modules: { title: string; lessons: { title: string; type: string; excerpt: string }[] }[];
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const { title, acronym, level, modules } = params;
+
+    const curriculumText = modules
+      .map((m, i) => {
+        const lessonLines = m.lessons
+          .map((l) => `   - [${l.type}] ${l.title}${l.excerpt ? `: ${l.excerpt}` : ""}`)
+          .join("\n");
+        return `${i + 1}. ${m.title}\n${lessonLines || "   (no lessons yet)"}`;
+      })
+      .join("\n\n");
+
+    const userPrompt = `Write catalog/marketing copy for this professional certification, based strictly on its ACTUAL built curriculum below — do not invent topics that aren't covered by the real lessons.
+
+Certification: "${title}" (${acronym}), level: ${level}
+
+Actual curriculum (in order):
+${curriculumText}
+
+Return ONLY a JSON object with this exact shape:
+{
+  "badge_icon": "single emoji that fits this certification's subject",
+  "description": "1-2 sentence catalog summary of what this certification actually teaches",
+  "long_description": "3-5 sentence hero description, specific to the real curriculum above",
+  "curriculum_overview": [{ "title": "exact module title as given above", "description": "1 sentence summarizing what this module actually covers, based on its lessons", "lessons": 0 }]
+}
+
+Rules:
+- curriculum_overview must have exactly one entry per module listed above, in the same order, with the exact same titles. Set "lessons" to the number of lessons listed under that module.
+- Every description must be grounded in the actual lesson content given — never generic filler, never claim topics not present above.`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [
+          { role: "system", content: "You are an expert curriculum copywriter for a professional AI certification body. You only describe content that was actually given to you. Output only valid JSON, no markdown fences, no commentary." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 2048,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const s = (v: any, d = "") => (typeof v === "string" ? v : d);
+      const n = (v: any, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
+      const arr = (v: any) => (Array.isArray(v) ? v : []);
+      return {
+        badge_icon: s(parsed.badge_icon, "🎓"),
+        description: s(parsed.description),
+        long_description: s(parsed.long_description),
+        curriculum_overview: arr(parsed.curriculum_overview).map((c: any) => ({
+          title: s(c?.title), description: s(c?.description), lessons: n(c?.lessons, 0),
+        })),
+      };
+    } catch {
+      this.logger.error("generateCertificationOverviewFromBuild raw response:", raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
   async improveQuestion(params: { question: object; action: string; cert_name?: string }) {
     const { client, model } = await this.getClientAndModel();
     const { question, action, cert_name } = params;

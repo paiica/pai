@@ -7,9 +7,10 @@ import { LearningModule } from "../learning/learning.module";
 import { PrepCoursesModule } from "../prep-courses/prep-courses.module";
 import { ContentImportModule } from "../content-import/content-import.module";
 import { UploadsModule } from "../uploads/uploads.module";
+import { AiModule } from "../ai/ai.module";
 
 @Module({
-  imports: [LearningModule, PrepCoursesModule, ContentImportModule, UploadsModule],
+  imports: [LearningModule, PrepCoursesModule, ContentImportModule, UploadsModule, AiModule],
   providers: [CoursesService],
   controllers: [CoursesController, ProfCoursesController, AdminCoursesController],
   exports: [CoursesService],

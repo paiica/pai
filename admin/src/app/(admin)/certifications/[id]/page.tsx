@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap, Sparkles, X, Layers,
+  GraduationCap, Sparkles, X, Layers, Wand2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -788,6 +788,7 @@ export default function CertEditorPage() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
+  const [fillingFromBuild, setFillingFromBuild] = useState(false);
 
   const { data, isLoading, error, mutate } = useSWR(
     accessToken && id ? [`/admin/certifications/${id}`, accessToken] : null,
@@ -1140,6 +1141,30 @@ export default function CertEditorPage() {
     }
   }
 
+  // Drafts only the Overview/Content fields (badge icon, description, long
+  // description, curriculum) from this certification's actual built
+  // modules/lessons — for certs whose curriculum is already built out but
+  // whose catalog copy is blank or stale. Deliberately narrower than
+  // applyAiDraft: doesn't touch title/acronym/level/FAQs/marketing/
+  // testimonials, since those aren't derivable from lesson content.
+  async function handleFillFromBuild() {
+    setFillingFromBuild(true);
+    try {
+      const res = await api.post<any>(`/admin/certifications/${id}/ai-overview-from-build`, {}, accessToken!);
+      const draft = res.data ?? res;
+      setBadgeIcon(draft.badge_icon ?? badgeIcon);
+      setDescription(draft.description ?? description);
+      setLongDesc(draft.long_description ?? longDesc);
+      setCurriculum(safeArray<CurriculumItem>(draft.curriculum_overview));
+      setTab("content");
+      toast.success("Drafted from the built curriculum — review and edit before saving");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to draft from the build");
+    } finally {
+      setFillingFromBuild(false);
+    }
+  }
+
   const statusColors: Record<string, string> = {
     active:      "text-emerald-700 bg-emerald-50 border-emerald-200",
     coming_soon: "text-amber-700 bg-amber-50 border-amber-200",
@@ -1195,6 +1220,15 @@ export default function CertEditorPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleFillFromBuild}
+              disabled={fillingFromBuild}
+              title="Draft the description, badge, and curriculum summary from this certification's actual built modules and lessons"
+              className="btn-outline !py-2 !px-4 !text-xs flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {fillingFromBuild ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+              {fillingFromBuild ? "Reading build…" : "Fill from Build"}
+            </button>
             <button onClick={() => setShowAiModal(true)} className="btn-outline !py-2 !px-4 !text-xs flex items-center gap-1.5">
               <Sparkles size={12} /> Generate with AI
             </button>
