@@ -11,7 +11,19 @@ import { CompleteLessonDto } from "../learning/dto/complete-lesson.dto";
 import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { AiService } from "../ai/ai.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan } from "../content-import/rise-html-blocks";
+
+// Strips a lesson's stored HTML down to a short plain-text excerpt for the
+// AI overview-from-build prompt — script/style blocks are removed first
+// (the block builder's checkpoint-styled interactive blocks embed sizeable
+// <style> blocks that would otherwise pollute the excerpt with CSS).
+function stripHtmlExcerpt(html: string | null | undefined, maxLen = 400): string {
+  if (!html) return "";
+  const withoutScriptsStyles = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+  const text = withoutScriptsStyles.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+}
 
 @Injectable()
 export class PrepCoursesService {
@@ -22,6 +34,7 @@ export class PrepCoursesService {
     private notifications: NotificationsService,
     private contentImport: ContentImportService,
     private uploads: UploadsService,
+    private aiService: AiService,
   ) {}
 
   // ─── Auth helpers ────────────────────────────────────────────────────
@@ -731,6 +744,54 @@ export class PrepCoursesService {
     course.prerequisite_course_ids = prereqs.filter((p) => p.type === "prerequisite").map((p) => p.prerequisite_course_id);
     course.corequisite_course_ids = prereqs.filter((p) => p.type === "corequisite").map((p) => p.prerequisite_course_id);
     return course;
+  }
+
+  // Drafts the Overview/Content tab fields (subtitle, description, overview
+  // copy, learning outcomes, how-it-works steps, exam-prep copy) from the
+  // course's actual built modules/lessons, rather than a free-text prompt —
+  // for courses where the curriculum already exists but the catalog copy is
+  // blank or stale.
+  async generateOverviewFromBuild(courseId: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: {
+        title: true,
+        level: true,
+        modules: {
+          orderBy: { sort_order: "asc" },
+          select: {
+            title: true,
+            lessons: {
+              orderBy: { sort_order: "asc" },
+              select: { title: true, type: true, description: true, content_body: true },
+            },
+          },
+        },
+      },
+    });
+    if (!course) throw new NotFoundException("Course not found");
+
+    const hasLessons = course.modules.some((m) => m.lessons.length > 0);
+    if (!course.modules.length || !hasLessons) {
+      throw new BadRequestException(
+        "This course doesn't have any built modules or lessons yet — add content in the builder first.",
+      );
+    }
+
+    const modules = course.modules.map((m) => ({
+      title: m.title,
+      lessons: m.lessons.map((l) => ({
+        title: l.title,
+        type: l.type,
+        excerpt: stripHtmlExcerpt(l.content_body) || l.description || "",
+      })),
+    }));
+
+    return this.aiService.generateCourseOverviewFromBuild({
+      title: course.title,
+      level: course.level,
+      modules,
+    });
   }
 
   async adminCreate(dto: Record<string, any>) {

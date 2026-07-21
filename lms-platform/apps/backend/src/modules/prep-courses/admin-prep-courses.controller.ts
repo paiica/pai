@@ -53,6 +53,12 @@ export class AdminPrepCoursesController {
     return this.service.adminGetOne(id);
   }
 
+  @Post(":id/ai-overview-from-build")
+  @ApiOperation({ summary: "Draft the Overview/Content fields from this course's actual built modules/lessons" })
+  generateOverviewFromBuild(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.generateOverviewFromBuild(id);
+  }
+
   @Post()
   @ApiOperation({ summary: "Create a new course" })
   create(@Body() dto: any) {

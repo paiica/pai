@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2, X, Check,
   BookOpen, Users, Settings, ChevronLeft, ChevronRight, AlertCircle, RefreshCw,
   Globe, Archive, ArchiveRestore, UserPlus, UserMinus,
-  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3,
+  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3, Wand2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -220,6 +220,7 @@ export default function CourseDetailPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [saving, setSaving] = useState(false);
+  const [fillingFromBuild, setFillingFromBuild] = useState(false);
 
   const { data: courseRaw, isLoading, error, mutate } = useSWR(
     token && courseId ? [`/admin/courses/${courseId}`, token] : null,
@@ -447,6 +448,42 @@ export default function CourseDetailPage() {
     }
   }
 
+  // Drafts the Overview tab's subtitle/description AND the Content tab's
+  // copy (overview, learning outcomes, how-it-works, exam prep) from this
+  // course's actual built modules/lessons — grounded in real content
+  // instead of a free-text prompt. Fills both tabs' form state for review;
+  // each tab still needs its own Save click to persist, same as editing by
+  // hand.
+  async function handleFillFromBuild() {
+    setFillingFromBuild(true);
+    try {
+      const res = await api.post<any>(`/admin/courses/${courseId}/ai-overview-from-build`, {}, token);
+      const draft = res.data ?? res;
+      setForm((f) => ({
+        ...f,
+        subtitle: draft.subtitle ?? f.subtitle,
+        description: draft.description ?? f.description,
+      }));
+      setContentForm((f) => ({
+        ...f,
+        overview_headline: draft.overview_headline ?? f.overview_headline,
+        overview_body: draft.overview_body ?? f.overview_body,
+        learning_outcomes: draft.learning_outcomes?.length ? draft.learning_outcomes : f.learning_outcomes,
+        how_it_works_headline: draft.how_it_works_headline ?? f.how_it_works_headline,
+        how_it_works_steps: draft.how_it_works_steps?.length ? draft.how_it_works_steps : f.how_it_works_steps,
+        training_exam_prep_headline: draft.training_exam_prep_headline ?? f.training_exam_prep_headline,
+        training_exam_prep_body: draft.training_exam_prep_body ?? f.training_exam_prep_body,
+        training_exam_prep_items: draft.training_exam_prep_items?.length ? draft.training_exam_prep_items : f.training_exam_prep_items,
+      }));
+      setActiveTab("content");
+      toast.success("Drafted from the built curriculum — review both the Overview and Content tabs before saving");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to draft from the build");
+    } finally {
+      setFillingFromBuild(false);
+    }
+  }
+
   function addLearningOutcome() {
     setContentForm((f) => ({
       ...f,
@@ -558,6 +595,15 @@ export default function CourseDetailPage() {
           <p className="text-slate-500 text-sm mt-1">/{course.slug}</p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={handleFillFromBuild}
+            disabled={fillingFromBuild}
+            title="Draft the subtitle, description, and content copy from this course's actual built modules and lessons"
+            className="btn-outline !py-2 !px-3 !text-xs flex items-center gap-1.5 disabled:opacity-60"
+          >
+            {fillingFromBuild ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+            {fillingFromBuild ? "Reading build…" : "Fill from Build"}
+          </button>
           <button
             onClick={toggleStatus}
             className={cn(

@@ -835,6 +835,99 @@ Rules:
     }
   }
 
+  // Same "ground it in the real build" approach as
+  // generateCertificationOverviewFromBuild, adapted to the standalone
+  // prep-course's Overview/Content field shape (subtitle, overview/how-it-
+  // works/exam-prep sections) instead of a certification's.
+  async generateCourseOverviewFromBuild(params: {
+    title: string;
+    level: string;
+    modules: { title: string; lessons: { title: string; type: string; excerpt: string }[] }[];
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const { title, level, modules } = params;
+
+    const curriculumText = modules
+      .map((m, i) => {
+        const lessonLines = m.lessons
+          .map((l) => `   - [${l.type}] ${l.title}${l.excerpt ? `: ${l.excerpt}` : ""}`)
+          .join("\n");
+        return `${i + 1}. ${m.title}\n${lessonLines || "   (no lessons yet)"}`;
+      })
+      .join("\n\n");
+
+    const userPrompt = `Write catalog/marketing copy for this course, based strictly on its ACTUAL built curriculum below — do not invent topics that aren't covered by the real lessons.
+
+Course: "${title}", level: ${level}
+
+Actual curriculum (in order):
+${curriculumText}
+
+Return ONLY a JSON object with this exact shape:
+{
+  "subtitle": "short tagline for the course card, under 12 words",
+  "description": "1-2 sentence summary of what students actually learn",
+  "overview_headline": "short headline for the overview section",
+  "overview_body": "2-4 sentence detailed overview, specific to the real curriculum above",
+  "learning_outcomes": ["4-8 specific outcomes grounded in the real lessons"],
+  "how_it_works_headline": "short headline describing how the course is structured",
+  "how_it_works_steps": [{ "title": "...", "description": "..." }],
+  "training_exam_prep_headline": "short headline for a training/exam-prep section",
+  "training_exam_prep_body": "1-3 sentences on how this course prepares a student",
+  "training_exam_prep_items": ["3-6 short items, e.g. Practice exams, Study guides"]
+}
+
+Rules:
+- how_it_works_steps: 3-5 steps that reflect how the actual modules/lessons above progress.
+- Every claim must be grounded in the actual lesson content given — never generic filler, never claim topics not present above.`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [
+          { role: "system", content: "You are an expert curriculum copywriter for a professional AI training provider. You only describe content that was actually given to you. Output only valid JSON, no markdown fences, no commentary." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 2048,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const s = (v: any, d = "") => (typeof v === "string" ? v : d);
+      const arr = (v: any) => (Array.isArray(v) ? v : []);
+      const strs = (v: any) => arr(v).filter((x: any) => typeof x === "string");
+      return {
+        subtitle: s(parsed.subtitle),
+        description: s(parsed.description),
+        overview_headline: s(parsed.overview_headline),
+        overview_body: s(parsed.overview_body),
+        learning_outcomes: strs(parsed.learning_outcomes),
+        how_it_works_headline: s(parsed.how_it_works_headline),
+        how_it_works_steps: arr(parsed.how_it_works_steps).map((x: any) => ({
+          title: s(x?.title), description: s(x?.description),
+        })),
+        training_exam_prep_headline: s(parsed.training_exam_prep_headline),
+        training_exam_prep_body: s(parsed.training_exam_prep_body),
+        training_exam_prep_items: strs(parsed.training_exam_prep_items),
+      };
+    } catch {
+      this.logger.error("generateCourseOverviewFromBuild raw response:", raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
   async improveQuestion(params: { question: object; action: string; cert_name?: string }) {
     const { client, model } = await this.getClientAndModel();
     const { question, action, cert_name } = params;
