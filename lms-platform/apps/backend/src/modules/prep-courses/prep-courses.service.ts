@@ -873,7 +873,7 @@ export class PrepCoursesService {
     const allowed = [
       'title', 'subtitle', 'description', 'price', 'status', 'thumbnail_url',
       'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
-      'sort_order', 'slug', 'total_lessons', 'is_featured', 'content',
+      'sort_order', 'slug', 'total_lessons', 'is_featured', 'ai_professor_enabled', 'content',
     ];
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -889,7 +889,7 @@ export class PrepCoursesService {
         sets.push(`"${key}" = $${p}::numeric`);
       } else if (['sort_order', 'total_lessons'].includes(key)) {
         sets.push(`"${key}" = $${p}::int`);
-      } else if (key === 'is_featured') {
+      } else if (key === 'is_featured' || key === 'ai_professor_enabled') {
         sets.push(`"${key}" = $${p}::boolean`);
       } else if (key === 'content') {
         sets.push(`"${key}" = $${p}::jsonb`);
