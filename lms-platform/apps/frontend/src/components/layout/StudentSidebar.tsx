@@ -23,9 +23,60 @@ const LEARNING_ITEMS = [
 ];
 
 const BOTTOM_ITEMS = [
-  { href: "/student/assignments", label: "Assignments", icon: FileText },
-  { href: "/student/grades",      label: "Grades",      icon: BarChart2 },
+  { href: "/student/grades", label: "Grades", icon: BarChart2 },
 ];
+
+function fetcher(url: string, token: string) {
+  return api.get<any>(url, token).then((r) => (r as any).data ?? r);
+}
+
+// Only shown once the student actually has an assignment to do — combines
+// the same three sources /student/assignments itself merges (lesson-based
+// assignments in certification-track courses, lesson-based assignments in
+// prep-courses, and standalone assignments), so this can't drift out of
+// sync with what the page actually renders.
+function AssignmentsNavItem({ collapsed, token }: { collapsed: boolean; token: string | null }) {
+  const pathname = usePathname();
+
+  const { data: lessonAssignments } = useSWR(
+    token ? ["/learn/assignments", token] : null,
+    ([url, t]) => fetcher(url, t),
+    { revalidateOnFocus: false },
+  );
+  const { data: courseAssignments } = useSWR(
+    token ? ["/prep-courses/my/assignments", token] : null,
+    ([url, t]) => fetcher(url, t),
+    { revalidateOnFocus: false },
+  );
+  const { data: standaloneAssignments } = useSWR(
+    token ? ["/assignments", token] : null,
+    ([url, t]) => fetcher(url, t),
+    { revalidateOnFocus: false },
+  );
+
+  const hasAssignments =
+    (Array.isArray(lessonAssignments) && lessonAssignments.length > 0) ||
+    (Array.isArray(courseAssignments) && courseAssignments.length > 0) ||
+    (Array.isArray(standaloneAssignments) && standaloneAssignments.length > 0);
+
+  if (!hasAssignments) return null;
+
+  const href = "/student/assignments";
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "sidebar-link",
+        pathname === href ? "sidebar-link-active" : "",
+        collapsed && "justify-center !px-2"
+      )}
+      title={collapsed ? "Assignments" : undefined}
+    >
+      <FileText size={18} className="flex-shrink-0" />
+      {!collapsed && <span>Assignments</span>}
+    </Link>
+  );
+}
 
 const ACCOUNT_ITEMS = [
   { tab: "basic",    href: "/profile",              label: "Profile",       icon: User },
@@ -288,6 +339,7 @@ export default function StudentSidebar() {
 
         {/* Other items */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
+        <AssignmentsNavItem collapsed={collapsed} token={token} />
         {BOTTOM_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
