@@ -14,6 +14,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import AiProfessorWidget from "@/components/AiProfessorWidget";
+import ContentZoomControl from "@/components/ContentZoomControl";
+import { useContentZoom } from "@/lib/useContentZoom";
 
 const LESSON_ICONS: Record<string, React.ElementType> = {
   video: Video,
@@ -211,6 +213,7 @@ export default function CoursePlayerLayout({ children }: { children: React.React
   const [readingPct, setReadingPct] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const zoom = useContentZoom();
 
   // Sidebar defaults open on desktop, closed on mobile (it's a full-screen
   // overlay drawer below the lg breakpoint — see className below).
@@ -332,6 +335,16 @@ export default function CoursePlayerLayout({ children }: { children: React.React
         >
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
+
+        {/* Content zoom */}
+        <ContentZoomControl
+          zoomLevel={zoom.zoomLevel}
+          min={zoom.min}
+          max={zoom.max}
+          onZoomIn={zoom.zoomIn}
+          onZoomOut={zoom.zoomOut}
+          onReset={zoom.reset}
+        />
 
         {/* Divider */}
         <div className="h-5 w-px bg-white/20 hidden sm:block" />
@@ -477,7 +490,15 @@ export default function CoursePlayerLayout({ children }: { children: React.React
               <div className="h-full bg-teal-500 transition-[width] duration-150" style={{ width: `${readingPct}%` }} />
             </div>
           )}
-          {children}
+          <div
+            style={{
+              width: `${10000 / zoom.zoomLevel}%`,
+              transform: `scale(${zoom.zoomLevel / 100})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {children}
+          </div>
           {currentLessonId && (
             <div className="max-w-3xl mx-auto px-6 pb-16 pt-2">
               <div className="flex items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 bg-slate-50">

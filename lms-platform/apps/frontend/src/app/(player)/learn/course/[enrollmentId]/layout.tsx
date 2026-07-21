@@ -13,6 +13,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import AiProfessorWidget from "@/components/AiProfessorWidget";
+import ContentZoomControl from "@/components/ContentZoomControl";
+import { useContentZoom } from "@/lib/useContentZoom";
 
 const LESSON_ICONS: Record<string, React.ElementType> = {
   video: Video, reading: FileText, quiz: HelpCircle,
@@ -151,6 +153,7 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
   const [readingPct, setReadingPct] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const zoom = useContentZoom();
 
   useEffect(() => {
     setSidebarOpen(window.innerWidth >= 1024);
@@ -249,6 +252,14 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
         >
           {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
+        <ContentZoomControl
+          zoomLevel={zoom.zoomLevel}
+          min={zoom.min}
+          max={zoom.max}
+          onZoomIn={zoom.zoomIn}
+          onZoomOut={zoom.zoomOut}
+          onReset={zoom.reset}
+        />
         <div className="h-5 w-px bg-white/20 hidden sm:block" />
         <Link href="/learn" className="hidden sm:flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap">
           <ChevronLeft size={14} /> My Courses
@@ -344,7 +355,15 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
               <div className="h-full bg-teal-500 transition-[width] duration-150" style={{ width: `${readingPct}%` }} />
             </div>
           )}
-          {children}
+          <div
+            style={{
+              width: `${10000 / zoom.zoomLevel}%`,
+              transform: `scale(${zoom.zoomLevel / 100})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {children}
+          </div>
           {currentLessonId && (
             <div className="max-w-3xl mx-auto px-6 pb-16 pt-2">
               <div className="flex items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 bg-slate-50">
