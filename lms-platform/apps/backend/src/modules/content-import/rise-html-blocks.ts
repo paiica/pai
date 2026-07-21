@@ -108,6 +108,24 @@ export function guessGeneralContentType(filename: string): string {
   }
 }
 
+// Shared by lesson images (`item.items[0].media.image`) and the course
+// cover image (`course.coverImage.media.image`) — both carry the exact same
+// `{ key, crushedKey, altText }` shape.
+async function resolveMediaImageUrl(
+  media: any,
+  assets: Map<string, Buffer>,
+  uploadBuffer: (buffer: Buffer, keySuffix: string, contentType: string) => Promise<string>,
+): Promise<string | null> {
+  // `key` is sometimes a nested "original asset" path rather than a filename
+  // under assets/ — `crushedKey` (Rise's optimized/resized copy) is the one
+  // that reliably matches what's actually in the export's assets/ folder.
+  const key: string | undefined = media?.crushedKey ?? media?.key;
+  if (!key) return null;
+  const buffer = assets.get(key);
+  if (!buffer) return null;
+  return uploadBuffer(buffer, key, guessImageContentType(key));
+}
+
 async function renderImageItem(
   item: any,
   assets: Map<string, Buffer>,
@@ -115,24 +133,55 @@ async function renderImageItem(
   flags: string[],
 ): Promise<{ html: string; uploaded: boolean }> {
   const media = item.items?.[0]?.media?.image;
-  // `key` is sometimes a nested "original asset" path rather than a filename
-  // under assets/ — `crushedKey` (Rise's optimized/resized copy) is the one
-  // that reliably matches what's actually in the export's assets/ folder.
   const key: string | undefined = media?.crushedKey ?? media?.key;
   if (!key) return { html: "", uploaded: false };
 
-  const buffer = assets.get(key);
-  if (!buffer) {
+  const url = await resolveMediaImageUrl(media, assets, uploadBuffer);
+  if (!url) {
     flags.push(`image "${key}" referenced but not found in the export`);
     return { html: "", uploaded: false };
   }
 
-  const url = await uploadBuffer(buffer, key, guessImageContentType(key));
   const alt = (media.altText ?? "").replace(/"/g, "&quot;");
   return {
     html: `<img src="${url}" alt="${alt}" />`,
     uploaded: true,
   };
+}
+
+// Rise's own "Course Cover" screen (title + description + optional hero
+// image, configured in Course Settings) — normally rendered by Rise's own
+// app shell before Lesson 1. Decompose mode rebuilds every lesson from
+// `course.lessons` alone, which has no room for this, so this reconstructs
+// it as the very first module instead, using the same `course.description`/
+// `course.coverImage` fields Rise itself stores. Returns empty html if the
+// course has neither (nothing worth a whole extra module for).
+export async function buildCoverPageHtml(
+  course: any,
+  assets: Map<string, Buffer>,
+  uploadBuffer: (buffer: Buffer, keySuffix: string, contentType: string) => Promise<string>,
+): Promise<{ html: string; imageUploaded: boolean }> {
+  const title: string = course?.title || "";
+  const description: string = typeof course?.description === "string" ? course.description.trim() : "";
+  const coverMedia = course?.coverImage?.media?.image;
+  const imageUrl = coverMedia ? await resolveMediaImageUrl(coverMedia, assets, uploadBuffer) : null;
+
+  if (!description && !imageUrl) return { html: "", imageUploaded: false };
+
+  const heroHtml = `<div class="pv-cover-hero" style="${imageUrl
+    ? "position:relative;background:#171527;"
+    : "padding:40px 36px;background:linear-gradient(135deg,#171527,#2d2b43);"
+  }border-radius:20px;overflow:hidden;margin:0 auto 36px;">
+    ${imageUrl ? `<img src="${imageUrl}" alt="" style="width:100%;height:280px;object-fit:cover;display:block;opacity:0.5;" />` : ""}
+    <div style="${imageUrl ? "position:absolute;inset:0;" : ""}display:flex;flex-direction:column;justify-content:flex-end;padding:${imageUrl ? "32px 36px" : "0"};">
+      <p style="text-transform:uppercase;letter-spacing:0.08em;font-size:11px;font-weight:700;color:#5eead4;margin:0 0 10px;">Welcome</p>
+      <h1 style="font-family:'Fraunces',Georgia,serif;font-size:30px;font-weight:800;color:#fff;margin:0;line-height:1.2;">${title}</h1>
+    </div>
+  </div>`;
+
+  const bodyHtml = description ? `<div class="pv-cover-description">${description}</div>` : "";
+
+  return { html: `${heroHtml}${bodyHtml}`, imageUploaded: !!imageUrl };
 }
 
 function extractPlainText(html: string | undefined | null): string {
@@ -179,6 +228,82 @@ const LESSON_STYLE_BLOCK = `
   .pv-lesson hr { border: none; border-top: 1px solid #e5e4ef; margin: 44px auto; }
   .pv-lesson .pv-checkpoint { padding: 22px 24px; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 14px; }
   .pv-lesson .pv-checkpoint-badge { display: flex; align-items: center; gap: 6px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #0d9488; margin: 0 0 14px; }
+
+  /* Cover page (Welcome module) */
+  .pv-lesson .pv-cover-hero { max-width: 900px; }
+  .pv-lesson .pv-cover-description p:last-child { margin-bottom: 0; }
+
+  /* Shared fade-in for content that toggles display:none <-> block (tabs,
+     knowledge check) — an animation, not a transition, since transitions
+     can't span a display:none gap but animations replay every time an
+     element re-enters the render tree. */
+  @keyframes pv-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Tabs */
+  .pv-tab-label { display: inline-block; padding: 8px 14px; margin: 0 4px 6px 0; border: 1px solid #99f6e4; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; color: #0f766e; background: #fff; transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .15s ease; }
+  .pv-tab-label:hover { transform: translateY(-1px); }
+  .pv-tab-panel { background: #fff; border: 1px solid #99f6e4; border-radius: 8px; padding: 14px 16px; }
+
+  /* Knowledge check */
+  .pv-kc-option { display: block; padding: 10px 14px; background: #fff; border: 1px solid #99f6e4; border-radius: 8px; cursor: pointer; font-size: 14px; color: #171527; transition: background-color .2s ease, border-color .2s ease, transform .15s ease; }
+  .pv-kc-option:hover { transform: translateX(2px); }
+
+  /* Accordion / Timeline / Process — animated expand/collapse via checkbox +
+     max-height transition (native <details> can't animate height at all
+     without JS). */
+  .pv-lesson .pv-expand-item { background: #fff; border: 1px solid #99f6e4; border-radius: 10px; margin-bottom: 10px; overflow: hidden; transition: box-shadow .25s ease, border-color .25s ease; }
+  .pv-lesson .pv-expand-item:hover { box-shadow: 0 4px 16px rgba(15,118,110,0.12); border-color: #5eead4; }
+  .pv-expand-toggle { position: absolute; opacity: 0; pointer-events: none; }
+  .pv-expand-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 13px 16px; font-weight: 600; color: #171527; user-select: none; }
+  .pv-expand-summary-text { flex: 1; }
+  .pv-expand-chevron { display: inline-flex; font-size: 11px; color: #0d9488; transition: transform .3s cubic-bezier(.4,0,.2,1); flex-shrink: 0; }
+  .pv-expand-toggle:checked ~ .pv-expand-summary .pv-expand-chevron { transform: rotate(90deg); }
+  .pv-expand-body { max-height: 0; overflow: hidden; transition: max-height .4s cubic-bezier(.4,0,.2,1); }
+  .pv-expand-toggle:checked ~ .pv-expand-body { max-height: 1000px; }
+  .pv-expand-body-inner { padding: 0 16px 15px 16px; color: #403d57; opacity: 0; transform: translateY(-4px); transition: opacity .3s ease, transform .3s ease; }
+  .pv-expand-toggle:checked ~ .pv-expand-body .pv-expand-body-inner { opacity: 1; transform: translateY(0); transition-delay: .05s; }
+  .pv-timeline-date { flex-shrink: 0; font-size: 12px; font-weight: 700; color: #0f766e; background: #f0fdfa; padding: 3px 9px; border-radius: 20px; }
+  .pv-process-badge { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+
+  /* Flashcards — real 3D flip card, front/back as two faces of one card. */
+  .pv-flip-grid { display: grid; gap: 12px; }
+  .pv-flip-card { perspective: 1200px; }
+  .pv-flip-toggle { position: absolute; opacity: 0; pointer-events: none; }
+  .pv-flip-card-inner { position: relative; display: block; min-height: 96px; cursor: pointer; transition: transform .6s cubic-bezier(.4,0,.2,1); transform-style: preserve-3d; }
+  .pv-flip-toggle:checked ~ .pv-flip-card-inner { transform: rotateY(180deg); }
+  .pv-flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 10px; border: 1px solid #99f6e4; padding: 16px 18px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px; overflow-y: auto; }
+  .pv-flip-front { background: #fff; font-weight: 600; color: #171527; }
+  .pv-flip-back { transform: rotateY(180deg); color: #403d57; background: #f0fdfa; }
+  .pv-flip-hint { font-size: 11px; font-weight: 500; color: #0d9488; text-transform: uppercase; letter-spacing: .04em; }
+  .pv-flip-card:hover .pv-flip-card-inner { box-shadow: 0 6px 18px rgba(15,118,110,0.15); }
+
+  /* Sorting / matching */
+  .pv-sort-hint { font-style: italic; color: #0f766e; margin: 0 0 10px; font-size: 13px; }
+  .pv-sort-bank { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; min-height: 20px; }
+  .pv-sort-item { display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid #99f6e4; border-radius: 20px; background: #fff; cursor: grab; font-size: 13px; color: #171527; font-family: inherit; transition: transform .18s ease, box-shadow .18s ease, background-color .25s ease, border-color .25s ease, color .25s ease, opacity .2s ease; }
+  .pv-sort-item:hover:not([data-locked]) { box-shadow: 0 3px 10px rgba(15,118,110,0.18); transform: translateY(-1px); }
+  .pv-sort-item:active:not([data-locked]) { cursor: grabbing; }
+  .pv-sort-item.pv-sort-selected { background: #171527; color: #fff; border-color: #171527; box-shadow: 0 4px 14px rgba(23,21,39,0.25); }
+  .pv-sort-item.pv-sort-dragging { opacity: .35; }
+  .pv-sort-item.pv-sort-correct { background: #dcfce7; border-color: #22c55e; color: #166534; }
+  .pv-sort-item.pv-sort-incorrect { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+  .pv-sort-item.pv-sort-unplaced { background: #fef9c3; border-color: #eab308; color: #854d0e; }
+  .pv-sort-categories { display: flex; gap: 12px; flex-wrap: wrap; }
+  .pv-sort-category { flex: 1; min-width: 160px; border: 2px dashed #5eead4; border-radius: 10px; padding: 12px; min-height: 64px; background: #fff; transition: border-color .2s ease, background-color .2s ease; }
+  .pv-sort-category.pv-sort-dragover { border-color: #0d9488; background: #f0fdfa; border-style: solid; }
+  .pv-sort-category-title { font-weight: 600; margin: 0 0 8px; font-size: 13px; color: #0f766e; }
+  .pv-sort-check-btn { padding: 8px 16px; border-radius: 8px; background: #171527; color: #fff; font-weight: 600; font-size: 13px; border: none; cursor: pointer; transition: background-color .2s ease, transform .15s ease; }
+  .pv-sort-check-btn:hover { background: #2d2b43; transform: translateY(-1px); }
+  .pv-sort-reset-btn { padding: 8px 16px; border-radius: 8px; background: #fff; border: 1px solid #99f6e4; font-weight: 600; font-size: 13px; cursor: pointer; color: #171527; transition: background-color .2s ease; }
+  .pv-sort-reset-btn:hover { background: #f0fdfa; }
+  @keyframes pv-sort-pop { 0% { transform: scale(.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  .pv-sort-item.pv-sort-pop { animation: pv-sort-pop .3s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pv-sort-shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+  .pv-sort-item.pv-sort-shake { animation: pv-sort-shake .4s ease; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pv-lesson * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
 </style>`;
 
 // Wraps a lesson's assembled block HTML with the shared stylesheet above —
@@ -198,31 +323,56 @@ function checkpointCard(badge: string, innerHtml: string): string {
   </div>`;
 }
 
-// Click-to-reveal cards via native <details>/<summary> — no JS needed, works
-// anywhere content_body is rendered via dangerouslySetInnerHTML.
+// Checkbox + max-height CSS transition, not native <details> — <details>
+// can't animate its open/close height at all without JS (or bleeding-edge
+// CSS few browsers support), so it always snaps instantly. This animates
+// smoothly with zero JS, works identically whether content_body is rendered
+// via dangerouslySetInnerHTML or a real iframe srcDoc document (see
+// SORT_ENHANCER_SCRIPT's note on why the latter can't rely on JS added
+// here). Shared by accordion/timeline/process — one consistent expand
+// animation across all three instead of three ad hoc treatments.
+function expandableItem(opts: { summaryHtml: string; bodyHtml: string; leadingHtml?: string; openByDefault?: boolean }): string {
+  const { summaryHtml, bodyHtml, leadingHtml, openByDefault } = opts;
+  const uid = nextUid("exp");
+  return `<div class="pv-expand-item">
+    <input type="checkbox" id="${uid}" class="pv-expand-toggle" ${openByDefault ? "checked" : ""}>
+    <label for="${uid}" class="pv-expand-summary">
+      ${leadingHtml ?? ""}
+      <span class="pv-expand-summary-text">${summaryHtml}</span>
+      <span class="pv-expand-chevron">&#9656;</span>
+    </label>
+    <div class="pv-expand-body"><div class="pv-expand-body-inner">${bodyHtml}</div></div>
+  </div>`;
+}
+
+// Real CSS 3D flip cards (perspective + rotateY), matching Rise's own
+// flip-to-reveal flashcard interaction far more closely than a plain
+// expand/collapse would — front and back are two faces of one card that
+// physically turns over, not text that appears below a summary line.
 function renderFlashcards(item: any, flags: string[]): string {
   const cards = (item.items ?? [])
     .map((c: any) => {
       const front = unwrapParagraph(ensureBlockHtml(c.front?.description));
       const back = unwrapParagraph(ensureBlockHtml(c.back?.description));
-      return `<details style="background:#fff;border:1px solid #99f6e4;border-radius:8px;padding:10px 16px;margin-bottom:8px;">
-        <summary style="font-weight:600;cursor:pointer;color:#171527;">${front}</summary>
-        <p style="margin:8px 0 0;color:#403d57;">${back}</p>
-      </details>`;
+      const uid = nextUid("flip");
+      return `<div class="pv-flip-card">
+        <input type="checkbox" id="${uid}" class="pv-flip-toggle">
+        <label for="${uid}" class="pv-flip-card-inner">
+          <div class="pv-flip-face pv-flip-front"><span>${front}</span><span class="pv-flip-hint">Tap to flip</span></div>
+          <div class="pv-flip-face pv-flip-back"><span>${back}</span></div>
+        </label>
+      </div>`;
     })
     .join("");
   if (!cards) return "";
-  flags.push("a flashcard set was converted to click-to-reveal cards");
-  return checkpointCard("Flashcards", `<div>${cards}</div>`);
+  flags.push("a flashcard set was converted to flip cards");
+  return checkpointCard("Flashcards", `<div class="pv-flip-grid">${cards}</div>`);
 }
 
-// Native expandable sections — same <details> technique as flashcards.
+// Same animated expand/collapse as timeline/process below.
 function renderAccordion(item: any, flags: string[]): string {
   const entries = (item.items ?? [])
-    .map((e: any) => `<details style="background:#fff;border:1px solid #99f6e4;border-radius:8px;padding:10px 16px;margin-bottom:8px;">
-      <summary style="font-weight:600;cursor:pointer;color:#171527;">${e.title ?? ""}</summary>
-      <div style="margin-top:8px;color:#403d57;">${ensureBlockHtml(e.description)}</div>
-    </details>`)
+    .map((e: any) => expandableItem({ summaryHtml: e.title ?? "", bodyHtml: ensureBlockHtml(e.description) }))
     .join("");
   if (!entries) return "";
   flags.push("an accordion was converted to expandable sections");
@@ -245,20 +395,24 @@ function renderTabs(item: any, flags: string[]): string {
 
   const labels = entries
     .map((e: any, i: number) =>
-      `<label for="${groupId}-${i}" style="display:inline-block;padding:8px 14px;margin:0 4px 6px 0;border:1px solid #99f6e4;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;color:#0f766e;background:#fff;">${e.title ?? ""}</label>`)
+      `<label for="${groupId}-${i}" class="pv-tab-label">${e.title ?? ""}</label>`)
     .join("");
 
   const panels = entries
     .map((e: any, i: number) =>
-      `<div data-tab-panel="${i}" style="display:none;background:#fff;border:1px solid #99f6e4;border-radius:8px;padding:14px 16px;">${ensureBlockHtml(e.description)}</div>`)
+      `<div data-tab-panel="${i}" class="pv-tab-panel" style="display:none;">${ensureBlockHtml(e.description)}</div>`)
     .join("");
 
   // !important is required here: each panel's own `display:none` is an
   // inline style attribute, which always wins over a plain embedded
   // stylesheet rule regardless of selector specificity — without it this
   // rule matches (the radio really does get checked) but never shows anything.
+  // The panel's `animation` (not `transition`) is what makes the fade-in
+  // replay every time it flips to display:block — CSS animations restart
+  // whenever an element re-enters the render tree, unlike transitions,
+  // which only fire on a property *change* and can't span a display:none gap.
   const rules = entries
-    .map((_e: any, i: number) => `#${groupId}-${i}:checked ~ .pv-tab-panels [data-tab-panel="${i}"]{display:block !important;}
+    .map((_e: any, i: number) => `#${groupId}-${i}:checked ~ .pv-tab-panels [data-tab-panel="${i}"]{display:block !important;animation:pv-fade-in .35s cubic-bezier(.4,0,.2,1);}
 #${groupId}-${i}:checked ~ .pv-tab-labels label[for="${groupId}-${i}"]{background:#171527;color:#fff;border-color:#171527;}`)
     .join("\n");
 
@@ -272,25 +426,25 @@ function renderTabs(item: any, flags: string[]): string {
   </div>`);
 }
 
-// Always-visible date/title, description behind a per-entry <details> toggle.
+// Same animated expand/collapse as accordion, with the date as a small
+// leading badge in the summary line rather than a plain-text column.
 function renderTimeline(item: any, flags: string[]): string {
   const entries: any[] = item.items ?? [];
   const rows = entries
-    .map((e: any) => `<div style="display:flex;gap:16px;margin-bottom:14px;">
-      <div style="flex:0 0 140px;font-weight:600;color:#0f766e;font-size:13px;">${e.date ?? ""}</div>
-      <details style="flex:1;background:#fff;border:1px solid #99f6e4;border-radius:8px;padding:8px 14px;">
-        <summary style="font-weight:600;cursor:pointer;color:#171527;">${e.title ?? ""}</summary>
-        <div style="margin-top:6px;color:#403d57;">${ensureBlockHtml(e.description)}</div>
-      </details>
-    </div>`)
+    .map((e: any) => expandableItem({
+      leadingHtml: e.date ? `<span class="pv-timeline-date">${e.date}</span>` : "",
+      summaryHtml: e.title ?? "",
+      bodyHtml: ensureBlockHtml(e.description),
+    }))
     .join("");
   if (!rows) return "";
   flags.push("a timeline was converted to an expandable sequence");
   return checkpointCard("Timeline", `<div>${rows}</div>`);
 }
 
-// Numbered step sequence; intro/summary items are styled distinctly and
-// expanded by default since they're framing content, not the steps themselves.
+// Numbered step sequence, same animated expand/collapse as accordion/
+// timeline; intro/summary items are styled distinctly and expanded by
+// default since they're framing content, not the steps themselves.
 function renderProcess(item: any, flags: string[]): string {
   const entries: any[] = item.items ?? [];
   let stepNum = 0;
@@ -298,13 +452,12 @@ function renderProcess(item: any, flags: string[]): string {
     .map((e: any) => {
       const isStep = e.type === "step";
       const badge = isStep ? String(++stepNum) : e.type === "intro" ? "→" : "✓";
-      return `<div style="display:flex;gap:14px;margin-bottom:12px;">
-        <div style="flex:0 0 28px;height:28px;border-radius:50%;background:${isStep ? "#171527" : "#0f766e"};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">${badge}</div>
-        <details style="flex:1;background:#fff;border:1px solid #99f6e4;border-radius:8px;padding:8px 14px;" ${!isStep ? "open" : ""}>
-          <summary style="font-weight:600;cursor:pointer;color:#171527;">${e.title ?? ""}</summary>
-          <div style="margin-top:6px;color:#403d57;">${ensureBlockHtml(e.description)}</div>
-        </details>
-      </div>`;
+      return expandableItem({
+        leadingHtml: `<span class="pv-process-badge" style="background:${isStep ? "#171527" : "#0f766e"};">${badge}</span>`,
+        summaryHtml: e.title ?? "",
+        bodyHtml: ensureBlockHtml(e.description),
+        openByDefault: !isStep,
+      });
     })
     .join("");
   if (!rows) return "";
@@ -330,16 +483,55 @@ var checkBtn = ex.querySelector('[data-sort-check]');
 var resetBtn = ex.querySelector('[data-sort-reset]');
 if (!bank || !checkBtn || !resetBtn) return;
 var selected = null;
-function clearSel(){ if (selected) selected.style.outline = ''; selected = null; }
+var dragged = null;
+function clearSel(){ if (selected) selected.classList.remove('pv-sort-selected'); selected = null; }
+function pop(item){
+  item.classList.add('pv-sort-pop');
+  item.addEventListener('animationend', function(){ item.classList.remove('pv-sort-pop'); }, { once: true });
+}
+function place(item, target){ target.appendChild(item); item.classList.remove('pv-sort-selected'); pop(item); }
 ex.addEventListener('click', function(e){
   var item = e.target.closest('[data-sort-item]');
   if (item && ex.contains(item) && !item.dataset.locked) {
-    if (selected === item) { clearSel(); } else { clearSel(); selected = item; item.style.outline = '2px solid #0f172a'; }
+    if (selected === item) { clearSel(); } else { clearSel(); selected = item; item.classList.add('pv-sort-selected'); }
     return;
   }
   var cat = e.target.closest('[data-sort-category]');
-  if (cat && selected) { selected.style.outline = ''; cat.appendChild(selected); clearSel(); return; }
-  if (e.target.closest('[data-sort-bank]') && selected) { selected.style.outline = ''; bank.appendChild(selected); clearSel(); }
+  if (cat && selected) { place(selected, cat); clearSel(); return; }
+  if (e.target.closest('[data-sort-bank]') && selected) { place(selected, bank); clearSel(); }
+});
+// Drag-and-drop — progressive enhancement alongside the click-to-select flow
+// above (kept for touch/accessibility); both work on the same items.
+ex.addEventListener('dragstart', function(e){
+  var item = e.target.closest && e.target.closest('[data-sort-item]');
+  if (!item || item.dataset.locked) { e.preventDefault(); return; }
+  dragged = item;
+  clearSel();
+  item.classList.add('pv-sort-dragging');
+  if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); }
+});
+ex.addEventListener('dragend', function(){
+  if (dragged) dragged.classList.remove('pv-sort-dragging');
+  dragged = null;
+  ex.querySelectorAll('.pv-sort-dragover').forEach(function(el){ el.classList.remove('pv-sort-dragover'); });
+});
+ex.addEventListener('dragover', function(e){
+  var zone = e.target.closest && e.target.closest('[data-sort-category], [data-sort-bank]');
+  if (!zone || !dragged) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  zone.classList.add('pv-sort-dragover');
+});
+ex.addEventListener('dragleave', function(e){
+  var zone = e.target.closest && e.target.closest('[data-sort-category], [data-sort-bank]');
+  if (zone) zone.classList.remove('pv-sort-dragover');
+});
+ex.addEventListener('drop', function(e){
+  var zone = e.target.closest && e.target.closest('[data-sort-category], [data-sort-bank]');
+  if (!zone || !dragged) return;
+  e.preventDefault();
+  zone.classList.remove('pv-sort-dragover');
+  place(dragged, zone);
 });
 checkBtn.addEventListener('click', function(){
   ex.querySelectorAll('[data-sort-item]').forEach(function(item){
@@ -347,9 +539,17 @@ checkBtn.addEventListener('click', function(){
     var correct = cat && cat.getAttribute('data-category-id') === item.getAttribute('data-correct-category');
     item.dataset.locked = 'true';
     item.style.pointerEvents = 'none';
-    item.style.outline = '';
-    if (cat) { item.style.background = correct ? '#dcfce7' : '#fee2e2'; item.style.borderColor = correct ? '#22c55e' : '#ef4444'; }
-    else { item.style.background = '#fef9c3'; item.style.borderColor = '#eab308'; }
+    item.draggable = false;
+    item.classList.remove('pv-sort-selected');
+    if (cat) {
+      item.classList.add(correct ? 'pv-sort-correct' : 'pv-sort-incorrect');
+      if (!correct) {
+        item.classList.add('pv-sort-shake');
+        item.addEventListener('animationend', function(){ item.classList.remove('pv-sort-shake'); }, { once: true });
+      }
+    } else {
+      item.classList.add('pv-sort-unplaced');
+    }
   });
   clearSel();
   checkBtn.style.display = 'none';
@@ -359,8 +559,8 @@ resetBtn.addEventListener('click', function(){
   ex.querySelectorAll('[data-sort-item]').forEach(function(item){
     delete item.dataset.locked;
     item.style.pointerEvents = '';
-    item.style.background = '#fff';
-    item.style.borderColor = '#cbd5e1';
+    item.draggable = true;
+    item.classList.remove('pv-sort-correct', 'pv-sort-incorrect', 'pv-sort-unplaced');
     bank.appendChild(item);
   });
   clearSel();
@@ -379,25 +579,25 @@ function renderSorting(item: any, flags: string[]): string {
 
   const bankItems = shuffled
     .map((i: any) =>
-      `<button type="button" data-sort-item data-correct-category="${i.pileId}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 14px;border:1px solid #99f6e4;border-radius:20px;background:#fff;cursor:pointer;font-size:13px;color:#171527;">${i.title}</button>`)
+      `<button type="button" class="pv-sort-item" draggable="true" data-sort-item data-correct-category="${i.pileId}">${i.title}</button>`)
     .join("");
 
   const categories = piles
     .map((p: any) =>
-      `<div data-sort-category data-category-id="${p.id}" style="flex:1;min-width:160px;border:2px dashed #5eead4;border-radius:10px;padding:12px;min-height:64px;background:#fff;">
-        <p style="font-weight:600;margin:0 0 8px;font-size:13px;color:#0f766e;">${p.title}</p>
+      `<div class="pv-sort-category" data-sort-category data-category-id="${p.id}">
+        <p class="pv-sort-category-title">${p.title}</p>
       </div>`)
     .join("");
 
-  flags.push("a sorting exercise was converted to a click-to-categorize activity (tap an item, then tap its category) — ungraded, not tied to lesson completion");
+  flags.push("a sorting exercise was converted to a click-to-categorize or drag-and-drop activity — ungraded, not tied to lesson completion");
 
   return checkpointCard("Sort the items", `<div data-sort-exercise>
-    <p style="font-style:italic;color:#0f766e;margin:0 0 10px;font-size:13px;">Tap an item, then tap the category it belongs to.</p>
-    <div data-sort-bank style="margin-bottom:14px;">${bankItems}</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">${categories}</div>
+    <p class="pv-sort-hint">Drag an item into its category, or tap an item then tap the category.</p>
+    <div class="pv-sort-bank" data-sort-bank>${bankItems}</div>
+    <div class="pv-sort-categories">${categories}</div>
     <div style="margin-top:14px;display:flex;gap:8px;">
-      <button type="button" data-sort-check style="padding:8px 16px;border-radius:8px;background:#171527;color:#fff;font-weight:600;font-size:13px;border:none;cursor:pointer;">Check Answers</button>
-      <button type="button" data-sort-reset hidden style="padding:8px 16px;border-radius:8px;background:#fff;border:1px solid #99f6e4;font-weight:600;font-size:13px;cursor:pointer;color:#171527;">Reset</button>
+      <button type="button" data-sort-check class="pv-sort-check-btn">Check Answers</button>
+      <button type="button" data-sort-reset hidden class="pv-sort-reset-btn">Reset</button>
     </div>
     ${SORT_ENHANCER_SCRIPT}
   </div>`);
@@ -444,7 +644,7 @@ function renderKnowledgeCheckItem(item: any): string {
 
   const optionsHtml = answers
     .map((a: any, i: number) =>
-      `<label for="${groupId}-${i}" style="display:block;padding:10px 14px;background:#fff;border:1px solid #99f6e4;border-radius:8px;cursor:pointer;font-size:14px;color:#171527;">${a.title}</label>`)
+      `<label for="${groupId}-${i}" class="pv-kc-option">${a.title}</label>`)
     .join("");
 
   const feedbackHtml = answers
@@ -461,10 +661,12 @@ function renderKnowledgeCheckItem(item: any): string {
 
   // !important is required: each feedback panel's own inline `display:none`
   // otherwise always wins over the embedded stylesheet rule regardless of
-  // selector — see the identical note in renderTabs.
+  // selector — see the identical note in renderTabs. The fade-in animation
+  // (not a transition) replays each time an option is (re)selected, for the
+  // same reason noted there.
   const rules = answers
-    .map((_a: any, i: number) => `#${groupId}-${i}:checked ~ .pv-kc-options label[for="${groupId}-${i}"]{border-color:#171527;}
-#${groupId}-${i}:checked ~ .pv-kc-feedback [data-feedback="${i}"]{display:block !important;}`)
+    .map((_a: any, i: number) => `#${groupId}-${i}:checked ~ .pv-kc-options label[for="${groupId}-${i}"]{border-color:#171527;background:#f0fdfa;}
+#${groupId}-${i}:checked ~ .pv-kc-feedback [data-feedback="${i}"]{display:block !important;animation:pv-fade-in .3s cubic-bezier(.4,0,.2,1);}`)
     .join("\n");
 
   return checkpointCard("Knowledge check", `<div style="position:relative;">

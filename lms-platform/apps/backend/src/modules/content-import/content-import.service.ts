@@ -3,7 +3,7 @@ import AdmZip = require("adm-zip");
 import { v4 as uuidv4 } from "uuid";
 import { XMLParser } from "fast-xml-parser";
 import { UploadsService } from "../uploads/uploads.service";
-import { ImportPlan, PlannedModule, PlannedQuestion, guessGeneralContentType, renderReviewQuestion, renderBlockItems, wrapLessonContent } from "./rise-html-blocks";
+import { ImportPlan, PlannedModule, PlannedQuestion, guessGeneralContentType, renderReviewQuestion, renderBlockItems, wrapLessonContent, buildCoverPageHtml } from "./rise-html-blocks";
 
 const JSONP_PATTERN = /__jsonp\(\s*"runtime-data\.js"\s*,\s*"([^"]+)"\s*\)/;
 
@@ -297,6 +297,19 @@ export class ContentImportService {
       this.uploadsService.uploadBufferServerSide(buffer, keySuffix, contentType);
 
     const riseLessons: any[] = course?.lessons ?? [];
+
+    const cover = await buildCoverPageHtml(course, assets, uploadBuffer);
+    if (cover.html) {
+      if (cover.imageUploaded) imagesUploaded++;
+      modules.push({
+        title: "Welcome",
+        lessons: [{
+          title: "Welcome",
+          type: "html",
+          content_html: wrapLessonContent(cover.html),
+        }],
+      });
+    }
 
     for (const riseLesson of riseLessons) {
       if (riseLesson.type === "quiz") continue; // handled separately below
