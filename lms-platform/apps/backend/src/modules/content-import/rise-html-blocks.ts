@@ -726,6 +726,46 @@ export function renderReviewQuestion(item: any): string {
 // builder. Image items come in two shapes: Rise's own (`items[0].media.
 // image.key`, looked up in `assets` and uploaded) and manually-added blocks
 // (`item.url` already points at an uploaded file — no asset lookup needed).
+// Rise's own uploaded-video block (`type: "multimedia"`, `variant: "video"`)
+// — distinct from `renderVideoBlock` below, which handles the manually-added
+// PAII video block (a plain external URL). Here the video itself is a file
+// inside the export's assets/ folder (`media.customVideo.src`), so it needs
+// the same look-up-and-upload treatment as `renderImageItem`; the poster
+// frame (`media.customVideo.poster`) gets the same treatment if present.
+async function renderMultimediaItem(
+  item: any,
+  assets: Map<string, Buffer>,
+  uploadBuffer: (buffer: Buffer, keySuffix: string, contentType: string) => Promise<string>,
+  flags: string[],
+): Promise<{ html: string; uploaded: boolean }> {
+  const inner = item.items?.[0];
+  const videoSrc: string | undefined = inner?.media?.customVideo?.src;
+  if (!videoSrc) return { html: "", uploaded: false };
+
+  const videoBuffer = assets.get(videoSrc);
+  if (!videoBuffer) {
+    flags.push(`video "${videoSrc}" referenced but not found in the export`);
+    return { html: "", uploaded: false };
+  }
+  const videoUrl = await uploadBuffer(videoBuffer, videoSrc, guessGeneralContentType(videoSrc));
+
+  const posterSrc: string | undefined = inner.media.customVideo.poster;
+  const posterBuffer = posterSrc ? assets.get(posterSrc) : undefined;
+  const posterUrl = posterBuffer ? await uploadBuffer(posterBuffer, posterSrc!, guessGeneralContentType(posterSrc!)) : null;
+
+  const caption = ensureBlockHtml(inner.caption);
+
+  return {
+    html: `<div style="margin:32px auto;max-width:900px;">
+      <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;background:#000;">
+        <video src="${videoUrl}"${posterUrl ? ` poster="${posterUrl}"` : ""} controls style="position:absolute;top:0;left:0;width:100%;height:100%;background:#000;"></video>
+      </div>
+      ${caption ? `<div style="text-align:center;font-size:13px;color:#64748b;margin:10px 0 0;">${caption}</div>` : ""}
+    </div>`,
+    uploaded: true,
+  };
+}
+
 // Manually-added block types with no Rise equivalent — video embed, a
 // static highlighted note/tip/warning, and a code snippet. Not wrapped in
 // the checkpoint card (that styling is reserved for genuinely interactive
@@ -812,6 +852,16 @@ export async function renderBlockItems(
           htmlParts.push(html);
         } catch (err: any) {
           flags.push(`an image failed to upload (${err?.message ?? "unknown error"}) and was skipped`);
+        }
+        break;
+      }
+      case "multimedia": {
+        try {
+          const { html, uploaded } = await renderMultimediaItem(item, assets, uploadBuffer, flags);
+          if (uploaded) imagesUploaded++;
+          htmlParts.push(html);
+        } catch (err: any) {
+          flags.push(`a video failed to upload (${err?.message ?? "unknown error"}) and was skipped`);
         }
         break;
       }

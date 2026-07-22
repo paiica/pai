@@ -129,7 +129,9 @@ export class AdminPrepCoursesController {
 
   @Post(":id/import")
   @ApiOperation({ summary: "Import an Articulate Rise 360 export (.zip) as new modules/lessons" })
-  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 150 * 1024 * 1024 } }))
+  // 600MB — Rise exports with several embedded (non-YouTube/Vimeo) videos
+  // can land well past the old 150MB ceiling.
+  @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 600 * 1024 * 1024 } }))
   importRiseExport(
     @Param("id", ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
