@@ -55,6 +55,15 @@ export class ExamsController {
     return this.examsService.getMyAttempts(userId, enrollmentId);
   }
 
+  @Get("enrollments/:enrollmentId/retake-status")
+  @ApiOperation({ summary: "Get attempts used/remaining and whether a retake needs payment" })
+  getRetakeStatus(
+    @CurrentUser("id") userId: string,
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+  ) {
+    return this.examsService.getRetakeStatus(userId, enrollmentId);
+  }
+
   @Get("attempts/:attemptId")
   @ApiOperation({ summary: "Get a specific exam attempt (questions + state)" })
   getAttempt(

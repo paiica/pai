@@ -110,6 +110,25 @@ function ApplicationDrawer({
             <span className="text-xs text-slate-400">Applied {formatDate(app.created_at)}</span>
           </div>
 
+          {/* Eligibility flag — shortfall against the certification's minimums, needs a manual call */}
+          {app.eligibility_flagged && (
+            <div className="border border-amber-300 bg-amber-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <AlertTriangle size={14} className="text-amber-600 flex-shrink-0" />
+                <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Eligibility Flagged — Manual Review Needed</span>
+              </div>
+              <p className="text-sm text-amber-800">{app.eligibility_flag_reason}</p>
+              {(app.certification?.min_years_experience != null || app.certification?.min_training_hours != null) && (
+                <p className="text-xs text-amber-700/80 mt-1.5">
+                  Certification requires
+                  {app.certification?.min_years_experience != null ? ` ${app.certification.min_years_experience}+ years experience` : ""}
+                  {app.certification?.min_years_experience != null && app.certification?.min_training_hours != null ? " and" : ""}
+                  {app.certification?.min_training_hours != null ? ` ${app.certification.min_training_hours}+ training hours` : ""}.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Personal */}
           <Section title="Personal" icon={User}>
             <DetailRow label="Phone"         value={app.phone} />
@@ -612,6 +631,11 @@ export default function ApplicationsPage() {
                     <span className={`badge ${STATUS_COLORS[app.status] || "bg-slate-100 text-slate-600"}`}>
                       {STATUS_LABELS[app.status] || app.status}
                     </span>
+                    {app.eligibility_flagged && (
+                      <span className="badge bg-amber-50 text-amber-700 flex items-center gap-1">
+                        <AlertTriangle size={9} /> Eligibility Flag
+                      </span>
+                    )}
                     {app.documents_requested && (
                       <span className="badge bg-orange-50 text-orange-700 flex items-center gap-1">
                         <Paperclip size={9} /> Docs Requested

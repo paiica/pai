@@ -13,7 +13,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
-import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RefundDto } from "./dto/checkout.dto";
+import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RetakeCheckoutDto, RefundDto } from "./dto/checkout.dto";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -62,6 +62,17 @@ export class PaymentsController {
     @Body() dto: RenewalCheckoutDto,
   ) {
     return this.paymentsService.createRenewalCheckoutSession(userId, dto.certificate_id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("retake-checkout")
+  @ApiOperation({ summary: "Pay to unlock the next exam retake for an enrollment" })
+  retakeCheckout(
+    @CurrentUser("id") userId: string,
+    @Body() dto: RetakeCheckoutDto,
+  ) {
+    return this.paymentsService.createRetakeCheckoutSession(userId, dto.enrollment_id);
   }
 
   @ApiBearerAuth()

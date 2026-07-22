@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap, Sparkles, X, Layers, Wand2,
+  GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -75,6 +75,9 @@ type Cert = {
   renewal_grace_period_days: number; renewal_fee: number;
   min_years_experience?: number | null;
   min_training_hours?: number | null;
+  industry_focus?: string[];
+  required_education?: string[];
+  required_documents?: string[];
   is_featured?: boolean;
   ai_professor_enabled?: boolean;
   _count?: { enrollments: number; applications: number };
@@ -92,6 +95,7 @@ const TABS = [
   { id: "content",      label: "Content",           icon: BookOpen },
   { id: "prep_courses", label: "Prep Courses",      icon: Layers },
   { id: "audience",     label: "Audience",          icon: Users },
+  { id: "eligibility",  label: "Eligibility Requirements", icon: ClipboardCheck },
   { id: "exam",         label: "Exam & Pricing",    icon: Settings },
   { id: "enrollments",  label: "Enrollments",       icon: Users },
   { id: "instructors",  label: "Instructors",       icon: GraduationCap },
@@ -819,6 +823,9 @@ export default function CertEditorPage() {
   const [certPreviewUrl,     setCertPreviewUrl]     = useState("");
   const [minYearsExp,        setMinYearsExp]        = useState("");
   const [minTrainingHours,   setMinTrainingHours]   = useState("");
+  const [industryFocus,      setIndustryFocus]      = useState<string[]>([]);
+  const [requiredEducation, setRequiredEducation]   = useState<string[]>([]);
+  const [requiredDocuments, setRequiredDocuments]   = useState<string[]>([]);
   const [price,              setPrice]              = useState("");
   const [durationWeeks,      setDurationWeeks]      = useState("");
   const [totalLessons,       setTotalLessons]       = useState("");
@@ -897,6 +904,9 @@ export default function CertEditorPage() {
     setTestimonials(safeArray<Testimonial>(cert.testimonials));
     setMinYearsExp(cert.min_years_experience != null ? String(cert.min_years_experience) : "");
     setMinTrainingHours(cert.min_training_hours != null ? String(cert.min_training_hours) : "");
+    setIndustryFocus(safeArray<string>(cert.industry_focus));
+    setRequiredEducation(safeArray<string>(cert.required_education));
+    setRequiredDocuments(safeArray<string>(cert.required_documents));
     setRelatedSlugs(safeArray<string>(cert.related_slugs));
     setCertPreviewUrl(cert.certificate_preview_url ?? "");
     setPrice(String(cert.price ?? ""));
@@ -1001,6 +1011,9 @@ export default function CertEditorPage() {
         },
         min_years_experience:  minYearsExp ? parseInt(minYearsExp) : null,
         min_training_hours:    minTrainingHours ? parseInt(minTrainingHours) : null,
+        industry_focus:        industryFocus,
+        required_education:    requiredEducation,
+        required_documents:    requiredDocuments,
         price:                 parseFloat(price) || 0,
         duration_weeks:        parseInt(durationWeeks) || 0,
         total_lessons:         parseInt(totalLessons) || 0,
@@ -1097,6 +1110,9 @@ export default function CertEditorPage() {
     setRetakeFee(String(d.retake_fee ?? ""));
     setMinYearsExp(d.min_years_experience != null ? String(d.min_years_experience) : "");
     setMinTrainingHours(d.min_training_hours != null ? String(d.min_training_hours) : "");
+    setIndustryFocus(safeArray<string>(d.industry_focus));
+    setRequiredEducation(safeArray<string>(d.required_education));
+    setRequiredDocuments(safeArray<string>(d.required_documents));
 
     const mm = d.marketing_meta ?? {};
     setReviewsRating(mm.reviews_rating ?? reviewsRating);
@@ -1472,50 +1488,66 @@ export default function CertEditorPage() {
               placeholder="e.g. Business professionals" />
           </div>
 
-          {/* Eligibility Requirements */}
-          <div className="border-t border-slate-100 pt-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-slate-700 mb-0.5">Eligibility Requirements</p>
-              <p className="text-[10px] text-slate-400">Students who don't meet these minimums will be blocked from submitting an application. Leave blank for no requirement.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Min. Years of Experience" hint="e.g. 2 — applicant must have at least this many years of professional experience">
-                <input
-                  className="input-base"
-                  type="number"
-                  min="0"
-                  max="50"
-                  placeholder="e.g. 2"
-                  value={minYearsExp}
-                  onChange={(e) => setMinYearsExp(e.target.value)}
-                />
-              </Field>
-              <Field label="Min. Training Hours" hint="e.g. 120 — applicant must have completed at least this many training hours">
-                <input
-                  className="input-base"
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 120"
-                  value={minTrainingHours}
-                  onChange={(e) => setMinTrainingHours(e.target.value)}
-                />
-              </Field>
-            </div>
-            {(minYearsExp || minTrainingHours) && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
-                <strong>Active requirement:</strong> Applicants must have
-                {minYearsExp ? ` at least ${minYearsExp} year${minYearsExp !== "1" ? "s" : ""} of experience` : ""}
-                {minYearsExp && minTrainingHours ? " and" : ""}
-                {minTrainingHours ? ` at least ${minTrainingHours} training hours` : ""}.
-                Those who don't will see a rejection message during the application process.
-              </div>
-            )}
-          </div>
-
           <div className="border-t border-slate-100 pt-5">
             <StringListEditor label="Related Certifications (by slug)" values={relatedSlugs} onChange={setRelatedSlugs}
               placeholder="e.g. certified-ai-manager"
               hint="Slugs of certs shown in the 'What's Next?' section at the bottom of the page." />
+          </div>
+        </div>
+      )}
+
+      {tab === "eligibility" && (
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-semibold text-slate-700 mb-0.5">Eligibility Requirements</p>
+            <p className="text-[10px] text-slate-400">Everything here is shown on the certificate page on the marketing site. The two minimums below are also enforced during application — students who don't meet them are blocked from applying. Leave any field blank/empty to skip that requirement.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Min. Years of Experience" hint="e.g. 2 — applicant must have at least this many years of professional experience">
+              <input
+                className="input-base"
+                type="number"
+                min="0"
+                max="50"
+                placeholder="e.g. 2"
+                value={minYearsExp}
+                onChange={(e) => setMinYearsExp(e.target.value)}
+              />
+            </Field>
+            <Field label="Min. Training Hours" hint="e.g. 120 — applicant must have completed at least this many training hours">
+              <input
+                className="input-base"
+                type="number"
+                min="0"
+                placeholder="e.g. 120"
+                value={minTrainingHours}
+                onChange={(e) => setMinTrainingHours(e.target.value)}
+              />
+            </Field>
+          </div>
+          {(minYearsExp || minTrainingHours) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+              <strong>Active requirement:</strong> Applicants must have
+              {minYearsExp ? ` at least ${minYearsExp} year${minYearsExp !== "1" ? "s" : ""} of experience` : ""}
+              {minYearsExp && minTrainingHours ? " and" : ""}
+              {minTrainingHours ? ` at least ${minTrainingHours} training hours` : ""}.
+              Those who don't will see a rejection message during the application process.
+            </div>
+          )}
+          <div className="border-t border-slate-100 pt-5">
+            <StringListEditor label="Industry / Sector Focus" values={industryFocus} onChange={setIndustryFocus}
+              placeholder="e.g. Healthcare"
+              hint="Industries/sectors this certification is designed for. Shown on the marketing page." />
+          </div>
+          <div className="border-t border-slate-100 pt-5">
+            <StringListEditor label="Relevant Education" values={requiredEducation} onChange={setRequiredEducation}
+              placeholder="e.g. Bachelor's degree in a related field"
+              hint="Education that qualifies for this certification. Shown on the marketing page." />
+          </div>
+          <div className="border-t border-slate-100 pt-5">
+            <StringListEditor label="Required Supporting Documents" values={requiredDocuments} onChange={setRequiredDocuments}
+              placeholder="e.g. Transcript"
+              hint="Documents applicants should be ready to provide. Shown on the marketing page and application form." />
           </div>
         </div>
       )}
@@ -1656,9 +1688,9 @@ export default function CertEditorPage() {
               <button type="button" onClick={() => setPtRfyStats([...ptRfyStats, { value: "", label: "" }])}
                 className="btn-outline !py-1.5 !px-3 !text-xs w-full"><Plus size={12} /> Add Stat</button>
             </div>
-            <StringListEditor label="Eligibility Requirements / Who It's For" values={ptRfyReqs} onChange={setPtRfyReqs}
-              placeholder="e.g. 2+ years of professional experience"
-              hint="Shown as a bullet list. Leave empty to use the Target Audience list instead." />
+            <div className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] text-slate-500">
+              Eligibility requirements (years of experience, training hours, job titles, education) now live in the dedicated <strong>Eligibility Requirements</strong> tab and are shown automatically on the marketing page.
+            </div>
             <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
               <Field label="'Not Ready Yet?' Text" hint="Optional — shown in right column card">
                 <textarea className="input-base h-20 resize-none !text-sm" placeholder="Start with our free AI Essentials course before enrolling." value={ptRfyNotReady} onChange={(e) => setPtRfyNotReady(e.target.value)} />

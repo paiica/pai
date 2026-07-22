@@ -360,6 +360,60 @@ export class PaymentsService {
     } catch (err) { this.stripeError(err); }
   }
 
+  async createRetakeCheckoutSession(userId: string, enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, user_id: userId },
+      include: { certification: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+
+    const attemptCount = await this.prisma.examAttempt.count({ where: { enrollment_id: enrollmentId } });
+    const maxAttempts = enrollment.certification.max_retakes_included + 1;
+    if (attemptCount >= maxAttempts) {
+      throw new BadRequestException("This certification's retakes are exhausted — you'll need to register again to continue.");
+    }
+    if (enrollment.paid_retakes >= attemptCount) {
+      throw new BadRequestException("You already have a paid retake available — no need to purchase another.");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const price = Number(enrollment.certification.retake_fee);
+    const frontendUrl = this.config.get("frontendUrl");
+    const successUrl = `${frontendUrl}/certificates/${enrollment.certification_id}?retake_purchased=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/certificates/${enrollment.certification_id}`;
+
+    const retakeStripeClient = await this.resolveStripe();
+    if (!retakeStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await retakeStripeClient.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "retake",
+          enrollment_id: enrollment.id,
+          original_price: String(price),
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: `${enrollment.certification.acronym} — Exam Retake`,
+              description: `Retake fee for ${enrollment.certification.title}`,
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
   // ─── Event checkout (guest — no account required) ────────────────────────────
 
   async createEventCheckoutSession(dto: EventCheckoutDto) {
@@ -451,13 +505,31 @@ export class PaymentsService {
   }
 
   private async enrollInCertification(userId: string, certificationId: string) {
-    const enrollment = await this.prisma.enrollment.create({
-      data: {
+    const certification = await this.prisma.certification.findUniqueOrThrow({
+      where: { id: certificationId },
+      select: { registration_validity_days: true },
+    });
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + certification.registration_validity_days * 24 * 60 * 60 * 1000);
+
+    // upsert (not create) — a student whose prior enrollment lapsed into
+    // registration_expired or retake_expired pays and registers again on the
+    // SAME row (the [user_id, certification_id] unique constraint means
+    // there's only ever one enrollment per student per certification).
+    const enrollment = await this.prisma.enrollment.upsert({
+      where: { user_id_certification_id: { user_id: userId, certification_id: certificationId } },
+      create: {
         user_id: userId,
         certification_id: certificationId,
         status: "active",
-        enrolled_at: new Date(),
-        expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000), // 2 years
+        enrolled_at: now,
+        expires_at: expiresAt,
+      },
+      update: {
+        status: "active",
+        enrolled_at: now,
+        expires_at: expiresAt,
+        completed_at: null,
       },
     });
     this.logger.log(`Certification enrollment created: user=${userId} cert=${certificationId} enrollment=${enrollment.id}`);
@@ -627,7 +699,7 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, promo_id, promo_code } = session.metadata || {};
+    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code } = session.metadata || {};
 
     // Guest event registration — no user_id, handled entirely separately from
     // the account-based flows below (no Payment record, no affiliate
@@ -750,6 +822,15 @@ export class PaymentsService {
       const renewed = await this.certificatesService.renew(certificate_id, user_id, paymentIntentId!, amount);
       description = `Certificate Renewal: ${renewed.certification_acronym} — ${renewed.certification_title}`;
 
+    } else if (checkout_type === "retake" && enrollment_id) {
+      const enrollment = await this.prisma.enrollment.update({
+        where: { id: enrollment_id },
+        data: { paid_retakes: { increment: 1 } },
+        include: { certification: { select: { title: true, acronym: true } } },
+      });
+      description = `Exam Retake: ${enrollment.certification.acronym} — ${enrollment.certification.title}`;
+      this.logger.log(`Retake paid for enrollment ${enrollment_id}, paid_retakes now ${enrollment.paid_retakes}`);
+
     } else if (application_id) {
       await this.prisma.application.update({
         where: { id: application_id },
@@ -778,7 +859,9 @@ export class PaymentsService {
         where: { stripe_payment_intent_id: paymentIntentId },
         create: {
           user_id,
-          type: checkout_type === "renewal" ? PaymentType.renewal_fee : PaymentType.enrollment,
+          type: checkout_type === "renewal" ? PaymentType.renewal_fee
+            : checkout_type === "retake" ? PaymentType.retake_fee
+            : PaymentType.enrollment,
           status: PaymentStatus.succeeded,
           amount,
           currency: session.currency ?? "usd",

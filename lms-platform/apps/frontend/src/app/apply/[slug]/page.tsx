@@ -7,7 +7,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Loader2, CheckCircle2, ChevronRight, Award,
-  User, Briefcase, GraduationCap, FileText, AlertCircle, Eye, EyeOff, ShoppingCart, XCircle,
+  User, Briefcase, GraduationCap, FileText, AlertCircle, Eye, EyeOff, ShoppingCart, AlertTriangle,
   Plus, Trash2, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
@@ -21,6 +21,7 @@ type Cert = {
   duration_weeks: number; passing_score: number; status: string;
   min_years_experience?: number | null;
   min_training_hours?: number | null;
+  required_documents?: string[];
 };
 
 type StepDef = { id: number; label: string; icon: React.ElementType };
@@ -540,7 +541,7 @@ export default function ApplyPage() {
       return country.trim().length > 0;
     }
     if (step === 2) return careerStatus.trim().length > 0;
-    if (step === 3) return isEligible || !hasRequirements;
+    if (step === 3) return true; // Shortfalls no longer block submission — flagged for manual review instead
     return true;
   }
 
@@ -808,7 +809,7 @@ export default function ApplyPage() {
 
             {/* Eligibility result */}
             {hasRequirements && (
-              <div className={`rounded-xl border p-4 ${isEligible ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
+              <div className={`rounded-xl border p-4 ${isEligible ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
                 {isEligible ? (
                   <div className="flex items-start gap-3">
                     <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -819,22 +820,37 @@ export default function ApplyPage() {
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
-                    <XCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-red-800">You are not currently eligible for this certification</p>
-                      <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                        You do not meet the minimum required: {eligibilityFailures.join(" and ")}.
+                      <p className="text-sm font-semibold text-amber-800">You're below the usual minimum for this certification</p>
+                      <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                        You don't currently meet the {eligibilityFailures.join(" and ")}. You can still submit your application — it will be flagged for manual review by our team, who may accept equivalent experience.
                       </p>
-                      <p className="text-xs text-red-600 mt-2">
-                        Go back to Step 2 and update your experience details, or{" "}
+                      <p className="text-xs text-amber-600 mt-2">
+                        Or go back to Step 2 and update your experience details, or{" "}
                         <a href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} className="underline font-semibold">
                           explore our prep courses
                         </a>{" "}
-                        to build your qualifications.
+                        to build your qualifications first.
                       </p>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Required supporting documents — informational, prepares them before submission */}
+            {cert.required_documents != null && cert.required_documents.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <FileText size={16} className="text-slate-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Have these documents ready</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      After applying, you may be asked to upload: {cert.required_documents.join(", ")}.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </>

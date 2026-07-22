@@ -625,10 +625,11 @@ function fmtCountdown(ms: number) {
   return { days: Math.floor(s / 86400), hours: Math.floor((s % 86400) / 3600), minutes: Math.floor((s % 3600) / 60), seconds: s % 60 };
 }
 
-function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel, cancelling, latestAttempt, certSlug, certId: bpCertId }: {
+function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel, cancelling, latestAttempt, certSlug, certId: bpCertId, enrollmentId, token }: {
   booking: any; serverOffsetMs: number; onStartExam: () => void; starting: boolean;
   onCancel: () => void; cancelling: boolean;
   latestAttempt: any | null; certSlug?: string; certId: string;
+  enrollmentId?: string | null; token?: string | null;
 }) {
   const session = booking.exam_session;
   const unlockAt = new Date(new Date(session.scheduled_at).getTime() - 3 * 60 * 1000).toISOString();
@@ -642,6 +643,28 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
   const examPassed = latestAttempt?.passed === true;
   const examFailed = attemptStatus === "failed" && !examPassed;
   const examInProgress = attemptStatus === "in_progress";
+
+  const { data: retakeData } = useSWR(
+    token && enrollmentId && examFailed ? [`/exams/enrollments/${enrollmentId}/retake-status`, token] : null,
+    ([url, t]) => api.get<any>(url, t),
+  );
+  const retakeStatus: any = retakeData?.data ?? retakeData ?? null;
+  const [purchasingRetake, setPurchasingRetake] = useState(false);
+
+  async function handlePurchaseRetake() {
+    if (!token || !enrollmentId) return;
+    setPurchasingRetake(true);
+    try {
+      const res = await api.post<any>("/payments/retake-checkout", { enrollment_id: enrollmentId }, token);
+      const url = res?.data?.checkout_url ?? res?.checkout_url;
+      if (url) window.location.href = url;
+      else toast.error("Could not start checkout");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to start retake checkout");
+    } finally {
+      setPurchasingRetake(false);
+    }
+  }
 
   return (
     <div className="bg-ink-900 rounded-2xl overflow-hidden">
@@ -773,18 +796,38 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                 Score: <span className="text-red-400 font-semibold">{latestAttempt.score_percentage}%</span>
                 {" · "}{latestAttempt.correct_answers}/{latestAttempt.total_questions} correct
               </p>
-              <p className="text-white/40 text-xs mt-2 leading-relaxed">
-                To retake the exam, you will need to submit a new application and complete the process again.
-              </p>
+              {retakeStatus?.exhausted ? (
+                <p className="text-white/40 text-xs mt-2 leading-relaxed">
+                  You've used all available retakes for this certification. You'll need to register again to continue.
+                </p>
+              ) : retakeStatus?.needs_payment ? (
+                <p className="text-white/40 text-xs mt-2 leading-relaxed">
+                  You have one retake available for a fee of ${Number(retakeStatus.retake_fee).toFixed(2)}, drawing a different set of questions from the exam bank.
+                </p>
+              ) : (
+                <p className="text-white/40 text-xs mt-2 leading-relaxed">
+                  Your retake is ready — start it below whenever you're ready.
+                </p>
+              )}
             </div>
-            {certSlug && (
-              <Link
-                href={`/apply/${certSlug}`}
-                className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl font-bold text-sm transition-colors"
+            {retakeStatus?.exhausted ? (
+              certSlug && (
+                <Link
+                  href={`/apply/${certSlug}`}
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl font-bold text-sm transition-colors"
+                >
+                  Submit New Application
+                </Link>
+              )
+            ) : retakeStatus?.needs_payment ? (
+              <button
+                onClick={handlePurchaseRetake}
+                disabled={purchasingRetake}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-60"
               >
-                Submit New Application
-              </Link>
-            )}
+                {purchasingRetake ? <Loader2 size={15} className="animate-spin" /> : `Purchase Retake — $${Number(retakeStatus.retake_fee).toFixed(2)}`}
+              </button>
+            ) : null}
           </div>
         )}
       </div>
@@ -1389,6 +1432,8 @@ export default function CertDetailPage() {
               latestAttempt={latestAttempt}
               certSlug={cert?.slug}
               certId={certId}
+              enrollmentId={enrollmentId}
+              token={token}
             />
           ) : sessions.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center">

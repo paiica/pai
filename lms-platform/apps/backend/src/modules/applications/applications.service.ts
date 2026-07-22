@@ -17,20 +17,20 @@ export class ApplicationsService {
     if (!cert || cert.status !== "active") throw new NotFoundException("Certification not found");
 
     // ── Eligibility check ──────────────────────────────────────────────────────
+    // Shortfalls no longer block submission — the application still goes
+    // through, but gets flagged with the specific shortfall so a reviewer can
+    // decide manually (e.g. accept "equivalent experience" on a judgment call).
     const minExp   = (cert as any).min_years_experience as number | null;
     const minHours = (cert as any).min_training_hours   as number | null;
     const appExp   = dto.years_experience != null ? Number(dto.years_experience) : null;
     const appHours = dto.training_hours   != null ? Number(dto.training_hours)   : null;
 
     const failReasons: string[] = [];
-    if (minExp   != null && (appExp   == null || appExp   < minExp))   failReasons.push(`minimum ${minExp} year${minExp !== 1 ? "s" : ""} of professional experience`);
-    if (minHours != null && (appHours == null || appHours < minHours)) failReasons.push(`minimum ${minHours} training hours`);
+    if (minExp   != null && (appExp   == null || appExp   < minExp))   failReasons.push(`has ${appExp ?? 0} year${appExp === 1 ? "" : "s"} of experience, needs ${minExp}`);
+    if (minHours != null && (appHours == null || appHours < minHours)) failReasons.push(`has ${appHours ?? 0} training hours, needs ${minHours}`);
 
-    if (failReasons.length > 0) {
-      throw new BadRequestException(
-        `You are not eligible for this certification because you do not meet the required: ${failReasons.join(" and ")}.`
-      );
-    }
+    const eligibilityFlagged = failReasons.length > 0;
+    const eligibilityFlagReason = eligibilityFlagged ? `Below minimum: ${failReasons.join(" and ")}` : null;
 
     // Permanent block: certificate already earned
     const completedEnrollment = await this.prisma.enrollment.findFirst({
@@ -109,6 +109,8 @@ export class ApplicationsService {
           ...applicationData,
           date_of_birth: parsedDob,
           status: ApplicationStatus.pending_payment,
+          eligibility_flagged: eligibilityFlagged,
+          eligibility_flag_reason: eligibilityFlagReason,
         },
         update: {
           full_name: fullName,
@@ -121,6 +123,8 @@ export class ApplicationsService {
           documents_requested: false,
           documents_request_message: null,
           documents_requested_at: null,
+          eligibility_flagged: eligibilityFlagged,
+          eligibility_flag_reason: eligibilityFlagReason,
         },
       }),
       ...(Object.keys(profileUpdate).length > 0
@@ -157,7 +161,7 @@ export class ApplicationsService {
       this.prisma.application.findMany({
         where: { status: ApplicationStatus.pending_review },
         include: {
-          certification: { select: { acronym: true, title: true } },
+          certification: { select: { acronym: true, title: true, min_years_experience: true, min_training_hours: true, required_documents: true } },
           documents: { orderBy: { uploaded_at: "asc" } },
         },
         skip,
@@ -473,7 +477,7 @@ export class ApplicationsService {
       this.prisma.application.findMany({
         where,
         include: {
-          certification: { select: { acronym: true, title: true } },
+          certification: { select: { acronym: true, title: true, min_years_experience: true, min_training_hours: true, required_documents: true } },
           documents: { orderBy: { uploaded_at: "asc" } },
         },
         skip,

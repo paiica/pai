@@ -244,6 +244,8 @@ export default function CertDetailPage() {
   const [examMins, setExamMins] = useState("");
   const [passingScore, setPassingScore] = useState("");
   const [graceMins, setGraceMins] = useState("30");
+  const [registrationValidityDays, setRegistrationValidityDays] = useState("365");
+  const [retakeWindowDays, setRetakeWindowDays] = useState("60");
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -259,6 +261,8 @@ export default function CertDetailPage() {
       setExamMins(String(c.exam_duration_minutes ?? 90));
       setPassingScore(String(c.passing_score ?? 70));
       setGraceMins(String(c.marketing_meta?.link_grace_minutes ?? 30));
+      setRegistrationValidityDays(String(c.registration_validity_days ?? 365));
+      setRetakeWindowDays(String(c.retake_window_days ?? 60));
       setStructuredExams(seRes.data ?? seRes);
     } catch {}
     setLoading(false);
@@ -274,6 +278,8 @@ export default function CertDetailPage() {
         exam_duration_minutes: parseInt(examMins),
         passing_score: parseInt(passingScore),
         link_grace_minutes: parseInt(graceMins),
+        registration_validity_days: parseInt(registrationValidityDays),
+        retake_window_days: parseInt(retakeWindowDays),
       }, accessToken!);
       setSettingsMsg({ type: "ok", text: "Settings saved." });
       loadAll();
@@ -419,6 +425,30 @@ export default function CertDetailPage() {
                 className="input"
               />
               <p className="text-slate-600 text-xs mt-1.5">Extra time after exam ends</p>
+            </div>
+            <div>
+              <label className="label">Registration validity (days)</label>
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                value={registrationValidityDays}
+                onChange={(e) => setRegistrationValidityDays(e.target.value)}
+                className="input"
+              />
+              <p className="text-slate-600 text-xs mt-1.5">Time to book/sit the exam after registering, default 365</p>
+            </div>
+            <div>
+              <label className="label">Retake window (days)</label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={retakeWindowDays}
+                onChange={(e) => setRetakeWindowDays(e.target.value)}
+                className="input"
+              />
+              <p className="text-slate-600 text-xs mt-1.5">Time to use the included retake after failing, default 60</p>
             </div>
           </div>
           <div className="flex items-center gap-4 mt-5 pt-5 border-t border-slate-800">

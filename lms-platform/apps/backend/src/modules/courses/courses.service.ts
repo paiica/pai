@@ -628,6 +628,8 @@ export class CoursesService {
         target_audience: dto.target_audience ?? [],
         duration_weeks: dto.duration_weeks ?? 12,
         passing_score: dto.passing_score ?? 70,
+        registration_validity_days: dto.registration_validity_days ?? 365,
+        retake_window_days: dto.retake_window_days ?? 60,
         sort_order: dto.sort_order ?? 99,
       },
     });

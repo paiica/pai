@@ -94,6 +94,11 @@ export class RenewalCheckoutDto {
   certificate_id: string;
 }
 
+export class RetakeCheckoutDto {
+  @IsUUID()
+  enrollment_id: string;
+}
+
 export class RefundDto {
   @IsOptional()
   @IsString()

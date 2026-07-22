@@ -58,7 +58,13 @@ export class ExamsService {
 
     const maxAttempts = enrollment.certification.max_retakes_included + 1;
     if (existingAttempts >= maxAttempts) {
-      throw new BadRequestException("Maximum exam attempts reached. Purchase additional retakes.");
+      throw new BadRequestException("Maximum exam attempts reached. You'll need to register again to continue toward this certification.");
+    }
+    // Attempt 1 is included in the enrollment fee. Every attempt after that
+    // is a retake, and each one requires its own paid retake credit — the
+    // original attempt failing doesn't automatically grant a free retry.
+    if (existingAttempts >= 1 && enrollment.paid_retakes < existingAttempts) {
+      throw new BadRequestException("This retake requires payment. Purchase a retake to continue.");
     }
 
     // Sample questions from exam bank
@@ -180,6 +186,28 @@ export class ExamsService {
       where: { user_id: userId, enrollment_id: enrollmentId },
       orderBy: { attempt_number: "asc" },
     });
+  }
+
+  async getRetakeStatus(userId: string, enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, user_id: userId },
+      include: { certification: { select: { max_retakes_included: true, retake_fee: true } } },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+
+    const attemptsUsed = await this.prisma.examAttempt.count({ where: { enrollment_id: enrollmentId } });
+    const maxAttempts = enrollment.certification.max_retakes_included + 1;
+    const exhausted = attemptsUsed >= maxAttempts;
+    const needsPayment = !exhausted && attemptsUsed >= 1 && enrollment.paid_retakes < attemptsUsed;
+
+    return {
+      attempts_used: attemptsUsed,
+      max_attempts: maxAttempts,
+      paid_retakes: enrollment.paid_retakes,
+      retake_fee: enrollment.certification.retake_fee,
+      needs_payment: needsPayment,
+      exhausted,
+    };
   }
 
   async getAttempt(userId: string, attemptId: string) {

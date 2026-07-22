@@ -22,7 +22,35 @@ type Props = {
   totalLessons: number;
   totalHours: number;
   pageTabs?: PageTabsData;
+  minYearsExperience?: number | null;
+  minTrainingHours?: number | null;
+  industryFocus?: string[];
+  requiredEducation?: string[];
+  requiredDocuments?: string[];
 };
+
+function buildEligibilityItems(opts: {
+  minYearsExperience?: number | null; minTrainingHours?: number | null;
+  industryFocus?: string[]; requiredEducation?: string[]; requiredDocuments?: string[];
+}): string[] {
+  const items: string[] = [];
+  if (opts.minYearsExperience != null) {
+    items.push(`${opts.minYearsExperience}+ year${opts.minYearsExperience === 1 ? "" : "s"} of professional experience`);
+  }
+  if (opts.minTrainingHours != null) {
+    items.push(`${opts.minTrainingHours}+ hours of relevant training`);
+  }
+  if (opts.industryFocus?.length) {
+    items.push(`Industry focus: ${opts.industryFocus.join(", ")}`);
+  }
+  if (opts.requiredEducation?.length) {
+    items.push(`Relevant education: ${opts.requiredEducation.join(", ")}`);
+  }
+  if (opts.requiredDocuments?.length) {
+    items.push(`Required documents: ${opts.requiredDocuments.join(", ")}`);
+  }
+  return items;
+}
 
 const SECTION_IDS = ["right_for_you", "path", "prepare", "faqs", "maintenance"] as const;
 
@@ -31,6 +59,7 @@ export default function CertTabs({
   learningOutcomes, targetAudience, curriculum, faqs,
   totalLessons, totalHours,
   pageTabs,
+  minYearsExperience, minTrainingHours, industryFocus, requiredEducation, requiredDocuments,
 }: Props) {
   const [active, setActive] = useState<string>("right_for_you");
   const navRef = useRef<HTMLDivElement>(null);
@@ -118,7 +147,8 @@ export default function CertTabs({
               headline={rfy.headline ?? `Is the ${acronym} Right for You?`}
               body={rfy.body ?? ""}
               stats={rfy.stats ?? []}
-              requirements={rfy.requirements?.length ? rfy.requirements : targetAudience}
+              requirements={targetAudience}
+              eligibilityItems={buildEligibilityItems({ minYearsExperience, minTrainingHours, industryFocus, requiredEducation, requiredDocuments })}
               notReadyText={rfy.not_ready_text ?? ""}
               notReadyHref={rfy.not_ready_href ?? "/certifications"}
             />
@@ -238,10 +268,10 @@ function BulletList({ items }: { items: string[] }) {
 // ── Section components ────────────────────────────────────────────────────────
 
 function RightForYouTab({
-  acronym, applyUrl, headline, body, stats, requirements, notReadyText, notReadyHref,
+  acronym, applyUrl, headline, body, stats, requirements, eligibilityItems, notReadyText, notReadyHref,
 }: {
   acronym: string; applyUrl: string; headline: string; body: string;
-  stats: Stat[]; requirements: string[]; notReadyText: string; notReadyHref: string;
+  stats: Stat[]; requirements: string[]; eligibilityItems: string[]; notReadyText: string; notReadyHref: string;
 }) {
   return (
     <TwoCol
@@ -254,6 +284,12 @@ function RightForYouTab({
             <div className="mb-8">
               <h3 className="text-base font-display font-bold text-ink-900 mb-4">Who Should Pursue This Certification</h3>
               <BulletList items={requirements} />
+            </div>
+          )}
+          {eligibilityItems.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-base font-display font-bold text-ink-900 mb-4">Eligibility Requirements</h3>
+              <BulletList items={eligibilityItems} />
             </div>
           )}
           <a href={applyUrl} className="btn-primary !py-3 !px-8 !text-sm inline-flex mt-2">

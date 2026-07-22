@@ -278,6 +278,40 @@ export class MailService {
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
+  async sendRegistrationExpired(opts: {
+    to: string; firstName: string; certTitle: string; certAcronym: string; enrolledAt: Date; registerUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("registration_expired");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const registerUrl = opts.registerUrl ?? `${this.frontendUrl}/certifications`;
+    const resolvedSubject = (subject ?? "Your {acronym} registration has expired").replace("{acronym}", opts.certAcronym);
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
+          enrolledAt: opts.enrolledAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }),
+          registerUrl,
+        })
+      : this.wrapper(this.registrationExpiredBody({ ...opts, registerUrl }));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendRetakeExpired(opts: {
+    to: string; firstName: string; certTitle: string; certAcronym: string; failedAt: Date; registerUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("retake_expired");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const registerUrl = opts.registerUrl ?? `${this.frontendUrl}/certifications`;
+    const resolvedSubject = (subject ?? "Your {acronym} retake window has closed").replace("{acronym}", opts.certAcronym);
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
+          failedAt: opts.failedAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }),
+          registerUrl,
+        })
+      : this.wrapper(this.retakeExpiredBody({ ...opts, registerUrl }));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   async sendApplicationApproved(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string;
   }) {
@@ -423,6 +457,10 @@ export class MailService {
         return this.sendCertificateExpiringReminder({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiresAt: sampleExpiry, daysRemaining: 30, pduEarned: 15, pduRequired: 20, renewalFee: 99, renewLink: `${this.frontendUrl}/certificates` });
       case "certificate_lapsed":
         return this.sendCertificateLapsed({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiredAt: new Date(), contactUrl: "https://paii.ca/contact" });
+      case "registration_expired":
+        return this.sendRegistrationExpired({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, enrolledAt: new Date(), registerUrl: `${this.frontendUrl}/certifications` });
+      case "retake_expired":
+        return this.sendRetakeExpired({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, failedAt: new Date(), registerUrl: `${this.frontendUrl}/certifications` });
       case "application_approved":
         return this.sendApplicationApproved({ to, firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym });
       case "application_rejected":
@@ -530,6 +568,18 @@ export class MailService {
         defaultSubject: "Your {acronym} certificate renewal window has closed",
         variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{expiredAt}}", "{{contactUrl}}"],
         defaultBody: this.certificateLapsedBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, expiredAt: new Date(), contactUrl: "https://paii.ca/contact" }),
+      },
+      {
+        key: "registration_expired", name: "Registration Expired",
+        defaultSubject: "Your {acronym} registration has expired",
+        variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{enrolledAt}}", "{{registerUrl}}"],
+        defaultBody: this.registrationExpiredBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, enrolledAt: new Date(), registerUrl: `${this.frontendUrl}/certifications` }),
+      },
+      {
+        key: "retake_expired", name: "Retake Window Expired",
+        defaultSubject: "Your {acronym} retake window has closed",
+        variables: ["{{firstName}}", "{{certTitle}}", "{{certAcronym}}", "{{failedAt}}", "{{registerUrl}}"],
+        defaultBody: this.retakeExpiredBody({ firstName: "John", certTitle: sampleCert.certTitle, certAcronym: sampleCert.certAcronym, failedAt: new Date(), registerUrl: `${this.frontendUrl}/certifications` }),
       },
       {
         key: "application_approved", name: "Application Approved",
@@ -797,6 +847,34 @@ export class MailService {
       </div>
       <div style="text-align:center;margin:28px 0">
         <a href="${opts.contactUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Contact Us →</a>
+      </div>
+    `;
+  }
+
+  private registrationExpiredBody(opts: { firstName: string; certTitle: string; certAcronym: string; enrolledAt: Date; registerUrl: string }): string {
+    const enrolledAtStr = opts.enrolledAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Registration Expired — ${opts.firstName}</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You registered for the <strong>${opts.certAcronym} — ${opts.certTitle}</strong> certification on ${enrolledAtStr}, but didn't book or sit your exam within the registration window. Your registration has now expired.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:13px;color:#dc2626;line-height:1.6">To continue toward this certification, you'll need to register (and pay) again.</p>
+      </div>
+      <div style="text-align:center;margin:28px 0">
+        <a href="${opts.registerUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Register Again →</a>
+      </div>
+    `;
+  }
+
+  private retakeExpiredBody(opts: { firstName: string; certTitle: string; certAcronym: string; failedAt: Date; registerUrl: string }): string {
+    const failedAtStr = opts.failedAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Retake Window Closed — ${opts.firstName}</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You didn't pass your <strong>${opts.certAcronym} — ${opts.certTitle}</strong> exam attempt on ${failedAtStr}, and the window to use your included retake has now closed.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:13px;color:#dc2626;line-height:1.6">To continue toward this certification, you'll need to register (and pay) again.</p>
+      </div>
+      <div style="text-align:center;margin:28px 0">
+        <a href="${opts.registerUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Register Again →</a>
       </div>
     `;
   }

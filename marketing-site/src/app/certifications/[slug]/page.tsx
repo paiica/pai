@@ -40,6 +40,11 @@ type Cert = {
   passing_score: number; exam_duration_minutes: number;
   exam_questions_count: number; validity_years: number;
   max_retakes_included: number; retake_fee: number;
+  min_years_experience?: number | null;
+  min_training_hours?: number | null;
+  industry_focus?: string[];
+  required_education?: string[];
+  required_documents?: string[];
   modules?: { title: string; description?: string; _count?: { lessons: number } }[];
   instructors?: {
     is_lead: boolean;
@@ -272,6 +277,11 @@ export default async function CertificationDetailPage({ params }: { params: Prom
           totalLessons={cert.total_lessons}
           totalHours={Number(cert.total_hours)}
           pageTabs={meta?.page_tabs}
+          minYearsExperience={cert.min_years_experience}
+          minTrainingHours={cert.min_training_hours}
+          industryFocus={cert.industry_focus}
+          requiredEducation={cert.required_education}
+          requiredDocuments={cert.required_documents}
         />
 
         {/* ── EXAM INFO STRIP ── */}

@@ -72,6 +72,8 @@ enum EnrollmentStatus {
   completed
   suspended
   expired
+  registration_expired
+  retake_expired
 
   @@schema("lms")
 }
@@ -451,6 +453,14 @@ model Certification {
   max_retakes_included  Int     @default(2)
   retake_fee            Decimal @db.Decimal(10, 2) @default(99.00)
 
+  // How long a student has after registering to book and sit their exam
+  // before they must register (and pay) again — distinct from validity_years,
+  // which governs how long an already-issued certificate lasts before renewal.
+  registration_validity_days Int @default(365)
+  // How long a student has after failing an attempt to use their included
+  // retake before it lapses and they must register again.
+  retake_window_days         Int @default(60)
+
   renewal_pdu_required      Int     @default(0)
   renewal_window_days       Int     @default(90)
   renewal_grace_period_days Int     @default(180)
@@ -466,6 +476,9 @@ model Certification {
 
   min_years_experience  Int?
   min_training_hours    Int?
+  industry_focus        String[] @default([])
+  required_education    String[] @default([])
+  required_documents    String[] @default([])
 
   is_featured           Boolean  @default(false)
   ai_professor_enabled  Boolean  @default(false)
@@ -861,6 +874,12 @@ model Application {
   documents_request_message String?
   documents_requested_at    DateTime?
 
+  // Set automatically at submission when the applicant doesn't meet the
+  // certification's min_years_experience/min_training_hours — no longer
+  // auto-rejected, just flagged so a reviewer can decide manually.
+  eligibility_flagged      Boolean @default(false)
+  eligibility_flag_reason  String?
+
   stripe_payment_intent_id   String?
   stripe_checkout_session_id String?
   amount_paid                Decimal?      @db.Decimal(10, 2)
@@ -926,6 +945,10 @@ model Enrollment {
   completed_at     DateTime?
   expires_at       DateTime?
   last_accessed_at DateTime?
+  // Number of retake fees this student has successfully paid — each paid
+  // retake unlocks one additional exam attempt beyond the original (free)
+  // attempt, up to the certification's max_retakes_included cap.
+  paid_retakes     Int              @default(0)
 
   lesson_progress         LessonProgress[]
   exam_attempts           ExamAttempt[]
