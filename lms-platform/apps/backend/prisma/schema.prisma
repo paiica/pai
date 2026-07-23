@@ -328,6 +328,7 @@ model User {
   affiliate_leads_referred AffiliateLead[]
   event_registrations      EventRegistration[]
   admin_permission         AdminPermission?
+  cart_items               CartItem[]
 
   @@index([email])
   @@map("users")
@@ -501,6 +502,7 @@ model Certification {
   affiliate_assignments  AffiliateProductAssignment[]
   affiliate_leads        AffiliateLead[]
   affiliate_commissions  AffiliateCommission[]
+  cart_items             CartItem[]
 
   @@index([slug])
   @@index([status])
@@ -699,6 +701,7 @@ model Course {
   affiliate_leads        AffiliateLead[]
   affiliate_commissions  AffiliateCommission[]
   documents        CourseDocument[]
+  cart_items       CartItem[]
 
   // Prerequisites/co-requisites — self-referential. `prerequisites` = rows
   // where this course is the one being gated ("this course requires X");
@@ -782,6 +785,27 @@ model CourseCertRecommendation {
 
   @@id([course_id, certification_id])
   @@map("course_cert_recommendations")
+  @@schema("lms")
+}
+
+// Account-level shopping cart. Persisted server-side (not localStorage) so
+// items added from the marketing site and the student portal — two separate
+// origins — both read/write the same cart for a logged-in user.
+model CartItem {
+  id               String         @id @default(uuid())
+  user_id          String
+  user             User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  type             String         // "course" | "certification"
+  course_id        String?
+  course           Course?        @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  certification_id String?
+  certification    Certification? @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+  created_at       DateTime       @default(now())
+
+  @@unique([user_id, course_id])
+  @@unique([user_id, certification_id])
+  @@index([user_id])
+  @@map("cart_items")
   @@schema("lms")
 }
 

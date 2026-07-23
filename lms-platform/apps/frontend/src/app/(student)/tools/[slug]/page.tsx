@@ -81,7 +81,8 @@ export default function ToolDetailPage({ params }: { params: Promise<{ slug: str
   const related:  any[] = Array.isArray(tool.related_tools) ? tool.related_tools : [];
   const acronym   = tool.cert_acronym || extractAcronym(tool.title);
   const canPurchase = (tool.course_id || tool.certification_id) && tool.billing_type !== "external";
-  const inCart      = hasItem(tool.id);
+  const purchaseId  = tool.course_id || tool.certification_id;
+  const inCart      = purchaseId ? hasItem(purchaseId) : false;
 
   const tabs = [
     { label: "Overview",            ref: overviewRef,  show: !!tool.overview },
@@ -96,7 +97,8 @@ export default function ToolDetailPage({ params }: { params: Promise<{ slug: str
   }
 
   function handleAddToCart() {
-    const item: any = { id: tool.id, type: tool.course_id ? "course" : "certification", title: tool.title, price };
+    if (!purchaseId) return;
+    const item: any = { id: purchaseId, type: tool.course_id ? "course" : "certification", title: tool.title, price };
     if (tool.course_id) { item.course_id = tool.course_id; item.thumbnail_url = tool.thumbnail_url; }
     if (tool.certification_id) { item.slug = tool.cert_slug; item.cert_acronym = tool.cert_acronym; }
     addItem(item);
