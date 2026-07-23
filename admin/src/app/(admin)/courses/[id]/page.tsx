@@ -800,8 +800,9 @@ export default function CourseDetailPage() {
             )}
           </div>
 
-          {/* Related Certifications (shown when not directly linked to a cert) */}
-          {!form.certification_id && certs.length > 0 && (
+          {/* Related Certifications — recommends this course on OTHER certifications'
+              dashboards, independent of the direct Linked Certification above. */}
+          {certs.length > 0 && (
             <div className="card p-6 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -820,7 +821,7 @@ export default function CourseDetailPage() {
                 </button>
               </div>
               <div className="space-y-2">
-                {certs.map((c: any) => {
+                {certs.filter((c: any) => c.id !== form.certification_id).map((c: any) => {
                   const selected = recommendedCertIds.includes(c.id);
                   return (
                     <div key={c.id} className="flex items-center justify-between gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors">
