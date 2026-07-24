@@ -53,13 +53,29 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Cert accordion card ──────────────────────────────────────────────────────
 
 function CertBannerCard({
-  enrollment, index, certCourses, prepEnrollments, onAddToCart, hasItem,
+  enrollment, index, prepEnrollments, onAddToCart, hasItem,
 }: {
-  enrollment: any; index: number; certCourses: any[]; prepEnrollments: any[];
+  enrollment: any; index: number; prepEnrollments: any[];
   onAddToCart: (course: any) => void; hasItem: (id: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const cert = enrollment.certification;
+  const certId = cert?.id;
+
+  // Every course the admin selected on this cert's Prep Courses tab —
+  // required or not. is_required (set via the "Required for exam" checkbox)
+  // is the single source of truth for the Required/Recommended pill, not
+  // whether the course also happens to have an unrelated direct
+  // certification_id link.
+  const [certCourses, setCertCourses] = useState<any[]>([]);
+  useEffect(() => {
+    if (!certId) return;
+    fetch(`${API_BASE}/prep-courses/recommended-by-cert/${certId}`)
+      .then(r => r.json())
+      .then(r => setCertCourses(Array.isArray(r.data) ? r.data : []));
+  }, [certId]);
+  const requiredCourses = certCourses.filter((c) => c.is_required);
+  const recommendedCourses = certCourses.filter((c) => !c.is_required);
   const pct = enrollment.progress_percentage ?? 0;
   const isCompleted = pct === 100;
   const accent = CERT_ACCENTS[index % CERT_ACCENTS.length];
@@ -161,100 +177,166 @@ function CertBannerCard({
       </div>
 
       {/* Expandable course list */}
-      <div className={cn("overflow-hidden transition-all duration-300 ease-in-out", open ? "max-h-[600px]" : "max-h-0")}>
-        <div className="px-5 pb-5">
-          <div className="rounded-xl border border-slate-100 bg-slate-50/80 overflow-hidden">
-            {certCourses.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No courses linked to this certification yet.</p>
-            ) : (
-              certCourses.map((course: any, idx: number) => {
-                const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
-                const coursePct = prepEnrollment?.progress_percentage ?? 0;
-                const price = parseFloat(course.price) || 0;
-                const inCart = hasItem(course.id);
+      <div className={cn("overflow-hidden transition-all duration-300 ease-in-out", open ? "max-h-[900px] overflow-y-auto" : "max-h-0")}>
+        <div className="px-5 pb-5 space-y-6">
+          {certCourses.length === 0 ? (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/80 py-6">
+              <p className="text-xs text-slate-400 text-center">No courses linked to this certification yet.</p>
+            </div>
+          ) : (
+            <>
+              {requiredCourses.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Required Courses</p>
+                  <p className="text-[11px] text-slate-400 mb-3">Must be completed before you can book or take the exam.</p>
+                  <div className="relative">
+                    {requiredCourses.map((course: any, idx: number) => {
+                      const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
+                      const coursePct = prepEnrollment?.progress_percentage ?? 0;
+                      const isDone = coursePct === 100;
+                      const price = parseFloat(course.price) || 0;
+                      const inCart = hasItem(course.id);
 
-                return (
-                  <div
-                    key={course.id}
-                    className={cn(
-                      "flex items-center gap-4 px-4 py-3.5",
-                      idx > 0 && "border-t border-slate-100"
-                    )}
-                  >
-                    <span className="w-6 h-6 rounded-full bg-white border border-slate-200 text-[10px] font-black text-slate-400 flex items-center justify-center flex-shrink-0 shadow-sm">
-                      {idx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-navy-900 truncate leading-snug">
-                        {course.title}
-                        {course.subtitle && (
-                          <span className="font-normal text-slate-400 ml-1.5 text-xs">· {course.subtitle}</span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5 mb-1.5">
-                        {course.module_count > 0 && (
-                          <span className="text-[10px] text-slate-400">{course.module_count} module{course.module_count !== 1 ? "s" : ""}</span>
-                        )}
-                        {parseFloat(course.duration_hours) > 0 && (
-                          <>
-                            {course.module_count > 0 && <span className="text-[10px] text-slate-300">·</span>}
-                            <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                              <Clock size={9} /> {parseFloat(course.duration_hours)}h
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className={cn("h-full rounded-full transition-all", coursePct === 100 ? "bg-emerald-500" : accent.bar)}
-                            style={{ width: `${coursePct}%` }}
-                          />
+                      return (
+                        <div key={course.id} className={cn("relative flex gap-3.5", idx < requiredCourses.length - 1 ? "pb-6" : "")}>
+                          {idx < requiredCourses.length - 1 && (
+                            <div className="absolute left-4 top-9 bottom-0 w-0.5 bg-slate-200" />
+                          )}
+                          <div className={cn(
+                            "relative z-10 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border-2 bg-white",
+                            isDone ? "border-emerald-500 bg-emerald-500" : coursePct > 0 ? "border-amber-400" : "border-slate-300"
+                          )}>
+                            {isDone
+                              ? <CheckCircle size={16} className="text-white" />
+                              : <span className="text-xs font-black text-slate-500">{idx + 1}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0 pt-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-navy-900 truncate leading-snug">
+                                  {course.title}
+                                  {course.subtitle && (
+                                    <span className="font-normal text-slate-400 ml-1.5 text-xs">· {course.subtitle}</span>
+                                  )}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {course.module_count > 0 && (
+                                    <span className="text-[10px] text-slate-400">{course.module_count} module{course.module_count !== 1 ? "s" : ""}</span>
+                                  )}
+                                  {parseFloat(course.duration_hours) > 0 && (
+                                    <>
+                                      {course.module_count > 0 && <span className="text-[10px] text-slate-300">·</span>}
+                                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                        <Clock size={9} /> {parseFloat(course.duration_hours)}h
+                                      </span>
+                                    </>
+                                  )}
+                                  {course.level && (
+                                    <span className={cn(
+                                      "text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize",
+                                      LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600"
+                                    )}>
+                                      {course.level}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {prepEnrollment ? (
+                                <Link
+                                  href={`/learn/course/${prepEnrollment.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+                                >
+                                  {isDone ? "Review" : coursePct > 0 ? "Continue" : "Start"}
+                                  <ArrowRight size={10} />
+                                </Link>
+                              ) : inCart ? (
+                                <Link
+                                  href="/cart"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
+                                >
+                                  <ShoppingCart size={10} /> In Cart
+                                </Link>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onAddToCart(course); }}
+                                  className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+                                >
+                                  <ShoppingCart size={10} /> {price === 0 ? "Enroll Free" : `Buy — $${price.toFixed(0)}`}
+                                </button>
+                              )}
+                            </div>
+                            {!isDone && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={cn("h-full rounded-full transition-all", accent.bar)}
+                                    style={{ width: `${coursePct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-medium text-slate-400 flex-shrink-0 w-7 text-right">{coursePct}%</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-[10px] font-medium text-slate-400 flex-shrink-0 w-7 text-right">{coursePct}%</span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 bg-amber-50 text-amber-700 border border-amber-100">
-                      Required
-                    </span>
-                    {course.level && (
-                      <span className={cn(
-                        "text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize flex-shrink-0",
-                        LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600"
-                      )}>
-                        {course.level}
-                      </span>
-                    )}
-                    {prepEnrollment ? (
-                      <Link
-                        href={`/learn/course/${prepEnrollment.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
-                      >
-                        {coursePct === 100 ? "Review" : coursePct > 0 ? "Continue" : "Start"}
-                        <ArrowRight size={10} />
-                      </Link>
-                    ) : inCart ? (
-                      <Link
-                        href="/cart"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
-                      >
-                        <ShoppingCart size={10} /> In Cart
-                      </Link>
-                    ) : (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onAddToCart(course); }}
-                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
-                      >
-                        <ShoppingCart size={10} /> {price === 0 ? "Enroll Free" : `Buy — $${price.toFixed(0)}`}
-                      </button>
-                    )}
+                      );
+                    })}
                   </div>
-                );
-              })
-            )}
-          </div>
+                </div>
+              )}
+
+              {recommendedCourses.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Recommended Courses</p>
+                  <p className="text-[11px] text-slate-400 mb-3">Optional — pairs well with this certification, not required for the exam.</p>
+                  <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                    {recommendedCourses.map((course: any) => {
+                      const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
+                      const price = parseFloat(course.price) || 0;
+                      const inCart = hasItem(course.id);
+
+                      return (
+                        <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all">
+                          <div>
+                            <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
+                            <div className="flex items-center gap-1.5">
+                              {course.level && (
+                                <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize", LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600")}>
+                                  {course.level}
+                                </span>
+                              )}
+                              <span className="text-[10px] font-black text-navy-900 ml-auto">
+                                {price === 0 ? "Free" : `$${price.toFixed(0)}`}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-auto">
+                            {prepEnrollment ? (
+                              <Link href={`/learn/course/${prepEnrollment.id}`}
+                                className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
+                                <CheckCircle size={10} /> Enrolled
+                              </Link>
+                            ) : inCart ? (
+                              <Link href="/cart"
+                                className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors">
+                                <ShoppingCart size={10} /> In Cart
+                              </Link>
+                            ) : (
+                              <button onClick={() => onAddToCart(course)}
+                                className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1">
+                                <ShoppingCart size={10} /> Add to Cart
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -290,89 +372,6 @@ function PrepCourseBanner({ enrollment }: { enrollment: any }) {
         <ArrowRight size={14} className="text-slate-400 group-hover:text-white transition-colors" />
       </div>
     </Link>
-  );
-}
-
-// ─── Related courses strip ────────────────────────────────────────────────────
-
-function RelatedCoursesStrip({
-  certId, enrolledCourseIds, prepEnrollments, onAddToCart, hasItem,
-}: {
-  certId: string; enrolledCourseIds: Set<string>; prepEnrollments: any[];
-  onAddToCart: (course: any) => void; hasItem: (id: string) => boolean;
-}) {
-  const [courses, setCourses] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!certId) return;
-    fetch(`${API_BASE}/prep-courses/recommended-by-cert/${certId}`)
-      .then(r => r.json())
-      .then(r => setCourses(Array.isArray(r.data) ? r.data : []));
-  }, [certId]);
-
-  if (!courses.length) return null;
-
-  return (
-    <div className="pl-1">
-      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
-        Related Courses
-        <span className="font-normal normal-case tracking-normal ml-1.5 text-slate-300">
-          · standalone courses that pair well with this certification
-        </span>
-      </p>
-      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {courses.map((course: any) => {
-          const enrolled = enrolledCourseIds.has(course.id);
-          const enrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
-          const price = parseFloat(course.price) || 0;
-          const inCart = hasItem(course.id);
-
-          return (
-            <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all">
-              <div>
-                <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
-                    course.is_required
-                      ? "bg-amber-50 text-amber-700 border border-amber-100"
-                      : "bg-blue-50 text-blue-700 border border-blue-100"
-                  )}>
-                    {course.is_required ? "Required" : "Recommended"}
-                  </span>
-                  {course.level && (
-                    <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize", LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600")}>
-                      {course.level}
-                    </span>
-                  )}
-                  <span className="text-[10px] font-black text-navy-900 ml-auto">
-                    {price === 0 ? "Free" : `$${price.toFixed(0)}`}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-auto">
-                {enrolled ? (
-                  <Link href={`/learn/course/${enrollment!.id}`}
-                    className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                    <CheckCircle size={10} /> Enrolled
-                  </Link>
-                ) : inCart ? (
-                  <Link href="/cart"
-                    className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors">
-                    <ShoppingCart size={10} /> In Cart
-                  </Link>
-                ) : (
-                  <button onClick={() => onAddToCart(course)}
-                    className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1">
-                    <ShoppingCart size={10} /> Add to Cart
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -503,7 +502,6 @@ export default function MyCoursesPage() {
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];
   const catalog: any[] = Array.isArray(catalogRaw) ? catalogRaw : [];
 
-  const enrolledCourseIds = new Set(prepEnrollments.map((e: any) => e.course_id));
   const certIdToEnrollmentId = new Map<string, string>(
     active.map((e: any) => [e.certification?.id, e.id] as [string, string])
   );
@@ -634,23 +632,14 @@ export default function MyCoursesPage() {
           ) : (
             <div className="space-y-4">
               {shown.map((e: any, i: number) => (
-                <div key={e.id} className="space-y-3">
-                  <CertBannerCard
-                    enrollment={e}
-                    index={i}
-                    certCourses={catalog.filter((c: any) => c.certification_id === e.certification?.id)}
-                    prepEnrollments={prepEnrollments}
-                    onAddToCart={handleAddToCart}
-                    hasItem={hasItem}
-                  />
-                  <RelatedCoursesStrip
-                    certId={e.certification?.id}
-                    enrolledCourseIds={enrolledCourseIds}
-                    prepEnrollments={prepEnrollments}
-                    onAddToCart={handleAddToCart}
-                    hasItem={hasItem}
-                  />
-                </div>
+                <CertBannerCard
+                  key={e.id}
+                  enrollment={e}
+                  index={i}
+                  prepEnrollments={prepEnrollments}
+                  onAddToCart={handleAddToCart}
+                  hasItem={hasItem}
+                />
               ))}
             </div>
           )}
