@@ -577,18 +577,35 @@ export class PrepCoursesService {
   // ─── Gating: required courses must be completed before the exam ──────
 
   async getIncompleteRequiredCourses(userId: string, certificationId: string): Promise<string[]> {
-    const required = await this.prisma.courseCertRecommendation.findMany({
-      where: { certification_id: certificationId, is_required: true },
-      include: { course: { select: { id: true, title: true } } },
-    });
-    if (!required.length) return [];
+    // A course counts as "required" for this certification either by being
+    // directly linked to it (Course.certification_id — shown as the cert's
+    // own curriculum, no "optional" framing) or by being separately flagged
+    // required via the many-to-many recommendation table. Both are
+    // standalone, separately-purchased Course records — this doesn't check
+    // payment directly, but a CourseEnrollment (and its completed_at) only
+    // ever gets created after purchase, so "completed" already implies "paid".
+    const [directCourses, recommendedRequired] = await Promise.all([
+      this.prisma.course.findMany({
+        where: { certification_id: certificationId },
+        select: { id: true, title: true },
+      }),
+      this.prisma.courseCertRecommendation.findMany({
+        where: { certification_id: certificationId, is_required: true },
+        include: { course: { select: { id: true, title: true } } },
+      }),
+    ]);
+
+    const required = new Map<string, string>();
+    for (const c of directCourses) required.set(c.id, c.title);
+    for (const r of recommendedRequired) required.set(r.course_id, r.course.title);
+    if (required.size === 0) return [];
 
     const missing: string[] = [];
-    for (const r of required) {
+    for (const [courseId, title] of required) {
       const done = await this.prisma.courseEnrollment.findFirst({
-        where: { user_id: userId, course_id: r.course_id, completed_at: { not: null } },
+        where: { user_id: userId, course_id: courseId, completed_at: { not: null } },
       });
-      if (!done) missing.push(r.course.title);
+      if (!done) missing.push(title);
     }
     return missing;
   }
@@ -598,6 +615,7 @@ export class PrepCoursesService {
       SELECT c.id, c.title, c.slug, c.subtitle, c.description, c.price::text, c.level,
              c.duration_hours::text, c.thumbnail_url, c.status,
              cert.acronym AS cert_acronym, cert.title AS cert_title,
+             r.is_required,
              (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count
       FROM lms.course_cert_recommendations r
       JOIN lms.courses c ON c.id = r.course_id AND c.status = 'active'

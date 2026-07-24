@@ -53,9 +53,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Cert accordion card ──────────────────────────────────────────────────────
 
 function CertBannerCard({
-  enrollment, index, certCourses, prepEnrollments,
+  enrollment, index, certCourses, prepEnrollments, onAddToCart, hasItem,
 }: {
   enrollment: any; index: number; certCourses: any[]; prepEnrollments: any[];
+  onAddToCart: (course: any) => void; hasItem: (id: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const cert = enrollment.certification;
@@ -169,9 +170,8 @@ function CertBannerCard({
               certCourses.map((course: any, idx: number) => {
                 const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
                 const coursePct = prepEnrollment?.progress_percentage ?? 0;
-                const href = prepEnrollment
-                  ? `/learn/course/${prepEnrollment.id}`
-                  : `/learn/${enrollment.id}`;
+                const price = parseFloat(course.price) || 0;
+                const inCart = hasItem(course.id);
 
                 return (
                   <div
@@ -214,6 +214,9 @@ function CertBannerCard({
                         <span className="text-[10px] font-medium text-slate-400 flex-shrink-0 w-7 text-right">{coursePct}%</span>
                       </div>
                     </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 bg-amber-50 text-amber-700 border border-amber-100">
+                      Required
+                    </span>
                     {course.level && (
                       <span className={cn(
                         "text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize flex-shrink-0",
@@ -222,14 +225,31 @@ function CertBannerCard({
                         {course.level}
                       </span>
                     )}
-                    <Link
-                      href={href}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
-                    >
-                      {coursePct === 100 ? "Review" : coursePct > 0 ? "Continue" : "Start"}
-                      <ArrowRight size={10} />
-                    </Link>
+                    {prepEnrollment ? (
+                      <Link
+                        href={`/learn/course/${prepEnrollment.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+                      >
+                        {coursePct === 100 ? "Review" : coursePct > 0 ? "Continue" : "Start"}
+                        <ArrowRight size={10} />
+                      </Link>
+                    ) : inCart ? (
+                      <Link
+                        href="/cart"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
+                      >
+                        <ShoppingCart size={10} /> In Cart
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAddToCart(course); }}
+                        className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+                      >
+                        <ShoppingCart size={10} /> {price === 0 ? "Enroll Free" : `Buy — $${price.toFixed(0)}`}
+                      </button>
+                    )}
                   </div>
                 );
               })
@@ -311,7 +331,15 @@ function RelatedCoursesStrip({
             <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all">
               <div>
                 <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
+                    course.is_required
+                      ? "bg-amber-50 text-amber-700 border border-amber-100"
+                      : "bg-blue-50 text-blue-700 border border-blue-100"
+                  )}>
+                    {course.is_required ? "Required" : "Recommended"}
+                  </span>
                   {course.level && (
                     <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize", LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600")}>
                       {course.level}
@@ -612,6 +640,8 @@ export default function MyCoursesPage() {
                     index={i}
                     certCourses={catalog.filter((c: any) => c.certification_id === e.certification?.id)}
                     prepEnrollments={prepEnrollments}
+                    onAddToCart={handleAddToCart}
+                    hasItem={hasItem}
                   />
                   <RelatedCoursesStrip
                     certId={e.certification?.id}
