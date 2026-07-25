@@ -467,7 +467,7 @@ export class PrepCoursesService {
 
   async adminGetRecommendations(courseId: string) {
     return this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT r.certification_id, r.is_required, cert.title, cert.acronym, cert.slug
+      SELECT r.certification_id, r.is_required, r.is_free, cert.title, cert.acronym, cert.slug
       FROM lms.course_cert_recommendations r
       JOIN lms.certifications cert ON cert.id = r.certification_id
       WHERE r.course_id = $1
@@ -475,15 +475,15 @@ export class PrepCoursesService {
     `, courseId);
   }
 
-  async adminSetRecommendations(courseId: string, items: { certification_id: string; is_required?: boolean }[]) {
+  async adminSetRecommendations(courseId: string, items: { certification_id: string; is_required?: boolean; is_free?: boolean }[]) {
     await this.prisma.$executeRawUnsafe(
       `DELETE FROM lms.course_cert_recommendations WHERE course_id = $1`, courseId
     );
     for (const item of items) {
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required)
-         VALUES ($1, $2, $3::boolean) ON CONFLICT DO NOTHING`,
-        courseId, item.certification_id, item.is_required ?? false,
+        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required, is_free)
+         VALUES ($1, $2, $3::boolean, $4::boolean) ON CONFLICT DO NOTHING`,
+        courseId, item.certification_id, item.is_required ?? false, (item.is_required && item.is_free) ?? false,
       );
     }
     return this.adminGetRecommendations(courseId);
@@ -498,7 +498,8 @@ export class PrepCoursesService {
     return this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.title, c.slug,
              (r.course_id IS NOT NULL) AS is_selected,
-             COALESCE(r.is_required, false) AS is_required
+             COALESCE(r.is_required, false) AS is_required,
+             COALESCE(r.is_free, false) AS is_free
       FROM lms.courses c
       LEFT JOIN lms.course_cert_recommendations r
         ON r.course_id = c.id AND r.certification_id = $1
@@ -507,15 +508,15 @@ export class PrepCoursesService {
     `, certificationId);
   }
 
-  async adminSetCoursesForCertification(certificationId: string, items: { course_id: string; is_required?: boolean }[]) {
+  async adminSetCoursesForCertification(certificationId: string, items: { course_id: string; is_required?: boolean; is_free?: boolean }[]) {
     await this.prisma.$executeRawUnsafe(
       `DELETE FROM lms.course_cert_recommendations WHERE certification_id = $1`, certificationId
     );
     for (const item of items) {
       await this.prisma.$executeRawUnsafe(
-        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required)
-         VALUES ($1, $2, $3::boolean) ON CONFLICT DO NOTHING`,
-        item.course_id, certificationId, item.is_required ?? false,
+        `INSERT INTO lms.course_cert_recommendations (course_id, certification_id, is_required, is_free)
+         VALUES ($1, $2, $3::boolean, $4::boolean) ON CONFLICT DO NOTHING`,
+        item.course_id, certificationId, item.is_required ?? false, (item.is_required && item.is_free) ?? false,
       );
     }
     return this.adminGetCoursesForCertification(certificationId);
@@ -576,14 +577,12 @@ export class PrepCoursesService {
 
   // ─── Gating: required courses must be completed before the exam ──────
 
-  async getIncompleteRequiredCourses(userId: string, certificationId: string): Promise<string[]> {
+  async getIncompleteRequiredCourses(userId: string, certificationId: string, enrollmentId: string): Promise<string[]> {
     // "Required" is exactly the admin's "Required for exam" checkbox on the
     // certification's Prep Courses tab (course_cert_recommendations.is_required)
     // — not whether the course also happens to have a direct
     // Course.certification_id link, which is a separate, unrelated
-    // association. This doesn't check payment directly, but a
-    // CourseEnrollment (and its completed_at) only ever gets created after
-    // purchase, so "completed" already implies "paid".
+    // association.
     const required = await this.prisma.courseCertRecommendation.findMany({
       where: { certification_id: certificationId, is_required: true },
       include: { course: { select: { id: true, title: true } } },
@@ -592,9 +591,28 @@ export class PrepCoursesService {
 
     const missing: string[] = [];
     for (const r of required) {
-      const done = await this.prisma.courseEnrollment.findFirst({
-        where: { user_id: userId, course_id: r.course_id, completed_at: { not: null } },
-      });
+      let done: boolean;
+      if (r.is_free) {
+        // Free required course — bundled into the certification's own
+        // player, so completion is tracked via LessonProgress against this
+        // certification enrollment, not a separate CourseEnrollment (there
+        // isn't one — nothing was ever purchased).
+        const [totalLessons, completedLessons] = await Promise.all([
+          this.prisma.lesson.count({ where: { module: { course_id: r.course_id }, is_published: true } }),
+          this.prisma.lessonProgress.count({
+            where: {
+              enrollment_id: enrollmentId, user_id: userId, completed: true,
+              lesson: { module: { course_id: r.course_id } },
+            },
+          }),
+        ]);
+        done = totalLessons > 0 && completedLessons >= totalLessons;
+      } else {
+        // Paid required course — real purchase, own CourseEnrollment.
+        done = !!(await this.prisma.courseEnrollment.findFirst({
+          where: { user_id: userId, course_id: r.course_id, completed_at: { not: null } },
+        }));
+      }
       if (!done) missing.push(r.course.title);
     }
     return missing;
@@ -610,7 +628,7 @@ export class PrepCoursesService {
       SELECT c.id, c.title, c.slug, c.subtitle, c.description, c.price::text, c.level,
              c.duration_hours::text, c.thumbnail_url, c.status,
              cert.acronym AS cert_acronym, cert.title AS cert_title,
-             r.is_required,
+             r.is_required, r.is_free,
              (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count
       FROM lms.course_cert_recommendations r
       JOIN lms.courses c ON c.id = r.course_id AND c.status = 'active'
@@ -796,10 +814,11 @@ export class PrepCoursesService {
     if (!rows.length) throw new NotFoundException("Course not found");
     const course = rows[0];
     const recs = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT certification_id, is_required FROM lms.course_cert_recommendations WHERE course_id = $1`, id
+      `SELECT certification_id, is_required, is_free FROM lms.course_cert_recommendations WHERE course_id = $1`, id
     );
     course.recommended_cert_ids = recs.map((r) => r.certification_id);
     course.required_cert_ids = recs.filter((r) => r.is_required).map((r) => r.certification_id);
+    course.free_cert_ids = recs.filter((r) => r.is_required && r.is_free).map((r) => r.certification_id);
     const prereqs = await this.prisma.coursePrerequisite.findMany({
       where: { course_id: id },
       select: { prerequisite_course_id: true, type: true },

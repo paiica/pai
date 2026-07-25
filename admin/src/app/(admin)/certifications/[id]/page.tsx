@@ -1060,12 +1060,14 @@ export default function CertEditorPage() {
   })();
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [requiredCourseIds, setRequiredCourseIds] = useState<string[]>([]);
+  const [freeCourseIds, setFreeCourseIds] = useState<string[]>([]);
   const [savingCourses, setSavingCourses] = useState(false);
 
   useEffect(() => {
     if (!certCourses.length) return;
     setSelectedCourseIds(certCourses.filter((c) => c.is_selected).map((c) => c.id));
     setRequiredCourseIds(certCourses.filter((c) => c.is_required).map((c) => c.id));
+    setFreeCourseIds(certCourses.filter((c) => c.is_free).map((c) => c.id));
   }, [certCoursesRaw]);
 
   async function handleSaveCertCourses() {
@@ -1074,6 +1076,7 @@ export default function CertEditorPage() {
       const courses = selectedCourseIds.map((course_id) => ({
         course_id,
         is_required: requiredCourseIds.includes(course_id),
+        is_free: freeCourseIds.includes(course_id),
       }));
       await api.put(`/admin/certifications/${id}/courses`, { courses }, accessToken!);
       toast.success("Prep course requirements saved!");
@@ -1412,7 +1415,7 @@ export default function CertEditorPage() {
                 Select which courses are related to this certification. Mark a course as{" "}
                 <span className="font-semibold text-amber-700">Required</span> to block students from booking or
                 starting the exam until they've completed it — leave it unmarked for courses that are just
-                recommended.
+                recommended. Required courses can be bundled free with enrollment, or require their own purchase.
               </p>
             </div>
             <button
@@ -1450,21 +1453,40 @@ export default function CertEditorPage() {
                       <span className="text-sm text-slate-700 truncate">{c.title}</span>
                     </label>
                     {selected && (
-                      <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 text-xs font-semibold text-amber-700">
-                        <input
-                          type="checkbox"
-                          checked={requiredCourseIds.includes(c.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setRequiredCourseIds((prev) => [...prev, c.id]);
-                            } else {
-                              setRequiredCourseIds((prev) => prev.filter((id) => id !== c.id));
-                            }
-                          }}
-                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                        />
-                        Required for exam
-                      </label>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-amber-700">
+                          <input
+                            type="checkbox"
+                            checked={requiredCourseIds.includes(c.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setRequiredCourseIds((prev) => [...prev, c.id]);
+                              } else {
+                                setRequiredCourseIds((prev) => prev.filter((id) => id !== c.id));
+                                setFreeCourseIds((prev) => prev.filter((id) => id !== c.id));
+                              }
+                            }}
+                            className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          Required for exam
+                        </label>
+                        {requiredCourseIds.includes(c.id) && (
+                          <select
+                            value={freeCourseIds.includes(c.id) ? "free" : "paid"}
+                            onChange={(e) => {
+                              if (e.target.value === "free") {
+                                setFreeCourseIds((prev) => [...prev, c.id]);
+                              } else {
+                                setFreeCourseIds((prev) => prev.filter((id) => id !== c.id));
+                              }
+                            }}
+                            className="input-base !py-1 !text-xs !w-auto"
+                          >
+                            <option value="paid">Requires purchase</option>
+                            <option value="free">Free (included with cert)</option>
+                          </select>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

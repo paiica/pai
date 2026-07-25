@@ -31,7 +31,7 @@ export class ExamsService {
       throw new BadRequestException("You must complete all lessons before taking the exam");
     }
 
-    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, enrollment.certification_id);
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, enrollment.certification_id, enrollmentId);
     if (missingRequired.length) {
       throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
     }

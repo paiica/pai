@@ -241,7 +241,16 @@ function CertBannerCard({
                                   )}
                                 </div>
                               </div>
-                              {prepEnrollment ? (
+                              {course.is_free ? (
+                                <Link
+                                  href={`/learn/${enrollment.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+                                >
+                                  Included — Go to Course
+                                  <ArrowRight size={10} />
+                                </Link>
+                              ) : prepEnrollment ? (
                                 <Link
                                   href={`/learn/course/${prepEnrollment.id}`}
                                   onClick={(e) => e.stopPropagation()}
@@ -267,7 +276,9 @@ function CertBannerCard({
                                 </button>
                               )}
                             </div>
-                            {!isDone && (
+                            {course.is_free ? (
+                              <p className="text-[10px] text-emerald-600 font-medium mt-2">Free — included with your certification enrollment</p>
+                            ) : !isDone && (
                               <div className="flex items-center gap-2 mt-2">
                                 <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
                                   <div

@@ -154,7 +154,7 @@ export class ExamSessionsService {
     });
     if (!enrollment) throw new ForbiddenException("You must be enrolled to book an exam session");
 
-    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, session.certification_id);
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, session.certification_id, enrollment.id);
     if (missingRequired.length) {
       throw new BadRequestException(`Complete the following required course(s) before booking the exam: ${missingRequired.join(", ")}`);
     }
@@ -288,7 +288,7 @@ export class ExamSessionsService {
 
     // Same check book() enforces — re-checked here in case a required course
     // got added (or the student's completion got reset) after they booked.
-    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, cert.id);
+    const missingRequired = await this.prepCourses.getIncompleteRequiredCourses(userId, cert.id, enrollment.id);
     if (missingRequired.length) {
       throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
     }

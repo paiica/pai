@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import {
   CheckCircle, Circle, Video, FileText, HelpCircle,
   File, Download, Link2, Award, Clock, Play, ClipboardList, ChevronDown,
+  ArrowRight, ShoppingCart,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
+import { useCartStore } from "@/store/cart.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
@@ -176,11 +179,142 @@ function CourseCard({
   );
 }
 
+// ─── Locked (paid required) course card ────────────────────────────────────────
+
+function LockedCourseCard({
+  course, index, onAddToCart, inCart,
+}: {
+  course: {
+    id: string; title: string; price: number;
+    enrollment_id: string | null; progress_percentage: number; completed_at: string | null;
+  };
+  index: number;
+  onAddToCart: () => void;
+  inCart: boolean;
+}) {
+  const accent = COURSE_ACCENTS[index % COURSE_ACCENTS.length];
+  const isDone = !!course.completed_at;
+  const purchased = !!course.enrollment_id;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="flex items-center gap-4 px-5 py-4">
+        <div className={cn(
+          "w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-navy-700 text-sm",
+          accent.bg
+        )}>
+          {index + 1}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-display font-bold text-navy-900 text-sm leading-snug truncate mb-1.5">
+            {course.title}
+          </p>
+          {purchased ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", isDone ? "bg-emerald-500" : accent.bar)}
+                  style={{ width: `${course.progress_percentage}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 flex-shrink-0 whitespace-nowrap">{course.progress_percentage}%</span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-400">Requires separate purchase — ${course.price.toFixed(0)}</p>
+          )}
+        </div>
+        <div className="flex-shrink-0">
+          {purchased ? (
+            <Link
+              href={`/learn/course/${course.enrollment_id}`}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+            >
+              {isDone ? "Review" : course.progress_percentage > 0 ? "Continue" : "Start"} <ArrowRight size={10} />
+            </Link>
+          ) : inCart ? (
+            <Link
+              href="/cart"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
+            >
+              <ShoppingCart size={10} /> In Cart
+            </Link>
+          ) : (
+            <button
+              onClick={onAddToCart}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
+            >
+              <ShoppingCart size={10} /> Buy — ${course.price.toFixed(0)}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Recommended (optional, not required) courses ──────────────────────────────
+
+function RecommendedCoursesSection({
+  certId, onAddToCart, hasItem,
+}: {
+  certId: string;
+  onAddToCart: (course: any) => void;
+  hasItem: (id: string) => boolean;
+}) {
+  const [courses, setCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!certId) return;
+    api.get<any>(`/prep-courses/recommended-by-cert/${certId}`)
+      .then((r) => setCourses(Array.isArray(r.data) ? r.data.filter((c: any) => !c.is_required) : []))
+      .catch(() => setCourses([]));
+  }, [certId]);
+
+  if (!courses.length) return null;
+
+  return (
+    <div className="mt-6">
+      <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Recommended Courses</p>
+      <p className="text-[11px] text-slate-400 mb-3">Optional — pairs well with this certification, not required for the exam.</p>
+      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {courses.map((course: any) => {
+          const price = parseFloat(course.price) || 0;
+          const inCart = hasItem(course.id);
+          return (
+            <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2">
+              <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
+              <span className="text-[10px] font-black text-navy-900">{price === 0 ? "Free" : `$${price.toFixed(0)}`}</span>
+              <div className="mt-auto">
+                {inCart ? (
+                  <Link
+                    href="/cart"
+                    className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
+                  >
+                    <ShoppingCart size={10} /> In Cart
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => onAddToCart(course)}
+                    className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    <ShoppingCart size={10} /> Add to Cart
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CourseOverviewPage() {
   const { enrollmentId } = useParams<{ enrollmentId: string }>();
   const token = useAuthStore((s) => s.accessToken)!;
+  const { addItem, hasItem } = useCartStore();
 
   const { data, isLoading } = useSWR(
     token ? [`/learn/${enrollmentId}`, token] : null,
@@ -200,18 +334,31 @@ export default function CourseOverviewPage() {
   if (!data) return null;
 
   const { enrollment, certification: cert, modules, certificate } = data;
+  const lockedCourses: any[] = data.locked_courses ?? [];
+
+  function handleAddToCart(course: { id: string; title: string; price: number }) {
+    addItem({ id: course.id, type: "course", course_id: course.id, title: course.title, price: course.price });
+    toast.success(`"${course.title}" added to cart`);
+  }
   const linkedCourses: any[] = data.linked_courses ?? [];
   const allLessons = (modules ?? []).flatMap((m: any) => m?.lessons ?? []);
   const completedCount = allLessons.filter((l: any) => l.completed).length;
   const firstIncomplete = allLessons.find((l: any) => !l.completed);
   const pct = enrollment.progress_percentage ?? 0;
 
-  // Build per-course entries — always separate, even for single-course certs
+  // Build per-course entries — always separate, even for single-course certs.
+  // The certification can carry its own native modules (untagged) in
+  // addition to modules pulled in from linked courses (tagged with
+  // _source_course_id) — show native content as its own entry when present.
+  const nativeModules = (modules ?? []).filter((m: any) => !m._source_course_id);
   const courseEntries = linkedCourses.length > 0
-    ? linkedCourses.map((c) => ({
-        course: c,
-        modules: (modules ?? []).filter((m: any) => m._source_course_id === c.id),
-      }))
+    ? [
+        ...(nativeModules.length > 0 ? [{ course: null, modules: nativeModules }] : []),
+        ...linkedCourses.map((c) => ({
+          course: c,
+          modules: (modules ?? []).filter((m: any) => m._source_course_id === c.id),
+        })),
+      ]
     : [{ course: null, modules: modules ?? [] }];
 
   // Auto-open the course containing the first incomplete lesson
@@ -288,7 +435,7 @@ export default function CourseOverviewPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: "Courses",   value: linkedCourses.length || 1 },
+          { label: "Courses",   value: (linkedCourses.length + lockedCourses.length) || 1 },
           { label: "Lessons",   value: allLessons.length },
           { label: "Completed", value: `${completedCount}/${allLessons.length}` },
         ].map(({ label, value }) => (
@@ -315,7 +462,7 @@ export default function CourseOverviewPage() {
         </Link>
       )}
 
-      {/* Per-course accordion list */}
+      {/* Per-course accordion list — required courses only (free and paid) */}
       <div className="space-y-3">
         {courseEntries.map(({ course, modules: courseMods }, i) => (
           <CourseCard
@@ -327,7 +474,22 @@ export default function CourseOverviewPage() {
             defaultOpen={i === defaultOpenIdx}
           />
         ))}
+        {lockedCourses.map((course, i) => (
+          <LockedCourseCard
+            key={course.id}
+            course={course}
+            index={courseEntries.length + i}
+            onAddToCart={() => handleAddToCart(course)}
+            inCart={hasItem(course.id)}
+          />
+        ))}
       </div>
+
+      {/* Recommended (optional) courses — shown separately below, not part
+          of the required curriculum above and not counted in its totals */}
+      {cert?.id && (
+        <RecommendedCoursesSection certId={cert.id} onAddToCart={handleAddToCart} hasItem={hasItem} />
+      )}
 
     </div>
   );

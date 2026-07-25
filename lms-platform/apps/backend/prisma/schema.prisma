@@ -783,6 +783,12 @@ model CourseCertRecommendation {
   // "required" toggle, distinct from merely being "related"/recommended.
   is_required      Boolean       @default(false)
 
+  // Only meaningful when is_required is true: whether this course is
+  // bundled free with certification enrollment (content merges directly
+  // into the certification's own player, no purchase needed) or must be
+  // bought separately like any other standalone course.
+  is_free          Boolean       @default(false)
+
   @@id([course_id, certification_id])
   @@map("course_cert_recommendations")
   @@schema("lms")

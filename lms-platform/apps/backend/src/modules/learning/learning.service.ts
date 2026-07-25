@@ -49,12 +49,6 @@ export class LearningService {
                 },
               },
             },
-            // Load all linked active prep courses (no take limit — all contribute modules)
-            prep_courses: {
-              where: { status: "active" },
-              select: { id: true, title: true, slug: true, sort_order: true },
-              orderBy: { sort_order: "asc" },
-            },
           },
         },
         lesson_progress: { select: { lesson_id: true, completed: true, quiz_score: true, last_position: true } },
@@ -69,14 +63,31 @@ export class LearningService {
     );
     const progressMap = new Map(enrollment.lesson_progress.map((lp) => [lp.lesson_id, lp]));
 
-    // Primary: modules attached directly to the certification.
-    // Fallback: merge modules from all linked active prep courses, in course order.
+    // Required courses (set from the certification's Prep Courses tab) —
+    // "recommended" (not required) courses never appear here or count
+    // toward totals; they're a separate, purely optional section. Free
+    // required courses merge their content directly into this player;
+    // paid ones are shown as a locked purchase card instead, tracked via
+    // their own separate CourseEnrollment.
+    const requiredRows = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: enrollment.certification_id, is_required: true },
+      include: { course: { select: { id: true, title: true, slug: true, price: true, status: true, sort_order: true } } },
+      orderBy: { course: { sort_order: "asc" } },
+    });
+    const requiredCourses = requiredRows
+      .filter((r) => r.course.status === "active")
+      .map((r) => ({ ...r.course, is_free: r.is_free }));
+    const freeCourses = requiredCourses.filter((c) => c.is_free);
+    const paidCourses = requiredCourses.filter((c) => !c.is_free);
+
+    // Modules attached directly to the certification, plus modules from
+    // every free required course — merged, not either/or, since a
+    // certification can carry its own native content (e.g. a wrap-up quiz)
+    // in addition to bundled courses that supply the bulk of the curriculum.
     let rawModules = enrollment.certification.modules;
-    const linkedCourses: { id: string; title: string; slug: string; sort_order: number }[] =
-      (enrollment.certification as any).prep_courses ?? [];
-    if (rawModules.length === 0 && linkedCourses.length > 0) {
+    if (freeCourses.length > 0) {
       const perCourse = await Promise.all(
-        linkedCourses.map((c) =>
+        freeCourses.map((c) =>
           this.prisma.module.findMany({
             where: { course_id: c.id, is_published: true },
             orderBy: { sort_order: "asc" },
@@ -94,7 +105,7 @@ export class LearningService {
           }).then((mods) => mods.map((m) => ({ ...m, _source_course_id: c.id })))
         )
       );
-      rawModules = perCourse.flat() as any;
+      rawModules = [...rawModules, ...perCourse.flat()] as any;
     }
 
     const modules = rawModules.map((mod: any) => ({
@@ -107,6 +118,27 @@ export class LearningService {
       completed_count: mod.lessons.filter((l: any) => completedLessonIds.has(l.id)).length,
       total_count: mod.lessons.length,
     }));
+
+    // Paid required courses aren't merged in — tell the frontend whether the
+    // student already purchased each one (and their progress there) so it
+    // can render a locked/Buy card vs. a Continue link out to that course's
+    // own player.
+    let lockedCourses: any[] = [];
+    if (paidCourses.length > 0) {
+      const courseEnrollments = await this.prisma.courseEnrollment.findMany({
+        where: { user_id: userId, course_id: { in: paidCourses.map((c) => c.id) } },
+      });
+      const byId = new Map(courseEnrollments.map((e) => [e.course_id, e]));
+      lockedCourses = paidCourses.map((c) => {
+        const ce = byId.get(c.id);
+        return {
+          id: c.id, title: c.title, slug: c.slug, price: Number(c.price),
+          enrollment_id: ce?.id ?? null,
+          progress_percentage: ce?.progress_percentage ?? 0,
+          completed_at: ce?.completed_at ?? null,
+        };
+      });
+    }
 
     return {
       enrollment: {
@@ -124,7 +156,8 @@ export class LearningService {
         passing_score: enrollment.certification.passing_score,
         ai_professor_enabled: enrollment.certification.ai_professor_enabled,
       },
-      linked_courses: linkedCourses,
+      linked_courses: freeCourses.map((c) => ({ id: c.id, title: c.title, slug: c.slug })),
+      locked_courses: lockedCourses,
       modules,
       last_attempt: enrollment.exam_attempts[0] ?? null,
       certificate: enrollment.certificate ?? null,
@@ -158,28 +191,30 @@ export class LearningService {
     });
     if (!lesson) throw new NotFoundException("Lesson not found");
 
-    // The module may belong directly to a certification OR to a linked prep course.
-    // In both cases verify the enrollment's certification owns this content.
+    // The module may belong directly to a certification OR to one of its
+    // free required courses (paid required courses are never accessed
+    // through this certification-track endpoint — they have their own
+    // CourseEnrollment and their own player, gated on actual purchase).
     const enrollment = await this.prisma.enrollment.findFirst({
       where: { id: enrollmentId },
       include: {
-        certification: {
-          select: {
-            id: true, passing_score: true,
-            prep_courses: { select: { id: true }, where: { status: "active" } },
-          },
-        },
+        certification: { select: { id: true, passing_score: true } },
       },
     });
     if (!enrollment) throw new ForbiddenException("Enrollment not found");
 
     const certId = enrollment.certification.id;
-    const linkedCourseIds = new Set(
-      ((enrollment.certification as any).prep_courses ?? []).map((c: any) => c.id)
-    );
     const belongsToCert = lesson.module.certification_id === certId;
-    const belongsToLinkedCourse = lesson.module.course_id && linkedCourseIds.has(lesson.module.course_id);
-    if (!belongsToCert && !belongsToLinkedCourse) {
+    let belongsToFreeLinkedCourse = false;
+    if (!belongsToCert && lesson.module.course_id) {
+      const rec = await this.prisma.courseCertRecommendation.findUnique({
+        where: {
+          course_id_certification_id: { course_id: lesson.module.course_id, certification_id: certId },
+        },
+      });
+      belongsToFreeLinkedCourse = !!rec && rec.is_required && rec.is_free;
+    }
+    if (!belongsToCert && !belongsToFreeLinkedCourse) {
       throw new ForbiddenException("Lesson is not part of your enrollment");
     }
 
@@ -412,9 +447,28 @@ export class LearningService {
     });
     if (!enrollment) return;
 
-    const totalLessons = enrollment.certification.modules.reduce(
+    let totalLessons = enrollment.certification.modules.reduce(
       (sum, m) => sum + m.lessons.length, 0
     );
+    // Same merge as getCourseOutline: lessons from FREE required courses
+    // count toward the certification's total (they're tracked via this same
+    // enrollment's LessonProgress). Paid required courses are tracked
+    // separately, through their own CourseEnrollment — they don't factor
+    // into this percentage at all.
+    const freeRequired = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: enrollment.certification_id, is_required: true, is_free: true },
+      select: { course_id: true },
+    });
+    if (freeRequired.length > 0) {
+      const perCourseCounts = await Promise.all(
+        freeRequired.map((r) =>
+          this.prisma.lesson.count({
+            where: { module: { course_id: r.course_id }, is_published: true },
+          })
+        )
+      );
+      totalLessons += perCourseCounts.reduce((a, b) => a + b, 0);
+    }
     const completedLessons = enrollment.lesson_progress.length;
     const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 

@@ -297,6 +297,7 @@ export default function CourseDetailPage() {
   const [savingContent, setSavingContent] = useState(false);
   const [recommendedCertIds, setRecommendedCertIds] = useState<string[]>([]);
   const [requiredCertIds, setRequiredCertIds] = useState<string[]>([]);
+  const [freeCertIds, setFreeCertIds] = useState<string[]>([]);
   const [savingRecs, setSavingRecs] = useState(false);
   const [prerequisiteCourseIds, setPrerequisiteCourseIds] = useState<string[]>([]);
   const [corequisiteCourseIds, setCorequisiteCourseIds] = useState<string[]>([]);
@@ -320,6 +321,7 @@ export default function CourseDetailPage() {
 
       setRecommendedCertIds((course as any).recommended_cert_ids ?? []);
       setRequiredCertIds((course as any).required_cert_ids ?? []);
+      setFreeCertIds((course as any).free_cert_ids ?? []);
       setPrerequisiteCourseIds((course as any).prerequisite_course_ids ?? []);
       setCorequisiteCourseIds((course as any).corequisite_course_ids ?? []);
 
@@ -410,6 +412,7 @@ export default function CourseDetailPage() {
       const certifications = recommendedCertIds.map((certification_id) => ({
         certification_id,
         is_required: requiredCertIds.includes(certification_id),
+        is_free: freeCertIds.includes(certification_id),
       }));
       await api.put(`/admin/courses/${courseId}/recommendations`, { certifications }, token);
       toast.success("Recommendations saved!");
@@ -846,21 +849,40 @@ export default function CourseDetailPage() {
                         </span>
                       </label>
                       {selected && (
-                        <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 text-xs font-semibold text-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={requiredCertIds.includes(c.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setRequiredCertIds((prev) => [...prev, c.id]);
-                              } else {
-                                setRequiredCertIds((prev) => prev.filter((id) => id !== c.id));
-                              }
-                            }}
-                            className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                          />
-                          Required for exam
-                        </label>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-amber-700">
+                            <input
+                              type="checkbox"
+                              checked={requiredCertIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setRequiredCertIds((prev) => [...prev, c.id]);
+                                } else {
+                                  setRequiredCertIds((prev) => prev.filter((id) => id !== c.id));
+                                  setFreeCertIds((prev) => prev.filter((id) => id !== c.id));
+                                }
+                              }}
+                              className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                            />
+                            Required for exam
+                          </label>
+                          {requiredCertIds.includes(c.id) && (
+                            <select
+                              value={freeCertIds.includes(c.id) ? "free" : "paid"}
+                              onChange={(e) => {
+                                if (e.target.value === "free") {
+                                  setFreeCertIds((prev) => [...prev, c.id]);
+                                } else {
+                                  setFreeCertIds((prev) => prev.filter((id) => id !== c.id));
+                                }
+                              }}
+                              className="input-base !py-1 !text-xs !w-auto"
+                            >
+                              <option value="paid">Requires purchase</option>
+                              <option value="free">Free (included with cert)</option>
+                            </select>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
