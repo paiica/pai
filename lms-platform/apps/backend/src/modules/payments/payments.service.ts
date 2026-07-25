@@ -146,6 +146,7 @@ export class PaymentsService {
         itemName: course.title,
         type: "course",
       });
+      await this.prisma.cartItem.deleteMany({ where: { user_id: userId, course_id: courseId } });
       return { checkout_url: null, enrolled: true };
     }
 
@@ -191,6 +192,19 @@ export class PaymentsService {
       where: { user_id: userId, certification_id: cert.id, status: { in: ["active", "completed"] } },
     });
     if (existing) throw new BadRequestException("You are already enrolled in this certification");
+
+    // Certification purchases never auto-enroll — they only advance an
+    // Application to payment_submitted, pending admin review (see below and
+    // the webhook handler). The enrollment check above can't catch a second
+    // payment attempt while the first is still awaiting that review, so it's
+    // checked explicitly here too — otherwise a stale cart item or a repeat
+    // click on "Buy Now" could charge the student twice for one application.
+    const existingApp = await this.prisma.application.findFirst({
+      where: { user_id: userId, certification_id: cert.id, status: { in: ["payment_submitted", "pending_review"] } },
+    });
+    if (existingApp) {
+      throw new BadRequestException("You already have a payment submitted for this certification — it's awaiting admin review.");
+    }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");
@@ -269,6 +283,7 @@ export class PaymentsService {
         });
       }
 
+      await this.prisma.cartItem.deleteMany({ where: { user_id: userId, certification_id: cert.id } });
       return { checkout_url: null, enrolled: false };
     }
 
@@ -743,6 +758,7 @@ export class PaymentsService {
       if (promo_id) await this.promoCodes.incrementUsed(promo_id, user_id);
       const rows = await this.prisma.$queryRawUnsafe<any[]>(`SELECT title FROM lms.courses WHERE id = $1`, course_id);
       description = rows[0] ? `Course: ${rows[0].title}` : "Course Enrollment";
+      await this.prisma.cartItem.deleteMany({ where: { user_id, course_id } });
 
     } else if (checkout_type === "certification" && certification_id) {
       // Look for any in-flight application — if one exists, NEVER auto-enroll;
@@ -817,6 +833,7 @@ export class PaymentsService {
       if (promo_id) await this.promoCodes.incrementUsed(promo_id, user_id);
       const cert = await this.prisma.certification.findUnique({ where: { id: certification_id } });
       description = cert ? `${cert.acronym} — ${cert.title}` : "Certification Enrollment";
+      await this.prisma.cartItem.deleteMany({ where: { user_id, certification_id } });
 
     } else if (checkout_type === "renewal" && certificate_id) {
       const renewed = await this.certificatesService.renew(certificate_id, user_id, paymentIntentId!, amount);

@@ -58,7 +58,7 @@ function AcronymBadge({ acronym }: { acronym: string }) {
 
 export default function CartPage() {
   const token = useAuthStore((s) => s.accessToken)!;
-  const { items, removeItem, clearCart, updateItemPrice } = useCartStore();
+  const { items, removeItem, clearCart, updateItemPrice, fetchCart } = useCartStore();
 
   // Sync prices from API on mount so stale localStorage prices are corrected
   useEffect(() => {
@@ -133,15 +133,23 @@ export default function CartPage() {
       : { certification_slug: item.slug, promo_code: promoCode.trim() || undefined };
     const res  = await api.post<any>(endpoint, body, token) as any;
     const data = res?.data ?? res;
-    if (data.enrolled) {
-      removeItem(item.id);
-      toast.success(`Enrolled in "${item.title}"!`);
-      return "enrolled";
-    } else if (data.checkout_url) {
+    if (data.checkout_url) {
       window.location.href = data.checkout_url;
       return "redirected";
     }
-    return "done";
+    // Resolved synchronously — a free course enrolls immediately, but a free
+    // certification only submits an Application for admin review (never
+    // auto-enrolls), so the messaging must not claim "Enrolled!" for that
+    // case. Either way, the backend already removed this item from the
+    // account cart — refetch rather than optimistically delete it locally,
+    // since deleting an already-gone row would 404 and roll the UI back.
+    await fetchCart();
+    toast.success(
+      item.type === "certification"
+        ? `Application submitted for "${item.title}" — pending admin review.`
+        : `Enrolled in "${item.title}"!`
+    );
+    return data.enrolled ? "enrolled" : "submitted";
   }
 
   async function handleCheckout() {

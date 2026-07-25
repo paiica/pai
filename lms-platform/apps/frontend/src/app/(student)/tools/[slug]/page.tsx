@@ -115,8 +115,15 @@ export default function ToolDetailPage({ params }: { params: Promise<{ slug: str
         : { certification_slug: tool.cert_slug, promo_code: promoCode.trim() || undefined };
       const res = await api.post<any>(endpoint, body, token!) as any;
       const data = res?.data ?? res;
-      if (data.enrolled) toast.success("Enrolled! You now have access.");
-      else if (data.checkout_url) window.location.href = data.checkout_url;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else if (data.enrolled) {
+        toast.success("Enrolled! You now have access.");
+      } else {
+        // Free certification purchases never auto-enroll — they submit an
+        // Application for admin review instead.
+        toast.success("Application submitted — pending admin review.");
+      }
     } catch (e: any) {
       toast.error(e.message ?? "Checkout failed");
     } finally {

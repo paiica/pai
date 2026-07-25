@@ -113,7 +113,12 @@ export class MailService {
   }) {
     const { subject, enabled, html: customHtml } = await this.tpl("free_enrollment");
     if (!enabled) return { sent: false, reason: "This template is disabled" };
-    const resolvedSubject = (subject ?? "You're enrolled — {item}").replace("{item}", opts.itemName);
+    // Certification purchases never auto-enroll — they submit an Application
+    // for admin review, so the subject/body must not claim "enrolled" (the
+    // admin-editable custom template is trusted as-is; only the built-in
+    // default branches by type).
+    const defaultSubject = opts.type === "certification" ? "Application submitted — {item}" : "You're enrolled — {item}";
+    const resolvedSubject = (subject ?? defaultSubject).replace("{item}", opts.itemName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName })
       : this.wrapper(this.freeEnrollmentBody(opts));
@@ -656,16 +661,22 @@ export class MailService {
   }
 
   private freeEnrollmentBody(opts: { firstName: string; itemName: string; type: "course" | "certification" }): string {
-    const label = opts.type === "certification" ? "certification program" : "course";
+    const isCert = opts.type === "certification";
+    const introText = isCert
+      ? "Your application for the following certification program has been submitted and is now pending admin review — you'll get a separate email once it's approved:"
+      : "You've been enrolled in the following course:";
+    const badgeLabel = isCert ? "Pending Review" : "Free Enrollment";
+    const ctaUrl = isCert ? `${this.frontendUrl}/certificates` : `${this.frontendUrl}/learn`;
+    const ctaLabel = isCert ? "Track Application →" : "Start Learning →";
     return `
       <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${opts.firstName},</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">You've been enrolled in the following ${label}:</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">${introText}</p>
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px 24px;margin:0 0 24px;text-align:center">
         <p style="margin:0;font-size:18px;font-weight:900;color:#15803d">${opts.itemName}</p>
-        <p style="margin:6px 0 0;font-size:13px;color:#16a34a">Free Enrollment</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#16a34a">${badgeLabel}</p>
       </div>
       <div style="text-align:center;margin:28px 0">
-        <a href="${this.frontendUrl}/learn" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Start Learning →</a>
+        <a href="${ctaUrl}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">${ctaLabel}</a>
       </div>
     `;
   }

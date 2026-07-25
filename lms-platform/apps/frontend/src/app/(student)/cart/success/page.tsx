@@ -4,13 +4,19 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle, ArrowRight, BookOpen, Award } from "lucide-react";
+import { useCartStore } from "@/store/cart.store";
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const isCertification = searchParams.get("type") === "certification";
   const [show, setShow] = useState(false);
+  const fetchCart = useCartStore((s) => s.fetchCart);
 
   useEffect(() => { setTimeout(() => setShow(true), 100); }, []);
+  // The webhook that fulfilled this purchase already removed the item from
+  // the account cart server-side — refresh so the cart badge/page reflect
+  // that immediately instead of showing stale pre-purchase state.
+  useEffect(() => { fetchCart(); }, [fetchCart]);
 
   return (
     <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center p-8">
