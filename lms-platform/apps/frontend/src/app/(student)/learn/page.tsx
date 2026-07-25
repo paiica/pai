@@ -387,10 +387,10 @@ const CATALOG_GRADIENTS = [
 ];
 
 function CatalogCourseCard({
-  course, index, isEnrolled, enrollmentId, certEnrollmentId, onAddToCart, inCart,
+  course, index, isEnrolled, enrollmentId, onAddToCart, inCart,
 }: {
   course: any; index: number; isEnrolled: boolean;
-  enrollmentId?: string; certEnrollmentId?: string;
+  enrollmentId?: string;
   onAddToCart: () => void; inCart: boolean;
 }) {
   const price = parseFloat(course.price) || 0;
@@ -441,10 +441,10 @@ function CatalogCourseCard({
           <span className="font-black text-navy-900 text-sm">{price === 0 ? "Free" : `$${price.toFixed(2)}`}</span>
           {isEnrolled ? (
             <Link
-              href={certEnrollmentId ? `/learn/${certEnrollmentId}` : `/learn/course/${enrollmentId}`}
+              href={`/learn/course/${enrollmentId}`}
               className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
             >
-              {certEnrollmentId ? "Included in cert" : "Continue"} <ArrowRight size={11} />
+              Continue <ArrowRight size={11} />
             </Link>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -501,10 +501,6 @@ export default function MyCoursesPage() {
   const shown = tab === "active" ? active : completed;
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];
   const catalog: any[] = Array.isArray(catalogRaw) ? catalogRaw : [];
-
-  const certIdToEnrollmentId = new Map<string, string>(
-    active.map((e: any) => [e.certification?.id, e.id] as [string, string])
-  );
 
   const certFilters: { id: string; acronym: string; title: string }[] = [];
   const seenCertIds = new Set<string>();
@@ -698,18 +694,13 @@ export default function MyCoursesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCatalog.map((course: any, i: number) => {
                 const directEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
-                const certEnrollmentId = course.certification_id
-                  ? certIdToEnrollmentId.get(course.certification_id)
-                  : undefined;
-                const enrolled = !!directEnrollment || !!certEnrollmentId;
                 return (
                   <CatalogCourseCard
                     key={course.id}
                     course={course}
                     index={i}
-                    isEnrolled={enrolled}
+                    isEnrolled={!!directEnrollment}
                     enrollmentId={directEnrollment?.id}
-                    certEnrollmentId={certEnrollmentId}
                     onAddToCart={() => handleAddToCart(course)}
                     inCart={hasItem(course.id)}
                   />
