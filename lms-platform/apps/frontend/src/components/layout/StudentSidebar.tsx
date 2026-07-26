@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
+import { CertIcon } from "@/lib/cert-icons";
 
 const TOP_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -208,11 +209,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
                 className={cn("sidebar-link pl-8 gap-2 text-slate-600 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
                 title={cert.title}
               >
-                {cert.badge_icon ? (
-                  <span className="text-sm leading-none flex-shrink-0">{cert.badge_icon}</span>
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
-                )}
+                <CertIcon iconKey={cert.badge_icon} size={14} className="flex-shrink-0 text-teal-600" />
                 <span className="font-semibold text-xs truncate">{cert.acronym}</span>
               </Link>
             );
@@ -229,11 +226,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
                 className={cn("sidebar-link pl-8 gap-2 text-slate-500 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
                 title={cert.title}
               >
-                {cert.badge_icon ? (
-                  <span className="text-sm leading-none flex-shrink-0 opacity-60">{cert.badge_icon}</span>
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                )}
+                <CertIcon iconKey={cert.badge_icon} size={14} className="flex-shrink-0 text-amber-500" />
                 <span className="font-semibold text-xs truncate">{cert.acronym}</span>
                 <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wide ml-auto flex-shrink-0">Step 1</span>
               </Link>

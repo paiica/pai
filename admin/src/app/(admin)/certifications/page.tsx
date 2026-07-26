@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { Loader2, PlusCircle, Award, Globe, EyeOff, Clock, Pencil, AlertCircle, RefreshCw, Archive, ArchiveRestore, ExternalLink, Trash2, Timer, Wrench } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
+import { CertIcon, CertIconPicker } from "@/lib/cert-icons";
 
 const LEVELS   = ["pre_certificate", "foundation", "advanced", "executive", "specialist", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
@@ -49,7 +50,7 @@ export default function CertificationsPage() {
     acronym: "", title: "",
     level: "foundation" as typeof LEVELS[number],
     status: "coming_soon" as typeof STATUSES[number],
-    badge_icon: "🎓", price: "", description: "",
+    badge_icon: "graduation-cap", price: "", description: "",
     long_description: "", duration_weeks: "12", passing_score: "70",
   });
   const [saving, setSaving] = useState(false);
@@ -148,15 +149,13 @@ export default function CertificationsPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Identity</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Acronym <span className="text-red-500">*</span></label>
-                  <input className="input-base" placeholder="CAIP" value={form.acronym} onChange={(e) => set("acronym", e.target.value.toUpperCase())} required maxLength={10} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Badge Icon</label>
-                  <input className="input-base" placeholder="🎓" value={form.badge_icon} onChange={(e) => set("badge_icon", e.target.value)} maxLength={4} />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Acronym <span className="text-red-500">*</span></label>
+                <input className="input-base max-w-xs" placeholder="CAIP" value={form.acronym} onChange={(e) => set("acronym", e.target.value.toUpperCase())} required maxLength={10} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Badge Icon</label>
+                <CertIconPicker value={form.badge_icon} onChange={(key) => set("badge_icon", key)} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Full Title <span className="text-red-500">*</span></label>
@@ -258,8 +257,8 @@ export default function CertificationsPage() {
                   <div className="space-y-2">
                     {groupCerts.map((cert) => (
                       <div key={cert.id} className="card px-4 py-3 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-navy-50 flex items-center justify-center text-xl flex-shrink-0">
-                          {cert.badge_icon || "🎓"}
+                        <div className="w-10 h-10 rounded-xl bg-navy-50 flex items-center justify-center flex-shrink-0">
+                          <CertIcon iconKey={cert.badge_icon} size={18} className="text-navy-700" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">

@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CertIcon } from "@/lib/cert-icons";
 import toast from "react-hot-toast";
 
 function fetcher(url: string, token: string) {
@@ -373,7 +374,9 @@ export default function CourseOverviewPage() {
       {/* Cert hero */}
       <div className="mb-7">
         <div className="flex items-center gap-4 mb-4">
-          <span className="text-5xl">{cert?.badge_icon}</span>
+          <div className="w-16 h-16 rounded-2xl bg-navy-50 flex items-center justify-center flex-shrink-0">
+            <CertIcon iconKey={cert?.badge_icon} size={30} className="text-navy-700" />
+          </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5">{cert?.acronym}™</p>
             <h1 className="text-2xl font-display font-black text-navy-900 leading-tight">{cert?.title}</h1>

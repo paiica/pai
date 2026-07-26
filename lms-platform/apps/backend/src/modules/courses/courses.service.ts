@@ -620,7 +620,7 @@ export class CoursesService {
         title: dto.title,
         level: dto.level,
         status: dto.status ?? "coming_soon",
-        badge_icon: dto.badge_icon ?? "🎓",
+        badge_icon: dto.badge_icon ?? "graduation-cap",
         price: dto.price ?? 0,
         description: dto.description ?? "",
         long_description: dto.long_description ?? "",

@@ -11,6 +11,13 @@ const PROVIDER_DEFAULTS: Record<string, { baseURL?: string; model: string }> = {
   gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",    model: "gemini-2.0-flash" },
 };
 
+// Certification badge icons are Lucide icon keys, not emoji — keeps every
+// cert badge on the same stroke-icon visual language as the rest of the UI.
+const CERT_ICON_KEYS = [
+  "graduation-cap", "award", "shield-check", "target", "compass",
+  "bar-chart", "briefcase", "layers", "network", "brain", "cpu", "line-chart",
+];
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -594,7 +601,7 @@ Return ONLY a JSON object with this exact shape (fill in every field with realis
   "acronym": "3-6 letter code, e.g. CAIP",
   "title": "Full certification name",
   "level": "pre_certificate | foundation | advanced | specialist | executive",
-  "badge_icon": "single emoji",
+  "badge_icon": "one of: graduation-cap, award, shield-check, target, compass, bar-chart, briefcase, layers, network, brain, cpu, line-chart — pick whichever best fits this certification's subject, never an emoji",
   "description": "1-2 sentence catalog summary",
   "long_description": "3-5 sentence hero description",
   "price": 499,
@@ -691,7 +698,7 @@ Rules:
       acronym:               s(raw.acronym).toUpperCase().slice(0, 10),
       title:                 s(raw.title),
       level:                 ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"].includes(raw.level) ? raw.level : "foundation",
-      badge_icon:            s(raw.badge_icon, "🎓"),
+      badge_icon:            CERT_ICON_KEYS.includes(raw.badge_icon) ? raw.badge_icon : "graduation-cap",
       description:           s(raw.description),
       long_description:      s(raw.long_description),
       price:                 n(raw.price, 499),
@@ -784,7 +791,7 @@ ${curriculumText}
 
 Return ONLY a JSON object with this exact shape:
 {
-  "badge_icon": "single emoji that fits this certification's subject",
+  "badge_icon": "one of: graduation-cap, award, shield-check, target, compass, bar-chart, briefcase, layers, network, brain, cpu, line-chart — pick whichever best fits this certification's subject, never an emoji",
   "description": "1-2 sentence catalog summary of what this certification actually teaches",
   "long_description": "3-5 sentence hero description, specific to the real curriculum above",
   "curriculum_overview": [{ "title": "exact module title as given above", "description": "1 sentence summarizing what this module actually covers, based on its lessons", "lessons": 0 }]
@@ -822,7 +829,7 @@ Rules:
       const n = (v: any, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
       const arr = (v: any) => (Array.isArray(v) ? v : []);
       return {
-        badge_icon: s(parsed.badge_icon, "🎓"),
+        badge_icon: CERT_ICON_KEYS.includes(parsed.badge_icon) ? parsed.badge_icon : "graduation-cap",
         description: s(parsed.description),
         long_description: s(parsed.long_description),
         curriculum_overview: arr(parsed.curriculum_overview).map((c: any) => ({

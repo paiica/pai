@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
 import { api, ApiError } from "@/lib/api";
+import { CertIcon } from "@/lib/cert-icons";
 import { getRefCookie } from "@/lib/referral";
 
 type Cert = {
@@ -393,7 +394,9 @@ export default function ApplyPage() {
         <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5">
           <CheckCircle2 size={32} className="text-emerald-600" />
         </div>
-        <div className="text-4xl mb-3">{cert.badge_icon || "🎓"}</div>
+        <div className="w-14 h-14 rounded-2xl bg-navy-50 flex items-center justify-center mx-auto mb-3">
+          <CertIcon iconKey={cert.badge_icon} size={26} className="text-navy-700" />
+        </div>
         <h1 className="text-2xl font-display font-black text-navy-900 mb-2">Application Received!</h1>
         <p className="text-slate-500 text-sm leading-relaxed mb-8">
           Your application for <strong>{cert.title} ({cert.acronym})</strong> has been received.
@@ -489,7 +492,9 @@ export default function ApplyPage() {
           <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 size={32} className="text-emerald-600" />
           </div>
-          <div className="text-4xl mb-3">{cert.badge_icon || "🎓"}</div>
+          <div className="w-14 h-14 rounded-2xl bg-navy-50 flex items-center justify-center mx-auto mb-3">
+          <CertIcon iconKey={cert.badge_icon} size={26} className="text-navy-700" />
+        </div>
           <h1 className="text-2xl font-display font-black text-navy-900 mb-2">Application Received!</h1>
           <p className="text-slate-500 text-sm leading-relaxed mb-8">
             Your application for <strong>{cert.title} ({cert.acronym})</strong> is awaiting payment.
@@ -552,8 +557,8 @@ export default function ApplyPage() {
 
       {/* Cert header */}
       <div className="flex items-center gap-4 mb-8 p-5 bg-navy-900 rounded-2xl">
-        <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0">
-          {cert.badge_icon || "🎓"}
+        <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+          <CertIcon iconKey={cert.badge_icon} size={26} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">Applying for</p>

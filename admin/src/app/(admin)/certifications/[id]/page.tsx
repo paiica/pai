@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CertIcon, CertIconPicker } from "@/lib/cert-icons";
 
 type CurriculumItem  = { title: string; description: string; lessons: number };
 type FaqItem         = { question: string; answer: string };
@@ -810,7 +811,7 @@ export default function CertEditorPage() {
   const [slug,               setSlug]               = useState("");
   const [level,              setLevel]              = useState("foundation");
   const [status,             setStatus]             = useState("coming_soon");
-  const [badgeIcon,          setBadgeIcon]          = useState("🎓");
+  const [badgeIcon,          setBadgeIcon]          = useState("graduation-cap");
   const [description,        setDescription]        = useState("");
   const [longDesc,           setLongDesc]           = useState("");
   const [outcomes,           setOutcomes]           = useState<string[]>([]);
@@ -893,7 +894,7 @@ export default function CertEditorPage() {
     setSlug(cert.slug ?? "");
     setLevel(cert.level ?? "foundation");
     setStatus(cert.status ?? "coming_soon");
-    setBadgeIcon(cert.badge_icon ?? "🎓");
+    setBadgeIcon(cert.badge_icon ?? "graduation-cap");
     setDescription(cert.description ?? "");
     setLongDesc(cert.long_description ?? "");
     setOutcomes(safeArray<string>(cert.learning_outcomes));
@@ -1228,7 +1229,9 @@ export default function CertEditorPage() {
         </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-navy-50 flex items-center justify-center text-2xl flex-shrink-0">{badgeIcon || "🎓"}</div>
+            <div className="w-12 h-12 rounded-xl bg-navy-50 flex items-center justify-center flex-shrink-0">
+              <CertIcon iconKey={badgeIcon} size={22} className="text-navy-700" />
+            </div>
             <div>
               <h1 className="text-xl font-display font-black text-navy-900">{title || cert.title}</h1>
               <div className="flex items-center gap-2 mt-0.5">
@@ -1318,10 +1321,10 @@ export default function CertEditorPage() {
 
       {tab === "overview" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Badge Icon"><input className="input-base" value={badgeIcon} onChange={(e) => setBadgeIcon(e.target.value)} maxLength={4} /></Field>
-            <Field label="Acronym"><input className="input-base" value={acronym} onChange={(e) => setAcronym(e.target.value.toUpperCase())} maxLength={10} /></Field>
-          </div>
+          <Field label="Acronym"><input className="input-base max-w-xs" value={acronym} onChange={(e) => setAcronym(e.target.value.toUpperCase())} maxLength={10} /></Field>
+          <Field label="Badge Icon">
+            <CertIconPicker value={badgeIcon} onChange={setBadgeIcon} />
+          </Field>
           <Field label="Full Title"><input className="input-base" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Slug" hint={`paii.ca/certifications/${slug || "..."}`}>
             <input className="input-base font-mono text-sm" value={slug} onChange={(e) => setSlug(e.target.value)} />

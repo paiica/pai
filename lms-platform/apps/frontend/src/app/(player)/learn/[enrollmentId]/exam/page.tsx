@@ -8,6 +8,7 @@ import { Calendar, Clock, Users, CheckCircle, AlertCircle, ArrowLeft, ExternalLi
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CertIcon } from "@/lib/cert-icons";
 
 const PAII_EXAMS_URL = process.env.NEXT_PUBLIC_PAIIEXAMS_URL || "https://exams.paii.ca";
 
@@ -187,7 +188,9 @@ export default function ExamPage() {
 
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <span className="text-5xl">{cert?.badge_icon}</span>
+        <div className="w-16 h-16 rounded-2xl bg-navy-50 flex items-center justify-center flex-shrink-0">
+          <CertIcon iconKey={cert?.badge_icon} size={30} className="text-navy-700" />
+        </div>
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{cert?.acronym}™ Certification Exam</p>
           <h1 className="text-2xl font-display font-black text-navy-900 leading-tight">{cert?.title}</h1>

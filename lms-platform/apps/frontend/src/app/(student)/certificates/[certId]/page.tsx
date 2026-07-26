@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CertIcon } from "@/lib/cert-icons";
 import toast from "react-hot-toast";
 
 const STEPS = [
@@ -1325,7 +1326,7 @@ export default function CertDetailPage() {
           {/* Top row */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-3">
-              {badgeIcon && <span className="text-3xl">{badgeIcon}</span>}
+              <CertIcon iconKey={badgeIcon} size={26} className="text-white/90" />
               <div className="border-2 border-white/30 rounded-xl px-4 py-1.5">
                 <span className="text-white font-black text-lg tracking-wide">{acronym}</span>
               </div>

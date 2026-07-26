@@ -92,6 +92,7 @@ function CertBannerCard({
   const dotClass = isCompleted ? "bg-emerald-500" : pct > 0 ? "bg-amber-400" : "bg-slate-300";
 
   return (
+    <div>
     <div className={cn(
       "rounded-2xl bg-white overflow-hidden border transition-all duration-200",
       open ? "border-slate-300 shadow-lg" : "border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"
@@ -131,11 +132,11 @@ function CertBannerCard({
             </span>
           </div>
           <p className="font-display font-bold text-navy-900 text-[15px] leading-snug truncate mb-1">{cert?.title}</p>
-          {certCourses.length > 0 && (
+          {requiredCourses.length > 0 && (
             <p className="text-[10px] text-slate-400 mb-2">
-              {certCourses.length} course{certCourses.length !== 1 ? "s" : ""}
+              {requiredCourses.length} course{requiredCourses.length !== 1 ? "s" : ""}
               {" · "}
-              {certCourses.reduce((s, c) => s + (c.module_count || 0), 0)} modules
+              {requiredCourses.reduce((s, c) => s + (c.module_count || 0), 0)} modules
             </p>
           )}
           <div className="flex items-center gap-2">
@@ -176,12 +177,16 @@ function CertBannerCard({
         </div>
       </div>
 
-      {/* Expandable course list */}
+      {/* Expandable course list — required courses only; recommended courses
+          render below as their own always-visible section, not gated behind
+          this toggle, and are excluded from the course/module totals above. */}
       <div className={cn("overflow-hidden transition-all duration-300 ease-in-out", open ? "max-h-[900px] overflow-y-auto" : "max-h-0")}>
         <div className="px-5 pb-5 space-y-6">
-          {certCourses.length === 0 ? (
+          {requiredCourses.length === 0 ? (
             <div className="rounded-xl border border-slate-100 bg-slate-50/80 py-6">
-              <p className="text-xs text-slate-400 text-center">No courses linked to this certification yet.</p>
+              <p className="text-xs text-slate-400 text-center">
+                {certCourses.length === 0 ? "No courses linked to this certification yet." : "No required courses for this certification."}
+              </p>
             </div>
           ) : (
             <>
@@ -296,60 +301,63 @@ function CertBannerCard({
                   </div>
                 </div>
               )}
-
-              {recommendedCourses.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Recommended Courses</p>
-                  <p className="text-[11px] text-slate-400 mb-3">Optional — pairs well with this certification, not required for the exam.</p>
-                  <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                    {recommendedCourses.map((course: any) => {
-                      const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
-                      const price = parseFloat(course.price) || 0;
-                      const inCart = hasItem(course.id);
-
-                      return (
-                        <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all">
-                          <div>
-                            <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
-                            <div className="flex items-center gap-1.5">
-                              {course.level && (
-                                <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize", LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600")}>
-                                  {course.level}
-                                </span>
-                              )}
-                              <span className="text-[10px] font-black text-navy-900 ml-auto">
-                                {price === 0 ? "Free" : `$${price.toFixed(0)}`}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-auto">
-                            {prepEnrollment ? (
-                              <Link href={`/learn/course/${prepEnrollment.id}`}
-                                className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                                <CheckCircle size={10} /> Enrolled
-                              </Link>
-                            ) : inCart ? (
-                              <Link href="/cart"
-                                className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors">
-                                <ShoppingCart size={10} /> In Cart
-                              </Link>
-                            ) : (
-                              <button onClick={() => onAddToCart(course)}
-                                className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1">
-                                <ShoppingCart size={10} /> Add to Cart
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
+    </div>
+
+    {/* Recommended courses — always visible below the accordion, not part
+        of it, and never counted in the course/module totals above. */}
+    {recommendedCourses.length > 0 && (
+      <div className="mt-4 px-1">
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Recommended Courses</p>
+        <p className="text-[11px] text-slate-400 mb-3">Optional — pairs well with this certification, not required for the exam.</p>
+        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {recommendedCourses.map((course: any) => {
+            const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
+            const price = parseFloat(course.price) || 0;
+            const inCart = hasItem(course.id);
+
+            return (
+              <div key={course.id} className="w-52 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-3 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all">
+                <div>
+                  <p className="font-semibold text-navy-900 text-xs leading-snug line-clamp-2 mb-1.5">{course.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    {course.level && (
+                      <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize", LEVEL_COLOR[course.level] ?? "bg-slate-100 text-slate-600")}>
+                        {course.level}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-black text-navy-900 ml-auto">
+                      {price === 0 ? "Free" : `$${price.toFixed(0)}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-auto">
+                  {prepEnrollment ? (
+                    <Link href={`/learn/course/${prepEnrollment.id}`}
+                      className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
+                      <CheckCircle size={10} /> Enrolled
+                    </Link>
+                  ) : inCart ? (
+                    <Link href="/cart"
+                      className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors">
+                      <ShoppingCart size={10} /> In Cart
+                    </Link>
+                  ) : (
+                    <button onClick={() => onAddToCart(course)}
+                      className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1">
+                      <ShoppingCart size={10} /> Add to Cart
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
     </div>
   );
 }
