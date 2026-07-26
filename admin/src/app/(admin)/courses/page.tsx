@@ -8,7 +8,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   BookOpen, Plus, PlusCircle, Loader2, AlertCircle, RefreshCw,
-  Users, Layers, Edit3, Archive, Globe, Trash2, DollarSign, Clock, ExternalLink,
+  Users, Layers, Edit3, Archive, Globe, Trash2, DollarSign, Clock, ExternalLink, Search, X,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -81,6 +81,36 @@ export default function AdminCoursesPage() {
   const professors = users.filter(
     (u: any) => u.role === "professor" || u.role === "admin" || u.role === "super_admin"
   );
+
+  // ── Filter/search state ─────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [levelFilter, setLevelFilter] = useState("");
+  const [certFilter, setCertFilter] = useState("");
+
+  const filtersActive = !!(search || statusFilter || levelFilter || certFilter);
+
+  const filteredCourses = courses.filter((course) => {
+    if (statusFilter && course.status !== statusFilter) return false;
+    if (levelFilter && course.level !== levelFilter) return false;
+    if (certFilter && course.certification_id !== certFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const haystack = [course.title, course.slug, course.subtitle, course.cert_acronym]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("");
+    setLevelFilter("");
+    setCertFilter("");
+  }
 
   // ── Create form state ─────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
@@ -305,6 +335,58 @@ export default function AdminCoursesPage() {
         </div>
       )}
 
+      {/* ── Filter/search bar ────────────────────────────────────── */}
+      {!isLoading && !error && courses.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="input-base pl-9 !text-sm"
+              placeholder="Search by title, slug, or certification…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="input-base !text-sm sm:w-36"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">All Statuses</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+          </select>
+          <select
+            className="input-base !text-sm sm:w-36"
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+          >
+            <option value="">All Levels</option>
+            {LEVELS.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+          </select>
+          {certs.length > 0 && (
+            <select
+              className="input-base !text-sm sm:w-48"
+              value={certFilter}
+              onChange={(e) => setCertFilter(e.target.value)}
+            >
+              <option value="">All Certifications</option>
+              {certs.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.acronym}</option>
+              ))}
+            </select>
+          )}
+          {filtersActive && (
+            <button
+              onClick={clearFilters}
+              className="btn-outline !py-2 !px-3 !text-xs flex-shrink-0 flex items-center gap-1"
+              title="Clear filters"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Course list ──────────────────────────────────────────── */}
       {isLoading ? (
         <div className="card p-10 text-center">
@@ -326,9 +408,18 @@ export default function AdminCoursesPage() {
           <p className="text-slate-600 text-sm font-semibold">No prep courses yet</p>
           <p className="text-slate-400 text-xs mt-1">Create the first course to get started.</p>
         </div>
+      ) : filteredCourses.length === 0 ? (
+        <div className="card p-12 text-center">
+          <Search size={32} className="text-slate-200 mx-auto mb-3" />
+          <p className="text-slate-600 text-sm font-semibold">No courses match your filters</p>
+          <p className="text-slate-400 text-xs mt-1 mb-4">Try a different search term or clear the filters.</p>
+          <button onClick={clearFilters} className="btn-outline !py-1.5 !px-4 !text-xs mx-auto">
+            <X size={12} /> Clear filters
+          </button>
+        </div>
       ) : (
         <div className="space-y-3">
-          {courses.map((course) => (
+          {filteredCourses.map((course) => (
             <CourseCard
               key={course.id}
               course={course}
