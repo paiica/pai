@@ -13,6 +13,9 @@ export interface CartItem {
   title: string;
   subtitle?: string;
   price: number;
+  final_price?: number;                  // price after member discount, if any (equals price when there's none)
+  member_discount_percentage?: number;
+  member_discount_source?: string;       // acronym of the certification granting the discount
   thumbnail_url?: string;
   level?: string;
   cert_acronym?: string;
@@ -40,6 +43,9 @@ function fromApi(i: any): CartItem {
     title: i.title,
     subtitle: i.subtitle,
     price: i.price,
+    final_price: i.final_price,
+    member_discount_percentage: i.member_discount_percentage,
+    member_discount_source: i.member_discount_source,
     thumbnail_url: i.thumbnail_url,
     level: i.level,
     cert_acronym: i.cert_acronym,

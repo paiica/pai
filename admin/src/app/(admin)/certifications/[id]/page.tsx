@@ -59,7 +59,7 @@ const DEFAULT_TESTIMONIAL: Testimonial = { name: "", role: "", company: "", quot
 type Cert = {
   id: string; slug: string; acronym: string; title: string;
   level: string; status: string; badge_icon: string;
-  price: number; description: string; long_description: string;
+  price: number; member_discount_percentage: number; description: string; long_description: string;
   learning_outcomes: string[]; target_audience: string[];
   curriculum_overview: CurriculumItem[];
   faqs_json: FaqItem[];
@@ -828,6 +828,7 @@ export default function CertEditorPage() {
   const [requiredEducation, setRequiredEducation]   = useState<string[]>([]);
   const [requiredDocuments, setRequiredDocuments]   = useState<string[]>([]);
   const [price,              setPrice]              = useState("");
+  const [memberDiscountPercentage, setMemberDiscountPercentage] = useState("0");
   const [durationWeeks,      setDurationWeeks]      = useState("");
   const [totalLessons,       setTotalLessons]       = useState("");
   const [totalHours,         setTotalHours]         = useState("");
@@ -911,6 +912,7 @@ export default function CertEditorPage() {
     setRelatedSlugs(safeArray<string>(cert.related_slugs));
     setCertPreviewUrl(cert.certificate_preview_url ?? "");
     setPrice(String(cert.price ?? ""));
+    setMemberDiscountPercentage(String(cert.member_discount_percentage ?? 0));
     setDurationWeeks(String(cert.duration_weeks ?? ""));
     setTotalLessons(String(cert.total_lessons ?? ""));
     setTotalHours(String(cert.total_hours ?? ""));
@@ -1016,6 +1018,7 @@ export default function CertEditorPage() {
         required_education:    requiredEducation,
         required_documents:    requiredDocuments,
         price:                 parseFloat(price) || 0,
+        member_discount_percentage: Math.min(100, Math.max(0, parseInt(memberDiscountPercentage) || 0)),
         duration_weeks:        parseInt(durationWeeks) || 0,
         total_lessons:         parseInt(totalLessons) || 0,
         total_hours:           parseFloat(totalHours) || 0,
@@ -1585,6 +1588,17 @@ export default function CertEditorPage() {
               <Field label="Price (USD)"><input className="input-base" type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
               <Field label="Retake Fee (USD)"><input className="input-base" type="number" min="0" value={retakeFee} onChange={(e) => setRetakeFee(e.target.value)} /></Field>
             </div>
+            <Field
+              label="Member Discount on Courses (%)"
+              hint="Students who hold this certification get this % off any prep course purchase. 0 = no discount. The best discount among all certifications a student holds is used — never stacked."
+            >
+              <input
+                className="input-base max-w-xs"
+                type="number" min="0" max="100"
+                value={memberDiscountPercentage}
+                onChange={(e) => setMemberDiscountPercentage(e.target.value)}
+              />
+            </Field>
           </div>
           <div className="border-t border-slate-100 pt-4 space-y-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Course Details</p>

@@ -483,6 +483,10 @@ model Certification {
 
   is_featured           Boolean  @default(false)
   ai_professor_enabled  Boolean  @default(false)
+  // Holders of this certification (an active/expired/lapsed Certificate, not
+  // revoked) get this % off prep course purchases — the best discount among
+  // all certifications a student holds is used, never stacked.
+  member_discount_percentage Int @default(0)
   sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

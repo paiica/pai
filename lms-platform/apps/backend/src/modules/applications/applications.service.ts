@@ -5,6 +5,7 @@ import {
 import { ApplicationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { CreateApplicationDto } from "./dto/create-application.dto";
 
 @Injectable()
 export class ApplicationsService {
@@ -12,7 +13,7 @@ export class ApplicationsService {
 
   constructor(private prisma: PrismaService, private mail: MailService) {}
 
-  async create(userId: string, dto: any) {
+  async create(userId: string, dto: CreateApplicationDto) {
     const cert = await this.prisma.certification.findUnique({ where: { slug: dto.certification_slug } });
     if (!cert || cert.status !== "active") throw new NotFoundException("Certification not found");
 

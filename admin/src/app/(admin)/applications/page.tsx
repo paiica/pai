@@ -224,6 +224,22 @@ function ApplicationDrawer({
               </button>
             </div>
 
+            {/* What this certification asks applicants to have ready — a checklist for the reviewer, independent of whether documents were formally requested */}
+            {Array.isArray(app.certification?.required_documents) && app.certification.required_documents.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Required for {app.certification.acronym}
+                </p>
+                <ul className="space-y-1">
+                  {app.certification.required_documents.map((doc: string, i: number) => (
+                    <li key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span className="w-1 h-1 rounded-full bg-slate-400 flex-shrink-0" /> {doc}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Inline message editor when enabling */}
             {editingDocMsg && !docsRequested && (
               <div className="px-4 py-3 space-y-2 border-t border-slate-100">

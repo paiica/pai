@@ -28,8 +28,17 @@ export class CoursesService {
 
   // ─── Public ──────────────────────────────────────────────────────────
 
+  // member_discount_percentage is an internal pricing lever (set by admins,
+  // consumed server-side at course checkout) — it has no public UI and isn't
+  // meant to be readable by anyone hitting these public endpoints, so it's
+  // stripped from both public responses below.
+  private omitInternalFields<T extends { member_discount_percentage?: unknown }>(cert: T): Omit<T, "member_discount_percentage"> {
+    const { member_discount_percentage: _omit, ...rest } = cert;
+    return rest;
+  }
+
   async findAll(status?: CertificationStatus) {
-    return this.prisma.certification.findMany({
+    const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       include: {
         modules: {
@@ -43,6 +52,21 @@ export class CoursesService {
             user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } } },
           },
         },
+      },
+      orderBy: { sort_order: "asc" },
+    });
+    return certs.map((c) => this.omitInternalFields(c));
+  }
+
+  // Lightweight list for browse/catalog UIs (e.g. the student portal's
+  // Online Tools page) that only need card-level fields — no nested
+  // modules/lessons/instructors, and no internal-only pricing fields.
+  async findCatalogList(status?: CertificationStatus) {
+    return this.prisma.certification.findMany({
+      where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
+      select: {
+        id: true, slug: true, acronym: true, title: true, level: true,
+        price: true, badge_icon: true, description: true, duration_weeks: true,
       },
       orderBy: { sort_order: "asc" },
     });
@@ -75,7 +99,7 @@ export class CoursesService {
       },
     });
     if (!cert) throw new NotFoundException("Certification not found");
-    return cert;
+    return this.omitInternalFields(cert);
   }
 
   // Public lesson access (gated by enrollment)

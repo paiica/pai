@@ -1,9 +1,10 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { PrepCoursesService } from "../prep-courses/prep-courses.service";
 
 @Injectable()
 export class CartService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private prepCourses: PrepCoursesService) {}
 
   async getCart(userId: string) {
     const items = await this.prisma.cartItem.findMany({
@@ -14,7 +15,11 @@ export class CartService {
       },
       orderBy: { created_at: "asc" },
     });
-    return items.map((i) => this.toDto(i)).filter((i): i is NonNullable<typeof i> => i !== null);
+    const hasCourseItem = items.some((i) => i.type === "course");
+    const memberDiscount = hasCourseItem ? await this.prepCourses.getMemberDiscount(userId) : { percentage: 0, certification: null };
+    return items
+      .map((i) => this.toDto(i, memberDiscount))
+      .filter((i): i is NonNullable<typeof i> => i !== null);
   }
 
   async addItem(userId: string, dto: { type: string; course_id?: string; certification_id?: string }) {
@@ -53,8 +58,10 @@ export class CartService {
     return [];
   }
 
-  private toDto(item: any) {
+  private toDto(item: any, memberDiscount: { percentage: number; certification: { acronym: string } | null }) {
     if (item.type === "course" && item.course) {
+      const price = Number(item.course.price);
+      const pct = memberDiscount.percentage;
       return {
         id: item.id,
         type: "course" as const,
@@ -62,19 +69,24 @@ export class CartService {
         slug: item.course.slug,
         title: item.course.title,
         subtitle: item.course.subtitle ?? undefined,
-        price: Number(item.course.price),
+        price,
+        final_price: pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100) * 100) / 100) : price,
+        member_discount_percentage: pct > 0 ? pct : undefined,
+        member_discount_source: pct > 0 ? memberDiscount.certification?.acronym : undefined,
         thumbnail_url: item.course.thumbnail_url ?? undefined,
         level: item.course.level ?? undefined,
       };
     }
     if (item.type === "certification" && item.certification) {
+      const certPrice = Number(item.certification.price);
       return {
         id: item.id,
         type: "certification" as const,
         certification_id: item.certification.id,
         slug: item.certification.slug,
         title: item.certification.title,
-        price: Number(item.certification.price),
+        price: certPrice,
+        final_price: certPrice,
         thumbnail_url: item.certification.badge_image_url ?? undefined,
         cert_acronym: item.certification.acronym,
       };

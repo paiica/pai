@@ -6,6 +6,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { CreateApplicationDto } from "./dto/create-application.dto";
 
 @ApiTags("Applications")
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class ApplicationsController {
 
   @Post()
   @ApiOperation({ summary: "Submit a new application" })
-  create(@CurrentUser("id") userId: string, @Body() dto: any) {
+  create(@CurrentUser("id") userId: string, @Body() dto: CreateApplicationDto) {
     return this.applicationsService.create(userId, dto);
   }
 

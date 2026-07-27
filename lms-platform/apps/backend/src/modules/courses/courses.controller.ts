@@ -31,6 +31,13 @@ export class CoursesController {
   }
 
   @Public()
+  @Get("catalog")
+  @ApiOperation({ summary: "Lightweight certification list for browse/catalog UIs (no modules/lessons)" })
+  findCatalogList() {
+    return this.coursesService.findCatalogList();
+  }
+
+  @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get certification details by slug (public)" })
   findOne(@Param("slug") slug: string) {

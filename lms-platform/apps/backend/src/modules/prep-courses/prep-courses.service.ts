@@ -638,6 +638,29 @@ export class PrepCoursesService {
     `, certificationId);
   }
 
+  // A student's course-purchase discount from holding a certification —
+  // takes the best (highest percentage) among every certification they hold
+  // an unrevoked Certificate for, never stacks multiple. Certificate status
+  // "revoked"/"suspended" doesn't count as holding it; "expired"/"lapsed"
+  // still does, since they did earn it.
+  async getMemberDiscount(userId: string): Promise<{ percentage: number; certification: { id: string; acronym: string; title: string } | null }> {
+    const certs = await this.prisma.certificate.findMany({
+      where: { user_id: userId, status: { notIn: ["revoked", "suspended"] } },
+      include: { certification: { select: { id: true, acronym: true, title: true, member_discount_percentage: true } } },
+    });
+    let best: { id: string; acronym: string; title: string; member_discount_percentage: number } | null = null;
+    for (const c of certs) {
+      if (c.certification.member_discount_percentage > (best?.member_discount_percentage ?? 0)) {
+        best = c.certification;
+      }
+    }
+    if (!best || best.member_discount_percentage <= 0) return { percentage: 0, certification: null };
+    return {
+      percentage: best.member_discount_percentage,
+      certification: { id: best.id, acronym: best.acronym, title: best.title },
+    };
+  }
+
   // ─── Public ──────────────────────────────────────────────────────────
 
   async getMyEnrollments(userId: string) {

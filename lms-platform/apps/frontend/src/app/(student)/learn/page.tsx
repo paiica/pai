@@ -5,7 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import {
   BookOpen, Calendar, ArrowRight, CheckCircle, GraduationCap,
-  ShoppingCart, Layers, ExternalLink, ChevronDown, Clock, Trophy, Play,
+  ShoppingCart, Layers, ExternalLink, ChevronDown, Clock, Trophy, Play, Sparkles,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
@@ -406,13 +406,16 @@ const CATALOG_GRADIENTS = [
 ];
 
 function CatalogCourseCard({
-  course, index, isEnrolled, enrollmentId, onAddToCart, inCart,
+  course, index, isEnrolled, enrollmentId, onAddToCart, inCart, memberDiscount,
 }: {
   course: any; index: number; isEnrolled: boolean;
   enrollmentId?: string;
   onAddToCart: () => void; inCart: boolean;
+  memberDiscount: { percentage: number; certification: { acronym: string } | null };
 }) {
   const price = parseFloat(course.price) || 0;
+  const pct = memberDiscount.percentage;
+  const finalPrice = pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100) * 100) / 100) : price;
   const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
   const g = CATALOG_GRADIENTS[index % CATALOG_GRADIENTS.length];
 
@@ -456,8 +459,16 @@ function CatalogCourseCard({
         <p className="text-xs text-slate-500 leading-relaxed flex-1 line-clamp-2 mb-3">
           {course.description || course.subtitle || ""}
         </p>
+        {pct > 0 && (
+          <span className="inline-flex items-center gap-1 mb-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full w-fit">
+            <Sparkles size={9} /> Member price — {pct}% off
+          </span>
+        )}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-          <span className="font-black text-navy-900 text-sm">{price === 0 ? "Free" : `$${price.toFixed(2)}`}</span>
+          <span className="font-black text-navy-900 text-sm flex items-center gap-1.5">
+            {pct > 0 && <span className="text-slate-400 font-semibold text-xs line-through">${price.toFixed(2)}</span>}
+            {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(2)}`}
+          </span>
           {isEnrolled ? (
             <Link
               href={`/learn/course/${enrollmentId}`}
@@ -513,6 +524,12 @@ export default function MyCoursesPage() {
     "/prep-courses",
     publicFetcher
   );
+  const { data: memberDiscountRaw } = useSWR(
+    token ? ["/prep-courses/my/member-discount", token] : null,
+    ([url, t]) => authFetcher(url, t)
+  );
+  const memberDiscount: { percentage: number; certification: { acronym: string } | null } =
+    memberDiscountRaw ?? { percentage: 0, certification: null };
 
   const all: any[] = data?.data ?? data ?? [];
   const active = all.filter((e: any) => e.status === "active");
@@ -722,6 +739,7 @@ export default function MyCoursesPage() {
                     enrollmentId={directEnrollment?.id}
                     onAddToCart={() => handleAddToCart(course)}
                     inCart={hasItem(course.id)}
+                    memberDiscount={memberDiscount}
                   />
                 );
               })}

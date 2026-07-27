@@ -104,11 +104,12 @@ export default function CartPage() {
   const [checkingOut,   setCheckingOut]   = useState(false);
   const [checkingOutId, setCheckingOutId] = useState<string | null>(null);
 
-  const subtotal   = items.reduce((s, i) => s + i.price, 0);
+  const effectivePrice = (i: CartItem) => i.final_price ?? i.price;
+  const subtotal   = items.reduce((s, i) => s + effectivePrice(i), 0);
   const discount   = promoResult?.valid ? promoResult.discount_amount : 0;
   const total      = Math.max(0, subtotal - discount);
-  const freeItems  = items.filter(i => i.price === 0);
-  const paidItems  = items.filter(i => i.price > 0);
+  const freeItems  = items.filter(i => effectivePrice(i) === 0);
+  const paidItems  = items.filter(i => effectivePrice(i) > 0);
 
   async function validatePromo() {
     if (!promoCode.trim()) return;
@@ -270,6 +271,11 @@ export default function CartPage() {
                       {item.subtitle && (
                         <p className="text-xs text-slate-400 mt-0.5 truncate">{item.subtitle}</p>
                       )}
+                      {!!item.member_discount_percentage && (
+                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                          <Tag size={9} /> Member price — {item.member_discount_percentage}% off ({item.member_discount_source})
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={() => removeItem(item.id)}
@@ -281,23 +287,26 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                    <span className="font-black text-navy-900 text-base">
-                      {item.price === 0
+                    <span className="font-black text-navy-900 text-base flex items-center gap-2">
+                      {!!item.member_discount_percentage && (
+                        <span className="text-slate-400 font-semibold text-xs line-through">${item.price.toFixed(2)}</span>
+                      )}
+                      {effectivePrice(item) === 0
                         ? <span className="text-emerald-600 font-bold text-sm">Free</span>
-                        : `$${item.price.toFixed(2)}`}
+                        : `$${effectivePrice(item).toFixed(2)}`}
                     </span>
                     <button
                       onClick={() => handleCheckoutSingle(item)}
                       disabled={checkingOut || !!checkingOutId}
                       className={cn(
                         "inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-50",
-                        item.price === 0
+                        effectivePrice(item) === 0
                           ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                           : "bg-navy-900 hover:bg-navy-700 text-white"
                       )}
                     >
                       {checkingOutId === item.id && <Loader2 size={11} className="animate-spin" />}
-                      {item.price === 0 ? "Enroll Free" : "Buy Now"}
+                      {effectivePrice(item) === 0 ? "Enroll Free" : "Buy Now"}
                     </button>
                   </div>
                 </div>
@@ -370,9 +379,14 @@ export default function CartPage() {
                 <div className="space-y-2 mb-4">
                   {items.map(item => (
                     <div key={item.id} className="flex justify-between gap-3">
-                      <span className="text-xs text-slate-500 truncate flex-1">{item.title}</span>
+                      <span className="text-xs text-slate-500 truncate flex-1">
+                        {item.title}
+                        {!!item.member_discount_percentage && (
+                          <span className="text-emerald-600 font-semibold"> · member price</span>
+                        )}
+                      </span>
                       <span className="text-xs font-semibold text-slate-700 flex-shrink-0">
-                        {item.price === 0 ? "Free" : `$${item.price.toFixed(2)}`}
+                        {effectivePrice(item) === 0 ? "Free" : `$${effectivePrice(item).toFixed(2)}`}
                       </span>
                     </div>
                   ))}

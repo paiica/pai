@@ -120,7 +120,8 @@ export class PaymentsService {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");
 
-    let price = Number(course.price);
+    const basePrice = Number(course.price);
+    let price = basePrice;
     let promoId: string | undefined;
     let promoDiscount = 0;
 
@@ -129,7 +130,20 @@ export class PaymentsService {
       if (!result.valid) throw new BadRequestException(result.message);
       promoDiscount = result.discount_amount;
       promoId = result.promo_id;
-      price = Math.max(0, price - promoDiscount);
+    }
+
+    // Member discount (from holding a certification) vs. the promo code —
+    // whichever gives the bigger discount wins; they never stack. If the
+    // promo code loses out, it's simply not applied (not consumed/counted).
+    const memberDiscountInfo = basePrice > 0 ? await this.prepCourses.getMemberDiscount(userId) : { percentage: 0, certification: null };
+    const memberDiscount = basePrice * memberDiscountInfo.percentage / 100;
+
+    if (memberDiscount > promoDiscount) {
+      price = Math.max(0, basePrice - memberDiscount);
+      promoId = undefined;
+      promoDiscount = 0;
+    } else {
+      price = Math.max(0, basePrice - promoDiscount);
     }
 
     const frontendUrl = this.config.get("frontendUrl");
@@ -138,14 +152,19 @@ export class PaymentsService {
 
     // If price is 0 after discount, enroll directly without Stripe
     if (price <= 0) {
-      await this.enrollInCourse(userId, courseId, null, Number(course.price) - promoDiscount);
-      if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
-      await this.mail.sendFreeEnrollmentConfirmation({
-        to: user.email,
-        firstName: user.profile?.first_name ?? "there",
-        itemName: course.title,
-        type: "course",
-      });
+      const didEnroll = await this.enrollInCourse(userId, courseId, null, price);
+      // A near-simultaneous duplicate request (e.g. a rapid double-click)
+      // that lost the race to actually insert the enrollment shouldn't also
+      // consume the promo code a second time or send a second email.
+      if (didEnroll) {
+        if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
+        await this.mail.sendFreeEnrollmentConfirmation({
+          to: user.email,
+          firstName: user.profile?.first_name ?? "there",
+          itemName: course.title,
+          type: "course",
+        });
+      }
       await this.prisma.cartItem.deleteMany({ where: { user_id: userId, course_id: courseId } });
       return { checkout_url: null, enrolled: true };
     }
@@ -162,6 +181,7 @@ export class PaymentsService {
           course_id: courseId,
           promo_id: promoId || "",
           original_price: String(course.price),
+          member_discount_percentage: promoId ? "0" : String(memberDiscountInfo.percentage),
         },
         line_items: [{
           price_data: {
@@ -509,14 +529,21 @@ export class PaymentsService {
 
   // ─── Enrollment helpers ──────────────────────────────────────────────────────
 
-  private async enrollInCourse(userId: string, courseId: string, paymentIntentId: string | null, amountPaid: number) {
-    await this.prisma.$executeRawUnsafe(
+  // Returns true only if this call actually created the enrollment row — the
+  // ON CONFLICT DO NOTHING makes concurrent duplicate calls (e.g. a rapid
+  // double-click on "Enroll Free") safe at the DB level, but callers still
+  // need to know whether THEY were the one who inserted it, so they don't
+  // double-count a promo code's use or send a duplicate confirmation email
+  // for a request that didn't actually change anything.
+  private async enrollInCourse(userId: string, courseId: string, paymentIntentId: string | null, amountPaid: number): Promise<boolean> {
+    const rowsAffected = await this.prisma.$executeRawUnsafe(
       `INSERT INTO lms.course_enrollments (id, user_id, course_id, progress_percentage, enrolled_at, stripe_payment_intent_id, amount_paid)
        VALUES (gen_random_uuid(), $1, $2, 0, now(), $3, $4::numeric)
        ON CONFLICT (user_id, course_id) DO NOTHING`,
       userId, courseId, paymentIntentId, amountPaid
     );
     this.logger.log(`Course enrollment created: user=${userId} course=${courseId}`);
+    return rowsAffected > 0;
   }
 
   private async enrollInCertification(userId: string, certificationId: string) {

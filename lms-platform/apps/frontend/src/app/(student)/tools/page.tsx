@@ -6,12 +6,17 @@ import useSWR from "swr";
 import { Sparkles, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
+import { useAuthStore } from "@/store/auth.store";
 
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL      || "http://localhost:4000/api/v1";
 const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 function fetcher(url: string) {
   return fetch(`${API_BASE}${url}`).then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); }).then(r => r.data ?? r);
+}
+function authFetcher(url: string, token: string) {
+  return fetch(`${API_BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); }).then(r => r.data ?? r);
 }
 
 const GRADIENTS = [
@@ -48,6 +53,8 @@ type CatalogItem = {
   title: string;
   subtitle?: string;
   price: number;
+  finalPrice?: number;
+  memberDiscountPercentage?: number;
   slug: string;
   href: string;
   external: boolean;
@@ -78,6 +85,8 @@ const CERT_LEVEL_LABEL: Record<string, string> = {
 function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
   const grad = GRADIENTS[index % GRADIENTS.length];
   const price = item.price;
+  const pct = item.memberDiscountPercentage ?? 0;
+  const finalPrice = item.finalPrice ?? price;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col">
@@ -121,10 +130,16 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
               {item.type === "certification" ? (CERT_LEVEL_LABEL[item.level] ?? item.level) : item.level}
             </span>
           )}
-          <span className="text-xs font-black text-navy-900 ml-auto">
-            {price === 0 ? "Free" : `$${price.toFixed(0)}`}
+          <span className="text-xs font-black text-navy-900 ml-auto flex items-center gap-1.5">
+            {pct > 0 && <span className="text-slate-400 font-semibold line-through">${price.toFixed(0)}</span>}
+            {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(0)}`}
           </span>
         </div>
+        {pct > 0 && (
+          <span className="inline-flex items-center gap-1 mb-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full w-fit">
+            <Sparkles size={9} /> Member price — {pct}% off
+          </span>
+        )}
         {item.subtitle && (
           <p className="text-sm text-slate-500 leading-relaxed mb-5 flex-1 line-clamp-3">{item.subtitle}</p>
         )}
@@ -163,17 +178,23 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnlineToolsPage() {
+  const token = useAuthStore((s) => s.accessToken);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<CatalogType | "all">("all");
 
   const { data: toolsRaw,   isLoading: loadingTools }   = useSWR("/online-tools", fetcher);
   const { data: coursesRaw, isLoading: loadingCourses } = useSWR("/prep-courses", fetcher);
-  const { data: certsRaw,   isLoading: loadingCerts }   = useSWR("/courses", fetcher);
+  const { data: certsRaw,   isLoading: loadingCerts }   = useSWR("/courses/catalog", fetcher);
+  const { data: memberDiscountRaw } = useSWR(
+    token ? ["/prep-courses/my/member-discount", token] : null,
+    ([url, t]) => authFetcher(url, t)
+  );
 
   const tools: any[]  = Array.isArray(toolsRaw)   ? toolsRaw   : (toolsRaw?.data   ?? []);
   const courses: any[] = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.data ?? []);
   const certs: any[]   = Array.isArray(certsRaw)   ? certsRaw   : (certsRaw?.data   ?? []);
   const isLoading = loadingTools || loadingCourses || loadingCerts;
+  const memberDiscountPct: number = memberDiscountRaw?.percentage ?? 0;
 
   const items: CatalogItem[] = useMemo(() => {
     const toolItems: CatalogItem[] = tools.map((t) => ({
@@ -181,18 +202,23 @@ export default function OnlineToolsPage() {
       price: Number(t.price) || 0, slug: t.slug, href: `/tools/${t.slug}`, external: true,
       badgeText: t.badge_text,
     }));
-    const courseItems: CatalogItem[] = courses.map((c) => ({
-      id: c.id, type: "course", title: c.title, subtitle: c.subtitle,
-      price: Number(c.price) || 0, slug: c.slug, href: `${MARKETING}/courses/${c.slug}`, external: true,
-      certAcronym: c.cert_acronym, level: c.level, thumbnailUrl: c.thumbnail_url,
-    }));
+    const courseItems: CatalogItem[] = courses.map((c) => {
+      const price = Number(c.price) || 0;
+      const finalPrice = memberDiscountPct > 0 ? Math.max(0, Math.round(price * (1 - memberDiscountPct / 100) * 100) / 100) : price;
+      return {
+        id: c.id, type: "course" as const, title: c.title, subtitle: c.subtitle,
+        price, finalPrice, memberDiscountPercentage: memberDiscountPct > 0 ? memberDiscountPct : undefined,
+        slug: c.slug, href: `${MARKETING}/courses/${c.slug}`, external: true,
+        certAcronym: c.cert_acronym, level: c.level, thumbnailUrl: c.thumbnail_url,
+      };
+    });
     const certItems: CatalogItem[] = certs.map((c) => ({
       id: c.id, type: "certification", title: c.title, subtitle: c.description,
       price: Number(c.price) || 0, slug: c.slug, href: `${MARKETING}/certifications/${c.slug}`, external: true,
       certAcronym: c.acronym, level: c.level, badgeIcon: c.badge_icon,
     }));
     return [...toolItems, ...courseItems, ...certItems];
-  }, [tools, courses, certs]);
+  }, [tools, courses, certs, memberDiscountPct]);
 
   const counts = useMemo(() => ({
     all: items.length,
