@@ -1,19 +1,17 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Sparkles } from "lucide-react";
-import { useAuthStore } from "@/store/auth.store";
+import { Sparkles, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CertIcon } from "@/lib/cert-icons";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+const API_BASE  = process.env.NEXT_PUBLIC_API_URL      || "http://localhost:4000/api/v1";
+const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 function fetcher(url: string) {
   return fetch(`${API_BASE}${url}`).then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); }).then(r => r.data ?? r);
-}
-function authFetcher(url: string, token: string) {
-  return fetch(`${API_BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } })
-    .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json(); }).then(r => r.data ?? r);
 }
 
 const GRADIENTS = [
@@ -40,36 +38,100 @@ function CardPattern({ type }: { type: string }) {
   );
 }
 
-// ── CMS Online Tool card ──────────────────────────────────────────────────────
-function ToolCard({ tool, index }: { tool: any; index: number }) {
+// ── Normalized catalog item ─────────────────────────────────────────────────
+
+type CatalogType = "tool" | "course" | "certification";
+
+type CatalogItem = {
+  id: string;
+  type: CatalogType;
+  title: string;
+  subtitle?: string;
+  price: number;
+  slug: string;
+  href: string;
+  external: boolean;
+  badgeText?: string;
+  level?: string;
+  certAcronym?: string;
+  badgeIcon?: string;
+  thumbnailUrl?: string;
+};
+
+const TYPE_LABEL: Record<CatalogType, string> = {
+  tool: "Online Tools",
+  course: "eLearning",
+  certification: "Certification",
+};
+
+const CERT_LEVEL_LABEL: Record<string, string> = {
+  pre_certificate: "Pre-Certificate",
+  foundation: "Foundation",
+  advanced: "Advanced",
+  specialist: "Specialist",
+  executive: "Executive",
+  other: "Other",
+};
+
+// ── Card ─────────────────────────────────────────────────────────────────────
+
+function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
   const grad = GRADIENTS[index % GRADIENTS.length];
+  const price = item.price;
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col">
-      <div className="relative flex flex-col p-5 min-h-[240px]"
-        style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}>
-        <CardPattern type={grad.pattern} />
-        <div className="flex items-center gap-2 flex-wrap relative z-10">
-          <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
-            Online Tools
-          </span>
-          {tool.badge_text && (
-            <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm flex items-center gap-1">
-              <Sparkles size={10} className="text-amber-500" /> {tool.badge_text}
+      {item.thumbnailUrl ? (
+        <div className="h-[240px] overflow-hidden">
+          <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+        </div>
+      ) : (
+        <div className="relative flex flex-col p-5 min-h-[240px]"
+          style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}>
+          <CardPattern type={grad.pattern} />
+          <div className="flex items-center gap-2 flex-wrap relative z-10">
+            <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
+              {TYPE_LABEL[item.type]}
+            </span>
+            {item.badgeText && (
+              <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm flex items-center gap-1">
+                <Sparkles size={10} className="text-amber-500" /> {item.badgeText}
+              </span>
+            )}
+            {item.certAcronym && (
+              <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
+                {item.certAcronym}
+              </span>
+            )}
+            {item.type === "certification" && (
+              <span className="ml-auto relative z-10 w-8 h-8 rounded-xl bg-white/40 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                <CertIcon iconKey={item.badgeIcon} size={16} className="text-navy-800" />
+              </span>
+            )}
+          </div>
+          <div className="mt-auto relative z-10">
+            <h3 className="text-xl font-bold text-navy-900 leading-snug">{item.title}</h3>
+          </div>
+        </div>
+      )}
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {item.level && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 capitalize">
+              {item.type === "certification" ? (CERT_LEVEL_LABEL[item.level] ?? item.level) : item.level}
             </span>
           )}
+          <span className="text-xs font-black text-navy-900 ml-auto">
+            {price === 0 ? "Free" : `$${price.toFixed(0)}`}
+          </span>
         </div>
-        <div className="mt-auto relative z-10">
-          <h3 className="text-xl font-bold text-navy-900 leading-snug">{tool.title}</h3>
-        </div>
-      </div>
-      <div className="p-5 flex flex-col flex-1">
-        {tool.short_description && (
-          <p className="text-sm text-slate-500 leading-relaxed mb-5 flex-1">{tool.short_description}</p>
+        {item.subtitle && (
+          <p className="text-sm text-slate-500 leading-relaxed mb-5 flex-1 line-clamp-3">{item.subtitle}</p>
         )}
         <Link
-          href={`/tools/${tool.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={item.href}
+          target={item.external ? "_blank" : undefined}
+          rel={item.external ? "noopener noreferrer" : undefined}
           className="inline-flex items-center justify-center px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-semibold rounded-full transition-colors w-fit"
         >
           Learn More
@@ -79,63 +141,77 @@ function ToolCard({ tool, index }: { tool: any; index: number }) {
   );
 }
 
-// ── Prep Course card ──────────────────────────────────────────────────────────
-function CourseCard({ course, index }: { course: any; index: number }) {
-  const grad = GRADIENTS[(index + 2) % GRADIENTS.length];
-  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+// ── Filter chip ──────────────────────────────────────────────────────────────
+
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col">
-      {course.thumbnail_url ? (
-        <div className="h-[240px] overflow-hidden">
-          <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="relative flex flex-col p-5 min-h-[240px]"
-          style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}>
-          <CardPattern type={grad.pattern} />
-          <div className="flex items-center gap-2 flex-wrap relative z-10">
-            <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
-              eLearning
-            </span>
-            {course.cert_acronym && (
-              <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
-                {course.cert_acronym}
-              </span>
-            )}
-          </div>
-          <div className="mt-auto relative z-10">
-            <h3 className="text-xl font-bold text-navy-900 leading-snug">{course.title}</h3>
-          </div>
-        </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+        active
+          ? "bg-navy-900 text-white border-navy-900"
+          : "bg-white text-slate-600 border-slate-200 hover:border-navy-300 hover:text-navy-700"
       )}
-      <div className="p-5 flex flex-col flex-1">
-        {course.subtitle && (
-          <p className="text-sm text-slate-500 leading-relaxed mb-5 flex-1 line-clamp-3">{course.subtitle}</p>
-        )}
-        <a
-          href={`${marketingUrl}/courses/${course.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-semibold rounded-full transition-colors w-fit"
-        >
-          Learn More
-        </a>
-      </div>
-    </div>
+    >
+      {children}
+    </button>
   );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function OnlineToolsPage() {
-  const token = useAuthStore(s => s.accessToken);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<CatalogType | "all">("all");
 
   const { data: toolsRaw,   isLoading: loadingTools }   = useSWR("/online-tools", fetcher);
   const { data: coursesRaw, isLoading: loadingCourses } = useSWR("/prep-courses", fetcher);
+  const { data: certsRaw,   isLoading: loadingCerts }   = useSWR("/courses", fetcher);
 
-  const tools: any[]   = Array.isArray(toolsRaw)   ? toolsRaw   : (toolsRaw?.data   ?? []);
+  const tools: any[]  = Array.isArray(toolsRaw)   ? toolsRaw   : (toolsRaw?.data   ?? []);
   const courses: any[] = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.data ?? []);
-  const isLoading      = loadingTools || loadingCourses;
-  const hasContent     = tools.length > 0 || courses.length > 0;
+  const certs: any[]   = Array.isArray(certsRaw)   ? certsRaw   : (certsRaw?.data   ?? []);
+  const isLoading = loadingTools || loadingCourses || loadingCerts;
+
+  const items: CatalogItem[] = useMemo(() => {
+    const toolItems: CatalogItem[] = tools.map((t) => ({
+      id: t.id, type: "tool", title: t.title, subtitle: t.short_description,
+      price: Number(t.price) || 0, slug: t.slug, href: `/tools/${t.slug}`, external: true,
+      badgeText: t.badge_text,
+    }));
+    const courseItems: CatalogItem[] = courses.map((c) => ({
+      id: c.id, type: "course", title: c.title, subtitle: c.subtitle,
+      price: Number(c.price) || 0, slug: c.slug, href: `${MARKETING}/courses/${c.slug}`, external: true,
+      certAcronym: c.cert_acronym, level: c.level, thumbnailUrl: c.thumbnail_url,
+    }));
+    const certItems: CatalogItem[] = certs.map((c) => ({
+      id: c.id, type: "certification", title: c.title, subtitle: c.description,
+      price: Number(c.price) || 0, slug: c.slug, href: `${MARKETING}/certifications/${c.slug}`, external: true,
+      certAcronym: c.acronym, level: c.level, badgeIcon: c.badge_icon,
+    }));
+    return [...toolItems, ...courseItems, ...certItems];
+  }, [tools, courses, certs]);
+
+  const counts = useMemo(() => ({
+    all: items.length,
+    tool: items.filter(i => i.type === "tool").length,
+    course: items.filter(i => i.type === "course").length,
+    certification: items.filter(i => i.type === "certification").length,
+  }), [items]);
+
+  const filtered = items.filter((item) => {
+    if (typeFilter !== "all" && item.type !== typeFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const haystack = [item.title, item.subtitle, item.certAcronym].filter(Boolean).join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const hasContent = items.length > 0;
 
   return (
     <div className="min-h-screen p-8" style={{ background: "#f5f0eb" }}>
@@ -144,7 +220,7 @@ export default function OnlineToolsPage() {
           <h1 className="text-3xl font-display font-black text-navy-900 mb-2">
             {!hasContent && !isLoading ? "You don't have any online tools yet" : "Online Tools"}
           </h1>
-          <p className="text-slate-500">Start your certification journey</p>
+          <p className="text-slate-500">Tools, courses, and certifications — everything we offer, in one place</p>
         </div>
 
         {isLoading ? (
@@ -159,21 +235,49 @@ export default function OnlineToolsPage() {
           </div>
         ) : (
           <>
-            {tools.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
-                {tools.map((tool, i) => <ToolCard key={tool.id} tool={tool} index={i} />)}
-              </div>
-            )}
-
-            {courses.length > 0 && (
-              <>
-                {tools.length > 0 && (
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4 mt-4">eLearning Courses</p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search tools, courses, certifications…"
+                  className="w-full pl-10 pr-9 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {courses.map((course, i) => <CourseCard key={course.id} course={course} index={i} />)}
-                </div>
-              </>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <FilterChip active={typeFilter === "all"} onClick={() => setTypeFilter("all")}>
+                  All ({counts.all})
+                </FilterChip>
+                <FilterChip active={typeFilter === "tool"} onClick={() => setTypeFilter("tool")}>
+                  Tools ({counts.tool})
+                </FilterChip>
+                <FilterChip active={typeFilter === "course"} onClick={() => setTypeFilter("course")}>
+                  Courses ({counts.course})
+                </FilterChip>
+                <FilterChip active={typeFilter === "certification"} onClick={() => setTypeFilter("certification")}>
+                  Certifications ({counts.certification})
+                </FilterChip>
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="py-16 text-center text-slate-400 text-sm">
+                Nothing matches your search or filter.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filtered.map((item, i) => <CatalogCard key={`${item.type}-${item.id}`} item={item} index={i} />)}
+              </div>
             )}
           </>
         )}
