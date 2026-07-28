@@ -521,7 +521,6 @@ export default function MyCoursesPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { addItem, hasItem, items } = useCartStore();
   const [tab, setTab] = useState<"active" | "completed">("active");
-  const [courseTab, setCourseTab] = useState<"active" | "completed">("active");
   const [certFilter, setCertFilter] = useState<string | null>(null);
 
   const { data, isLoading } = useSWR(
@@ -548,9 +547,7 @@ export default function MyCoursesPage() {
   const completed = all.filter((e: any) => e.status === "completed");
   const shown = tab === "active" ? active : completed;
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];
-  const activePrep = prepEnrollments.filter((e: any) => !e.completed_at);
-  const completedPrep = prepEnrollments.filter((e: any) => !!e.completed_at);
-  const shownPrep = courseTab === "active" ? activePrep : completedPrep;
+  const prepPreview = prepEnrollments.slice(0, 3);
   const catalog: any[] = Array.isArray(catalogRaw) ? catalogRaw : [];
 
   const certFilters: { id: string; acronym: string; title: string }[] = [];
@@ -613,40 +610,21 @@ export default function MyCoursesPage() {
             <div className="flex items-center justify-between mb-4">
               <SectionLabel>Standalone Courses</SectionLabel>
               {!loadingPrep && prepEnrollments.length > 0 && (
-                <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-                  {(["active", "completed"] as const).map((key) => {
-                    const count = key === "active" ? activePrep.length : completedPrep.length;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setCourseTab(key)}
-                        className={cn(
-                          "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all capitalize",
-                          courseTab === key
-                            ? "bg-navy-900 text-white shadow-sm"
-                            : "text-slate-400 hover:text-slate-700"
-                        )}
-                      >
-                        {key}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Link
+                  href="/learn/my-courses"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-navy-700 hover:text-navy-900 transition-colors"
+                >
+                  View all ({prepEnrollments.length}) <ArrowRight size={11} />
+                </Link>
               )}
             </div>
             {loadingPrep ? (
               <div className="space-y-3">
                 {[1, 2].map(i => <div key={i} className="h-[76px] rounded-2xl animate-pulse bg-slate-200" />)}
               </div>
-            ) : shownPrep.length === 0 ? (
-              <div className="py-8 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-                <p className="text-sm text-slate-400">
-                  {courseTab === "active" ? "No active standalone courses" : "No completed standalone courses yet"}
-                </p>
-              </div>
             ) : (
               <div className="space-y-3">
-                {shownPrep.map((e: any) => (
+                {prepPreview.map((e: any) => (
                   <PrepCourseBanner key={e.id} enrollment={e} />
                 ))}
               </div>
