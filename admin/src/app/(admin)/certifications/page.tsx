@@ -316,15 +316,13 @@ export default function CertificationsPage() {
                           <Link href={`/certifications/${cert.id}`} className="btn-outline !py-1.5 !px-2.5 !text-xs" title="Edit">
                             <Pencil size={12} />
                           </Link>
-                          <a
-                            href={`${process.env.NEXT_PUBLIC_PROFESSORS_URL || "https://professors.paii.ca"}/certifications/${cert.id}/builder`}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            href={`/certifications/${cert.id}/builder`}
                             className="btn-outline !py-1.5 !px-2.5 !text-xs"
                             title="Open curriculum builder"
                           >
                             <Wrench size={12} />
-                          </a>
+                          </Link>
                           <button
                             onClick={() => setStatus(cert.id, cert.status === "archived" ? "active" : "archived")}
                             className={`btn-outline !py-1.5 !px-2.5 !text-xs ${cert.status === "archived" ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" : "text-slate-500 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50"}`}

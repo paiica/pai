@@ -48,31 +48,25 @@ export function CertIcon({
   return <Icon size={size} className={className} />;
 }
 
-// Compact picker: a grid of icon swatches, one of which is selected.
+// Dropdown picker with a live preview of the currently selected icon.
 export function CertIconPicker({
   value, onChange,
 }: { value: string; onChange: (key: string) => void }) {
+  const Icon = getCertIcon(value);
   return (
-    <div className="grid grid-cols-6 gap-2">
-      {CERT_ICON_OPTIONS.map(({ key, label }) => {
-        const Icon = CERT_ICONS[key];
-        const selected = value === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            title={label}
-            onClick={() => onChange(key)}
-            className={`aspect-square rounded-xl border flex items-center justify-center transition-colors ${
-              selected
-                ? "border-navy-900 bg-navy-900 text-white"
-                : "border-slate-200 text-slate-500 hover:border-navy-300 hover:text-navy-700"
-            }`}
-          >
-            <Icon size={16} />
-          </button>
-        );
-      })}
+    <div className="flex items-center gap-2">
+      <div className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
+        <Icon size={16} className="text-navy-700" />
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input-base max-w-xs"
+      >
+        {CERT_ICON_OPTIONS.map(({ key, label }) => (
+          <option key={key} value={key}>{label}</option>
+        ))}
+      </select>
     </div>
   );
 }

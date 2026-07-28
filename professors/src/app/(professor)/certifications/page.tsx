@@ -6,6 +6,7 @@ import { Award, Users, BarChart2, ChevronRight, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CertIcon } from "@/lib/cert-icons";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data);
@@ -47,7 +48,9 @@ export default function ProfCertificationsPage() {
         <div className="space-y-3">
           {certs.map((cert: any) => (
             <div key={cert.id} className="card p-5 flex items-center gap-4">
-              <span className="text-3xl">{cert.badge_icon}</span>
+              <div className="w-12 h-12 rounded-xl bg-navy-50 flex items-center justify-center flex-shrink-0">
+                <CertIcon iconKey={cert.badge_icon} size={22} className="text-navy-700" />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="font-bold text-navy-900">{cert.acronym}</p>

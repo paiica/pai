@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck,
+  GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck, Wrench,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -1249,6 +1249,13 @@ export default function CertEditorPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Link
+              href={`/certifications/${id}/builder`}
+              title="Open the curriculum builder — add modules, lessons, and content"
+              className="btn-outline !py-2 !px-4 !text-xs flex items-center gap-1.5"
+            >
+              <Wrench size={12} /> Builder
+            </Link>
             <button
               onClick={handleFillFromBuild}
               disabled={fillingFromBuild}
