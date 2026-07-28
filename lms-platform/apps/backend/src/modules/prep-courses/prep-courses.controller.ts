@@ -37,6 +37,14 @@ export class PrepCoursesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get("my/all-courses")
+  @ApiOperation({ summary: "Get every course I have access to, including ones bundled free into a certification" })
+  async getMyAllCourses(@CurrentUser("id") userId: string) {
+    return this.service.getMyAllCourses(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get("my/member-discount")
   @ApiOperation({ summary: "Get my best course-purchase discount from held certifications" })
   async getMyMemberDiscount(@CurrentUser("id") userId: string) {

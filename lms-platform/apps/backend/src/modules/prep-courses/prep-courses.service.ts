@@ -675,6 +675,78 @@ export class PrepCoursesService {
     `, userId);
   }
 
+  // Every course the student has access to, not just ones with their own
+  // CourseEnrollment row: free required courses bundled into a certification
+  // merge their lessons directly into that certification's player (see
+  // getCourseOutline in learning.service.ts), so they never get a
+  // CourseEnrollment of their own — their progress lives on the
+  // certification Enrollment's lesson_progress instead. This stitches both
+  // sources together for a single "all my courses" view.
+  async getMyAllCourses(userId: string) {
+    const direct = await this.getMyEnrollments(userId);
+
+    const bundled = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT
+        'bundled-' || e.id || '-' || c.id AS id,
+        c.id AS course_id,
+        e.enrolled_at,
+        c.title, c.slug, c.subtitle, c.thumbnail_url, c.level, c.duration_hours,
+        cert.acronym AS cert_acronym, cert.title AS cert_title,
+        e.id AS cert_enrollment_id,
+        (
+          SELECT COUNT(*) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          WHERE m.course_id = c.id AND l.is_published = true
+        )::int AS total_lessons,
+        (
+          SELECT COUNT(*) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          JOIN lms.lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
+          WHERE m.course_id = c.id AND l.is_published = true
+        )::int AS completed_lessons,
+        (
+          SELECT MAX(lp.completed_at) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          JOIN lms.lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
+          WHERE m.course_id = c.id AND l.is_published = true
+        ) AS last_completed_at
+      FROM lms.enrollments e
+      JOIN lms.certifications cert ON cert.id = e.certification_id
+      JOIN lms.course_cert_recommendations ccr
+        ON ccr.certification_id = e.certification_id AND ccr.is_required = true AND ccr.is_free = true
+      JOIN lms.courses c ON c.id = ccr.course_id
+      WHERE e.user_id = $1 AND e.status = 'active' AND c.status = 'active'
+      ORDER BY e.enrolled_at DESC
+    `, userId);
+
+    const directCourseIds = new Set(direct.map((d) => d.course_id));
+    const bundledMapped = bundled
+      .filter((b) => !directCourseIds.has(b.course_id)) // a course purchased directly takes precedence over a free-bundle row for the same course
+      .map((b) => {
+        const total = b.total_lessons ?? 0;
+        const completedCount = b.completed_lessons ?? 0;
+        const progress_percentage = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+        return {
+          id: b.id,
+          course_id: b.course_id,
+          enrolled_at: b.enrolled_at,
+          title: b.title, slug: b.slug, subtitle: b.subtitle,
+          thumbnail_url: b.thumbnail_url, level: b.level, duration_hours: b.duration_hours,
+          cert_acronym: b.cert_acronym, cert_title: b.cert_title,
+          progress_percentage,
+          completed_at: progress_percentage === 100 ? b.last_completed_at : null,
+          source: "certification" as const,
+          cert_enrollment_id: b.cert_enrollment_id,
+        };
+      });
+
+    const directMapped = direct.map((d) => ({ ...d, source: "direct" as const }));
+
+    return [...directMapped, ...bundledMapped].sort(
+      (a, b) => new Date(b.enrolled_at).getTime() - new Date(a.enrolled_at).getTime(),
+    );
+  }
+
   async findAll() {
     return this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,

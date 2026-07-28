@@ -43,13 +43,15 @@ function CourseRow({ enrollment }: { enrollment: any }) {
   const pct = enrollment.progress_percentage ?? 0;
   const status = statusOf(enrollment);
   const meta = STATUS_META[status];
+  const isBundled = enrollment.source === "certification";
+  const href = isBundled ? `/learn/${enrollment.cert_enrollment_id}` : `/learn/course/${enrollment.id}`;
   const enrolledDate = new Date(enrollment.enrolled_at).toLocaleDateString("en-CA", {
     month: "short", day: "numeric", year: "numeric",
   });
 
   return (
     <Link
-      href={`/learn/course/${enrollment.id}`}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all group"
@@ -58,7 +60,7 @@ function CourseRow({ enrollment }: { enrollment: any }) {
         <GraduationCap size={20} className="text-violet-500" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           {enrollment.cert_acronym && (
             <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{enrollment.cert_acronym}</span>
           )}
@@ -66,6 +68,11 @@ function CourseRow({ enrollment }: { enrollment: any }) {
             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", meta.dot)} />
             {meta.label}
           </span>
+          {isBundled && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+              Included with {enrollment.cert_acronym}
+            </span>
+          )}
         </div>
         <p className="font-display font-bold text-navy-900 text-[15px] leading-snug truncate mb-1.5">{enrollment.title}</p>
         <div className="flex items-center gap-3 mb-2 flex-wrap">
@@ -103,7 +110,7 @@ export default function MyCoursesListPage() {
   const [tab, setTab] = useState<"all" | StatusKey>("all");
 
   const { data, isLoading } = useSWR(
-    token ? ["/prep-courses/my/enrollments", token] : null,
+    token ? ["/prep-courses/my/all-courses", token] : null,
     ([url, t]) => fetcher(url, t)
   );
 
@@ -121,7 +128,8 @@ export default function MyCoursesListPage() {
           <div>
             <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">My Courses</h1>
             <p className="text-sm text-slate-400 mt-1">
-              Every standalone course you&apos;ve registered for, started, or completed.
+              Every course you have access to — standalone or bundled with a certification —
+              registered, started, or completed.
             </p>
           </div>
           <Link
@@ -158,7 +166,7 @@ export default function MyCoursesListPage() {
           <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
             <Layers size={32} className="mx-auto mb-3 text-slate-300" />
             <p className="font-semibold text-slate-500 text-sm mb-1">
-              {all.length === 0 ? "No standalone courses yet" : "Nothing in this category"}
+              {all.length === 0 ? "No courses yet" : "Nothing in this category"}
             </p>
             <p className="text-xs text-slate-400">
               {all.length === 0
