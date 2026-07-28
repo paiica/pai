@@ -1282,6 +1282,23 @@ export class PrepCoursesService {
     return { message: "Module deleted" };
   }
 
+  // Wipes every module (and, by cascade, every lesson/quiz question) for a
+  // course in one shot — the "start over with a fresh import" button.
+  // Irreversible; the caller is responsible for confirming with the admin.
+  async adminDeleteAllModules(courseId: string) {
+    const modules = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM lms.modules WHERE course_id = $1`, courseId,
+    );
+    if (!modules.length) return { message: "Nothing to delete", deleted_count: 0 };
+    const lessons = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT content_body, external_url FROM lms.lessons WHERE module_id = ANY($1::text[])`,
+      modules.map((m) => m.id),
+    );
+    await Promise.all(lessons.map((l) => this.uploads.cleanupLessonStorage(l)));
+    await this.prisma.$executeRawUnsafe(`DELETE FROM lms.modules WHERE course_id = $1`, courseId);
+    return { message: "All modules deleted", deleted_count: modules.length };
+  }
+
   async adminCreateLesson(courseId: string, moduleId: string, dto: Record<string, any>) {
     const { title, content, external_url, duration_minutes, order_index, type } = dto;
     if (!title?.trim()) throw new BadRequestException("Lesson title is required");

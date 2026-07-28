@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ImportContentButton from "@/components/ImportContentButton";
+import ClearBuildButton from "@/components/ClearBuildButton";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
 
 // Wraps a dangerouslySetInnerHTML render with the click-to-categorize sorting
@@ -81,12 +82,12 @@ const LESSON_TYPE_LABEL: Record<string, string> = {
 
 function CourseSidebar({
   modules, selectedLessonId, onSelectLesson, onAddModule, onDeleteModule,
-  onAddLesson, onDeleteLesson, courseId, token, onRefresh, studentView,
+  onAddLesson, onDeleteLesson, courseId, courseTitle, token, onRefresh, studentView,
 }: {
   modules: Module[]; selectedLessonId: string | null; onSelectLesson: (l: Lesson, m: Module) => void;
   onAddModule: () => void; onDeleteModule: (m: Module) => void;
   onAddLesson: (m: Module) => void; onDeleteLesson: (l: Lesson, m: Module) => void;
-  courseId: string; token: string; onRefresh: () => void; studentView: boolean;
+  courseId: string; courseTitle: string; token: string; onRefresh: () => void; studentView: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -189,6 +190,13 @@ function CourseSidebar({
             uploadUrl={`${API_BASE}/admin/courses/${courseId}/import`}
             token={token}
             onImported={onRefresh}
+          />
+          <ClearBuildButton
+            deleteUrl={`/admin/courses/${courseId}/modules`}
+            token={token}
+            entityLabel={courseTitle}
+            moduleCount={modules.length}
+            onCleared={onRefresh}
           />
         </div>
       )}
@@ -2483,6 +2491,7 @@ export default function CourseBuilderPage() {
               onAddLesson={handleAddLesson}
               onDeleteLesson={handleDeleteLesson}
               courseId={courseId}
+              courseTitle={course.title}
               token={token}
               onRefresh={mutate}
               studentView={false}

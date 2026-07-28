@@ -270,6 +270,22 @@ export class CoursesService {
     return { message: "Module deleted" };
   }
 
+  // Wipes every module (and, by cascade, every lesson/quiz question) for a
+  // certification in one shot — the "start over with a fresh import" button.
+  // Irreversible; the caller is responsible for confirming with the admin.
+  async deleteAllModules(certId: string, userId: string, role: Role) {
+    await this.assertProfessorAccess(certId, userId, role);
+    const modules = await this.prisma.module.findMany({
+      where: { certification_id: certId },
+      include: { lessons: { select: { content_body: true, external_url: true } } },
+    });
+    if (!modules.length) return { message: "Nothing to delete", deleted_count: 0 };
+    const allLessons = modules.flatMap((m) => m.lessons);
+    await Promise.all(allLessons.map((l) => this.uploads.cleanupLessonStorage(l)));
+    await this.prisma.module.deleteMany({ where: { certification_id: certId } });
+    return { message: "All modules deleted", deleted_count: modules.length };
+  }
+
   async reorderModules(certId: string, dto: ReorderItemsDto, userId: string, role: Role) {
     await this.assertProfessorAccess(certId, userId, role);
     await this.prisma.$transaction(

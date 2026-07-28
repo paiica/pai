@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ImportContentButton from "@/components/ImportContentButton";
+import ClearBuildButton from "@/components/ClearBuildButton";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
 
 const RichTextEditor = dynamic(
@@ -87,13 +88,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 function CertSidebar({
   modules, selectedLessonId, onSelectLesson, onAddModule, onDeleteModule,
-  onAddLesson, onDeleteLesson, onToggleModulePublish, onGenerateAi, certId, token, onRefresh,
+  onAddLesson, onDeleteLesson, onToggleModulePublish, onGenerateAi, certId, certTitle, token, onRefresh,
 }: {
   modules: Module[]; selectedLessonId: string | null; onSelectLesson: (l: Lesson, m: Module) => void;
   onAddModule: () => void; onDeleteModule: (m: Module) => void;
   onAddLesson: (m: Module) => void; onDeleteLesson: (l: Lesson, m: Module) => void;
   onToggleModulePublish: (m: Module) => void; onGenerateAi: () => void;
-  certId: string; token: string; onRefresh: () => void;
+  certId: string; certTitle: string; token: string; onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -199,6 +200,13 @@ function CertSidebar({
           uploadUrl={`${API_BASE}/prof/certifications/${certId}/import`}
           token={token}
           onImported={onRefresh}
+        />
+        <ClearBuildButton
+          deleteUrl={`/prof/certifications/${certId}/modules`}
+          token={token}
+          entityLabel={certTitle}
+          moduleCount={modules.length}
+          onCleared={onRefresh}
         />
       </div>
     </div>
@@ -1999,6 +2007,7 @@ export default function CertBuilderPage() {
             onToggleModulePublish={handleToggleModulePublish}
             onGenerateAi={() => setShowAiModal(true)}
             certId={certId}
+            certTitle={cert.title}
             token={token}
             onRefresh={mutate}
           />

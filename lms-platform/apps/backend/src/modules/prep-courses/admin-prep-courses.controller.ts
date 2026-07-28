@@ -181,6 +181,12 @@ export class AdminPrepCoursesController {
     return this.service.adminDeleteModule(id, moduleId);
   }
 
+  @Delete(":id/modules")
+  @ApiOperation({ summary: "Delete ALL modules (and their lessons) for a course — irreversible, clears the whole build" })
+  deleteAllModules(@Param("id", ParseUUIDPipe) id: string) {
+    return this.service.adminDeleteAllModules(id);
+  }
+
   @Post(":id/modules/:moduleId/lessons")
   @ApiOperation({ summary: "Create a lesson in a module" })
   createLesson(

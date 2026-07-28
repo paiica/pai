@@ -106,6 +106,16 @@ export class ProfCoursesController {
     return this.coursesService.deleteModule(moduleId, userId, role);
   }
 
+  @Delete("certifications/:certId/modules")
+  @ApiOperation({ summary: "Delete ALL modules (and their lessons) for a certification — irreversible, clears the whole build" })
+  deleteAllModules(
+    @Param("certId", ParseUUIDPipe) certId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.deleteAllModules(certId, userId, role);
+  }
+
   @Post("certifications/:certId/modules/reorder")
   @ApiOperation({ summary: "Reorder modules" })
   reorderModules(
