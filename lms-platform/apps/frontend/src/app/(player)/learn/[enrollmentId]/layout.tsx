@@ -253,9 +253,9 @@ export default function CoursePlayerLayout({ children }: { children: React.React
 
   // Free required courses merge their modules straight into this player's
   // `modules` array (tagged _source_course_id) alongside the certification's
-  // own native modules — group them back by source course for the sidebar so
-  // a student can tell which course each module belongs to, instead of one
-  // long undifferentiated list.
+  // own native modules — group them back by source course so the sidebar can
+  // show one course's modules at a time (not one long merged list) and the
+  // "up next" card can tell when a lesson crosses into a different course.
   const courseGroups = useMemo(() => {
     const groups: { key: string; label: string; modules: any[] }[] = [];
     const nativeCertModules = modules.filter((m) => !m._source_course_id);
@@ -271,10 +271,20 @@ export default function CoursePlayerLayout({ children }: { children: React.React
     return groups;
   }, [modules, linkedCourses, cert?.title]);
 
-  const allLessons = useMemo(
-    () => modules.flatMap((m) => m.lessons.map((l: any) => ({ ...l, moduleId: m.id, moduleTitle: m.title }))),
-    [modules]
-  );
+  const allLessons = useMemo(() => {
+    const lessonGroup = new Map<string, { key: string; label: string }>();
+    for (const group of courseGroups) {
+      for (const mod of group.modules) {
+        for (const lesson of mod.lessons) lessonGroup.set(lesson.id, { key: group.key, label: group.label });
+      }
+    }
+    return modules.flatMap((m) =>
+      m.lessons.map((l: any) => ({
+        ...l, moduleId: m.id, moduleTitle: m.title,
+        groupKey: lessonGroup.get(l.id)?.key, groupLabel: lessonGroup.get(l.id)?.label,
+      }))
+    );
+  }, [modules, courseGroups]);
   const currentIdx = allLessons.findIndex((l) => l.id === currentLessonId);
   const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
   const nextLesson =
@@ -283,6 +293,23 @@ export default function CoursePlayerLayout({ children }: { children: React.React
       : null;
   const nextStartsNewModule =
     !!nextLesson && allLessons[currentIdx]?.moduleId !== nextLesson.moduleId;
+  const nextStartsNewCourse =
+    !!nextLesson && allLessons[currentIdx]?.groupKey !== nextLesson.groupKey;
+
+  // Which course's modules the sidebar currently shows — defaults to
+  // whichever group contains the active lesson (or the first group, on the
+  // certification's own overview page). A manual pick from the sidebar's
+  // course switcher overrides that until the student actually navigates to
+  // a lesson, at which point it reverts to following the real lesson again.
+  const activeGroupKeyFromLesson = useMemo(() => {
+    if (!currentLessonId) return null;
+    const lesson = allLessons.find((l) => l.id === currentLessonId);
+    return lesson?.groupKey ?? null;
+  }, [allLessons, currentLessonId]);
+  const [manualGroupKey, setManualGroupKey] = useState<string | null>(null);
+  useEffect(() => { setManualGroupKey(null); }, [currentLessonId]);
+  const activeGroupKey = manualGroupKey ?? activeGroupKeyFromLesson ?? courseGroups[0]?.key ?? null;
+  const activeGroup = courseGroups.find((g) => g.key === activeGroupKey) ?? courseGroups[0];
 
   const totalCompleted = allLessons.filter((l) => l.completed).length;
   const progressPct =
@@ -470,6 +497,30 @@ export default function CoursePlayerLayout({ children }: { children: React.React
             !sidebarOpen && "lg:hidden"
           )}
         >
+          {/* Course switcher — only when this player bundles more than one
+              course's content; each course's module list stays separate
+              (not merged into one scrolling list), and this picks which one
+              the sidebar below shows. */}
+          {courseGroups.length > 1 && (
+            <div className="flex gap-1.5 px-3 py-2.5 border-b border-slate-100 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              {courseGroups.map((group) => (
+                <button
+                  key={group.key}
+                  onClick={() => setManualGroupKey(group.key)}
+                  title={group.label}
+                  className={cn(
+                    "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors flex-shrink-0 max-w-[140px] truncate",
+                    activeGroup?.key === group.key
+                      ? "bg-navy-900 text-white"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  )}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Search */}
           <div className="px-3 py-3 border-b border-slate-100">
             <div className="relative">
@@ -492,39 +543,25 @@ export default function CoursePlayerLayout({ children }: { children: React.React
             </div>
           </div>
 
-          {/* Module list — grouped by source course when this player merges
-              more than one course's content, so students can tell which
-              course each module belongs to. */}
+          {/* Module list — only the active course's modules, kept separate
+              from any other bundled course rather than merged together. */}
           <div className="flex-1 overflow-y-auto">
             {modules.length === 0 ? (
               <div className="p-4 text-center text-slate-400 text-sm">Loading…</div>
+            ) : !activeGroup ? (
+              <div className="p-4 text-center text-slate-400 text-sm">No content yet</div>
             ) : (
-              courseGroups.map((group) => {
-                const groupHasMatch = !search || group.modules.some((mod: any) =>
-                  mod.lessons.some((l: any) => l.title.toLowerCase().includes(search.toLowerCase()))
-                );
-                if (!groupHasMatch) return null;
-                return (
-                  <div key={group.key}>
-                    {courseGroups.length > 1 && (
-                      <p className="px-4 pt-4 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate bg-slate-50/80 sticky top-0 z-10">
-                        {group.label}
-                      </p>
-                    )}
-                    {group.modules.map((mod: any, mi: number) => (
-                      <ModuleSection
-                        key={mod.id}
-                        mod={mod}
-                        mi={mi}
-                        enrollmentId={enrollmentId}
-                        currentLessonId={currentLessonId}
-                        search={search}
-                        onNavigate={closeSidebarOnMobile}
-                      />
-                    ))}
-                  </div>
-                );
-              })
+              activeGroup.modules.map((mod: any, mi: number) => (
+                <ModuleSection
+                  key={mod.id}
+                  mod={mod}
+                  mi={mi}
+                  enrollmentId={enrollmentId}
+                  currentLessonId={currentLessonId}
+                  search={search}
+                  onNavigate={closeSidebarOnMobile}
+                />
+              ))
             )}
           </div>
         </div>
@@ -550,19 +587,24 @@ export default function CoursePlayerLayout({ children }: { children: React.React
               <div className="flex items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 bg-slate-50">
                 <div className="min-w-0">
                   <p className="text-xs text-slate-400 font-medium mb-0.5">
-                    {nextLesson ? (nextStartsNewModule ? "Next module" : "Up next") : "Course complete"}
+                    {nextLesson ? (nextStartsNewCourse ? "New course" : nextStartsNewModule ? "Next module" : "Up next") : "Course complete"}
                   </p>
                   <p className="text-sm font-semibold text-navy-900 truncate">
                     {nextLesson
-                      ? (nextStartsNewModule ? nextLesson.moduleTitle : nextLesson.title)
+                      ? (nextStartsNewCourse ? nextLesson.groupLabel : nextStartsNewModule ? nextLesson.moduleTitle : nextLesson.title)
                       : "You've reached the end of this course"}
                   </p>
                 </div>
                 <Link
                   href={nextLesson ? `/learn/${enrollmentId}/lesson/${nextLesson.id}` : `/learn/${enrollmentId}`}
-                  className="btn-primary !py-2.5 !px-5 flex items-center gap-2 flex-shrink-0"
+                  className="btn-primary !py-2.5 !px-5 flex items-center gap-2 flex-shrink-0 max-w-[260px]"
                 >
-                  {nextLesson ? (nextStartsNewModule ? "Next Module" : "Next Lesson") : "Finish"} <ChevronRight size={16} />
+                  <span className="truncate">
+                    {nextLesson
+                      ? (nextStartsNewCourse ? `Start ${nextLesson.groupLabel}` : nextStartsNewModule ? "Next Module" : "Next Lesson")
+                      : "Finish"}
+                  </span>
+                  <ChevronRight size={16} className="flex-shrink-0" />
                 </Link>
               </div>
             </div>
