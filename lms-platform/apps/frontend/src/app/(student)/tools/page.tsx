@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { Sparkles, Search, X } from "lucide-react";
+import { Sparkles, Search, X, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
 import { useAuthStore } from "@/store/auth.store";
@@ -63,6 +63,8 @@ type CatalogItem = {
   certAcronym?: string;
   badgeIcon?: string;
   thumbnailUrl?: string;
+  enrolled?: boolean;
+  enrolledDone?: boolean;
 };
 
 const TYPE_LABEL: Record<CatalogType, string> = {
@@ -91,13 +93,27 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col">
       {item.thumbnailUrl ? (
-        <div className="h-[240px] overflow-hidden">
+        <div className="h-[240px] overflow-hidden relative">
           <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+          {item.enrolled && (
+            <div className="absolute top-3 right-3">
+              <span className="bg-white/95 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <CheckCircle size={10} /> {item.enrolledDone ? "Completed" : "Enrolled"}
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="relative flex flex-col p-5 min-h-[240px]"
           style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}>
           <CardPattern type={grad.pattern} />
+          {item.enrolled && (
+            <div className="absolute top-3 right-3 z-10">
+              <span className="bg-white/95 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <CheckCircle size={10} /> {item.enrolledDone ? "Completed" : "Enrolled"}
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2 flex-wrap relative z-10">
             <span className="text-[11px] font-semibold px-3 py-1 rounded-full border border-navy-900/30 bg-white/40 text-navy-800 backdrop-blur-sm">
               {TYPE_LABEL[item.type]}
@@ -145,11 +161,14 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
         )}
         <Link
           href={item.href}
-          target={item.external ? "_blank" : undefined}
-          rel={item.external ? "noopener noreferrer" : undefined}
-          className="inline-flex items-center justify-center px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-semibold rounded-full transition-colors w-fit"
+          target={item.enrolled || item.external ? "_blank" : undefined}
+          rel={item.enrolled || item.external ? "noopener noreferrer" : undefined}
+          className={cn(
+            "inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold rounded-full transition-colors w-fit",
+            item.enrolled ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-navy-900 hover:bg-navy-700 text-white"
+          )}
         >
-          Learn More
+          {item.enrolled ? (item.enrolledDone ? "Review" : "Continue Learning") : "Learn More"}
         </Link>
       </div>
     </div>
@@ -181,6 +200,7 @@ export default function OnlineToolsPage() {
   const token = useAuthStore((s) => s.accessToken);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<CatalogType | "all">("all");
+  const [priceFilter, setPriceFilter] = useState<"all" | "free" | "paid">("all");
 
   const { data: toolsRaw,   isLoading: loadingTools }   = useSWR("/online-tools", fetcher);
   const { data: coursesRaw, isLoading: loadingCourses } = useSWR("/prep-courses", fetcher);
@@ -189,10 +209,15 @@ export default function OnlineToolsPage() {
     token ? ["/prep-courses/my/member-discount", token] : null,
     ([url, t]) => authFetcher(url, t)
   );
+  const { data: myPrepEnrollmentsRaw } = useSWR(
+    token ? ["/prep-courses/my/enrollments", token] : null,
+    ([url, t]) => authFetcher(url, t)
+  );
 
   const tools: any[]  = Array.isArray(toolsRaw)   ? toolsRaw   : (toolsRaw?.data   ?? []);
   const courses: any[] = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.data ?? []);
   const certs: any[]   = Array.isArray(certsRaw)   ? certsRaw   : (certsRaw?.data   ?? []);
+  const myPrepEnrollments: any[] = Array.isArray(myPrepEnrollmentsRaw) ? myPrepEnrollmentsRaw : [];
   const isLoading = loadingTools || loadingCourses || loadingCerts;
   const memberDiscountPct: number = memberDiscountRaw?.percentage ?? 0;
 
@@ -205,11 +230,15 @@ export default function OnlineToolsPage() {
     const courseItems: CatalogItem[] = courses.map((c) => {
       const price = Number(c.price) || 0;
       const finalPrice = memberDiscountPct > 0 ? Math.max(0, Math.round(price * (1 - memberDiscountPct / 100) * 100) / 100) : price;
+      const enrollment = myPrepEnrollments.find((e: any) => e.course_id === c.id);
       return {
         id: c.id, type: "course" as const, title: c.title, subtitle: c.subtitle,
         price, finalPrice, memberDiscountPercentage: memberDiscountPct > 0 ? memberDiscountPct : undefined,
-        slug: c.slug, href: `${MARKETING}/courses/${c.slug}`, external: true,
+        slug: c.slug,
+        href: enrollment ? `/learn/course/${enrollment.id}` : `${MARKETING}/courses/${c.slug}`,
+        external: !enrollment,
         certAcronym: c.cert_acronym, level: c.level, thumbnailUrl: c.thumbnail_url,
+        enrolled: !!enrollment, enrolledDone: !!enrollment?.completed_at,
       };
     });
     const certItems: CatalogItem[] = certs.map((c) => ({
@@ -218,17 +247,22 @@ export default function OnlineToolsPage() {
       certAcronym: c.acronym, level: c.level, badgeIcon: c.badge_icon,
     }));
     return [...toolItems, ...courseItems, ...certItems];
-  }, [tools, courses, certs, memberDiscountPct]);
+  }, [tools, courses, certs, memberDiscountPct, myPrepEnrollments]);
 
   const counts = useMemo(() => ({
     all: items.length,
     tool: items.filter(i => i.type === "tool").length,
     course: items.filter(i => i.type === "course").length,
     certification: items.filter(i => i.type === "certification").length,
+    free: items.filter(i => (i.finalPrice ?? i.price) === 0).length,
+    paid: items.filter(i => (i.finalPrice ?? i.price) > 0).length,
   }), [items]);
 
   const filtered = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
+    const effectivePrice = item.finalPrice ?? item.price;
+    if (priceFilter === "free" && effectivePrice !== 0) return false;
+    if (priceFilter === "paid" && effectivePrice === 0) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const haystack = [item.title, item.subtitle, item.certAcronym].filter(Boolean).join(" ").toLowerCase();
@@ -292,6 +326,16 @@ export default function OnlineToolsPage() {
                 </FilterChip>
                 <FilterChip active={typeFilter === "certification"} onClick={() => setTypeFilter("certification")}>
                   Certifications ({counts.certification})
+                </FilterChip>
+                <div className="w-px h-5 bg-slate-200 mx-0.5" />
+                <FilterChip active={priceFilter === "all"} onClick={() => setPriceFilter("all")}>
+                  All Prices
+                </FilterChip>
+                <FilterChip active={priceFilter === "free"} onClick={() => setPriceFilter("free")}>
+                  Free ({counts.free})
+                </FilterChip>
+                <FilterChip active={priceFilter === "paid"} onClick={() => setPriceFilter("paid")}>
+                  Paid ({counts.paid})
                 </FilterChip>
               </div>
             </div>

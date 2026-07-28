@@ -200,7 +200,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                       {price === 0 ? "Enroll Free" : "Get Started"}
                     </Link>
                   ) : enrolled ? (
-                    <Link href={`/learn/course/${enrollment.id}`} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2">
+                    <Link href={`/learn/course/${enrollment.id}`} target="_blank" rel="noopener noreferrer" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2">
                       <CheckCircle size={14} /> Access Course
                     </Link>
                   ) : inCart ? (

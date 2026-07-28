@@ -249,6 +249,27 @@ export default function CoursePlayerLayout({ children }: { children: React.React
 
   const cert = data?.certification;
   const modules: any[] = data?.modules ?? [];
+  const linkedCourses: any[] = data?.linked_courses ?? [];
+
+  // Free required courses merge their modules straight into this player's
+  // `modules` array (tagged _source_course_id) alongside the certification's
+  // own native modules — group them back by source course for the sidebar so
+  // a student can tell which course each module belongs to, instead of one
+  // long undifferentiated list.
+  const courseGroups = useMemo(() => {
+    const groups: { key: string; label: string; modules: any[] }[] = [];
+    const nativeCertModules = modules.filter((m) => !m._source_course_id);
+    if (nativeCertModules.length > 0) {
+      groups.push({ key: "cert", label: cert?.title ?? "Certification", modules: nativeCertModules });
+    }
+    for (const course of linkedCourses) {
+      const courseModules = modules.filter((m) => m._source_course_id === course.id);
+      if (courseModules.length > 0) {
+        groups.push({ key: course.id, label: course.title, modules: courseModules });
+      }
+    }
+    return groups;
+  }, [modules, linkedCourses, cert?.title]);
 
   const allLessons = useMemo(
     () => modules.flatMap((m) => m.lessons.map((l: any) => ({ ...l, moduleId: m.id, moduleTitle: m.title }))),
@@ -357,6 +378,14 @@ export default function CoursePlayerLayout({ children }: { children: React.React
           <ChevronLeft size={14} /> My Courses
         </Link>
 
+        {/* Back to this certification's overview page */}
+        <Link
+          href={`/learn/${enrollmentId}`}
+          className="hidden sm:flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap"
+        >
+          <ChevronLeft size={14} /> {cert?.acronym ?? "Overview"}
+        </Link>
+
         {/* Divider */}
         <div className="h-5 w-px bg-white/20 hidden sm:block" />
 
@@ -463,22 +492,39 @@ export default function CoursePlayerLayout({ children }: { children: React.React
             </div>
           </div>
 
-          {/* Module list */}
+          {/* Module list — grouped by source course when this player merges
+              more than one course's content, so students can tell which
+              course each module belongs to. */}
           <div className="flex-1 overflow-y-auto">
             {modules.length === 0 ? (
               <div className="p-4 text-center text-slate-400 text-sm">Loading…</div>
             ) : (
-              modules.map((mod: any, mi: number) => (
-                <ModuleSection
-                  key={mod.id}
-                  mod={mod}
-                  mi={mi}
-                  enrollmentId={enrollmentId}
-                  currentLessonId={currentLessonId}
-                  search={search}
-                  onNavigate={closeSidebarOnMobile}
-                />
-              ))
+              courseGroups.map((group) => {
+                const groupHasMatch = !search || group.modules.some((mod: any) =>
+                  mod.lessons.some((l: any) => l.title.toLowerCase().includes(search.toLowerCase()))
+                );
+                if (!groupHasMatch) return null;
+                return (
+                  <div key={group.key}>
+                    {courseGroups.length > 1 && (
+                      <p className="px-4 pt-4 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate bg-slate-50/80 sticky top-0 z-10">
+                        {group.label}
+                      </p>
+                    )}
+                    {group.modules.map((mod: any, mi: number) => (
+                      <ModuleSection
+                        key={mod.id}
+                        mod={mod}
+                        mi={mi}
+                        enrollmentId={enrollmentId}
+                        currentLessonId={currentLessonId}
+                        search={search}
+                        onNavigate={closeSidebarOnMobile}
+                      />
+                    ))}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

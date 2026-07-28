@@ -141,6 +141,8 @@ function LearningCard({ enrollment }: { enrollment: any }) {
   return (
     <Link
       href={`/learn/${enrollment.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
       className="card p-5 flex gap-4 hover:shadow-md transition-shadow group"
     >
       <AcronymBadge acronym={cert?.acronym ?? "—"} />

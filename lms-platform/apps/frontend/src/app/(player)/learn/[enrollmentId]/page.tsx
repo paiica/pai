@@ -228,6 +228,8 @@ function LockedCourseCard({
           {purchased ? (
             <Link
               href={`/learn/course/${course.enrollment_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
             >
               {isDone ? "Review" : course.progress_percentage > 0 ? "Continue" : "Start"} <ArrowRight size={10} />

@@ -158,6 +158,8 @@ function CertBannerCard({
           <div className="flex items-center gap-2">
             <Link
               href={`/learn/${enrollment.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
             >
@@ -249,6 +251,8 @@ function CertBannerCard({
                               {course.is_free ? (
                                 <Link
                                   href={`/learn/${enrollment.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
                                 >
@@ -258,6 +262,8 @@ function CertBannerCard({
                               ) : prepEnrollment ? (
                                 <Link
                                   href={`/learn/course/${prepEnrollment.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
                                 >
@@ -337,6 +343,7 @@ function CertBannerCard({
                 <div className="mt-auto">
                   {prepEnrollment ? (
                     <Link href={`/learn/course/${prepEnrollment.id}`}
+                      target="_blank" rel="noopener noreferrer"
                       className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
                       <CheckCircle size={10} /> Enrolled
                     </Link>
@@ -370,6 +377,8 @@ function PrepCourseBanner({ enrollment }: { enrollment: any }) {
   return (
     <Link
       href={`/learn/course/${enrollment.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
       className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all group"
     >
       <div className="w-12 h-12 rounded-xl flex-shrink-0 bg-gradient-to-br from-violet-50 to-purple-100 ring-4 ring-violet-100 flex items-center justify-center">
@@ -472,6 +481,8 @@ function CatalogCourseCard({
           {isEnrolled ? (
             <Link
               href={`/learn/course/${enrollmentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
             >
               Continue <ArrowRight size={11} />
@@ -510,6 +521,7 @@ export default function MyCoursesPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { addItem, hasItem, items } = useCartStore();
   const [tab, setTab] = useState<"active" | "completed">("active");
+  const [courseTab, setCourseTab] = useState<"active" | "completed">("active");
   const [certFilter, setCertFilter] = useState<string | null>(null);
 
   const { data, isLoading } = useSWR(
@@ -536,6 +548,9 @@ export default function MyCoursesPage() {
   const completed = all.filter((e: any) => e.status === "completed");
   const shown = tab === "active" ? active : completed;
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];
+  const activePrep = prepEnrollments.filter((e: any) => !e.completed_at);
+  const completedPrep = prepEnrollments.filter((e: any) => !!e.completed_at);
+  const shownPrep = courseTab === "active" ? activePrep : completedPrep;
   const catalog: any[] = Array.isArray(catalogRaw) ? catalogRaw : [];
 
   const certFilters: { id: string; acronym: string; title: string }[] = [];
@@ -595,14 +610,43 @@ export default function MyCoursesPage() {
         {/* ── Standalone Courses ── */}
         {(loadingPrep || prepEnrollments.length > 0) && (
           <section className="mb-10">
-            <SectionLabel>Standalone Courses</SectionLabel>
+            <div className="flex items-center justify-between mb-4">
+              <SectionLabel>Standalone Courses</SectionLabel>
+              {!loadingPrep && prepEnrollments.length > 0 && (
+                <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                  {(["active", "completed"] as const).map((key) => {
+                    const count = key === "active" ? activePrep.length : completedPrep.length;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setCourseTab(key)}
+                        className={cn(
+                          "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all capitalize",
+                          courseTab === key
+                            ? "bg-navy-900 text-white shadow-sm"
+                            : "text-slate-400 hover:text-slate-700"
+                        )}
+                      >
+                        {key}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {loadingPrep ? (
               <div className="space-y-3">
                 {[1, 2].map(i => <div key={i} className="h-[76px] rounded-2xl animate-pulse bg-slate-200" />)}
               </div>
+            ) : shownPrep.length === 0 ? (
+              <div className="py-8 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
+                <p className="text-sm text-slate-400">
+                  {courseTab === "active" ? "No active standalone courses" : "No completed standalone courses yet"}
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {prepEnrollments.map((e: any) => (
+                {shownPrep.map((e: any) => (
                   <PrepCourseBanner key={e.id} enrollment={e} />
                 ))}
               </div>
