@@ -19,7 +19,6 @@ const TOP_ITEMS = [
 ];
 
 const LEARNING_ITEMS = [
-  { href: "/learn",  label: "Courses",      icon: BookOpen },
   { href: "/tools",  label: "Online Tools", icon: Wrench },
 ];
 
@@ -238,6 +237,60 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
   );
 }
 
+function CoursesSection({ collapsed }: { collapsed: boolean }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+
+  const onLearn = pathname === "/learn";
+  const onMyCourses = pathname === "/learn/my-courses";
+  const active = onLearn || onMyCourses;
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/learn"
+        className={cn("sidebar-link justify-center !px-2", active ? "sidebar-link-active" : "")}
+        title="Courses"
+      >
+        <BookOpen size={18} className="flex-shrink-0" />
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn("sidebar-link w-full", active ? "sidebar-link-active" : "")}
+      >
+        <BookOpen size={18} className="flex-shrink-0" />
+        <span className="flex-1 text-left">Courses</span>
+        <ChevronDown
+          size={12}
+          className={cn("transition-transform flex-shrink-0", open ? "rotate-0" : "-rotate-90")}
+        />
+      </button>
+
+      {open && (
+        <>
+          <Link
+            href="/learn"
+            className={cn("sidebar-link pl-9", onLearn ? "sidebar-link-active" : "")}
+          >
+            <span>My Learning</span>
+          </Link>
+          <Link
+            href="/learn/my-courses"
+            className={cn("sidebar-link pl-9", onMyCourses ? "sidebar-link-active" : "")}
+          >
+            <span>My Courses</span>
+          </Link>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function StudentSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -314,6 +367,7 @@ export default function StudentSidebar() {
             />
           </button>
         )}
+        {(collapsed || learningOpen) && <CoursesSection collapsed={collapsed} />}
         {(collapsed || learningOpen) && LEARNING_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
