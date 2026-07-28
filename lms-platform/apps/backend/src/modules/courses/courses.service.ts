@@ -573,7 +573,7 @@ export class CoursesService {
             title: true,
             lessons: {
               orderBy: { sort_order: "asc" },
-              select: { title: true, type: true, description: true, content_body: true },
+              select: { title: true, type: true, description: true, content_body: true, duration_minutes: true },
             },
           },
         },
@@ -597,12 +597,24 @@ export class CoursesService {
       })),
     }));
 
-    return this.aiService.generateCertificationOverviewFromBuild({
+    const draft = await this.aiService.generateCertificationOverviewFromBuild({
       title: cert.title,
       acronym: cert.acronym,
       level: cert.level,
       modules,
     });
+
+    // total_lessons/total_hours aren't something to ask an LLM to guess —
+    // they're exact counts already sitting in the real build, so compute
+    // them directly instead of risking a hallucinated number.
+    const allLessons = cert.modules.flatMap((m) => m.lessons);
+    const totalMinutes = allLessons.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0);
+
+    return {
+      ...draft,
+      total_lessons: allLessons.length,
+      total_hours: Math.round((totalMinutes / 60) * 10) / 10,
+    };
   }
 
   async adminGetCertificationEnrollments(certId: string) {

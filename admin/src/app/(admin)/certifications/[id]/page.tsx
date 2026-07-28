@@ -1168,12 +1168,15 @@ export default function CertEditorPage() {
     }
   }
 
-  // Drafts only the Overview/Content fields (badge icon, description, long
-  // description, curriculum) from this certification's actual built
-  // modules/lessons — for certs whose curriculum is already built out but
-  // whose catalog copy is blank or stale. Deliberately narrower than
-  // applyAiDraft: doesn't touch title/acronym/level/FAQs/marketing/
-  // testimonials, since those aren't derivable from lesson content.
+  // Drafts every field that can honestly be derived from this
+  // certification's actual built modules/lessons — badge icon,
+  // description/long description, curriculum summary, learning outcomes,
+  // target audience, and skills (AI-grounded in the real lesson content),
+  // plus total_lessons/total_hours (computed exactly from the real build,
+  // not guessed). Deliberately still doesn't touch title/acronym/level/
+  // price/exam settings/eligibility/FAQs/marketing/testimonials — those
+  // are business or identity decisions, not something a curriculum can
+  // honestly answer.
   async function handleFillFromBuild() {
     setFillingFromBuild(true);
     try {
@@ -1183,8 +1186,13 @@ export default function CertEditorPage() {
       setDescription(draft.description ?? description);
       setLongDesc(draft.long_description ?? longDesc);
       setCurriculum(safeArray<CurriculumItem>(draft.curriculum_overview));
+      setOutcomes(safeArray<string>(draft.learning_outcomes));
+      setAudience(safeArray<string>(draft.target_audience));
+      setSkills(safeArray<string>(draft.skills));
+      if (draft.total_lessons != null) setTotalLessons(String(draft.total_lessons));
+      if (draft.total_hours != null) setTotalHours(String(draft.total_hours));
       setTab("content");
-      toast.success("Drafted from the built curriculum — review and edit before saving");
+      toast.success("Drafted from the built curriculum across Content, Audience & Skills, and Exam & Pricing — review and edit before saving");
     } catch (err: any) {
       toast.error(err.message ?? "Failed to draft from the build");
     } finally {
@@ -1259,7 +1267,7 @@ export default function CertEditorPage() {
             <button
               onClick={handleFillFromBuild}
               disabled={fillingFromBuild}
-              title="Draft the description, badge, and curriculum summary from this certification's actual built modules and lessons"
+              title="Draft the description, badge, curriculum summary, outcomes, audience, skills, and lesson/hour totals from this certification's actual built modules and lessons"
               className="btn-outline !py-2 !px-4 !text-xs flex items-center gap-1.5 disabled:opacity-60"
             >
               {fillingFromBuild ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}

@@ -794,12 +794,15 @@ Return ONLY a JSON object with this exact shape:
   "badge_icon": "one of: graduation-cap, award, shield-check, target, compass, bar-chart, briefcase, layers, network, brain, cpu, line-chart — pick whichever best fits this certification's subject, never an emoji",
   "description": "1-2 sentence catalog summary of what this certification actually teaches",
   "long_description": "3-5 sentence hero description, specific to the real curriculum above",
-  "curriculum_overview": [{ "title": "exact module title as given above", "description": "1 sentence summarizing what this module actually covers, based on its lessons", "lessons": 0 }]
+  "curriculum_overview": [{ "title": "exact module title as given above", "description": "1 sentence summarizing what this module actually covers, based on its lessons", "lessons": 0 }],
+  "learning_outcomes": ["4-8 short 'By the end, you will be able to...' style bullets, each grounded in a specific lesson or module above"],
+  "target_audience": ["3-6 short bullets describing who this curriculum is actually suited for, based on its difficulty and topics — not generic marketing personas"],
+  "skills": ["5-10 short skill/tool names actually taught across the lessons above, e.g. specific techniques, frameworks, or software named in the curriculum"]
 }
 
 Rules:
 - curriculum_overview must have exactly one entry per module listed above, in the same order, with the exact same titles. Set "lessons" to the number of lessons listed under that module.
-- Every description must be grounded in the actual lesson content given — never generic filler, never claim topics not present above.`;
+- Every description, outcome, audience bullet, and skill must be grounded in the actual lesson content given — never generic filler, never claim topics not present above.`;
 
     let raw = "";
     try {
@@ -828,6 +831,7 @@ Rules:
       const s = (v: any, d = "") => (typeof v === "string" ? v : d);
       const n = (v: any, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
       const arr = (v: any) => (Array.isArray(v) ? v : []);
+      const strs = (v: any) => arr(v).filter((x: any) => typeof x === "string" && x.trim());
       return {
         badge_icon: CERT_ICON_KEYS.includes(parsed.badge_icon) ? parsed.badge_icon : "graduation-cap",
         description: s(parsed.description),
@@ -835,6 +839,9 @@ Rules:
         curriculum_overview: arr(parsed.curriculum_overview).map((c: any) => ({
           title: s(c?.title), description: s(c?.description), lessons: n(c?.lessons, 0),
         })),
+        learning_outcomes: strs(parsed.learning_outcomes),
+        target_audience: strs(parsed.target_audience),
+        skills: strs(parsed.skills),
       };
     } catch {
       this.logger.error("generateCertificationOverviewFromBuild raw response:", raw);
