@@ -709,7 +709,29 @@ export class PrepCoursesService {
           JOIN lms.modules m ON m.id = l.module_id
           JOIN lms.lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
           WHERE m.course_id = c.id AND l.is_published = true
-        ) AS last_completed_at
+        ) AS last_completed_at,
+        (
+          -- First not-yet-completed lesson, in curriculum order — where
+          -- "Continue" for this specific bundled course should resume.
+          SELECT l.id FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          WHERE m.course_id = c.id AND l.is_published = true
+            AND NOT EXISTS (
+              SELECT 1 FROM lms.lesson_progress lp
+              WHERE lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
+            )
+          ORDER BY m.sort_order ASC, l.sort_order ASC
+          LIMIT 1
+        ) AS next_lesson_id,
+        (
+          -- Fallback for when every lesson is already complete — still land
+          -- somewhere real (the start) instead of nowhere.
+          SELECT l.id FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          WHERE m.course_id = c.id AND l.is_published = true
+          ORDER BY m.sort_order ASC, l.sort_order ASC
+          LIMIT 1
+        ) AS first_lesson_id
       FROM lms.enrollments e
       JOIN lms.certifications cert ON cert.id = e.certification_id
       JOIN lms.course_cert_recommendations ccr
@@ -737,6 +759,7 @@ export class PrepCoursesService {
           completed_at: progress_percentage === 100 ? b.last_completed_at : null,
           source: "certification" as const,
           cert_enrollment_id: b.cert_enrollment_id,
+          resume_lesson_id: b.next_lesson_id ?? b.first_lesson_id ?? null,
         };
       });
 

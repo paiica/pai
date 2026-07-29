@@ -44,7 +44,15 @@ function CourseRow({ enrollment }: { enrollment: any }) {
   const status = statusOf(enrollment);
   const meta = STATUS_META[status];
   const isBundled = enrollment.source === "certification";
-  const href = isBundled ? `/learn/${enrollment.cert_enrollment_id}` : `/learn/course/${enrollment.id}`;
+  // Bundled courses have no player of their own — their lessons live inside
+  // the certification's player. Link straight to the resume lesson within
+  // that course (not the certification's general overview page), so this
+  // reads as "open this course" rather than "go look at the certification."
+  const href = isBundled
+    ? (enrollment.resume_lesson_id
+        ? `/learn/${enrollment.cert_enrollment_id}/lesson/${enrollment.resume_lesson_id}`
+        : `/learn/${enrollment.cert_enrollment_id}`)
+    : `/learn/course/${enrollment.id}`;
   const enrolledDate = new Date(enrollment.enrolled_at).toLocaleDateString("en-CA", {
     month: "short", day: "numeric", year: "numeric",
   });
