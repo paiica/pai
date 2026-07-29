@@ -1,14 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Settings, Globe, ImageIcon } from "lucide-react";
+import { Save, Loader2, Settings, Globe, ImageIcon, Upload } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+// Uploads the file to storage and returns its public URL — same
+// presign-free endpoint the block builder uses for content images, reused
+// here so a branding asset can be dropped in as a file instead of only
+// ever pasting a URL to somewhere else it's already hosted.
+async function uploadImage(file: File, token: string, refreshTokens: () => Promise<boolean>): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  let activeToken = token;
+  let res = await fetch(`${API_BASE}/uploads/content-image`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${activeToken}` },
+    body: formData,
+  });
+  if (res.status === 401) {
+    const refreshed = await refreshTokens();
+    if (!refreshed) throw new Error("Session expired — please sign in again");
+    activeToken = useAuthStore.getState().accessToken!;
+    res = await fetch(`${API_BASE}/uploads/content-image`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${activeToken}` },
+      body: formData,
+    });
+  }
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.message ?? "Upload failed");
+  const url = json?.data?.url ?? json?.url;
+  if (!url) throw new Error("Upload succeeded but no URL was returned");
+  return url;
 }
 
 // ── Page ────────────────────────────────────────────────────────────────────────
@@ -29,6 +61,43 @@ export default function SiteSettingsPage() {
   const [logoUrl,    setLogoUrl]    = useState("");
   const [logoHeight, setLogoHeight] = useState("48");
   const [saving,     setSaving]     = useState(false);
+
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingLogo,    setUploadingLogo]    = useState(false);
+  const faviconFileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef    = useRef<HTMLInputElement>(null);
+
+  async function handleFaviconFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !accessToken) return;
+    setUploadingFavicon(true);
+    try {
+      const url = await uploadImage(file, accessToken, refreshTokens);
+      setFaviconUrl(url);
+      toast.success("Favicon uploaded — click Save to publish it");
+    } catch (err: any) {
+      toast.error(err.message ?? "Upload failed");
+    } finally {
+      setUploadingFavicon(false);
+    }
+  }
+
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !accessToken) return;
+    setUploadingLogo(true);
+    try {
+      const url = await uploadImage(file, accessToken, refreshTokens);
+      setLogoUrl(url);
+      toast.success("Logo uploaded — click Save to publish it");
+    } catch (err: any) {
+      toast.error(err.message ?? "Upload failed");
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   useEffect(() => {
     if (data) {
@@ -97,10 +166,18 @@ export default function SiteSettingsPage() {
             </div>
             <div className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Favicon URL</label>
-                <input type="url" value={faviconUrl} onChange={(e) => setFaviconUrl(e.target.value)}
-                  placeholder="https://yourdomain.com/favicon.ico" className="input-base" />
-                <p className="text-xs text-slate-400 mt-1.5">ICO, PNG, or SVG. 32×32 px recommended.</p>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Favicon</label>
+                <div className="flex items-center gap-2">
+                  <input type="url" value={faviconUrl} onChange={(e) => setFaviconUrl(e.target.value)}
+                    placeholder="https://yourdomain.com/favicon.ico" className="input-base flex-1" />
+                  <input ref={faviconFileRef} type="file" accept="image/*,.ico" className="hidden" onChange={handleFaviconFile} />
+                  <button type="button" onClick={() => faviconFileRef.current?.click()} disabled={uploadingFavicon}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-navy-700 transition-colors disabled:opacity-50">
+                    {uploadingFavicon ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                    Upload
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">Paste a URL or upload a file. ICO, PNG, or SVG. 32×32 px recommended.</p>
                 {faviconUrl && (
                   <div className="mt-3 flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <img src={faviconUrl} alt="Favicon" className="w-8 h-8 object-contain rounded"
@@ -110,10 +187,18 @@ export default function SiteSettingsPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Site Logo URL</label>
-                <input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://yourdomain.com/logo.png" className="input-base" />
-                <p className="text-xs text-slate-400 mt-1.5">PNG or SVG with transparent background.</p>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Site Logo</label>
+                <div className="flex items-center gap-2">
+                  <input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
+                    placeholder="https://yourdomain.com/logo.png" className="input-base flex-1" />
+                  <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+                  <button type="button" onClick={() => logoFileRef.current?.click()} disabled={uploadingLogo}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-navy-700 transition-colors disabled:opacity-50">
+                    {uploadingLogo ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                    Upload
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">Paste a URL or upload a file. PNG or SVG with transparent background.</p>
                 {logoUrl && (
                   <div className="mt-3 flex items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-100" style={{ minHeight: `${parseInt(logoHeight) + 32}px` }}>
                     <img src={logoUrl} alt="Logo" style={{ height: `${logoHeight}px` }} className="w-auto object-contain"
