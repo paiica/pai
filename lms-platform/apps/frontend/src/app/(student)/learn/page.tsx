@@ -53,10 +53,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Cert accordion card ──────────────────────────────────────────────────────
 
 function CertBannerCard({
-  enrollment, index, prepEnrollments, onAddToCart, hasItem,
+  enrollment, index, prepEnrollments, onAddToCart, hasItem, resumeLessonByCourse,
 }: {
   enrollment: any; index: number; prepEnrollments: any[];
   onAddToCart: (course: any) => void; hasItem: (id: string) => boolean;
+  resumeLessonByCourse: Map<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const cert = enrollment.certification;
@@ -250,7 +251,11 @@ function CertBannerCard({
                               </div>
                               {course.is_free ? (
                                 <Link
-                                  href={`/learn/${enrollment.id}`}
+                                  href={
+                                    resumeLessonByCourse.has(course.id)
+                                      ? `/learn/${enrollment.id}/lesson/${resumeLessonByCourse.get(course.id)}`
+                                      : `/learn/${enrollment.id}`
+                                  }
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
@@ -531,6 +536,10 @@ export default function MyCoursesPage() {
     token ? ["/prep-courses/my/enrollments", token] : null,
     ([url, t]) => authFetcher(url, t)
   );
+  const { data: allCoursesRaw } = useSWR(
+    token ? ["/prep-courses/my/all-courses", token] : null,
+    ([url, t]) => authFetcher(url, t)
+  );
   const { data: catalogRaw, isLoading: loadingCatalog } = useSWR(
     "/prep-courses",
     publicFetcher
@@ -549,6 +558,15 @@ export default function MyCoursesPage() {
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];
   const prepPreview = prepEnrollments.slice(0, 3);
   const catalog: any[] = Array.isArray(catalogRaw) ? catalogRaw : [];
+
+  // course_id -> lesson to resume at, for free required courses bundled into
+  // a certification — lets "Included — Go to Course" open the course itself
+  // instead of the certification's general overview page.
+  const allCourses: any[] = Array.isArray(allCoursesRaw) ? allCoursesRaw : [];
+  const resumeLessonByCourse = new Map<string, string>();
+  for (const c of allCourses) {
+    if (c.source === "certification" && c.resume_lesson_id) resumeLessonByCourse.set(c.course_id, c.resume_lesson_id);
+  }
 
   const certFilters: { id: string; acronym: string; title: string }[] = [];
   const seenCertIds = new Set<string>();
@@ -693,6 +711,7 @@ export default function MyCoursesPage() {
                   prepEnrollments={prepEnrollments}
                   onAddToCart={handleAddToCart}
                   hasItem={hasItem}
+                  resumeLessonByCourse={resumeLessonByCourse}
                 />
               ))}
             </div>
