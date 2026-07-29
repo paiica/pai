@@ -124,10 +124,68 @@ export class UsersService {
       }),
     );
 
+    // Free required courses bundled into an active certification merge their
+    // lessons directly into that certification's player instead of getting
+    // their own CourseEnrollment row (see getMyAllCourses in
+    // prep-courses.service.ts for the student-facing equivalent of this same
+    // stitch) — without this, a student's bundled courses were invisible on
+    // their admin profile even though they have real access to them.
+    const bundledCourseEnrollments = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT
+        'bundled-' || e.id || '-' || c.id AS id,
+        c.id AS course_id, c.title, c.slug, c.pdu_value, c.status,
+        cert.acronym AS cert_acronym,
+        e.enrolled_at,
+        (
+          SELECT COUNT(*) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          WHERE m.course_id = c.id AND l.is_published = true
+        )::int AS total_lessons,
+        (
+          SELECT COUNT(*) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          JOIN lms.lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
+          WHERE m.course_id = c.id AND l.is_published = true
+        )::int AS completed_lessons,
+        (
+          SELECT MAX(lp.completed_at) FROM lms.lessons l
+          JOIN lms.modules m ON m.id = l.module_id
+          JOIN lms.lesson_progress lp ON lp.lesson_id = l.id AND lp.enrollment_id = e.id AND lp.completed = true
+          WHERE m.course_id = c.id AND l.is_published = true
+        ) AS last_completed_at
+      FROM lms.enrollments e
+      JOIN lms.certifications cert ON cert.id = e.certification_id
+      JOIN lms.course_cert_recommendations ccr
+        ON ccr.certification_id = e.certification_id AND ccr.is_required = true AND ccr.is_free = true
+      JOIN lms.courses c ON c.id = ccr.course_id
+      WHERE e.user_id = $1 AND e.status = 'active' AND c.status = 'active'
+      ORDER BY e.enrolled_at DESC
+    `, userId);
+
+    const directCourseIds = new Set(courseEnrollments.map((ce) => ce.course_id));
+    const bundledMapped = bundledCourseEnrollments
+      .filter((b) => !directCourseIds.has(b.course_id))
+      .map((b) => {
+        const total = b.total_lessons ?? 0;
+        const completedCount = b.completed_lessons ?? 0;
+        const progress_percentage = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+        return {
+          id: b.id,
+          enrolled_at: b.enrolled_at,
+          completed_at: progress_percentage === 100 ? b.last_completed_at : null,
+          progress_percentage,
+          amount_paid: 0,
+          source: "certification" as const,
+          cert_acronym: b.cert_acronym,
+          course: { id: b.course_id, title: b.title, slug: b.slug, pdu_value: b.pdu_value, status: b.status },
+          assignment_submissions: [],
+        };
+      });
+
     return {
       ...base,
       enrollments: enrollmentsWithRenewal,
-      course_enrollments: courseEnrollments,
+      course_enrollments: [...courseEnrollments, ...bundledMapped],
       payments,
     };
   }

@@ -274,11 +274,19 @@ function CourseCard({ enrollment, token, studentName, onRefresh }: {
   enrollment: any; token: string; studentName: string; onRefresh: () => void;
 }) {
   const course = enrollment.course;
+  const isBundled = enrollment.source === "certification";
   return (
     <div className="border border-slate-200 rounded-2xl p-5">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
         <div className="min-w-0">
-          <p className="font-display font-bold text-navy-900 text-sm">{course?.title}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-display font-bold text-navy-900 text-sm">{course?.title}</p>
+            {isBundled && (
+              <span className="badge bg-violet-50 text-violet-600 border border-violet-100">
+                Included with {enrollment.cert_acronym}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Enrolled {fmtDate(enrollment.enrolled_at)}
             {enrollment.completed_at && ` · Completed ${fmtDate(enrollment.completed_at)}`}
@@ -299,15 +307,20 @@ function CourseCard({ enrollment, token, studentName, onRefresh }: {
       {enrollment.assignment_submissions?.length > 0 && (
         <AssignmentList submissions={enrollment.assignment_submissions} />
       )}
-      <div className="pt-3 mt-3 border-t border-slate-100 flex justify-end">
-        <DeleteCourseEnrollmentButton
-          enrollmentId={enrollment.id}
-          studentName={studentName}
-          courseName={course?.title ?? "this course"}
-          token={token}
-          onRefresh={onRefresh}
-        />
-      </div>
+      {/* Bundled courses have no CourseEnrollment row of their own — access
+          comes from the certification enrollment, so there's nothing here
+          to individually delete. */}
+      {!isBundled && (
+        <div className="pt-3 mt-3 border-t border-slate-100 flex justify-end">
+          <DeleteCourseEnrollmentButton
+            enrollmentId={enrollment.id}
+            studentName={studentName}
+            courseName={course?.title ?? "this course"}
+            token={token}
+            onRefresh={onRefresh}
+          />
+        </div>
+      )}
     </div>
   );
 }
