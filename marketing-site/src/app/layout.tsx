@@ -36,12 +36,20 @@ export const viewport: Viewport = {
 async function getSiteSettings(): Promise<Record<string, string>> {
   try {
     const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 3600 } });
-    if (!res.ok) return {};
+    // Kept short — this powers branding admins expect to see reflected
+    // within about a minute of hitting Save (favicon, logo, GA id), not an
+    // hour. A long window here previously made setting changes look like
+    // they silently "didn't work."
+    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
+    if (!res.ok) {
+      console.error(`[site-settings] fetch returned ${res.status} from ${API}/site-settings/public`);
+      return {};
+    }
     const json = await res.json();
     // API wraps all responses in { success, data }
     return json?.data ?? json;
-  } catch {
+  } catch (err) {
+    console.error("[site-settings] fetch failed", err);
     return {};
   }
 }

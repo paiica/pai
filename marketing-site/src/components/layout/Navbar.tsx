@@ -26,11 +26,15 @@ async function getNavItems(): Promise<NavItem[]> {
 
 async function getSiteSettings(): Promise<Record<string, any> | null> {
   try {
-    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 3600 } });
-    if (!res.ok) return null;
+    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
+    if (!res.ok) {
+      console.error(`[site-settings] fetch returned ${res.status} from ${API}/site-settings/public`);
+      return null;
+    }
     const json = await res.json();
     return json?.data ?? json ?? null;
-  } catch {
+  } catch (err) {
+    console.error("[site-settings] fetch failed", err);
     return null;
   }
 }
