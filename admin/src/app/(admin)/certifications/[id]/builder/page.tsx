@@ -403,10 +403,18 @@ function VideoEditor({ lesson, token, onSaved }: { lesson: Lesson; token: string
 
 function DownloadEditor({ lesson, token, onSaved }: { lesson: Lesson; token: string; onSaved: () => void }) {
   const [url, setUrl] = useState(lesson.download_url ?? "");
+  const [content, setContent] = useState(lesson.content_body ?? "");
+  const [contentMode, setContentMode] = useState<"text" | "html">(
+    (lesson.content_body ?? "").trim().startsWith("<") ? "html" : "text"
+  );
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setUrl(lesson.download_url ?? ""); }, [lesson.id]);
+  useEffect(() => {
+    setUrl(lesson.download_url ?? "");
+    setContent(lesson.content_body ?? "");
+    setContentMode((lesson.content_body ?? "").trim().startsWith("<") ? "html" : "text");
+  }, [lesson.id]);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -441,7 +449,7 @@ function DownloadEditor({ lesson, token, onSaved }: { lesson: Lesson; token: str
   async function save() {
     setSaving(true);
     try {
-      await api.put(`/prof/lessons/${lesson.id}`, { download_url: url }, token);
+      await api.put(`/prof/lessons/${lesson.id}`, { download_url: url, content_body: content }, token);
       toast.success("Saved"); onSaved();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
@@ -475,6 +483,44 @@ function DownloadEditor({ lesson, token, onSaved }: { lesson: Lesson; token: str
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Or paste URL</label>
         <input value={url} onChange={e => setUrl(e.target.value)} className="input-base text-sm" placeholder="https://..." />
       </div>
+
+      {/* Explanation shown to students alongside the download */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Explanation</label>
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+            <button
+              onClick={() => setContentMode("text")}
+              className={cn("px-3 py-1 transition-colors", contentMode === "text" ? "bg-navy-700 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}
+            >
+              Text
+            </button>
+            <button
+              onClick={() => setContentMode("html")}
+              className={cn("px-3 py-1 transition-colors border-l border-slate-200", contentMode === "html" ? "bg-navy-700 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}
+            >
+              HTML
+            </button>
+          </div>
+        </div>
+        {contentMode === "html" ? (
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            className="w-full h-40 font-mono text-sm border border-slate-200 rounded-xl p-4 resize-none focus:outline-none focus:ring-2 focus:ring-navy-200 bg-slate-950 text-emerald-400"
+            placeholder={"<p>Write your HTML here…</p>"}
+            spellCheck={false}
+          />
+        ) : (
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            className="w-full h-32 input-base resize-none text-sm leading-relaxed"
+            placeholder="Explain what this document is and how students should use it…"
+          />
+        )}
+      </div>
+
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
       </button>

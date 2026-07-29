@@ -161,12 +161,18 @@ function DownloadLesson({
     onComplete();
   }
 
+  const isHTML = (lesson.content_body ?? "").trim().startsWith("<");
+
   return (
     <div className="space-y-5">
       {lesson.content_body && (
-        <div className="p-5 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed">
-          {lesson.content_body}
-        </div>
+        isHTML ? (
+          <div className="p-5 bg-slate-50 rounded-xl prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+        ) : (
+          <div className="p-5 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+            {lesson.content_body}
+          </div>
+        )
       )}
       <div className="flex justify-center">
         {lesson.download_url ? (
