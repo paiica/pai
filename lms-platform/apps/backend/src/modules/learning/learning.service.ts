@@ -719,6 +719,26 @@ export class LearningService {
     });
     if (!enrollment) throw new NotFoundException("Enrollment not found");
 
+    // Free required courses merge their lessons into this same enrollment's
+    // player (see getCourseOutline) — their quiz/assignment lessons need to
+    // be pulled in here too, the same way, or a student who takes a quiz
+    // inside a bundled course never sees it show up on their Grades page.
+    const requiredRows = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: enrollment.certification_id, is_required: true, is_free: true },
+      select: { course_id: true },
+    });
+    const bundledModules = requiredRows.length > 0
+      ? await this.prisma.module.findMany({
+          where: { course_id: { in: requiredRows.map((r) => r.course_id) }, is_published: true },
+          include: {
+            lessons: {
+              where: { type: { in: ["quiz", "assignment"] }, is_published: true },
+              select: { id: true, title: true, type: true, max_score: true, passing_score: true },
+            },
+          },
+        })
+      : [];
+
     const quizScores = enrollment.lesson_progress.reduce<Record<string, number>>((acc, lp) => {
       if (lp.quiz_score !== null) acc[lp.lesson_id] = lp.quiz_score;
       return acc;
@@ -729,7 +749,7 @@ export class LearningService {
       return acc;
     }, {});
 
-    const gradedItems = enrollment.certification.modules.flatMap((m) =>
+    const gradedItems = [...enrollment.certification.modules, ...bundledModules].flatMap((m) =>
       m.lessons.map((l) => ({
         lesson_id: l.id,
         title: l.title,
