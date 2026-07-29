@@ -54,6 +54,14 @@ export class UploadsService {
     };
   }
 
+  // Lets endpoints that have a "local disk" fallback (uploadLocal,
+  // uploadDocument) check first, so they only fall back to local disk when
+  // there's genuinely nothing else configured — not unconditionally.
+  async isS3Configured(): Promise<boolean> {
+    const cfg = await this.getS3Config();
+    return !!(cfg.accessKeyId && cfg.secretAccessKey);
+  }
+
   private async getS3Client(cfg: S3Config) {
     const { S3Client } = await import("@aws-sdk/client-s3");
     return new S3Client({

@@ -84,13 +84,19 @@ export class UploadsController {
   }
 
   @Post("local")
-  @ApiOperation({ summary: "Upload a file to local disk (dev)" })
+  @ApiOperation({ summary: "Upload a general-purpose file (documents, avatars, banners) — R2 when configured, local disk fallback in dev" })
   @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 50 * 1024 * 1024 } }))
-  uploadLocal(
+  async uploadLocal(
     @UploadedFile() file: Express.Multer.File,
     @Query("purpose") purpose = "document",
   ) {
     if (!file) throw new BadRequestException("No file received");
+
+    if (await this.uploadsService.isS3Configured()) {
+      const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+      return { url, filename: file.originalname, original_name: file.originalname, size: file.size, mime_type: file.mimetype, purpose };
+    }
+
     const { filename, fileUrl } = saveLocally(file);
     return {
       url: fileUrl,
@@ -112,11 +118,22 @@ export class UploadsController {
   }
 
   @Post("document")
-  @ApiOperation({ summary: "Upload a document to local disk (dev — swap for S3 later)" })
+  @ApiOperation({ summary: "Upload a document — R2 when configured, local disk fallback in dev" })
   @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 50 * 1024 * 1024 } }))
-  uploadDocument(@UploadedFile() file: Express.Multer.File) {
+  async uploadDocument(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file received");
     try {
+      if (await this.uploadsService.isS3Configured()) {
+        const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+        return {
+          file_url: url,
+          public_url: url,
+          s3_key: url,
+          file_name: file.originalname,
+          mime_type: file.mimetype,
+          file_size: file.size,
+        };
+      }
       const { fileUrl } = saveLocally(file);
       return {
         file_url: fileUrl,
