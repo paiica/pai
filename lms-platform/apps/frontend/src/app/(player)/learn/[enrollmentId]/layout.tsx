@@ -500,24 +500,31 @@ export default function CoursePlayerLayout({ children }: { children: React.React
           {/* Course switcher — only when this player bundles more than one
               course's content; each course's module list stays separate
               (not merged into one scrolling list), and this picks which one
-              the sidebar below shows. */}
+              the sidebar below shows. Labeled explicitly (not just a bare
+              row of pills) so it reads as a deliberate "which course am I
+              viewing" control rather than blending into the chrome above. */}
           {courseGroups.length > 1 && (
-            <div className="flex gap-1.5 px-3 py-2.5 border-b border-slate-100 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-              {courseGroups.map((group) => (
-                <button
-                  key={group.key}
-                  onClick={() => setManualGroupKey(group.key)}
-                  title={group.label}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors flex-shrink-0 max-w-[140px] truncate",
-                    activeGroup?.key === group.key
-                      ? "bg-navy-900 text-white"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                  )}
-                >
-                  {group.label}
-                </button>
-              ))}
+            <div className="px-3 pt-3 pb-2.5 border-b border-slate-100 bg-slate-50/60">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                Courses in this program
+              </p>
+              <div className="flex flex-col gap-1">
+                {courseGroups.map((group) => (
+                  <button
+                    key={group.key}
+                    onClick={() => setManualGroupKey(group.key)}
+                    title={group.label}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors truncate",
+                      activeGroup?.key === group.key
+                        ? "bg-navy-900 text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300"
+                    )}
+                  >
+                    {group.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
