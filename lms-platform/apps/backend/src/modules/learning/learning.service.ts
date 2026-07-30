@@ -71,7 +71,7 @@ export class LearningService {
     // their own separate CourseEnrollment.
     const requiredRows = await this.prisma.courseCertRecommendation.findMany({
       where: { certification_id: enrollment.certification_id, is_required: true },
-      include: { course: { select: { id: true, title: true, slug: true, price: true, status: true, sort_order: true } } },
+      include: { course: { select: { id: true, title: true, slug: true, price: true, status: true, sort_order: true, ai_professor_enabled: true } } },
       orderBy: { course: { sort_order: "asc" } },
     });
     const requiredCourses = requiredRows
@@ -156,7 +156,7 @@ export class LearningService {
         passing_score: enrollment.certification.passing_score,
         ai_professor_enabled: enrollment.certification.ai_professor_enabled,
       },
-      linked_courses: freeCourses.map((c) => ({ id: c.id, title: c.title, slug: c.slug })),
+      linked_courses: freeCourses.map((c) => ({ id: c.id, title: c.title, slug: c.slug, ai_professor_enabled: c.ai_professor_enabled })),
       locked_courses: lockedCourses,
       modules,
       last_attempt: enrollment.exam_attempts[0] ?? null,
@@ -291,40 +291,58 @@ export class LearningService {
     const enrollment = await this.prisma.enrollment.findFirst({
       where: { id: enrollmentId, user_id: userId, status: "active" },
       include: {
-        certification: {
-          select: {
-            id: true, title: true, ai_professor_enabled: true,
-            prep_courses: { select: { id: true }, where: { status: "active" } },
-          },
-        },
+        certification: { select: { id: true, title: true, ai_professor_enabled: true } },
       },
     });
     if (!enrollment) throw new ForbiddenException("No active enrollment found");
-    if (!enrollment.certification.ai_professor_enabled) {
-      throw new BadRequestException("The AI Professor isn't enabled for this certification.");
-    }
 
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       select: {
         title: true, content_body: true,
-        module: { select: { certification_id: true, course_id: true } },
+        module: {
+          select: {
+            certification_id: true, course_id: true,
+            course: { select: { title: true, ai_professor_enabled: true } },
+          },
+        },
       },
     });
     if (!lesson) throw new NotFoundException("Lesson not found");
 
-    // Same ownership check as getLessonContent — without it a student could
-    // probe excerpts of lessons outside their enrollment via this endpoint.
+    // Same ownership check as getLessonContent (free required courses bundle
+    // their lessons into this same certification enrollment) — without it a
+    // student could probe excerpts of lessons outside their enrollment via
+    // this endpoint.
     const certId = enrollment.certification.id;
-    const linkedCourseIds = new Set(enrollment.certification.prep_courses.map((c) => c.id));
     const belongsToCert = lesson.module.certification_id === certId;
-    const belongsToLinkedCourse = !!lesson.module.course_id && linkedCourseIds.has(lesson.module.course_id);
-    if (!belongsToCert && !belongsToLinkedCourse) {
+    let belongsToFreeLinkedCourse = false;
+    if (!belongsToCert && lesson.module.course_id) {
+      const rec = await this.prisma.courseCertRecommendation.findUnique({
+        where: { course_id_certification_id: { course_id: lesson.module.course_id, certification_id: certId } },
+      });
+      belongsToFreeLinkedCourse = !!rec && rec.is_required && rec.is_free;
+    }
+    if (!belongsToCert && !belongsToFreeLinkedCourse) {
       throw new ForbiddenException("Lesson is not part of your enrollment");
     }
 
+    // The toggle is set per certification AND per bundled course
+    // independently (an admin can enable it on one without the other) — so
+    // whichever one actually owns this lesson is the one that governs here.
+    const aiProfessorEnabled = belongsToFreeLinkedCourse
+      ? !!lesson.module.course?.ai_professor_enabled
+      : !!enrollment.certification.ai_professor_enabled;
+    if (!aiProfessorEnabled) {
+      throw new BadRequestException("The AI Professor isn't enabled for this course.");
+    }
+
+    const courseTitle = belongsToFreeLinkedCourse
+      ? (lesson.module.course?.title ?? enrollment.certification.title)
+      : enrollment.certification.title;
+
     return this.aiService.chatWithAiProfessor({
-      courseTitle: enrollment.certification.title,
+      courseTitle,
       lessonTitle: lesson.title,
       lessonExcerpt: stripHtmlExcerpt(lesson.content_body),
       message: dto.message,

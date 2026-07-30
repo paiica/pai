@@ -311,6 +311,17 @@ export default function CoursePlayerLayout({ children }: { children: React.React
   const activeGroupKey = manualGroupKey ?? activeGroupKeyFromLesson ?? courseGroups[0]?.key ?? null;
   const activeGroup = courseGroups.find((g) => g.key === activeGroupKey) ?? courseGroups[0];
 
+  // The AI Professor toggle is set per certification AND per bundled course
+  // independently (admin can enable it on one without the other) — so which
+  // flag applies depends on whether the lesson actually being viewed is the
+  // certification's own native content or came from one of its bundled free
+  // courses. Deliberately keyed off the real lesson's group (not activeGroup,
+  // which can briefly diverge via the sidebar's manual course switcher).
+  const currentLessonGroupKey = activeGroupKeyFromLesson ?? courseGroups[0]?.key ?? null;
+  const aiProfessorEnabled = currentLessonGroupKey === "cert"
+    ? !!cert?.ai_professor_enabled
+    : !!linkedCourses.find((c) => c.id === currentLessonGroupKey)?.ai_professor_enabled;
+
   const totalCompleted = allLessons.filter((l) => l.completed).length;
   const progressPct =
     allLessons.length > 0
@@ -628,12 +639,12 @@ export default function CoursePlayerLayout({ children }: { children: React.React
         )}
       </div>
 
-      {currentLessonId && cert?.ai_professor_enabled && (
+      {currentLessonId && aiProfessorEnabled && (
         <AiProfessorWidget
           enrollmentId={enrollmentId}
           lessonId={currentLessonId}
           lessonTitle={allLessons[currentIdx]?.title ?? ""}
-          courseTitle={cert?.title ?? ""}
+          courseTitle={allLessons[currentIdx]?.groupLabel ?? cert?.title ?? ""}
           apiBasePath="/learn"
         />
       )}
