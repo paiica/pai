@@ -426,7 +426,21 @@ export class PrepCoursesService {
     }));
   }
 
-  // ─── Submissions & Grading (professor) ────────────────────────────────
+  // ─── Students & Submissions (professor) ───────────────────────────────
+
+  async getCourseStudents(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    return this.prisma.courseEnrollment.findMany({
+      where: { course_id: courseId },
+      include: {
+        user: {
+          select: { id: true, email: true, last_login_at: true, profile: { select: { first_name: true, last_name: true, avatar_url: true, display_name: true, phone: true, country: true } } },
+        },
+        _count: { select: { lesson_progress: { where: { completed: true } }, assignment_submissions: true } },
+      },
+      orderBy: { enrolled_at: "desc" },
+    });
+  }
 
   async getCourseSubmissions(courseId: string, userId: string, role: Role) {
     await this.assertTeacherAccess(courseId, userId, role);
@@ -435,7 +449,7 @@ export class PrepCoursesService {
         lesson: { module: { course_id: courseId } },
       },
       include: {
-        user: { include: { profile: { select: { first_name: true, last_name: true, display_name: true } } } },
+        user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, display_name: true } } } },
         lesson: { select: { id: true, title: true, max_score: true, due_date: true } },
       },
       orderBy: { submitted_at: "desc" },

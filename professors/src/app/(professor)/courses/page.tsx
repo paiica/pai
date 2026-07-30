@@ -73,9 +73,12 @@ export default function ProfCoursesPage() {
                 <span className="flex items-center gap-1">
                   <BookOpen size={14} /> {course.module_count ?? 0} modules
                 </span>
-                <span className="flex items-center gap-1">
+                <Link
+                  href={`/courses/${course.id}/students`}
+                  className="flex items-center gap-1 hover:text-navy-700 hover:underline transition-colors"
+                >
                   <Users size={14} /> {course.enrollment_count ?? 0} students
-                </span>
+                </Link>
               </div>
               <div className="flex items-center gap-2 ml-4">
                 <Link

@@ -49,7 +49,7 @@ export class CoursesService {
         },
         instructors: {
           include: {
-            user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } } },
+            user: { select: { id: true, profile: { select: { first_name: true, last_name: true, avatar_url: true } } } },
           },
         },
       },
@@ -89,7 +89,7 @@ export class CoursesService {
         faqs: { orderBy: { sort_order: "asc" } },
         instructors: {
           include: {
-            user: { include: { profile: { select: {
+            user: { select: { id: true, profile: { select: {
               first_name: true, last_name: true, avatar_url: true, bio: true,
               job_title: true, company: true, years_experience: true,
               education_entries: true, experience_entries: true,
@@ -145,7 +145,7 @@ export class CoursesService {
         include: {
           _count: { select: { modules: true, enrollments: true } },
           instructors: {
-            include: { user: { include: { profile: { select: { first_name: true, last_name: true } } } } },
+            include: { user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } } },
           },
         },
         orderBy: { sort_order: "asc" },
@@ -181,7 +181,7 @@ export class CoursesService {
           },
         },
         instructors: {
-          include: { user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } } } },
+          include: { user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, avatar_url: true } } } } },
         },
       },
     });
@@ -435,7 +435,7 @@ export class CoursesService {
       where: { certification_id: certId, status: "active" },
       include: {
         user: {
-          include: { profile: { select: { first_name: true, last_name: true, avatar_url: true, display_name: true } } },
+          select: { id: true, email: true, last_login_at: true, profile: { select: { first_name: true, last_name: true, avatar_url: true, display_name: true, phone: true, country: true } } },
         },
         _count: { select: { lesson_progress: { where: { completed: true } }, assignment_submissions: true } },
       },
@@ -450,7 +450,7 @@ export class CoursesService {
         lesson: { module: { certification_id: certId } },
       },
       include: {
-        user: { include: { profile: { select: { first_name: true, last_name: true, display_name: true } } } },
+        user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, display_name: true } } } },
         lesson: { select: { id: true, title: true, max_score: true, due_date: true } },
       },
       orderBy: { submitted_at: "desc" },
@@ -506,7 +506,7 @@ export class CoursesService {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { certification_id: certId },
       include: {
-        user: { include: { profile: { select: { first_name: true, last_name: true } } } },
+        user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
         lesson_progress: { where: { quiz_passed: { not: null } } },
         assignment_submissions: { where: { grade: { not: null } } },
       },
@@ -544,7 +544,7 @@ export class CoursesService {
         faqs: { orderBy: { sort_order: "asc" } },
         modules: { orderBy: { sort_order: "asc" }, include: { _count: { select: { lessons: true } } } },
         instructors: {
-          include: { user: { include: { profile: { select: { first_name: true, last_name: true, avatar_url: true } } } } },
+          include: { user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, avatar_url: true } } } } },
         },
       },
     });
@@ -640,7 +640,7 @@ export class CoursesService {
         include: {
           _count: { select: { modules: true, enrollments: true, applications: true } },
           instructors: {
-            include: { user: { include: { profile: { select: { first_name: true, last_name: true } } } } },
+            include: { user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } } },
           },
         },
         orderBy: { sort_order: "asc" },

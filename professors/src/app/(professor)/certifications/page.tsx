@@ -61,9 +61,12 @@ export default function ProfCertificationsPage() {
                 <p className="text-sm text-slate-500 truncate">{cert.title}</p>
               </div>
               <div className="hidden sm:flex items-center gap-6 text-sm text-slate-500">
-                <span className="flex items-center gap-1">
+                <Link
+                  href={`/certifications/${cert.id}/students`}
+                  className="flex items-center gap-1 hover:text-navy-700 hover:underline transition-colors"
+                >
                   <Users size={14} /> {cert._count?.enrollments ?? 0} students
-                </span>
+                </Link>
               </div>
               <div className="flex items-center gap-2 ml-4">
                 <Link

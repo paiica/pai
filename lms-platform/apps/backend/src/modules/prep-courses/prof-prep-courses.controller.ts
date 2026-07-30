@@ -269,6 +269,16 @@ export class ProfPrepCoursesController {
     return this.service.profDeleteQuestion(lessonId, questionId, userId, role);
   }
 
+  @Get(":courseId/students")
+  @ApiOperation({ summary: "Get enrolled students with progress" })
+  getStudents(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.getCourseStudents(courseId, userId, role);
+  }
+
   @Get(":courseId/submissions")
   @ApiOperation({ summary: "List assignment submissions for this course" })
   getSubmissions(
