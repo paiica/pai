@@ -693,12 +693,27 @@ export class CoursesService {
   async findFeaturedCertifications() {
     return this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.slug, c.acronym, c.title, c.level::text, c.status::text,
-             c.badge_icon, c.price, c.description, c.sort_order,
+             c.badge_icon, c.price, c.description, c.sort_order, c.is_flagship,
              c.marketing_meta
       FROM lms.certifications c
       WHERE c.status IN ('active', 'coming_soon') AND c.is_featured = true
       ORDER BY c.sort_order ASC
     `);
+  }
+
+  // Persists the exact display order for the homepage's Featured
+  // Certifications carousel — `sort_order` previously defaulted to the same
+  // value (99) for every certification, so ties fell back to whatever
+  // arbitrary order Postgres happened to return, which could silently
+  // change after any unrelated update. Sequential values here make it
+  // deterministic and admin-controlled.
+  async adminReorderFeaturedCertifications(orderedIds: string[]) {
+    await this.prisma.$transaction(
+      orderedIds.map((id, i) =>
+        this.prisma.certification.update({ where: { id }, data: { sort_order: i } }),
+      ),
+    );
+    return { message: "Order updated" };
   }
 
   async adminUpdateCertification(certId: string, dto: any) {

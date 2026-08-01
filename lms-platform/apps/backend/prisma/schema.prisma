@@ -493,6 +493,11 @@ model Certification {
   required_documents    String[] @default([])
 
   is_featured           Boolean  @default(false)
+  // Highlighted with a teal border on the homepage's Featured Certifications
+  // carousel — distinct from `is_featured` (which just controls inclusion in
+  // that carousel at all) and from the unrelated "Most Popular" badge stored
+  // in marketing_meta.is_most_popular.
+  is_flagship           Boolean  @default(false)
   ai_professor_enabled  Boolean  @default(false)
   // Holders of this certification (an active/expired/lapsed Certificate, not
   // revoked) get this % off prep course purchases — the best discount among

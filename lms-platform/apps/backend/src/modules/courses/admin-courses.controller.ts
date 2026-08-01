@@ -42,6 +42,12 @@ export class AdminCoursesController {
     return this.coursesService.adminGetAllCertifications();
   }
 
+  @Put("featured-order")
+  @ApiOperation({ summary: "Set the display order for the homepage's Featured Certifications carousel" })
+  reorderFeatured(@Body("ordered_ids") orderedIds: string[]) {
+    return this.coursesService.adminReorderFeaturedCertifications(orderedIds ?? []);
+  }
+
   @Get(":certId")
   @ApiOperation({ summary: "Get a single certification with full detail" })
   getOne(@Param("certId", ParseUUIDPipe) certId: string) {

@@ -31,6 +31,7 @@ type CertCard = {
   description: string;
   popular: string;
   status?: string;
+  flagship?: boolean;
 };
 
 function Shape({ type, color }: { type: string; color: string }) {
@@ -59,7 +60,8 @@ function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
     <div className={cn(
       "relative flex-shrink-0 w-[85vw] max-w-[330px] h-[500px] rounded-2xl overflow-hidden flex flex-col border",
       theme.bg,
-      theme.dark ? "border-white/10" : "border-sand-300"
+      theme.dark ? "border-white/10" : "border-sand-300",
+      cert.flagship && "flagship-card"
     )}>
       <div className="relative h-[165px] overflow-hidden">
         <Shape type={theme.shapeType} color={theme.shapeColor} />
@@ -130,6 +132,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
             description: c.description ?? "",
             popular:     meta.is_most_popular ? "true" : "false",
             status:      c.status ?? "active",
+            flagship:    !!c.is_flagship,
           };
         }));
       })

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Save, ExternalLink } from "lucide-react";
+import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Save, ExternalLink, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -598,18 +598,57 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
 
   const [featuredCerts, setFeaturedCerts] = useState<any[] | null>(null);
   const [loadingCerts,  setLoadingCerts]  = useState(true);
+  const [reordering,    setReordering]    = useState(false);
+  const [togglingId,    setTogglingId]    = useState<string | null>(null);
 
-  useEffect(() => {
+  function loadFeatured() {
     const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
-    fetch(`${API}/courses/featured`)
+    return fetch(`${API}/courses/featured`)
       .then((r) => r.json())
       .then((json) => {
         const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
         setFeaturedCerts(items);
       })
-      .catch(() => setFeaturedCerts([]))
-      .finally(() => setLoadingCerts(false));
+      .catch(() => setFeaturedCerts([]));
+  }
+
+  useEffect(() => {
+    loadFeatured().finally(() => setLoadingCerts(false));
   }, []);
+
+  // Reordering and the flagship toggle both edit the certification records
+  // directly (not this block's own `content`), so they save immediately on
+  // click rather than waiting for the block's "Save" button — same as how
+  // "Manage" already routes straight to the certification editor.
+  async function moveFeatured(index: number, direction: -1 | 1) {
+    if (!featuredCerts) return;
+    const target = index + direction;
+    if (target < 0 || target >= featuredCerts.length) return;
+    const reordered = [...featuredCerts];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    setFeaturedCerts(reordered);
+    setReordering(true);
+    try {
+      await api.put("/admin/certifications/featured-order", { ordered_ids: reordered.map((c) => c.id) }, token);
+    } catch {
+      toast.error("Failed to save order");
+      await loadFeatured();
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  async function toggleFlagship(cert: any) {
+    setTogglingId(cert.id);
+    try {
+      await api.patch(`/admin/certifications/${cert.id}`, { is_flagship: !cert.is_flagship }, token);
+      setFeaturedCerts((prev) => prev?.map((c) => (c.id === cert.id ? { ...c, is_flagship: !c.is_flagship } : c)) ?? prev);
+    } catch {
+      toast.error("Failed to update flagship status");
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -666,7 +705,30 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
             {featuredCerts.map((cert: any, i: number) => {
               const meta = typeof cert.marketing_meta === "object" && cert.marketing_meta !== null ? cert.marketing_meta : {};
               return (
-                <div key={cert.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div key={cert.id} className={cn(
+                  "flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                  cert.is_flagship ? "bg-teal-50/60 border-teal-200" : "bg-slate-50 border-slate-100",
+                )}>
+                  <div className="flex flex-col flex-shrink-0 -my-1">
+                    <button
+                      type="button"
+                      onClick={() => moveFeatured(i, -1)}
+                      disabled={i === 0 || reordering}
+                      title="Move up"
+                      className="p-0.5 text-slate-400 hover:text-navy-700 disabled:opacity-25 disabled:hover:text-slate-400 transition-colors"
+                    >
+                      <ChevronUp size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveFeatured(i, 1)}
+                      disabled={i === featuredCerts.length - 1 || reordering}
+                      title="Move down"
+                      className="p-0.5 text-slate-400 hover:text-navy-700 disabled:opacity-25 disabled:hover:text-slate-400 transition-colors"
+                    >
+                      <ChevronDown size={13} />
+                    </button>
+                  </div>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: CERT_THEME_COLORS[i % 4] }} />
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-bold text-navy-900">{cert.acronym}</span>
@@ -674,7 +736,24 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
                     {meta.is_most_popular && (
                       <span className="ml-2 text-[10px] font-semibold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">Most Popular</span>
                     )}
+                    {cert.is_flagship && (
+                      <span className="ml-2 text-[10px] font-semibold bg-teal-500 text-white px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
+                        <Sparkles size={9} /> Flagship
+                      </span>
+                    )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleFlagship(cert)}
+                    disabled={togglingId === cert.id}
+                    title={cert.is_flagship ? "Remove flagship highlight" : "Mark as flagship (teal highlight on homepage)"}
+                    className={cn(
+                      "p-1.5 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50",
+                      cert.is_flagship ? "text-teal-600 hover:bg-teal-100" : "text-slate-300 hover:text-teal-600 hover:bg-white",
+                    )}
+                  >
+                    {togglingId === cert.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  </button>
                   <Link href={`/certifications/${cert.id}`} className="p-1.5 text-slate-400 hover:text-navy-600 hover:bg-white rounded-lg transition-colors flex-shrink-0" title="Edit this certification">
                     <Edit2 size={12} />
                   </Link>
@@ -692,6 +771,7 @@ function CertificationsEditor({ block, token, onSave }: { block: Block; token: s
 
         <p className="text-[10px] text-slate-400 leading-relaxed">
           Card content (title, description, level) is pulled live from each certification. Archive a cert or turn off "Featured" to remove it from this block.
+          Use the arrows to reorder — the top card here is first on the homepage. Click the sparkle to highlight a card as flagship (teal border). Both save immediately.
         </p>
       </div>
 
