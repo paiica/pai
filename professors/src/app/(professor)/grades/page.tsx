@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import { FileText, CheckCircle, Download } from "lucide-react";
@@ -21,6 +22,8 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function ProfGradesPage() {
   const token = useAuthStore((s) => s.accessToken)!;
+  const searchParams = useSearchParams();
+  const certFromQuery = searchParams.get("cert");
   const [selectedCertId, setSelectedCertId] = useState<string>("");
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradeInput, setGradeInput] = useState("");
@@ -31,7 +34,7 @@ export default function ProfGradesPage() {
     ([url, t]) => fetcher(url, t)
   );
 
-  const activeCertId = selectedCertId || certs?.[0]?.id;
+  const activeCertId = selectedCertId || certFromQuery || certs?.[0]?.id;
 
   const { data: submissions, mutate } = useSWR(
     activeCertId && token ? [`/prof/certifications/${activeCertId}/submissions`, token] : null,

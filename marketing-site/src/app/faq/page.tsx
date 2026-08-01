@@ -32,7 +32,7 @@ const FAQS = [
     category: "Certifications & Programs",
     items: [
       { q: "Do I need a technical background to enroll?", a: "No. PAII certifications are designed for business professionals, not engineers. CAIP, CAIM, and CAIE require no programming or data science background. CAIDA benefits from familiarity with data tools but doesn't require coding." },
-      { q: "Which certification should I start with?", a: "87% of PAII professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (executive) based on your role." },
+      { q: "Which certification should I start with?", a: "87% of PAII professionals start with CAIP regardless of seniority. It establishes a common foundation. After CAIP, choose CAIM (management), CAIDA (data), or CAIE (Educator) based on your role." },
       { q: "Can I take multiple certifications?", a: "Yes. Many professionals complete CAIP followed by CAIM or CAIDA. CAIP alumni receive a 15% discount on subsequent certifications." },
       { q: "Are there prerequisites?", a: "CAIP has no prerequisites. CAIM and CAIDA recommend CAIP but don't require it. CAIE is designed for senior professionals and recommends 3+ years in a leadership role." },
     ],
@@ -49,7 +49,7 @@ const FAQS = [
     category: "The Exam",
     items: [
       { q: "How is the exam delivered?", a: "Online, proctored through our secure testing platform. You can take it from home or office. You'll need a webcam, government ID, and a quiet space." },
-      { q: "What happens if I fail?", a: "Two retakes are included in your enrollment fee. If you fail a third time, additional retakes are $99 each. Detailed score reports guide your preparation." },
+      { q: "What happens if I fail?", a: "One retake is included in your enrollment fee. If you fail a second time, additional retake is for $99. Detailed score reports guide your preparation." },
       { q: "How long is the exam?", a: "CAIP, CAIM, and CAIDA: 90 minutes, 75 questions. CAIE: 75 minutes, 60 questions. All are multiple-choice." },
       { q: "When can I take the exam?", a: "You can schedule your exam at any time after completing all required modules. No cohort deadlines — take it when you're ready." },
     ],
@@ -59,7 +59,7 @@ const FAQS = [
     items: [
       { q: "How long is the certification valid?", a: "CAIP, CAIM, and CAIDA are valid for 2 years. CAIE is valid for 3 years. Renewal involves a shorter recertification exam or continuing education credits." },
       { q: "How do employers verify my credential?", a: "Each certificate includes a unique ID and QR code. Employers can verify instantly at paii.ca/verify. You can also add your credential directly to LinkedIn." },
-      { q: "Are PAII credentials recognized internationally?", a: "Yes. PAII credentials are recognized by employers across 48 countries. Our ISO 17024-aligned framework aligns with international standards for professional certifications." },
+      { q: "Are PAII credentials recognized internationally?", a: "Yes. PAII credentials are recognized by employers across 48 countries. Our ISO/IEC 17024:2026-aligned framework aligns with international standards for professional certifications." },
     ],
   },
   {

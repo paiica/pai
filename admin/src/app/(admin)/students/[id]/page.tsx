@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { EnrollmentActions } from "@/components/EnrollmentActions";
 import { DeleteCourseEnrollmentButton } from "@/components/CourseEnrollmentActions";
+import { RequiredCourseWaivers } from "@/components/RequiredCourseWaivers";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -238,6 +239,8 @@ function CertificationCard({ enrollment, token, studentName, onRefresh }: {
         {enrollment.assignment_submissions?.length > 0 && (
           <AssignmentList submissions={enrollment.assignment_submissions} />
         )}
+
+        <RequiredCourseWaivers enrollmentId={enrollment.id} token={token} />
 
         <EnrollmentActions row={enrollment} token={token} studentName={studentName} onRefresh={onRefresh} />
       </div>

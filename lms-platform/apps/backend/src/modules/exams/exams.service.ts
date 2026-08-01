@@ -99,6 +99,24 @@ export class ExamsService {
     });
   }
 
+  // Debounced client-side autosave — lets the exam room restore the
+  // student's in-progress picks after a crash/disconnect. Scoped to the
+  // owning student and only while the attempt is still in_progress, so a
+  // finished/expired attempt can't be tampered with after the fact.
+  async autosaveAnswers(userId: string, attemptId: string, answers: Record<string, number>) {
+    const attempt = await this.prisma.examAttempt.findFirst({
+      where: { id: attemptId, user_id: userId, status: ExamAttemptStatus.in_progress },
+      select: { id: true },
+    });
+    if (!attempt) throw new NotFoundException("Active exam attempt not found");
+
+    await this.prisma.examAttempt.update({
+      where: { id: attemptId },
+      data: { in_progress_answers: answers },
+    });
+    return { saved: true };
+  }
+
   async submitExam(userId: string, attemptId: string, answers: Record<string, number>) {
     const attempt = await this.prisma.examAttempt.findFirst({
       where: { id: attemptId, user_id: userId, status: ExamAttemptStatus.in_progress },

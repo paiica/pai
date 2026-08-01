@@ -1,6 +1,9 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { Role } from "@prisma/client";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
 import { AiService } from "./ai.service";
 
 // Custom in-memory storage that avoids importing multer v2 directly (ESM-only package).
@@ -30,13 +33,22 @@ export class AiController {
     return { text, filename: file.originalname };
   }
 
+  // Global AI provider config (which API key/model powers every AI Professor
+  // chat, exam generation, and content generation platform-wide) — admin
+  // only. The @UseGuards(JwtAuthGuard) at the class level only requires
+  // login, not a role, so without this any authenticated user (including a
+  // student) could overwrite the platform's provider keys.
   @Get("settings")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
   getSettings() {
     return this.aiService.getSettings();
   }
 
   @Patch("settings")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
   updateSettings(
     @Body() body: {
       provider?: string;
@@ -51,6 +63,8 @@ export class AiController {
 
   @Post("test")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
   testConnection() {
     return this.aiService.testConnection();
   }

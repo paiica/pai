@@ -126,6 +126,14 @@ enum CertificateStatus {
   @@schema("lms")
 }
 
+enum ExternalPduStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("lms")
+}
+
 enum ExamStatus {
   draft
   published
@@ -329,6 +337,9 @@ model User {
   event_registrations      EventRegistration[]
   admin_permission         AdminPermission?
   cart_items               CartItem[]
+  granted_course_waivers   EnrollmentCourseWaiver[] @relation("CourseWaiverGrantedBy")
+  external_pdu_submissions ExternalPduSubmission[] @relation("ExternalPduSubmissions")
+  reviewed_external_pdus   ExternalPduSubmission[] @relation("ExternalPduReviews")
 
   @@index([email])
   @@map("users")
@@ -713,6 +724,8 @@ model Course {
   prerequisites    CoursePrerequisite[] @relation("CourseHasPrereqs")
   required_for     CoursePrerequisite[] @relation("CourseIsPrereqFor")
 
+  enrollment_waivers EnrollmentCourseWaiver[]
+
   @@index([slug])
   @@index([status])
   @@map("courses")
@@ -989,11 +1002,33 @@ model Enrollment {
   exam_bookings           ExamBooking[]
   certificate             Certificate?
   assignment_submissions  AssignmentSubmission[]
+  course_waivers          EnrollmentCourseWaiver[]
 
   @@unique([user_id, certification_id])
   @@index([user_id])
   @@index([certification_id])
   @@map("enrollments")
+  @@schema("lms")
+}
+
+// Per-student, per-required-course exemption from the exam-booking
+// prerequisites in ExamsService.startExam() — lets an admin waive the
+// "must purchase" and "must complete" checks for one specific required
+// course on one specific certification enrollment, without touching the
+// requirement for any other student or any other required course.
+model EnrollmentCourseWaiver {
+  id             String     @id @default(uuid())
+  enrollment_id  String
+  enrollment     Enrollment @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  course_id      String
+  course         Course     @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  reason         String?    @db.Text
+  waived_by      String
+  waived_by_user User       @relation("CourseWaiverGrantedBy", fields: [waived_by], references: [id])
+  waived_at      DateTime   @default(now())
+
+  @@unique([enrollment_id, course_id])
+  @@map("enrollment_course_waivers")
   @@schema("lms")
 }
 
@@ -1108,6 +1143,14 @@ model ExamAttempt {
   passed           Boolean?
 
   answers            Json?
+  // Debounced client-side autosave of the student's in-progress selections
+  // (question_id -> selected option index) while status is still
+  // in_progress — lets the exam room restore their picks after a crash/
+  // disconnect instead of only ever persisting on final submit. Distinct
+  // from `answers`, which holds the frozen question set (and, once
+  // submitted, the final graded answers) — this field is scratch space
+  // only and is never read for grading.
+  in_progress_answers Json?
   topic_breakdown    Json?
   proctor_session_id String?
 
@@ -1366,9 +1409,50 @@ model Certificate {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  external_pdu_submissions ExternalPduSubmission[]
+
   @@index([certificate_number])
   @@index([user_id])
   @@map("certificates")
+  @@schema("lms")
+}
+
+// Student-submitted external professional-development activity (a
+// conference, another provider's course, work experience, etc.) claimed
+// toward a certificate's PDU renewal requirement. Sits pending until an
+// admin reviews it and sets the actual PDU value — `requested_pdu_value`
+// is only the student's own suggestion, never counted until approved.
+// `certification_id` is denormalized from `certificate.certification_id`
+// purely so PDU-total queries don't need to join through Certificate.
+model ExternalPduSubmission {
+  id                String      @id @default(uuid())
+  user_id           String
+  user              User        @relation("ExternalPduSubmissions", fields: [user_id], references: [id], onDelete: Cascade)
+  certificate_id    String
+  certificate       Certificate @relation(fields: [certificate_id], references: [id], onDelete: Cascade)
+  certification_id  String
+
+  title               String
+  provider            String?
+  description         String?  @db.Text
+  activity_date       DateTime
+  proof_url           String?
+  requested_pdu_value Decimal? @db.Decimal(5, 2)
+
+  status            ExternalPduStatus @default(pending)
+  awarded_pdu_value Decimal?          @db.Decimal(5, 2)
+  reviewed_by       String?
+  reviewer          User?             @relation("ExternalPduReviews", fields: [reviewed_by], references: [id])
+  reviewed_at       DateTime?
+  rejection_reason  String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([certificate_id])
+  @@index([status])
+  @@map("external_pdu_submissions")
   @@schema("lms")
 }
 

@@ -225,7 +225,11 @@ export default function CourseDetailPage() {
 
   const { data: courseRaw, isLoading, error, mutate } = useSWR(
     token && courseId ? [`/admin/courses/${courseId}`, token] : null,
-    ([url, t]) => api.get<any>(url, t)
+    ([url, t]) => api.get<any>(url, t),
+    // Same reasoning as the certification editor: the effect below syncs
+    // `course` straight into the form unconditionally, so a background
+    // refetch on tab focus would wipe out unsaved edits.
+    { revalidateOnFocus: false }
   );
 
   const { data: certsRaw } = useSWR(

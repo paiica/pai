@@ -22,6 +22,31 @@ function asArray<T>(v: T | T[] | undefined | null): T[] {
 // No inbound resume support in v1 — LMSGetValue always returns "" for
 // unset keys, a valid "no prior data" SCORM response, so every visit
 // starts the SCO fresh (see plan: forward-tracking only).
+// Shared by both SCORM SCOs and "Preserve Original Design" Rise exports —
+// both render inside a cross-origin-hosted iframe, so the real player page
+// has no visibility into text selected in either one. Relays it out via the
+// same postMessage channel the SCORM progress bridge already proved works
+// cross-origin. Posts an empty text on collapse so the player can hide the
+// "Ask AI Professor" popup too.
+const SELECTION_RELAY_SCRIPT = `
+  document.addEventListener("selectionchange", function() {
+    var sel = window.getSelection();
+    var text = sel ? sel.toString().trim() : "";
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || text.length < 4) {
+      try { window.parent.postMessage({ type: "scorm-text-selected", text: "" }, "*"); } catch (e) {}
+      return;
+    }
+    var rect = sel.getRangeAt(0).getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+    try {
+      window.parent.postMessage({
+        type: "scorm-text-selected",
+        text: text,
+        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+      }, "*");
+    } catch (e) {}
+  });`;
+
 const SCORM_BRIDGE_SCRIPT = `(function(){
   var cmi = { "cmi.core.lesson_status": "not attempted", "cmi.core.score.raw": "" };
   function post(eventName) {
@@ -36,7 +61,7 @@ const SCORM_BRIDGE_SCRIPT = `(function(){
     LMSGetLastError: function() { return "0"; },
     LMSGetErrorString: function() { return "No error"; },
     LMSGetDiagnostic: function() { return ""; }
-  };
+  };${SELECTION_RELAY_SCRIPT}
 })();`;
 
 function injectScormBridge(htmlBuffer: Buffer): Buffer {
@@ -45,6 +70,17 @@ function injectScormBridge(htmlBuffer: Buffer): Buffer {
   const injected = /<head[^>]*>/i.test(html)
     ? html.replace(/<head[^>]*>/i, (m) => `${m}\n${bridge}`)
     : `${bridge}\n${html}`;
+  return Buffer.from(injected, "utf8");
+}
+
+// Same idea as injectScormBridge, but for "Preserve Original Design" Rise
+// exports, which have no API stub to attach to — just the selection relay.
+function injectSelectionRelay(htmlBuffer: Buffer): Buffer {
+  const html = htmlBuffer.toString("utf8");
+  const script = `<script>(function(){${SELECTION_RELAY_SCRIPT}})();</script>`;
+  const injected = /<head[^>]*>/i.test(html)
+    ? html.replace(/<head[^>]*>/i, (m) => `${m}\n${script}`)
+    : `${script}\n${html}`;
   return Buffer.from(injected, "utf8");
 }
 
@@ -165,14 +201,17 @@ export class ContentImportService {
       const relativePath = name.slice(contentRoot.length);
       if (!relativePath) continue;
 
+      const isIndex = relativePath === "index.html";
+      const data = isIndex ? injectSelectionRelay(entry.getData()) : entry.getData();
+
       const key = `${prefix}${relativePath}`;
       const url = await this.uploadsService.uploadBufferAtExactKey(
-        entry.getData(),
+        data,
         key,
         guessGeneralContentType(relativePath),
       );
       fileCount++;
-      if (relativePath === "index.html") indexUrl = url;
+      if (isIndex) indexUrl = url;
     }
 
     if (!indexUrl) {

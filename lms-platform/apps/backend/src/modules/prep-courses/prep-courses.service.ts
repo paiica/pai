@@ -603,8 +603,18 @@ export class PrepCoursesService {
     });
     if (!required.length) return [];
 
+    // Admin-granted, per-student per-course exemptions — see
+    // EnrollmentCourseWaiver. A waived course is treated as satisfied
+    // regardless of its actual purchase/completion state.
+    const waivers = await this.prisma.enrollmentCourseWaiver.findMany({
+      where: { enrollment_id: enrollmentId },
+      select: { course_id: true },
+    });
+    const waivedCourseIds = new Set(waivers.map((w) => w.course_id));
+
     const missing: string[] = [];
     for (const r of required) {
+      if (waivedCourseIds.has(r.course_id)) continue;
       let done: boolean;
       if (r.is_free) {
         // Free required course — bundled into the certification's own

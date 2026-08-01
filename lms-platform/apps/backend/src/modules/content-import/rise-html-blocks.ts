@@ -318,10 +318,40 @@ const LESSON_STYLE_BLOCK = `
   }
 </style>`;
 
+// Relays text selections back to the real player page — inert wherever
+// content_body renders via dangerouslySetInnerHTML (browsers never execute
+// <script> tags inserted that way, same reasoning as SORT_ENHANCER_SCRIPT
+// above), functional wherever it renders through a real document load
+// instead (the certification-track player's "html" lesson type uses
+// <iframe srcDoc="...">, a separate document the outer page's selection
+// detection can never see into). Same postMessage channel the SCORM
+// progress bridge already proved works cross-origin. Embedded in every
+// lesson via wrapLessonContent below, not conditionally per block, since a
+// student should be able to select and ask about any lesson's text.
+const SELECTION_RELAY_SCRIPT = `<script>(function(){
+  document.addEventListener("selectionchange", function() {
+    var sel = window.getSelection();
+    var text = sel ? sel.toString().trim() : "";
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || text.length < 4) {
+      try { window.parent.postMessage({ type: "scorm-text-selected", text: "" }, "*"); } catch (e) {}
+      return;
+    }
+    var rect = sel.getRangeAt(0).getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+    try {
+      window.parent.postMessage({
+        type: "scorm-text-selected",
+        text: text,
+        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+      }, "*");
+    } catch (e) {}
+  });
+})();</script>`;
+
 // Wraps a lesson's assembled block HTML with the shared stylesheet above —
 // call once per lesson (not per block), around the final joined string.
 export function wrapLessonContent(bodyHtml: string): string {
-  return `${LESSON_STYLE_BLOCK}\n<div class="pv-lesson">${bodyHtml}</div>`;
+  return `${LESSON_STYLE_BLOCK}\n<div class="pv-lesson">${bodyHtml}</div>\n${SELECTION_RELAY_SCRIPT}`;
 }
 
 // Every interactive block shares this shell — a teal-tinted card with a

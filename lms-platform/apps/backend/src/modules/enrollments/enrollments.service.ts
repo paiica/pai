@@ -117,7 +117,7 @@ export class EnrollmentsService {
     const [enrollments, total] = await this.prisma.$transaction([
       this.prisma.enrollment.findMany({
         include: {
-          user: { include: { profile: { select: { first_name: true, last_name: true } } } },
+          user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
           certification: { select: { acronym: true, title: true } },
         },
         skip,

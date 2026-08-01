@@ -14,6 +14,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import AiProfessorWidget from "@/components/AiProfessorWidget";
+import TextSelectionAskPopup from "@/components/TextSelectionAskPopup";
 import ContentZoomControl from "@/components/ContentZoomControl";
 import { useContentZoom } from "@/lib/useContentZoom";
 
@@ -211,6 +212,7 @@ export default function CoursePlayerLayout({ children }: { children: React.React
   const [search, setSearch] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [readingPct, setReadingPct] = useState(0);
+  const [pendingSelectionQuestion, setPendingSelectionQuestion] = useState<{ text: string; nonce: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const zoom = useContentZoom();
@@ -629,6 +631,13 @@ export default function CoursePlayerLayout({ children }: { children: React.React
           )}
         </main>
 
+        {currentLessonId && aiProfessorEnabled && (
+          <TextSelectionAskPopup
+            containerRef={mainRef}
+            onAsk={(text) => setPendingSelectionQuestion({ text, nonce: Date.now() })}
+          />
+        )}
+
         {notesOpen && currentLessonId && (
           <NotesPanel
             enrollmentId={enrollmentId}
@@ -646,6 +655,7 @@ export default function CoursePlayerLayout({ children }: { children: React.React
           lessonTitle={allLessons[currentIdx]?.title ?? ""}
           courseTitle={allLessons[currentIdx]?.groupLabel ?? cert?.title ?? ""}
           apiBasePath="/learn"
+          pendingSelectionQuestion={pendingSelectionQuestion}
         />
       )}
     </div>

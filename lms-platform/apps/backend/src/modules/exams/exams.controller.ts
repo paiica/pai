@@ -46,6 +46,16 @@ export class ExamsController {
     return this.examsService.submitExam(userId, attemptId, answers);
   }
 
+  @Patch("attempts/:attemptId/autosave")
+  @ApiOperation({ summary: "Debounced autosave of in-progress exam answers (not the final submission)" })
+  autosave(
+    @CurrentUser("id") userId: string,
+    @Param("attemptId", ParseUUIDPipe) attemptId: string,
+    @Body("answers") answers: Record<string, number>,
+  ) {
+    return this.examsService.autosaveAnswers(userId, attemptId, answers ?? {});
+  }
+
   @Get("enrollments/:enrollmentId/attempts")
   @ApiOperation({ summary: "Get exam attempt history for enrollment" })
   getAttempts(

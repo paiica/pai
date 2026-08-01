@@ -1020,6 +1020,139 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
   );
 }
 
+const EXTERNAL_PDU_STATUS_STYLE: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-700 border border-amber-100",
+  approved: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+  rejected: "bg-red-50 text-red-600 border border-red-100",
+};
+
+/* ── External PDU submission form ────────────────────────────────────── */
+function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
+  certificateId: string; token: string; onSubmitted: () => void; onCancel: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState("");
+  const [provider, setProvider] = useState("");
+  const [description, setDescription] = useState("");
+  const [activityDate, setActivityDate] = useState("");
+  const [requestedValue, setRequestedValue] = useState("");
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofName, setProofName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleFile(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/uploads/document`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message ?? `Upload failed (${res.status})`);
+      }
+      const json = await res.json();
+      const { file_url, file_name } = json.data ?? json;
+      setProofUrl(file_url);
+      setProofName(file_name ?? file.name);
+    } catch (err: any) {
+      toast.error(`Failed to upload ${file.name}: ${err.message ?? "unknown error"}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!title.trim()) return toast.error("Title is required");
+    if (!activityDate) return toast.error("Activity date is required");
+    setSubmitting(true);
+    try {
+      await api.post(`/certificates/${certificateId}/external-pdus`, {
+        title: title.trim(),
+        provider: provider.trim() || undefined,
+        description: description.trim() || undefined,
+        activity_date: activityDate,
+        proof_url: proofUrl ?? undefined,
+        requested_pdu_value: requestedValue ? Number(requestedValue) : undefined,
+      }, token);
+      toast.success("Submitted for admin review");
+      onSubmitted();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Activity title *</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. AI in Healthcare Summit 2026"
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Provider / organizer</label>
+          <input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder="e.g. Coursera, IEEE, employer training"
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Description</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+          placeholder="What did this activity cover?"
+          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white resize-none" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Date completed *</label>
+          <input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Suggested PDU value (optional)</label>
+          <input type="number" min={0} step={0.5} value={requestedValue} onChange={(e) => setRequestedValue(e.target.value)}
+            placeholder="Admin will confirm the final value"
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Proof (certificate, receipt, attendance letter)</label>
+        <input ref={fileRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files)} />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-2.5 text-xs font-semibold text-slate-500 hover:border-teal-400 hover:text-teal-600 transition-colors disabled:opacity-50"
+        >
+          {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+          {proofName ? proofName : uploading ? "Uploading…" : "Attach a file (optional)"}
+        </button>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button onClick={onCancel} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-2">
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting || uploading}
+          className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {submitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+          Submit for Review
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Renewal ──────────────────────────────────────────────────────────── */
 function RenewalSection({ certificateId, token }: { certificateId: string; token: string }) {
   const { data, mutate } = useSWR(
@@ -1028,6 +1161,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
     { revalidateOnFocus: true },
   );
   const [renewing, setRenewing] = useState(false);
+  const [showExternalForm, setShowExternalForm] = useState(false);
 
   const progress: any = data?.data ?? data ?? null;
   if (!progress || progress.pdu_required <= 0) return null;
@@ -1091,6 +1225,57 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
                 ))}
               </div>
             )}
+
+            {/* External PDU submissions */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">External PDU Credits</p>
+                {!showExternalForm && (
+                  <button
+                    onClick={() => setShowExternalForm(true)}
+                    className="text-xs font-semibold text-teal-600 hover:text-teal-800"
+                  >
+                    + Submit External PDU
+                  </button>
+                )}
+              </div>
+
+              {showExternalForm && (
+                <ExternalPduForm
+                  certificateId={certificateId}
+                  token={token}
+                  onCancel={() => setShowExternalForm(false)}
+                  onSubmitted={() => { setShowExternalForm(false); mutate(); }}
+                />
+              )}
+
+              {progress.external_pdus?.length > 0 ? (
+                <div className="space-y-2">
+                  {progress.external_pdus.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
+                      <div className="min-w-0">
+                        <p className="text-slate-700 truncate">{s.title}</p>
+                        {s.status === "rejected" && s.rejection_reason && (
+                          <p className="text-[11px] text-red-500 mt-0.5">{s.rejection_reason}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        {s.status === "approved" && (
+                          <span className="text-xs font-semibold text-slate-400">
+                            {Number(s.awarded_pdu_value)} PDU{Number(s.awarded_pdu_value) !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        <span className={cn("badge text-[10px]", EXTERNAL_PDU_STATUS_STYLE[s.status])}>{s.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !showExternalForm && (
+                <p className="text-xs text-slate-400">
+                  Attended a conference or another provider's course? Submit it for admin approval to count it toward this PDU requirement.
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
               <p className="text-xs text-slate-400">

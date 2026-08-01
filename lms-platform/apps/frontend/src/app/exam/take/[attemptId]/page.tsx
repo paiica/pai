@@ -123,6 +123,31 @@ export default function ExamTakePage() {
   const [result, setResult] = useState<any | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const submittedRef = useRef(false);
+  const answersRestoredRef = useRef(false);
+
+  // Restore any answers autosaved before a crash/disconnect on a previous
+  // visit to this same in-progress attempt — only once, so it never
+  // overwrites answers the student has already started picking this visit.
+  useEffect(() => {
+    if (answersRestoredRef.current) return;
+    if (attempt?.in_progress_answers && typeof attempt.in_progress_answers === "object") {
+      answersRestoredRef.current = true;
+      setAnswers(attempt.in_progress_answers);
+    }
+  }, [attempt]);
+
+  // Debounced autosave — fire-and-forget, mirrors the paiiexams exam room.
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!attempt || attempt.status !== "in_progress" || result) return;
+    if (Object.keys(answers).length === 0) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      if (!token) return;
+      api.patch(`/exams/attempts/${attemptId}/autosave`, { answers }, token).catch(() => {});
+    }, 1500);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, [answers, attempt, result, token, attemptId]);
 
   const remainingMs = useExamTimer(
     attempt?.time_limit_seconds ?? null,

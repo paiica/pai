@@ -799,7 +799,11 @@ export default function CertEditorPage() {
   const { data, isLoading, error, mutate } = useSWR(
     accessToken && id ? [`/admin/certifications/${id}`, accessToken] : null,
     ([url, token]) => api.get<any>(url, token),
-    { shouldRetryOnError: true, errorRetryInterval: 3000 }
+    // revalidateOnFocus is off because the effect below syncs `cert` straight
+    // into every form field unconditionally — a background refetch on tab
+    // focus would silently overwrite whatever the admin is mid-typing with
+    // stale (pre-edit) server data.
+    { shouldRetryOnError: true, errorRetryInterval: 3000, revalidateOnFocus: false }
   );
 
   const cert: Cert | null = data?.data ?? data ?? null;
@@ -885,9 +889,17 @@ export default function CertEditorPage() {
   const [ptMntHeadline,    setPtMntHeadline]    = useState("");
   const [ptMntBody,        setPtMntBody]        = useState("");
   const [ptMntItems,       setPtMntItems]       = useState<string[]>([]);
+  const certInitialized = useRef(false);
 
+  // Only sync server data into the form once. SWR can still revalidate this
+  // key in the background (on reconnect, or a stale remount) even with
+  // revalidateOnFocus off — without this guard, that revalidation would
+  // silently overwrite every field with the untouched server data while the
+  // admin is mid-edit.
   useEffect(() => {
     if (!cert) return;
+    if (certInitialized.current) return;
+    certInitialized.current = true;
     setIsFeatured(cert.is_featured ?? false);
     setAiProfessorEnabled(cert.ai_professor_enabled ?? false);
     setAcronym(cert.acronym ?? "");
@@ -1057,6 +1069,7 @@ export default function CertEditorPage() {
   const { data: certCoursesRaw, mutate: mutateCertCourses } = useSWR(
     accessToken && id && tab === "prep_courses" ? [`/admin/certifications/${id}/courses`, accessToken] : null,
     ([url, token]) => api.get<any>(url, token),
+    { revalidateOnFocus: false },
   );
   const certCourses: any[] = (() => {
     const d = (certCoursesRaw as any)?.data ?? certCoursesRaw;
@@ -1066,9 +1079,17 @@ export default function CertEditorPage() {
   const [requiredCourseIds, setRequiredCourseIds] = useState<string[]>([]);
   const [freeCourseIds, setFreeCourseIds] = useState<string[]>([]);
   const [savingCourses, setSavingCourses] = useState(false);
+  const certCoursesInitialized = useRef(false);
 
+  // This fetch's key is gated on `tab === "prep_courses"`, so every time the
+  // admin leaves this tab and comes back, SWR re-subscribes to the key and
+  // revalidates — even with revalidateOnFocus off. Without the `initialized`
+  // guard, that revalidation re-ran this sync and overwrote whatever the
+  // admin had just checked/unchecked with the untouched server data.
   useEffect(() => {
     if (!certCourses.length) return;
+    if (certCoursesInitialized.current) return;
+    certCoursesInitialized.current = true;
     setSelectedCourseIds(certCourses.filter((c) => c.is_selected).map((c) => c.id));
     setRequiredCourseIds(certCourses.filter((c) => c.is_required).map((c) => c.id));
     setFreeCourseIds(certCourses.filter((c) => c.is_free).map((c) => c.id));

@@ -6,6 +6,7 @@ import { createHash, randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
 import { MailService } from "../mail/mail.service";
+import { CertificatesService } from "../certificates/certificates.service";
 
 @Injectable()
 export class UsersService {
@@ -14,6 +15,7 @@ export class UsersService {
     private email: EmailService,
     private config: ConfigService,
     private mail: MailService,
+    private certificates: CertificatesService,
   ) {}
 
   async findById(id: string) {
@@ -85,20 +87,14 @@ export class UsersService {
     ]);
 
     // Attach PDU-earned + eligibility to each issued certificate — same
-    // computation CertificatesService.getRenewalProgress uses.
+    // computation CertificatesService.getRenewalProgress uses, scoped the
+    // same way (only activity since the certificate was last renewed, or
+    // issued if never renewed, counts).
     const enrollmentsWithRenewal = await Promise.all(
       enrollments.map(async (e) => {
         if (!e.certificate || !e.certification) return e;
-        const pduRows = await this.prisma.$queryRawUnsafe<any[]>(`
-          SELECT COALESCE(SUM(c.pdu_value), 0)::float AS total
-          FROM lms.course_enrollments ce
-          JOIN lms.courses c ON c.id = ce.course_id
-          WHERE ce.user_id = $1
-            AND ce.completed_at IS NOT NULL
-            AND (c.certification_id = $2
-                 OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
-        `, userId, e.certification.id);
-        const pduEarned = pduRows[0]?.total ?? 0;
+        const sinceDate = e.certificate.renewed_at ?? e.certificate.issued_at;
+        const pduEarned = await this.certificates.computePduEarned(userId, e.certification.id, sinceDate);
         const pduRequired = e.certification.renewal_pdu_required;
         const windowOpensAt = new Date(e.certificate.expires_at);
         windowOpensAt.setDate(windowOpensAt.getDate() - e.certification.renewal_window_days);

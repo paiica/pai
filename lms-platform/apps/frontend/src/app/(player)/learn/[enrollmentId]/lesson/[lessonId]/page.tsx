@@ -355,20 +355,44 @@ function HtmlLesson({
   // trusted — anything else on the page could otherwise spoof progress.
   useEffect(() => {
     function onScormMessage(event: MessageEvent) {
-      if (event.data?.type !== "scorm-event") return;
+      // Text-selection relays are trusted more loosely than progress events
+      // below: a sandboxed srcDoc iframe (no allow-same-origin) can have an
+      // opaque-origin contentWindow reference that doesn't always compare
+      // === equal to what the parent captured earlier in some browsers, and
+      // showing a popup with the wrong text is low-stakes compared to
+      // trusting a fake progress/grade report.
+      if (event.data?.type === "scorm-text-selected") {
+        const frame = iframeRef.current;
+        if (!frame) return;
+        const text: string = event.data.text ?? "";
+        if (!text) {
+          window.dispatchEvent(new CustomEvent("paii:lesson-frame-selection", { detail: null }));
+          return;
+        }
+        const frameRect = frame.getBoundingClientRect();
+        const r = event.data.rect ?? { left: 0, top: 0, width: 0, height: 0 };
+        window.dispatchEvent(new CustomEvent("paii:lesson-frame-selection", {
+          detail: { text, x: frameRect.left + r.left + r.width / 2, y: frameRect.top + r.top },
+        }));
+        return;
+      }
+
       if (event.source !== iframeRef.current?.contentWindow) return;
-      const cmi = event.data.cmi ?? {};
-      const status = cmi["cmi.core.lesson_status"];
-      const completed = status === "completed" || status === "passed";
-      const rawScore = cmi["cmi.core.score.raw"];
-      const score = rawScore !== undefined && rawScore !== "" && !Number.isNaN(Number(rawScore))
-        ? Number(rawScore)
-        : undefined;
-      api.post<any>(
-        `/learn/${enrollmentId}/lesson/${lesson.id}/scorm-progress`,
-        { completed, score, cmi_snapshot: cmi },
-        token
-      ).then(() => { if (completed) onComplete(); }).catch(() => {});
+
+      if (event.data?.type === "scorm-event") {
+        const cmi = event.data.cmi ?? {};
+        const status = cmi["cmi.core.lesson_status"];
+        const completed = status === "completed" || status === "passed";
+        const rawScore = cmi["cmi.core.score.raw"];
+        const score = rawScore !== undefined && rawScore !== "" && !Number.isNaN(Number(rawScore))
+          ? Number(rawScore)
+          : undefined;
+        api.post<any>(
+          `/learn/${enrollmentId}/lesson/${lesson.id}/scorm-progress`,
+          { completed, score, cmi_snapshot: cmi },
+          token
+        ).then(() => { if (completed) onComplete(); }).catch(() => {});
+      }
     }
     window.addEventListener("message", onScormMessage);
     return () => window.removeEventListener("message", onScormMessage);
@@ -409,6 +433,7 @@ function HtmlLesson({
       {lesson.content_body ? (
         <iframe
           key={lesson.id}
+          ref={iframeRef}
           srcDoc={lesson.content_body}
           className="flex-1 w-full rounded-xl border border-slate-200"
           title={lesson.title}

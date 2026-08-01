@@ -78,6 +78,7 @@ const COURSE_NAV = [
 const CERT_NAV = [
   { href: "/certifications", label: "Manage Certifications", icon: BookOpen },
   { href: "/certificates",   label: "Issued Certificates",   icon: Award    },
+  { href: "/certificates/external-pdus", label: "External PDU Requests", icon: ListChecks },
 ];
 
 const DESIGN_NAV = [

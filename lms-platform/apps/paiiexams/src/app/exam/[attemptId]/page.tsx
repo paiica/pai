@@ -291,6 +291,11 @@ function ExamRoomContent() {
         const qs: any[] = (data.answers as any)?.questions ?? [];
         setQuestions(qs);
         setTimeLeft(data.time_limit_seconds ?? 3600);
+        // Restore any answers autosaved before a crash/disconnect on a
+        // previous visit to this same in-progress attempt.
+        if (data.in_progress_answers && typeof data.in_progress_answers === "object") {
+          setAnswers(data.in_progress_answers);
+        }
         if (data.status !== "in_progress") {
           setSubmitted(true);
           setResult({ passed: data.passed, score: data.score_percentage, correct_answers: data.correct_answers, total_questions: data.total_questions });
@@ -317,6 +322,41 @@ function ExamRoomContent() {
     }, 1000);
     return () => clearInterval(timerRef.current!);
   }, [ready, submitted]);
+
+  // ── Autosave ──────────────────────────────────────────────────────────────────
+  // Debounced save of in-progress answers so a crash/disconnect before final
+  // submit doesn't lose the student's picks — restored on reload above.
+  // Fire-and-forget, same as the proctoring calls below; a failed autosave
+  // shouldn't interrupt the exam.
+
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!ready || submitted) return;
+    if (Object.keys(answers).length === 0) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      const token = accessToken;
+      if (!token || !attemptId) return;
+      api.patch(`/exams/attempts/${attemptId}/autosave`, { answers }, token).catch(() => {});
+    }, 1500);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, [answers, ready, submitted, accessToken, attemptId]);
+
+  // Flush immediately when the tab is hidden — the debounce above might not
+  // have fired yet if the student switches away right after answering.
+  useEffect(() => {
+    if (!ready || submitted) return;
+    function onVisibility() {
+      if (document.hidden) {
+        const token = accessToken;
+        if (!token || !attemptId || Object.keys(answers).length === 0) return;
+        api.patch(`/exams/attempts/${attemptId}/autosave`, { answers }, token).catch(() => {});
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [answers, ready, submitted, accessToken, attemptId]);
 
   // ── Fullscreen ────────────────────────────────────────────────────────────────
 

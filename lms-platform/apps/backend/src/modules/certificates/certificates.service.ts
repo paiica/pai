@@ -64,17 +64,35 @@ export class CertificatesService {
 
   // ─── Renewal ────────────────────────────────────────────────────────
 
-  private async computePduEarned(userId: string, certificationId: string): Promise<number> {
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+  // PDU credit only counts activity completed since the certificate was
+  // last renewed (or, before any renewal, since it was originally issued)
+  // — otherwise the courses a student took to earn the certificate the
+  // first time would satisfy every future renewal forever, which defeats
+  // the point of a *continuing*-education requirement. Sums both course
+  // completions and admin-approved external PDU submissions.
+  async computePduEarned(userId: string, certificationId: string, sinceDate: Date): Promise<number> {
+    const courseRows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT COALESCE(SUM(c.pdu_value), 0)::float AS total
       FROM lms.course_enrollments ce
       JOIN lms.courses c ON c.id = ce.course_id
       WHERE ce.user_id = $1
         AND ce.completed_at IS NOT NULL
+        AND ce.completed_at > $3
         AND (c.certification_id = $2
              OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
-    `, userId, certificationId);
-    return rows[0]?.total ?? 0;
+    `, userId, certificationId, sinceDate);
+    const coursePdu = courseRows[0]?.total ?? 0;
+
+    const externalAgg = await this.prisma.externalPduSubmission.aggregate({
+      where: {
+        user_id: userId, certification_id: certificationId,
+        status: "approved", activity_date: { gt: sinceDate },
+      },
+      _sum: { awarded_pdu_value: true },
+    });
+    const externalPdu = Number(externalAgg._sum.awarded_pdu_value ?? 0);
+
+    return coursePdu + externalPdu;
   }
 
   async getRenewalProgress(certificateId: string, userId: string) {
@@ -85,7 +103,8 @@ export class CertificatesService {
     if (!cert) throw new NotFoundException("Certificate not found");
     if (cert.user_id !== userId) throw new ForbiddenException("This is not your certificate");
 
-    const pduEarned = await this.computePduEarned(userId, cert.certification_id);
+    const sinceDate = cert.renewed_at ?? cert.issued_at;
+    const pduEarned = await this.computePduEarned(userId, cert.certification_id, sinceDate);
     const pduRequired = cert.certification.renewal_pdu_required;
 
     const windowOpensAt = new Date(cert.expires_at);
@@ -102,20 +121,29 @@ export class CertificatesService {
       now <= hardDeadline &&
       pduEarned >= pduRequired;
 
+    // `completed` reflects whether it counts toward THIS renewal cycle, not
+    // whether it was ever completed — a course finished before `sinceDate`
+    // no longer contributes PDUs, so it shouldn't show as satisfied here.
     const courses = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT DISTINCT c.id, c.title, c.slug, c.pdu_value::float AS pdu_value,
-             ce.completed_at IS NOT NULL AS completed, ce.progress_percentage
+             (ce.completed_at IS NOT NULL AND ce.completed_at > $3) AS completed, ce.progress_percentage
       FROM lms.courses c
       LEFT JOIN lms.course_enrollments ce ON ce.course_id = c.id AND ce.user_id = $1
       WHERE c.status = 'active'
         AND (c.certification_id = $2
              OR c.id IN (SELECT course_id FROM lms.course_cert_recommendations WHERE certification_id = $2))
       ORDER BY c.title
-    `, userId, cert.certification_id);
+    `, userId, cert.certification_id, sinceDate);
+
+    const externalPdus = await this.prisma.externalPduSubmission.findMany({
+      where: { certificate_id: certificateId },
+      orderBy: { created_at: "desc" },
+    });
 
     return {
       status: cert.status,
       expires_at: cert.expires_at,
+      since: sinceDate,
       pdu_earned: pduEarned,
       pdu_required: pduRequired,
       fee: cert.certification.renewal_fee,
@@ -123,7 +151,74 @@ export class CertificatesService {
       hard_deadline: hardDeadline,
       eligible,
       courses,
+      external_pdus: externalPdus,
     };
+  }
+
+  // ─── External PDU submissions ──────────────────────────────────────
+
+  async submitExternalPdu(userId: string, certificateId: string, dto: {
+    title: string; provider?: string; description?: string;
+    activity_date: string; proof_url?: string; requested_pdu_value?: number;
+  }) {
+    const cert = await this.prisma.certificate.findUnique({ where: { id: certificateId } });
+    if (!cert) throw new NotFoundException("Certificate not found");
+    if (cert.user_id !== userId) throw new ForbiddenException("This is not your certificate");
+    if (!dto.title?.trim()) throw new BadRequestException("Title is required");
+    if (!dto.activity_date) throw new BadRequestException("Activity date is required");
+    const activityDate = new Date(dto.activity_date);
+    if (isNaN(activityDate.getTime())) throw new BadRequestException("Invalid activity date");
+
+    return this.prisma.externalPduSubmission.create({
+      data: {
+        user_id: userId,
+        certificate_id: certificateId,
+        certification_id: cert.certification_id,
+        title: dto.title.trim(),
+        provider: dto.provider?.trim() || undefined,
+        description: dto.description?.trim() || undefined,
+        activity_date: activityDate,
+        proof_url: dto.proof_url || undefined,
+        requested_pdu_value: dto.requested_pdu_value ?? undefined,
+      },
+    });
+  }
+
+  async adminListExternalPdus(status?: string) {
+    return this.prisma.externalPduSubmission.findMany({
+      where: status ? { status: status as any } : undefined,
+      include: {
+        user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+        certificate: { select: { id: true, certificate_number: true, certification_acronym: true, certification_title: true } },
+        reviewer: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+      },
+      orderBy: { created_at: "asc" },
+    });
+  }
+
+  async adminApproveExternalPdu(submissionId: string, adminUserId: string, pduValue: number) {
+    if (pduValue == null || isNaN(pduValue) || pduValue < 0) {
+      throw new BadRequestException("A valid PDU value is required to approve this submission");
+    }
+    const sub = await this.prisma.externalPduSubmission.findUnique({ where: { id: submissionId } });
+    if (!sub) throw new NotFoundException("Submission not found");
+    if (sub.status !== "pending") throw new BadRequestException("This submission has already been reviewed");
+
+    return this.prisma.externalPduSubmission.update({
+      where: { id: submissionId },
+      data: { status: "approved", awarded_pdu_value: pduValue, reviewed_by: adminUserId, reviewed_at: new Date() },
+    });
+  }
+
+  async adminRejectExternalPdu(submissionId: string, adminUserId: string, reason?: string) {
+    const sub = await this.prisma.externalPduSubmission.findUnique({ where: { id: submissionId } });
+    if (!sub) throw new NotFoundException("Submission not found");
+    if (sub.status !== "pending") throw new BadRequestException("This submission has already been reviewed");
+
+    return this.prisma.externalPduSubmission.update({
+      where: { id: submissionId },
+      data: { status: "rejected", reviewed_by: adminUserId, reviewed_at: new Date(), rejection_reason: reason },
+    });
   }
 
   // Called only from the payments webhook after a successful renewal
@@ -270,7 +365,8 @@ export class CertificatesService {
       this.prisma.enrollment.findMany({
         include: {
           user: {
-            include: {
+            select: {
+              id: true, email: true,
               profile: { select: { first_name: true, last_name: true, avatar_url: true } },
             },
           },
@@ -472,7 +568,7 @@ export class CertificatesService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.certificate.findMany({
         include: {
-          user: { include: { profile: { select: { first_name: true, last_name: true } } } },
+          user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
           certification: { select: { acronym: true, title: true } },
         },
         skip,
@@ -482,5 +578,125 @@ export class CertificatesService {
       this.prisma.certificate.count(),
     ]);
     return { data: items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  // ─── Exam-prerequisite waivers (admin) ────────────────────────────────
+  // Lets an admin exempt one student from having to purchase/complete
+  // specific required courses before booking this certification's exam —
+  // see EnrollmentCourseWaiver and ExamsService.startExam's use of
+  // PrepCoursesService.getIncompleteRequiredCourses.
+
+  async getRequiredCourseWaivers(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { id: true, user_id: true, certification_id: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+
+    const required = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: enrollment.certification_id, is_required: true },
+      include: { course: { select: { id: true, title: true } } },
+    });
+    if (!required.length) return [];
+
+    const waivers = await this.prisma.enrollmentCourseWaiver.findMany({
+      where: { enrollment_id: enrollmentId },
+      include: {
+        waived_by_user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+      },
+    });
+    const waiverByCourse = new Map(waivers.map((w) => [w.course_id, w]));
+
+    return Promise.all(
+      required.map(async (r) => {
+        let purchased: boolean;
+        let completed: boolean;
+        if (r.is_free) {
+          const [total, done] = await Promise.all([
+            this.prisma.lesson.count({ where: { module: { course_id: r.course_id }, is_published: true } }),
+            this.prisma.lessonProgress.count({
+              where: {
+                enrollment_id: enrollmentId, user_id: enrollment.user_id, completed: true,
+                lesson: { module: { course_id: r.course_id } },
+              },
+            }),
+          ]);
+          purchased = true;
+          completed = total > 0 && done >= total;
+        } else {
+          const ce = await this.prisma.courseEnrollment.findFirst({
+            where: { user_id: enrollment.user_id, course_id: r.course_id },
+          });
+          purchased = !!ce;
+          completed = !!ce?.completed_at;
+        }
+        const waiver = waiverByCourse.get(r.course_id);
+        return {
+          course_id: r.course_id,
+          course_title: r.course.title,
+          is_free: r.is_free,
+          purchased,
+          completed,
+          waived: !!waiver,
+          waiver: waiver
+            ? { reason: waiver.reason, waived_at: waiver.waived_at, waived_by: waiver.waived_by_user }
+            : null,
+        };
+      }),
+    );
+  }
+
+  private async assertRequiredCourse(certificationId: string, courseId: string) {
+    const rec = await this.prisma.courseCertRecommendation.findFirst({
+      where: { certification_id: certificationId, course_id: courseId, is_required: true },
+    });
+    if (!rec) throw new BadRequestException("This course is not a required course for this certification");
+  }
+
+  async setCourseWaiver(enrollmentId: string, courseId: string, adminUserId: string, reason?: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { certification_id: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+    await this.assertRequiredCourse(enrollment.certification_id, courseId);
+
+    return this.prisma.enrollmentCourseWaiver.upsert({
+      where: { enrollment_id_course_id: { enrollment_id: enrollmentId, course_id: courseId } },
+      create: { enrollment_id: enrollmentId, course_id: courseId, reason, waived_by: adminUserId },
+      update: { reason, waived_by: adminUserId, waived_at: new Date() },
+    });
+  }
+
+  async removeCourseWaiver(enrollmentId: string, courseId: string) {
+    await this.prisma.enrollmentCourseWaiver.deleteMany({
+      where: { enrollment_id: enrollmentId, course_id: courseId },
+    });
+    return { message: "Exemption removed" };
+  }
+
+  async waiveAllRequiredCourses(enrollmentId: string, adminUserId: string, reason?: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { certification_id: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+
+    const required = await this.prisma.courseCertRecommendation.findMany({
+      where: { certification_id: enrollment.certification_id, is_required: true },
+      select: { course_id: true },
+    });
+    if (!required.length) return { message: "No required courses on this certification" };
+
+    await this.prisma.$transaction(
+      required.map((r) =>
+        this.prisma.enrollmentCourseWaiver.upsert({
+          where: { enrollment_id_course_id: { enrollment_id: enrollmentId, course_id: r.course_id } },
+          create: { enrollment_id: enrollmentId, course_id: r.course_id, reason, waived_by: adminUserId },
+          update: { reason, waived_by: adminUserId, waived_at: new Date() },
+        }),
+      ),
+    );
+    return { message: `Exempted ${required.length} required course(s)` };
   }
 }

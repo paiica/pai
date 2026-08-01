@@ -29,11 +29,14 @@ export class CoursesService {
   // ─── Public ──────────────────────────────────────────────────────────
 
   // member_discount_percentage is an internal pricing lever (set by admins,
-  // consumed server-side at course checkout) — it has no public UI and isn't
-  // meant to be readable by anyone hitting these public endpoints, so it's
-  // stripped from both public responses below.
-  private omitInternalFields<T extends { member_discount_percentage?: unknown }>(cert: T): Omit<T, "member_discount_percentage"> {
-    const { member_discount_percentage: _omit, ...rest } = cert;
+  // consumed server-side at course checkout), and stripe_price_id is an
+  // internal Stripe integration detail — neither has a public UI or any
+  // reason to be readable by anyone hitting these public endpoints, so both
+  // are stripped from both public responses below.
+  private omitInternalFields<T extends { member_discount_percentage?: unknown; stripe_price_id?: unknown }>(
+    cert: T,
+  ): Omit<T, "member_discount_percentage" | "stripe_price_id"> {
+    const { member_discount_percentage: _omit1, stripe_price_id: _omit2, ...rest } = cert;
     return rest;
   }
 

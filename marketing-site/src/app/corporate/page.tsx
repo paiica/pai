@@ -32,7 +32,7 @@ const TIERS = [
     name: "Team",
     seats: "3–9 seats",
     discount: "15% off",
-    price: "From $1,101/seat",
+    price: "From $1,201/seat",
     features: ["All certification programs", "Team dashboard", "Bulk enrollment", "Email support"],
     cta: "Get Quote",
     popular: false,

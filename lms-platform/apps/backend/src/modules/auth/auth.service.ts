@@ -816,7 +816,11 @@ export class AuthService {
   }
 
   private sanitizeUser(user: any) {
-    const { password_hash, email_verify_token, affiliate_profile, ...safe } = user;
+    const {
+      password_hash, email_verify_token, email_verify_token_expires_at,
+      email_change_token_hash, email_change_expires_at, pending_email,
+      pending_referral_code, affiliate_profile, ...safe
+    } = user;
 
     // Flatten affiliate_profile fields for any user who has one (sales_rep or multi-role)
     if (affiliate_profile) {

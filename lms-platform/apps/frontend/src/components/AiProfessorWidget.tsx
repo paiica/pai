@@ -20,13 +20,16 @@ const SUGGESTED_PROMPTS = [
 // apiBasePath is the only thing that differs between them ("/learn" for
 // certification-track, "/prep-courses/learn" for prep-course-track).
 export default function AiProfessorWidget({
-  enrollmentId, lessonId, lessonTitle, courseTitle, apiBasePath,
+  enrollmentId, lessonId, lessonTitle, courseTitle, apiBasePath, pendingSelectionQuestion,
 }: {
   enrollmentId: string;
   lessonId: string;
   lessonTitle: string;
   courseTitle: string;
   apiBasePath: "/learn" | "/prep-courses/learn";
+  // Bumping `nonce` (even with the same text) triggers a fresh ask — set
+  // when the student clicks "Ask AI Professor" on a text selection.
+  pendingSelectionQuestion?: { text: string; nonce: number } | null;
 }) {
   const token = useAuthStore((s) => s.accessToken);
   const [open, setOpen] = useState(false);
@@ -47,6 +50,19 @@ export default function AiProfessorWidget({
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  // A selected-text "Ask AI Professor" click opens the widget and asks
+  // about that passage directly, instead of making the student re-type
+  // what they just highlighted.
+  useEffect(() => {
+    if (!pendingSelectionQuestion) return;
+    const excerpt = pendingSelectionQuestion.text.length > 500
+      ? pendingSelectionQuestion.text.slice(0, 500) + "…"
+      : pendingSelectionQuestion.text;
+    setOpen(true);
+    send(`Can you help me understand this part?\n\n"${excerpt}"`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSelectionQuestion?.nonce]);
 
   async function send(text: string) {
     const trimmed = text.trim();
