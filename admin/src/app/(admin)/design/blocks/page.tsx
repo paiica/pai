@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Save, ExternalLink, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
+import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Film, Save, ExternalLink, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -161,9 +161,34 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
   });
   const [activeSlide, setActiveSlide] = useState(0);
   const [saving, setSaving]           = useState(false);
+  const [uploading, setUploading]     = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   function upd(key: keyof HeroSlide, val: string) {
     setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, [key]: val } : s));
+  }
+
+  async function uploadHeroFile(file: File, key: "image_url" | "video_url", setBusy: (v: boolean) => void) {
+    setBusy(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/uploads/local?purpose=hero`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const url: string = data?.url ?? data?.data?.url;
+      if (!url) throw new Error();
+      upd(key, url);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function toggleOverlay() {
@@ -221,8 +246,64 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
         <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-xs text-slate-500">
           <ImageIcon size={12} /> Background image or video (leave both blank to use gradient)
         </div>
-        <Field label="Image URL" value={s.image_url} onChange={(v) => upd("image_url", v)} placeholder="https://... or leave blank for gradient" />
-        <Field label="Video URL" value={s.video_url} onChange={(v) => upd("video_url", v)} placeholder="https://.../background.mp4 — optional, plays muted and looped" />
+
+        <div className="flex items-center gap-3">
+          <label className={cn(
+            "flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed cursor-pointer transition-colors flex-shrink-0 overflow-hidden bg-white",
+            uploading ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:border-navy-300"
+          )}>
+            {uploading ? (
+              <Loader2 size={16} className="animate-spin text-blue-500" />
+            ) : s.image_url ? (
+              <img src={s.image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon size={18} className="text-slate-300" />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) uploadHeroFile(file, "image_url", setUploading);
+              }}
+            />
+          </label>
+          <div className="flex-1">
+            <Field label="Image URL" value={s.image_url} onChange={(v) => upd("image_url", v)} placeholder="Upload above, or paste a URL — leave blank for gradient" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className={cn(
+            "flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed cursor-pointer transition-colors flex-shrink-0 overflow-hidden bg-white",
+            uploadingVideo ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:border-navy-300"
+          )}>
+            {uploadingVideo ? (
+              <Loader2 size={16} className="animate-spin text-blue-500" />
+            ) : s.video_url ? (
+              <video src={s.video_url} muted className="w-full h-full object-cover" />
+            ) : (
+              <Film size={18} className="text-slate-300" />
+            )}
+            <input
+              type="file"
+              accept="video/*"
+              className="hidden"
+              disabled={uploadingVideo}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) uploadHeroFile(file, "video_url", setUploadingVideo);
+              }}
+            />
+          </label>
+          <div className="flex-1">
+            <Field label="Video URL" value={s.video_url} onChange={(v) => upd("video_url", v)} placeholder="Upload above, or paste a direct .mp4 URL — optional, plays muted and looped" />
+          </div>
+        </div>
         {s.video_url && (
           <p className="text-[11px] text-slate-400 -mt-1.5">
             When a video is set it plays instead of the image. Use a direct .mp4 link (autoplay requires no audio) — the image above is still used as the poster frame while the video loads.
