@@ -21,10 +21,16 @@ describe("ExamsService — server-side exam integrity", () => {
     };
 
     const updateMock = jest.fn().mockResolvedValue(attempt);
+    // submitExam does its state transition via updateMany (status: in_progress
+    // guarded in the WHERE clause, so a concurrent duplicate submit gets
+    // count: 0 instead of re-grading) — mock it as succeeding once, matching
+    // the single-caller scenarios these tests exercise.
+    const updateManyMock = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       examAttempt: {
         findFirst: jest.fn().mockResolvedValue(attempt),
         update: updateMock,
+        updateMany: updateManyMock,
       },
       examBank: {
         findMany: jest.fn().mockResolvedValue([{ id: "q1", correct_index: 0 }]),
@@ -33,22 +39,37 @@ describe("ExamsService — server-side exam integrity", () => {
 
     const certificates = { issue: jest.fn().mockResolvedValue({}) } as any;
     const mail = {} as any;
+    const prepCourses = {} as any;
 
-    const service = new ExamsService(prisma, mail, certificates);
-    return { service, prisma, certificates, updateMock, attempt };
+    const service = new ExamsService(prisma, mail, certificates, prepCourses);
+    return { service, prisma, certificates, updateMock, updateManyMock, attempt };
   }
 
   it("fails a submission that arrives after the time limit even with a perfect score", async () => {
-    const { service, updateMock, certificates } = buildService();
+    const { service, updateManyMock, certificates } = buildService();
 
     const result = await service.submitExam("user-1", "attempt-1", { q1: 0 });
 
     expect(result.passed).toBe(false);
     expect(result.timed_out).toBe(true);
-    expect(updateMock).toHaveBeenCalledWith(
+    expect(updateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ passed: false, status: ExamAttemptStatus.failed }) }),
     );
     // A failed/timed-out attempt must never trigger certificate issuance.
+    expect(certificates.issue).not.toHaveBeenCalled();
+  });
+
+  it("rejects a duplicate concurrent submit instead of re-grading or re-issuing a certificate", async () => {
+    const { service, updateManyMock, certificates } = buildService({
+      started_at: new Date(Date.now() - 60 * 1000),
+    });
+    // Simulate losing the race: another request already flipped this attempt
+    // out of in_progress, so the WHERE-guarded updateMany matches zero rows.
+    updateManyMock.mockResolvedValue({ count: 0 });
+
+    await expect(service.submitExam("user-1", "attempt-1", { q1: 0 })).rejects.toThrow(
+      "This exam attempt was already submitted",
+    );
     expect(certificates.issue).not.toHaveBeenCalled();
   });
 

@@ -7,6 +7,7 @@ import { Role } from "@prisma/client";
 import { ExamsService } from "./exams.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
+import { ExamAnswerAccessGuard } from "../../common/guards/exam-answer-access.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 
@@ -142,18 +143,18 @@ export class ExamsController {
   // ── Admin: Exam Bank ───────────────────────────────────────────────────────
 
   @Get("admin/exam-bank")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: list exam bank questions for a certification (optionally filtered by exam)" })
   adminListExamBank(
-    @Query("certification_id") certificationId: string,
-    @Query("exam_id") examId?: string,
+    @Query("certification_id", new ParseUUIDPipe()) certificationId: string,
+    @Query("exam_id", new ParseUUIDPipe({ optional: true })) examId?: string,
   ) {
     return this.examsService.adminListExamBank(certificationId, examId);
   }
 
   @Post("admin/exam-bank")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: create exam bank question" })
   adminCreateQuestion(@Body() dto: any) {
@@ -161,7 +162,7 @@ export class ExamsController {
   }
 
   @Patch("admin/exam-bank/:id")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: update exam bank question" })
   adminUpdateQuestion(@Param("id", ParseUUIDPipe) id: string, @Body() dto: any) {
@@ -195,7 +196,7 @@ export class ExamsController {
   }
 
   @Get("admin/structured-exams/:id")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: get structured exam with all sections/questions" })
   adminGetStructuredExam(@Param("id", ParseUUIDPipe) id: string) {
@@ -273,7 +274,7 @@ export class ExamsController {
   // ── Admin: Questions ──────────────────────────────────────────────────────
 
   @Post("admin/sections/:sectionId/questions")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: add question to section" })
   adminCreateSectionQuestion(@Param("sectionId", ParseUUIDPipe) sectionId: string, @Body() dto: any) {
@@ -281,7 +282,7 @@ export class ExamsController {
   }
 
   @Patch("admin/questions/:questionId")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: update question" })
   adminUpdateSectionQuestion(@Param("questionId", ParseUUIDPipe) questionId: string, @Body() dto: any) {
@@ -297,7 +298,7 @@ export class ExamsController {
   }
 
   @Put("admin/questions/:questionId/options")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: replace all options for a question" })
   adminReplaceOptions(@Param("questionId", ParseUUIDPipe) questionId: string, @Body("options") options: any[]) {
@@ -313,7 +314,7 @@ export class ExamsController {
   }
 
   @Get("admin/attempts/:attemptId")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ExamAnswerAccessGuard)
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: get attempt detail with per-question breakdown by section" })
   adminGetAttemptDetail(@Param("attemptId", ParseUUIDPipe) attemptId: string) {
@@ -325,10 +326,11 @@ export class ExamsController {
   @Roles(Role.admin, Role.super_admin)
   @ApiOperation({ summary: "Admin: override attempt score and pass status" })
   adminOverrideScore(
+    @CurrentUser("id") adminId: string,
     @Param("attemptId", ParseUUIDPipe) attemptId: string,
-    @Body() dto: { score_percentage: number; passed: boolean },
+    @Body() dto: { score_percentage: number; passed: boolean; override_reason: string },
   ) {
-    return this.examsService.adminOverrideScore(attemptId, dto);
+    return this.examsService.adminOverrideScore(attemptId, adminId, dto);
   }
 
   @Get("admin/attempts/:attemptId/proctor-events")

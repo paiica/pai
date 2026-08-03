@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
-import { ExamAttemptStatus } from "@prisma/client";
+import { ExamAttemptStatus, Prisma } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
@@ -36,10 +36,6 @@ export class ExamsService {
       throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
     }
 
-    const existingAttempts = await this.prisma.examAttempt.count({
-      where: { enrollment_id: enrollmentId },
-    });
-
     const inProgress = await this.prisma.examAttempt.findFirst({
       where: { enrollment_id: enrollmentId, status: ExamAttemptStatus.in_progress },
     });
@@ -56,18 +52,8 @@ export class ExamsService {
       });
     }
 
-    const maxAttempts = enrollment.certification.max_retakes_included + 1;
-    if (existingAttempts >= maxAttempts) {
-      throw new BadRequestException("Maximum exam attempts reached. You'll need to register again to continue toward this certification.");
-    }
-    // Attempt 1 is included in the enrollment fee. Every attempt after that
-    // is a retake, and each one requires its own paid retake credit — the
-    // original attempt failing doesn't automatically grant a free retry.
-    if (existingAttempts >= 1 && enrollment.paid_retakes < existingAttempts) {
-      throw new BadRequestException("This retake requires payment. Purchase a retake to continue.");
-    }
-
-    // Sample questions from exam bank
+    // Sample questions from exam bank up front — this read doesn't need to be
+    // inside the serializable transaction below.
     const bankQuestions = await this.prisma.examBank.findMany({
       where: { certification_id: enrollment.certification_id, is_active: true },
       take: enrollment.certification.exam_questions_count,
@@ -85,18 +71,66 @@ export class ExamsService {
       topic_tag: q.topic_tag,
     }));
 
-    return this.prisma.examAttempt.create({
-      data: {
-        user_id: userId,
-        enrollment_id: enrollmentId,
-        attempt_number: existingAttempts + 1,
-        status: ExamAttemptStatus.in_progress,
-        total_questions: questions.length,
-        passing_score: enrollment.certification.passing_score,
-        time_limit_seconds: enrollment.certification.exam_duration_minutes * 60,
-        answers: { questions },
-      },
-    });
+    return this.createAttemptSerialized(userId, enrollmentId, enrollment, questions);
+  }
+
+  // Shared by both the self-serve start path (above) and the booked-session
+  // start path (ExamSessionsService.startExamFromBooking) so the two can't
+  // race each other into creating two simultaneously in_progress attempts —
+  // or into both reading the same existing-attempt count and both slipping
+  // past the retake cap. The attempt-count check and the insert happen inside
+  // one SERIALIZABLE transaction: Postgres detects the conflict between any
+  // two concurrent transactions touching the same enrollment's attempt rows
+  // and aborts one with error 40001, regardless of which code path started
+  // it, which we catch below and turn into a clean rejection.
+  async createAttemptSerialized(
+    userId: string,
+    enrollmentId: string,
+    enrollment: { paid_retakes: number; certification: { max_retakes_included: number; exam_questions_count: number; passing_score: number; exam_duration_minutes: number } },
+    questions: any[],
+    durationSecondsOverride?: number,
+  ) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existingAttempts = await tx.examAttempt.count({ where: { enrollment_id: enrollmentId } });
+
+        const maxAttempts = enrollment.certification.max_retakes_included + 1;
+        if (existingAttempts >= maxAttempts) {
+          throw new BadRequestException("Maximum exam attempts reached. You'll need to register again to continue toward this certification.");
+        }
+        // Attempt 1 is included in the enrollment fee. Every attempt after that
+        // is a retake, and each one requires its own paid retake credit — the
+        // original attempt failing doesn't automatically grant a free retry.
+        if (existingAttempts >= 1 && enrollment.paid_retakes < existingAttempts) {
+          throw new BadRequestException("This retake requires payment. Purchase a retake to continue.");
+        }
+
+        const stillInProgress = await tx.examAttempt.count({
+          where: { enrollment_id: enrollmentId, status: ExamAttemptStatus.in_progress },
+        });
+        if (stillInProgress > 0) {
+          throw new BadRequestException("An exam attempt is already in progress for this enrollment.");
+        }
+
+        return tx.examAttempt.create({
+          data: {
+            user_id: userId,
+            enrollment_id: enrollmentId,
+            attempt_number: existingAttempts + 1,
+            status: ExamAttemptStatus.in_progress,
+            total_questions: questions.length,
+            passing_score: enrollment.certification.passing_score,
+            time_limit_seconds: durationSecondsOverride ?? enrollment.certification.exam_duration_minutes * 60,
+            answers: { questions },
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e;
+      // Postgres serialization failure (40001) — a concurrent start request for
+      // this same enrollment won the race.
+      throw new BadRequestException("Please try again — another request for this exam was already being processed.");
+    }
   }
 
   // Debounced client-side autosave — lets the exam room restore the
@@ -131,7 +165,10 @@ export class ExamsService {
     const elapsedSeconds = Math.floor((Date.now() - attempt.started_at.getTime()) / 1000);
     const limitSeconds = attempt.time_limit_seconds;
     const timedOut = limitSeconds != null && elapsedSeconds > limitSeconds + EXAM_GRACE_SECONDS;
-    const timeUsedSeconds = limitSeconds != null ? Math.min(elapsedSeconds, limitSeconds) : elapsedSeconds;
+    // Record the true elapsed time rather than clamping to the limit — the grace
+    // window is only meant to forgive submission latency for the pass/fail cutoff
+    // above, not to hide how much time was actually used from the stored record.
+    const timeUsedSeconds = elapsedSeconds;
 
     // Grade
     const bankQuestions = await this.prisma.examBank.findMany({
@@ -153,8 +190,14 @@ export class ExamsService {
     // of score, so a manipulated client-side timer can never buy extra attempt time.
     const passed = !timedOut && scorePercentage >= attempt.passing_score;
 
-    await this.prisma.examAttempt.update({
-      where: { id: attemptId },
+    // Atomic status transition, guarded on status still being in_progress in the
+    // WHERE clause: if two submit requests race for the same attempt (a network
+    // retry, a double-fire), only the one that actually flips in_progress -> a
+    // final status gets `count: 1` and proceeds to issue a certificate and send
+    // the result email. The loser gets `count: 0` and is rejected below instead
+    // of re-grading and re-triggering those side effects a second time.
+    const { count } = await this.prisma.examAttempt.updateMany({
+      where: { id: attemptId, user_id: userId, status: ExamAttemptStatus.in_progress },
       data: {
         status: passed ? ExamAttemptStatus.passed : ExamAttemptStatus.failed,
         correct_answers: correct,
@@ -165,6 +208,9 @@ export class ExamsService {
         answers: { questions, submitted_answers: answers, timed_out: timedOut },
       },
     });
+    if (count === 0) {
+      throw new BadRequestException("This exam attempt was already submitted");
+    }
 
     if (passed) {
       await this.certificates.issue(attempt.enrollment_id, scorePercentage).catch(() => {
@@ -410,7 +456,21 @@ export class ExamsService {
     return { ...attempt, sections };
   }
 
-  async adminOverrideScore(attemptId: string, dto: { score_percentage: number; passed: boolean }) {
+  async adminOverrideScore(
+    attemptId: string,
+    adminId: string,
+    dto: { score_percentage: number; passed: boolean; override_reason: string },
+  ) {
+    if (typeof dto.score_percentage !== "number" || !Number.isFinite(dto.score_percentage) || dto.score_percentage < 0 || dto.score_percentage > 100) {
+      throw new BadRequestException("score_percentage must be a number between 0 and 100");
+    }
+    if (typeof dto.passed !== "boolean") {
+      throw new BadRequestException("passed must be a boolean");
+    }
+    if (typeof dto.override_reason !== "string" || dto.override_reason.trim().length === 0) {
+      throw new BadRequestException("override_reason is required — this action issues/revokes a certification and must be justified for the audit trail");
+    }
+
     const attempt = await this.prisma.examAttempt.findUnique({ where: { id: attemptId } });
     if (!attempt) throw new NotFoundException("Attempt not found");
     const updated = await this.prisma.examAttempt.update({
@@ -419,6 +479,9 @@ export class ExamsService {
         score_percentage: dto.score_percentage,
         passed: dto.passed,
         status: dto.passed ? ExamAttemptStatus.passed : ExamAttemptStatus.failed,
+        overridden_by: adminId,
+        overridden_at: new Date(),
+        override_reason: dto.override_reason.trim(),
       },
     });
 

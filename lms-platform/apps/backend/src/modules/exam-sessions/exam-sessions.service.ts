@@ -9,6 +9,7 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { PrepCoursesService } from "../prep-courses/prep-courses.service";
+import { ExamsService } from "../exams/exams.service";
 
 @Injectable()
 export class ExamSessionsService {
@@ -18,6 +19,7 @@ export class ExamSessionsService {
     private config: ConfigService,
     private mail: MailService,
     private prepCourses: PrepCoursesService,
+    private examsService: ExamsService,
   ) {}
 
   // ── Admin: CRUD ────────────────────────────────────────────────────────────
@@ -293,17 +295,6 @@ export class ExamSessionsService {
       throw new BadRequestException(`Complete the following required course(s) before taking the exam: ${missingRequired.join(", ")}`);
     }
 
-    // Same cap startExam() enforces — without it, a student whose booked-session
-    // attempt timed out could keep re-triggering this endpoint for unlimited
-    // fresh attempts instead of being bound by their purchased retake count.
-    const existingCount = await this.prisma.examAttempt.count({
-      where: { enrollment_id: enrollment.id },
-    });
-    const maxAttempts = cert.max_retakes_included + 1;
-    if (existingCount >= maxAttempts) {
-      throw new BadRequestException("Maximum exam attempts reached. Purchase additional retakes.");
-    }
-
     const bankQuestions = await this.prisma.examBank.findMany({
       where: { certification_id: cert.id, is_active: true },
       take: cert.exam_questions_count,
@@ -321,18 +312,20 @@ export class ExamSessionsService {
       topic_tag: q.topic_tag,
     }));
 
-    const attempt = await this.prisma.examAttempt.create({
-      data: {
-        user_id: userId,
-        enrollment_id: enrollment.id,
-        attempt_number: existingCount + 1,
-        status: "in_progress",
-        total_questions: shuffled.length,
-        passing_score: cert.passing_score,
-        time_limit_seconds: session.duration_minutes * 60,
-        answers: { questions: shuffled },
-      },
-    });
+    // Delegates the retake-cap check + attempt insert to the same serialized
+    // path startExam() uses (see ExamsService.createAttemptSerialized), so a
+    // self-serve start and a booked-session start racing for the same
+    // enrollment can't both slip past the cap or both create an in_progress
+    // attempt. This also picks up the paid_retakes check that this booking
+    // path was missing on its own — a booking-based retake previously wasn't
+    // required to be a paid one the way startExam() requires.
+    const attempt = await this.examsService.createAttemptSerialized(
+      userId,
+      enrollment.id,
+      { paid_retakes: enrollment.paid_retakes, certification: cert },
+      shuffled,
+      session.duration_minutes * 60, // booked sessions use the session's own duration, not the cert default
+    );
 
     return { attemptId: attempt.id };
   }

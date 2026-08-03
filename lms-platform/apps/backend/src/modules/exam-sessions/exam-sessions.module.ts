@@ -6,12 +6,14 @@ import { ExamSessionsController } from "./exam-sessions.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { MailModule } from "../mail/mail.module";
 import { PrepCoursesModule } from "../prep-courses/prep-courses.module";
+import { ExamsModule } from "../exams/exams.module";
 
 @Module({
   imports: [
     PrismaModule,
     MailModule,
     PrepCoursesModule,
+    ExamsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

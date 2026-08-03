@@ -10,6 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface Props {
   initialValue?: string;
@@ -184,7 +185,7 @@ export function RichTextEditor({ initialValue = "", onChange, placeholder, minHe
             <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Preview</p>
             <div
               className="rte-content text-sm"
-              dangerouslySetInnerHTML={{ __html: rawHtml }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(rawHtml) }}
             />
           </div>
         </div>

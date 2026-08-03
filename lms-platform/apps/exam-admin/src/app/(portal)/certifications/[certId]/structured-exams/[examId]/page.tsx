@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { CodeEditor, CODE_LANGUAGES } from "@/components/CodeEditor";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -556,7 +557,7 @@ function QuestionForm({
               />
               <div className="flex-1 px-3 py-2.5 overflow-auto">
                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Live Preview</p>
-                <div className="text-slate-200 text-sm" dangerouslySetInnerHTML={{ __html: htmlContent || "<p class='text-slate-600 italic'>Nothing yet…</p>" }} />
+                <div className="text-slate-200 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) || "<p class='text-slate-600 italic'>Nothing yet…</p>" }} />
               </div>
             </div>
           </div>
@@ -825,7 +826,7 @@ function AiGeneratePanel({
                       <span className={`badge text-[10px] ${Q_TYPE_COLORS[q.type as QType] ?? "badge-slate"}`}>{Q_TYPE_LABELS[q.type as QType] ?? q.type}</span>
                       <span className="text-slate-600 text-[10px]">{q.points || 1} pt</span>
                     </div>
-                    <div className="rte-view text-xs line-clamp-2" dangerouslySetInnerHTML={{ __html: q.question_text }} />
+                    <div className="rte-view text-xs line-clamp-2" dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
                     {q.options?.length > 0 && (
                       <div className="mt-1.5 space-y-0.5">
                         {(q.options as any[]).slice(0, 3).map((opt, oi: number) => (
@@ -1320,7 +1321,7 @@ function SectionPanel({
                           )}
                         </div>
                         {/* Render HTML content */}
-                        <div className="rte-view" dangerouslySetInnerHTML={{ __html: q.question_text }} />
+                        <div className="rte-view" dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
 
                         {/* Image thumbnails */}
                         {q.images.length > 0 && (
@@ -1400,7 +1401,7 @@ function SectionPanel({
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
-                        <div className="rte-view text-xs" dangerouslySetInnerHTML={{ __html: aiSuggestion.data.question_text }} />
+                        <div className="rte-view text-xs" dangerouslySetInnerHTML={{ __html: sanitizeHtml(aiSuggestion.data.question_text) }} />
                         {aiSuggestion.data.options?.length > 0 && (
                           <div className="grid grid-cols-2 gap-1 mt-1">
                             {(aiSuggestion.data.options as any[]).map((opt, oi) => (
@@ -1472,7 +1473,7 @@ function SectionPanel({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         {page.title && <p className="text-white text-sm font-medium mb-1">{page.title}</p>}
-                        <div className="rte-view text-xs" dangerouslySetInnerHTML={{ __html: page.content }} />
+                        <div className="rte-view text-xs" dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }} />
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => startEditPage(page)} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
