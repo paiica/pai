@@ -9,7 +9,7 @@ export class EnrollmentsService {
     return this.prisma.enrollment.findMany({
       where: { user_id: userId },
       include: {
-        certification: { select: { id: true, slug: true, acronym: true, title: true, badge_icon: true, level: true, total_lessons: true } },
+        certification: { select: { id: true, slug: true, acronym: true, title: true, badge_icon: true, level: true, total_lessons: true, price: true } },
         _count: { select: { lesson_progress: { where: { completed: true } } } },
       },
       orderBy: { enrolled_at: "desc" },

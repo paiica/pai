@@ -152,7 +152,7 @@ export class AuthService {
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { profile: true, affiliate_profile: true },
+      include: { profile: true, affiliate_profile: true, organization_admin: { include: { organization: true } } },
     });
 
     if (!user) {
@@ -436,7 +436,7 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true, affiliate_profile: true },
+      include: { profile: true, affiliate_profile: true, organization_admin: { include: { organization: true } } },
     });
 
     if (!user) throw new NotFoundException("User not found");
@@ -819,7 +819,7 @@ export class AuthService {
     const {
       password_hash, email_verify_token, email_verify_token_expires_at,
       email_change_token_hash, email_change_expires_at, pending_email,
-      pending_referral_code, affiliate_profile, ...safe
+      pending_referral_code, affiliate_profile, organization_admin, ...safe
     } = user;
 
     // Flatten affiliate_profile fields for any user who has one (sales_rep or multi-role)
@@ -835,6 +835,20 @@ export class AuthService {
         commission_rate: Number(affiliate_profile.commission_rate),
         payout_method: affiliate_profile.payout_method ?? null,
         payout_details: affiliate_profile.payout_details ?? null,
+      };
+    }
+
+    // Flatten organization_admin fields for corporate/group account admins
+    // (org-portal's AuthGuard gates on organization_id being present here).
+    if (organization_admin) {
+      return {
+        ...safe,
+        first_name: user.profile?.first_name ?? null,
+        last_name: user.profile?.last_name ?? null,
+        phone: user.profile?.phone ?? null,
+        avatar_url: user.profile?.avatar_url ?? null,
+        organization_id: organization_admin.organization_id,
+        organization_name: organization_admin.organization?.name ?? null,
       };
     }
 

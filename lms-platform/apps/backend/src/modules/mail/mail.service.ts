@@ -94,6 +94,23 @@ export class MailService {
     return this.send({ to, subject: subject ?? "Reset your PAII password", html });
   }
 
+  // Reuses the same underlying set-a-password token mechanism as
+  // sendPasswordResetEmail — the invited employee logs into the same
+  // student frontend everyone else uses (org-portal is only for the org
+  // admin), just with different copy explaining who invited them and why.
+  async sendEmployeeInvite(opts: {
+    to: string; firstName: string; orgName: string; certTitles: string[]; token: string; baseUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("employee_invite");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.frontendUrl}/reset-password?token=${opts.token}`;
+    const resolvedSubject = (subject ?? "You've been invited to PAII by {orgName}").replace("{orgName}", opts.orgName);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, orgName: opts.orgName, certTitles: opts.certTitles.join(", "), link })
+      : this.wrapper(this.employeeInviteBody(opts.firstName, opts.orgName, opts.certTitles, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   async sendPurchaseConfirmation(opts: {
     to: string; firstName: string; itemName: string;
     amount: number; currency: string; receiptUrl: string | null;
@@ -625,6 +642,22 @@ export class MailService {
       <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;line-height:1.6">Or copy this link into your browser:</p>
       <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all">${link}</p>
       <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 24 hours. If you didn't create this account, you can safely ignore this email.</p>
+    `;
+  }
+
+  private employeeInviteBody(firstName: string, orgName: string, certTitles: string[], link: string): string {
+    const certList = certTitles.map(t => `<li style="margin:0 0 4px">${t}</li>`).join("");
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6"><strong>${orgName}</strong> has enrolled you in PAII to work toward the following certification${certTitles.length > 1 ? "s" : ""}:</p>
+      <ul style="margin:0 0 24px;padding-left:20px;font-size:15px;color:#0f172a">${certList}</ul>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Set a password to activate your account and get started.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Set Your Password</a>
+      </div>
+      <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;line-height:1.6">Or copy this link into your browser:</p>
+      <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all">${link}</p>
+      <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren't expecting this, contact ${orgName} or PAII support.</p>
     `;
   }
 

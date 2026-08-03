@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
-  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation,
+  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -31,7 +31,7 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
   pages:         { label: "Pages",            description: "Static pages" },
   online_tools:  { label: "Online Tools",     description: "Online tools catalog" },
   events:        { label: "Events",           description: "Live training events, workshops & seminars" },
-  sales:         { label: "Sales",            description: "Sales reps, commissions, promo codes" },
+  sales:         { label: "Sales",            description: "Sales reps, commissions, promo codes, organizations" },
   payments:      { label: "Payments",         description: "Transactions & reports" },
   prep_courses:  { label: "Prep Courses",     description: "Course management" },
   certificates:  { label: "Certificates",     description: "Certifications & issued certificates" },
@@ -55,9 +55,10 @@ const NAV = [
 ];
 
 const SALES_NAV = [
-  { href: "/affiliates",  label: "Sales Reps",  icon: UserCheck  },
-  { href: "/commissions", label: "Commissions", icon: DollarSign },
-  { href: "/promo-codes", label: "Promo Codes", icon: Tag        },
+  { href: "/affiliates",    label: "Sales Reps",   icon: UserCheck  },
+  { href: "/commissions",   label: "Commissions",  icon: DollarSign },
+  { href: "/promo-codes",   label: "Promo Codes",  icon: Tag        },
+  { href: "/organizations", label: "Organizations",icon: Building2  },
 ];
 
 const PAYMENTS_NAV = [
@@ -116,7 +117,7 @@ export default function AdminSidebar() {
   const [certOpen,     setCertOpen]     = useState(pathname.startsWith("/certificates") || pathname.startsWith("/certifications"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
   const [paymentsOpen, setPaymentsOpen] = useState(pathname.startsWith("/payments"));
-  const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes"));
+  const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations"));
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -206,7 +207,7 @@ export default function AdminSidebar() {
             <button
               onClick={collapsed ? toggleCollapsed : () => setSalesOpen(!salesOpen)}
               title={collapsed ? "Sales" : undefined}
-              className={groupBtnCls(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes"))}
+              className={groupBtnCls(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations"))}
             >
               <TrendingUp size={17} className="flex-shrink-0" />
               {!collapsed && <><span className="flex-1 text-left">Sales</span><ChevronDown size={14} className={cn("transition-transform", salesOpen && "rotate-180")} /></>}

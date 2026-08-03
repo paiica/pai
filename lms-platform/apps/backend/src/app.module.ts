@@ -33,6 +33,7 @@ import { AssignmentsModule } from "./modules/assignments/assignments.module";
 import { AffiliateModule } from "./modules/affiliate/affiliate.module";
 import { EventsModule } from "./modules/events/events.module";
 import { CartModule } from "./modules/cart/cart.module";
+import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -81,6 +82,7 @@ import { AppController } from "./app.controller";
     AffiliateModule,
     EventsModule,
     CartModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [

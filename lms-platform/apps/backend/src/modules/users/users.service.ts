@@ -25,6 +25,7 @@ export class UsersService {
         id: true, email: true, role: true, is_active: true,
         email_verified: true, last_login_at: true,
         created_at: true, updated_at: true,
+        last_organization: { select: { id: true, name: true } },
       },
     });
     if (!user) throw new NotFoundException("User not found");
@@ -59,6 +60,7 @@ export class UsersService {
           application: {
             select: { id: true, status: true, payment_status: true, amount_paid: true, paid_at: true, reviewed_at: true, rejection_reason: true },
           },
+          organization: { select: { id: true, name: true } },
           certificate: true,
           exam_attempts: { orderBy: { started_at: "desc" }, take: 5 },
           exam_bookings: {
@@ -212,12 +214,22 @@ export class UsersService {
     const [rows, countRows] = await Promise.all([
       this.prisma.$queryRawUnsafe<any[]>(`
         SELECT u.id, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
+               u.can_view_exam_answers,
                p.first_name, p.last_name, p.avatar_url, p.phone, p.country, p.date_of_birth, p.pai_id,
                p.industry, p.job_title, p.company, p.university, p.degree_program,
                p.addresses, p.education_entries, p.experience_entries,
-               EXISTS (SELECT 1 FROM lms.affiliate_profiles ap WHERE ap.user_id = u.id) AS has_affiliate
+               EXISTS (SELECT 1 FROM lms.affiliate_profiles ap WHERE ap.user_id = u.id) AS has_affiliate,
+               oa.organization_id AS organization_admin_org_id,
+               (SELECT o.name FROM lms.enrollments e2
+                JOIN lms.organizations o ON o.id = e2.organization_id
+                WHERE e2.user_id = u.id AND e2.organization_id IS NOT NULL
+                ORDER BY e2.enrolled_at DESC LIMIT 1) AS enrolled_via_organization,
+               lo.id AS previously_organization_id,
+               lo.name AS previously_organization_name
         FROM lms.users u
         LEFT JOIN lms.profiles p ON p.user_id = u.id
+        LEFT JOIN lms.organization_admins oa ON oa.user_id = u.id
+        LEFT JOIN lms.organizations lo ON lo.id = u.last_organization_id
         ${where}
         ORDER BY u.created_at DESC
         LIMIT $${p} OFFSET $${p + 1}
@@ -456,11 +468,17 @@ export class UsersService {
     return { message: "Password changed successfully" };
   }
 
-  async changeRole(userId: string, role: Role, affiliateAccess?: boolean) {
+  async changeRole(userId: string, role: Role, affiliateAccess?: boolean, canViewExamAnswers?: boolean, organizationId?: string) {
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { role },
-      select: { id: true, email: true, role: true },
+      data: {
+        role,
+        // Only touch this field when the caller explicitly set it — leaving
+        // it undefined must not silently revoke an existing grant on every
+        // unrelated role edit.
+        ...(canViewExamAnswers !== undefined ? { can_view_exam_answers: canViewExamAnswers } : {}),
+      },
+      select: { id: true, email: true, role: true, can_view_exam_answers: true },
     });
 
     const wantsAffiliate = affiliateAccess ?? (role === ("sales_rep" as Role));
@@ -474,6 +492,20 @@ export class UsersService {
             status: "pending" as any,
           },
         });
+      }
+    }
+
+    // Attaches org-admin capability for a specific organization to whatever
+    // primary role this user already has — mirrors the affiliate flow above,
+    // which grants sales_rep/affiliate access without forcing a role change.
+    // Never revokes here (matches affiliate's grant-only behavior in this
+    // shared modal); removal happens explicitly elsewhere.
+    if (organizationId) {
+      const existingOrgAdmin = await this.prisma.organizationAdmin.findUnique({ where: { user_id: userId } });
+      if (!existingOrgAdmin) {
+        await this.prisma.organizationAdmin.create({ data: { user_id: userId, organization_id: organizationId } });
+      } else if (existingOrgAdmin.organization_id !== organizationId) {
+        await this.prisma.organizationAdmin.update({ where: { user_id: userId }, data: { organization_id: organizationId } });
       }
     }
 

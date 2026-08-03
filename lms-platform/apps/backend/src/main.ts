@@ -38,7 +38,10 @@ async function bootstrap() {
 
   app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
 
-  app.use(json({ limit: "10mb" }));
+  // `verify` stashes the raw request body on `req.rawBody` — required by the
+  // Stripe webhook handler (payments.controller.ts) to verify signatures,
+  // since Stripe signs the exact raw bytes, not the re-serialized JSON body.
+  app.use(json({ limit: "10mb", verify: (req: any, _res, buf) => { req.rawBody = buf; } }));
   app.use(urlencoded({ extended: true, limit: "10mb" }));
 
   const configService = app.get(ConfigService);

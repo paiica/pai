@@ -99,6 +99,11 @@ export class RetakeCheckoutDto {
   enrollment_id: string;
 }
 
+export class ReactivationCheckoutDto {
+  @IsUUID()
+  enrollment_id: string;
+}
+
 export class RefundDto {
   @IsOptional()
   @IsString()

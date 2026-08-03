@@ -90,6 +90,15 @@ function CertCard({ enrollment, certificate }: { enrollment: any; certificate: a
     body = `Certificate ${certificate.certificate_number} · expires ${new Date(certificate.expires_at).toLocaleDateString("en-CA", { year: "numeric", month: "short" })}`;
     ctaLabel = "View Certificate";
     ctaHref = "/certificates";
+  } else if (enrollment.status === "suspended") {
+    // Most commonly: an organization removed this person from its roster
+    // mid-course. Nothing was deleted — route to the cert detail page,
+    // which has the full "paused" explanation + pay-to-reactivate flow.
+    statusLabel = "Access Paused";
+    statusColor = "bg-amber-500/20 text-amber-300";
+    body = `Paused at ${pct}% — pay to reactivate and pick up where you left off.`;
+    ctaLabel = "View Details";
+    ctaHref = `/certificates/${cert?.id ?? ""}`;
   } else if (isCompleted) {
     statusLabel = "Course Complete";
     statusColor = "bg-emerald-500/20 text-emerald-300";

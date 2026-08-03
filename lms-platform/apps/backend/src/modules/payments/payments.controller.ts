@@ -13,7 +13,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
-import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RetakeCheckoutDto, RefundDto } from "./dto/checkout.dto";
+import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RetakeCheckoutDto, ReactivationCheckoutDto, RefundDto } from "./dto/checkout.dto";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -73,6 +73,17 @@ export class PaymentsController {
     @Body() dto: RetakeCheckoutDto,
   ) {
     return this.paymentsService.createRetakeCheckoutSession(userId, dto.enrollment_id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("reactivation-checkout")
+  @ApiOperation({ summary: "Pay to reactivate a suspended enrollment (e.g. after an org removed you)" })
+  reactivationCheckout(
+    @CurrentUser("id") userId: string,
+    @Body() dto: ReactivationCheckoutDto,
+  ) {
+    return this.paymentsService.createReactivationCheckoutSession(userId, dto.enrollment_id);
   }
 
   @ApiBearerAuth()

@@ -46,6 +46,22 @@ function getProgress(application: any, enrollment: any) {
     };
   }
 
+  // Paused, not abandoned — most commonly because an organization removed
+  // this person from its roster. Nothing was deleted (progress, exam
+  // attempts, etc. are all still there), access is just on hold until they
+  // pay to continue on their own or get re-invited by an org.
+  if (enrollment && enrollment.status === "suspended") {
+    return {
+      step: 3,
+      badge: "Access Paused",
+      title: "Your access to this certification is paused",
+      subtitle: `You were removed from an organization's roster before finishing. Your progress${
+        enrollment.progress_percentage ? ` (${enrollment.progress_percentage}% complete)` : ""
+      } is saved — pay to reactivate and pick up right where you left off, or ask an organization to re-invite you.`,
+      suspended: true,
+    };
+  }
+
   if (!application) {
     return {
       step: 0,
@@ -1311,6 +1327,7 @@ export default function CertDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [starting, setStarting] = useState(false);
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const [reactivating, setReactivating] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/time`)
@@ -1386,6 +1403,21 @@ export default function CertDetailPage() {
   const sessions: any[] = Array.isArray(sessionsPayload?.sessions) ? sessionsPayload.sessions : [];
   const myBooking: any | null = sessionsPayload?.myBooking ?? null;
   const hasBooking = !!myBooking;
+
+  async function handleReactivate() {
+    if (!token || !enrollment?.id) return;
+    setReactivating(true);
+    try {
+      const res = await api.post<any>("/payments/reactivation-checkout", { enrollment_id: enrollment.id }, token);
+      const url = res?.data?.checkout_url ?? res?.checkout_url;
+      if (url) window.location.href = url;
+      else toast.error("Could not start checkout");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to start reactivation checkout");
+    } finally {
+      setReactivating(false);
+    }
+  }
 
   async function handleBook(sessionId: string) {
     if (!token) return;
@@ -1484,14 +1516,14 @@ export default function CertDetailPage() {
   const acronym   = cert?.acronym    ?? "—";
   const badgeIcon = cert?.badge_icon ?? "";
 
-  const { step, badge, title: statusTitle, subtitle, paymentPending } = getProgress(application, enrollment) as any;
+  const { step, badge, title: statusTitle, subtitle, paymentPending, suspended } = getProgress(application, enrollment) as any;
 
   const badgeColor =
     badge === "Approved" || badge === "Completed" || badge === "Enrolled"
       ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
       : badge === "Not Approved"
       ? "bg-red-500/20 text-red-300 border-red-500/30"
-      : badge === "Payment Processing" || badge === "Approval Pending"
+      : badge === "Payment Processing" || badge === "Approval Pending" || badge === "Access Paused"
       ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
       : badge === "Application in Progress"
       ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
@@ -1538,6 +1570,16 @@ export default function CertDetailPage() {
               <p className="text-white/60 text-sm leading-relaxed max-w-xl">{subtitle}</p>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              {suspended && enrollment && (
+                <button
+                  onClick={handleReactivate}
+                  disabled={reactivating}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {reactivating ? <Loader2 size={14} className="animate-spin" /> : null}
+                  {reactivating ? "Starting checkout…" : `Reactivate${cert?.price ? ` — $${Number(cert.price).toFixed(2)}` : ""}`}
+                </button>
+              )}
               {application && (
                 <button
                   onClick={() => setShowApp(true)}

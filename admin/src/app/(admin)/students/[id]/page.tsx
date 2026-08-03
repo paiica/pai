@@ -93,6 +93,14 @@ function CertificationCard({ enrollment, token, studentName, onRefresh }: {
             <span className={cn("badge", ENROLLMENT_STATUS_COLOR[enrollment.status] ?? "bg-slate-100 text-slate-500")}>
               {enrollment.status}
             </span>
+            {enrollment.organization && (
+              <Link
+                href={`/organizations/${enrollment.organization.id}`}
+                className="badge bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors flex items-center gap-1"
+              >
+                <Building2 size={10} /> {enrollment.organization.name}
+              </Link>
+            )}
           </div>
           <p className="text-xs text-slate-400">
             Enrolled {fmtDate(enrollment.enrolled_at)}
@@ -373,6 +381,15 @@ export default function StudentDetailPage() {
     .filter((p) => p.status === "succeeded")
     .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
+  // Enrollments are already ordered enrolled_at desc, so the first org-linked
+  // one is the most recent — mirrors the list pages' enrolled_via_organization
+  // badge, but here we know the specific org row (id + name), not just a name.
+  const primaryOrg = enrollments.find((e) => e.organization)?.organization ?? null;
+  // last_organization is set on join and deliberately never cleared when an
+  // org admin removes the enrollment — this is the only trace left once a
+  // student has no live org-linked enrollment at all.
+  const previouslyOrg = !primaryOrg ? (student.last_organization ?? null) : null;
+
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
       <Link href="/students" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-700 transition-colors">
@@ -392,6 +409,23 @@ export default function StudentDetailPage() {
                 {student.is_active ? "Active" : "Disabled"}
               </span>
               {!student.email_verified && <span className="badge bg-amber-50 text-amber-700">Email unverified</span>}
+              {primaryOrg && (
+                <Link
+                  href={`/organizations/${primaryOrg.id}`}
+                  className="badge bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors flex items-center gap-1"
+                >
+                  <Building2 size={10} /> {primaryOrg.name}
+                </Link>
+              )}
+              {previouslyOrg && (
+                <Link
+                  href={`/organizations/${previouslyOrg.id}`}
+                  className="badge bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors flex items-center gap-1"
+                  title={`No longer enrolled — was previously with ${previouslyOrg.name}`}
+                >
+                  <Building2 size={10} /> Previously: {previouslyOrg.name}
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-4 flex-wrap text-xs text-slate-500">
               <span className="flex items-center gap-1"><Mail size={11} /> {student.email}</span>

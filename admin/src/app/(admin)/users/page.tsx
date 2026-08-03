@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
@@ -14,7 +15,7 @@ import { ADMIN_TAB_KEYS, ADMIN_TAB_META } from "@/components/layout/AdminSidebar
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const ROLES = ["student", "professor", "admin", "super_admin", "sales_rep"] as const;
+const ROLES = ["student", "professor", "admin", "super_admin", "sales_rep", "org_admin"] as const;
 type RoleKey = typeof ROLES[number];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -23,6 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
   professor:   "Professor",
   student:     "Student",
   sales_rep:   "Sales Rep",
+  org_admin:   "Org Admin",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -31,6 +33,7 @@ const ROLE_COLORS: Record<string, string> = {
   professor:   "bg-blue-100 text-blue-700",
   student:     "bg-slate-100 text-slate-600",
   sales_rep:   "bg-teal-100 text-teal-700",
+  org_admin:   "bg-indigo-100 text-indigo-700",
 };
 
 type AddressEntry = { id?: string; label?: string; line1?: string; line2?: string; city?: string; state?: string; zip?: string; country?: string };
@@ -60,6 +63,11 @@ interface User {
   addresses: AddressEntry[] | null;
   education_entries: EducationEntry[] | null;
   experience_entries: ExperienceEntry[] | null;
+  can_view_exam_answers?: boolean;
+  organization_admin_org_id?: string | null;
+  enrolled_via_organization?: string | null;
+  previously_organization_id?: string | null;
+  previously_organization_name?: string | null;
 }
 
 const LIMIT = 25;
@@ -204,6 +212,8 @@ export default function UsersPage() {
   const [roleModal, setRoleModal]       = useState<User | null>(null);
   const [newRole, setNewRole]           = useState<string>("");
   const [newAffiliate, setNewAffiliate] = useState<boolean>(false);
+  const [newExamAnswerAccess, setNewExamAnswerAccess] = useState<boolean>(false);
+  const [newOrganizationId, setNewOrganizationId] = useState<string>("");
   const [deleteModal, setDeleteModal]   = useState<User | null>(null);
   const [acting, setActing]             = useState(false);
   const [exporting, setExporting]     = useState(false);
@@ -264,6 +274,12 @@ export default function UsersPage() {
   const users: User[] = (data as any)?.data?.data ?? [];
   const meta          = (data as any)?.data?.meta ?? { total: 0, totalPages: 1 };
 
+  const { data: orgsRaw } = useSWR(
+    accessToken ? ["/admin/organizations", accessToken] : null,
+    ([url, t]) => api.get<any>(url, t).then((r) => r.data ?? r)
+  );
+  const organizations: { id: string; name: string }[] = Array.isArray(orgsRaw) ? orgsRaw : [];
+
   // Bulk selection computed
   const allSelected  = users.length > 0 && users.every((u) => selectedIds.has(u.id));
   const someSelected = !allSelected && users.some((u) => selectedIds.has(u.id));
@@ -320,7 +336,7 @@ export default function UsersPage() {
     if (!roleModal || !newRole) return;
     setActing(true);
     try {
-      await api.patch(`/users/${roleModal.id}/role`, { role: newRole, affiliate_access: newAffiliate }, accessToken!);
+      await api.patch(`/users/${roleModal.id}/role`, { role: newRole, affiliate_access: newAffiliate, can_view_exam_answers: newExamAnswerAccess, organization_id: newOrganizationId || undefined }, accessToken!);
       toast.success("Role updated");
       setRoleModal(null);
       mutate();
@@ -603,6 +619,20 @@ export default function UsersPage() {
                         {u.has_affiliate && u.role !== "sales_rep" && (
                           <span className="badge bg-teal-100 text-teal-700">Sales Rep</span>
                         )}
+                        {u.enrolled_via_organization && (
+                          <span className="badge bg-indigo-100 text-indigo-700" title={`Enrolled via ${u.enrolled_via_organization}`}>
+                            {u.enrolled_via_organization}
+                          </span>
+                        )}
+                        {!u.enrolled_via_organization && u.previously_organization_name && (
+                          <Link
+                            href={`/organizations/${u.previously_organization_id}`}
+                            className="badge bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                            title={`No longer enrolled — was previously with ${u.previously_organization_name}`}
+                          >
+                            Previously: {u.previously_organization_name}
+                          </Link>
+                        )}
                       </div>
                     </td>
 
@@ -642,6 +672,8 @@ export default function UsersPage() {
                               setRoleModal(u);
                               setNewRole(u.role === "sales_rep" ? "sales_rep" : u.role);
                               setNewAffiliate(u.has_affiliate || u.role === "sales_rep");
+                              setNewExamAnswerAccess(!!u.can_view_exam_answers);
+                              setNewOrganizationId(u.organization_admin_org_id ?? "");
                               setOpenMenu(null);
                             }}
                               className="flex items-center gap-2.5 w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700">
@@ -813,7 +845,7 @@ export default function UsersPage() {
       {/* ── Single-user Role Modal ─────────────────────────────────────────────── */}
       {roleModal && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="font-display font-black text-navy-900 text-lg mb-1">Change Role</h3>
             <p className="text-sm text-slate-500 mb-5 truncate">{roleModal.email}</p>
             <RoleMultiSelector
@@ -821,7 +853,26 @@ export default function UsersPage() {
               affiliateAccess={newAffiliate}
               onPrimaryChange={setNewRole}
               onAffiliateChange={setNewAffiliate}
+              organizations={organizations}
+              organizationId={newOrganizationId}
+              onOrganizationIdChange={setNewOrganizationId}
             />
+            {newRole === "admin" && (
+              <label className="flex items-start gap-2.5 mt-4 p-3 rounded-xl border-2 border-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newExamAnswerAccess}
+                  onChange={(e) => setNewExamAnswerAccess(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-navy-700 accent-navy-700 cursor-pointer"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-slate-700">Can view exam answer keys</span>
+                  <span className="block text-[11px] text-slate-400">
+                    Grants access to correct answers in the Exam Admin portal. Off by default — the generic Admin role no longer implies this.
+                  </span>
+                </span>
+              </label>
+            )}
             <div className="flex gap-3 mt-6">
               <button onClick={() => setRoleModal(null)} className="btn-outline flex-1 justify-center">Cancel</button>
               <button onClick={handleRoleChange} disabled={acting || !newRole}
@@ -1032,12 +1083,17 @@ const ROLE_DESCRIPTIONS: Partial<Record<string, string>> = {
 
 function RoleMultiSelector({
   primaryRole, affiliateAccess, onPrimaryChange, onAffiliateChange,
+  organizations, organizationId, onOrganizationIdChange,
 }: {
   primaryRole: string;
   affiliateAccess: boolean;
   onPrimaryChange: (r: string) => void;
   onAffiliateChange: (v: boolean) => void;
+  organizations?: { id: string; name: string }[];
+  organizationId?: string;
+  onOrganizationIdChange?: (id: string) => void;
 }) {
+  const orgAccess = !!organizationId;
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Primary Role</p>
@@ -1087,6 +1143,42 @@ function RoleMultiSelector({
             <span className="ml-2 text-[10px] text-slate-400">Can log into sales.paii.ca</span>
           </div>
         </button>
+
+        {organizations && (
+          <div className="mt-2">
+            <button
+              type="button"
+              disabled={!orgAccess && organizations.length === 0}
+              onClick={() => onOrganizationIdChange?.(orgAccess ? "" : organizations[0]?.id ?? "")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                orgAccess ? "border-teal-600 bg-teal-50" : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center ${
+                orgAccess ? "border-teal-600 bg-teal-600" : "border-slate-300"
+              }`}>
+                {orgAccess && <Check size={10} className="text-white" />}
+              </div>
+              <div>
+                <span className={`text-sm font-semibold ${orgAccess ? "text-teal-800" : "text-slate-700"}`}>
+                  Organization Admin / Org Portal
+                </span>
+                <span className="ml-2 text-[10px] text-slate-400">
+                  {organizations.length === 0 ? "Create an organization first" : "Can log into org.paii.ca"}
+                </span>
+              </div>
+            </button>
+            {orgAccess && (
+              <select
+                value={organizationId}
+                onChange={(e) => onOrganizationIdChange?.(e.target.value)}
+                className="input-base mt-2 text-sm"
+              >
+                {organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+              </select>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

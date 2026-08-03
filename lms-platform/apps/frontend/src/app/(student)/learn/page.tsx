@@ -79,18 +79,21 @@ function CertBannerCard({
   const recommendedCourses = certCourses.filter((c) => !c.is_required);
   const pct = enrollment.progress_percentage ?? 0;
   const isCompleted = pct === 100;
+  const isSuspended = enrollment.status === "suspended";
   const accent = CERT_ACCENTS[index % CERT_ACCENTS.length];
   const enrolledDate = new Date(enrollment.enrolled_at).toLocaleDateString("en-CA", {
     month: "short", day: "numeric", year: "numeric",
   });
 
-  const statusText  = isCompleted ? "Completed" : pct > 0 ? `${pct}% complete` : "Not started";
-  const statusClass = isCompleted
+  const statusText  = isSuspended ? "Access paused" : isCompleted ? "Completed" : pct > 0 ? `${pct}% complete` : "Not started";
+  const statusClass = isSuspended
+    ? "bg-amber-50 text-amber-700"
+    : isCompleted
     ? "bg-emerald-50 text-emerald-700"
     : pct > 0
     ? "bg-amber-50 text-amber-700"
     : "bg-slate-100 text-slate-500";
-  const dotClass = isCompleted ? "bg-emerald-500" : pct > 0 ? "bg-amber-400" : "bg-slate-300";
+  const dotClass = isSuspended ? "bg-amber-400" : isCompleted ? "bg-emerald-500" : pct > 0 ? "bg-amber-400" : "bg-slate-300";
 
   return (
     <div>
@@ -158,14 +161,17 @@ function CertBannerCard({
           </span>
           <div className="flex items-center gap-2">
             <Link
-              href={`/learn/${enrollment.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={isSuspended ? `/certificates/${certId ?? ""}` : `/learn/${enrollment.id}`}
+              target={isSuspended ? undefined : "_blank"}
+              rel={isSuspended ? undefined : "noopener noreferrer"}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              className={cn(
+                "inline-flex items-center gap-1.5 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors",
+                isSuspended ? "bg-amber-600 hover:bg-amber-500" : "bg-navy-900 hover:bg-navy-700",
+              )}
             >
-              <Play size={11} className="fill-white" />
-              {isCompleted ? "Review" : pct > 0 ? "Continue" : "Start"}
+              {isSuspended ? null : <Play size={11} className="fill-white" />}
+              {isSuspended ? "View Details" : isCompleted ? "Review" : pct > 0 ? "Continue" : "Start"}
             </Link>
             <div className={cn(
               "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
@@ -552,7 +558,10 @@ export default function MyCoursesPage() {
     memberDiscountRaw ?? { percentage: 0, certification: null };
 
   const all: any[] = data?.data ?? data ?? [];
-  const active = all.filter((e: any) => e.status === "active");
+  // Suspended enrollments (e.g. an org removed this person mid-course) sit in
+  // the "active" tab too — otherwise they'd just vanish with no explanation.
+  // CertBannerCard renders them with a distinct "Access paused" state.
+  const active = all.filter((e: any) => e.status === "active" || e.status === "suspended");
   const completed = all.filter((e: any) => e.status === "completed");
   const shown = tab === "active" ? active : completed;
   const prepEnrollments: any[] = Array.isArray(prepRaw) ? prepRaw : [];

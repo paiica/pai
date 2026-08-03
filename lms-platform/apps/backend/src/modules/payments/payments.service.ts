@@ -395,6 +395,101 @@ export class PaymentsService {
     } catch (err) { this.stripeError(err); }
   }
 
+  // ─── Organization billing (seat purchases + renewal) ────────────────────
+
+  async createOrgSeatsCheckoutSession(userId: string, organizationId: string, seatCount: number) {
+    if (!Number.isInteger(seatCount) || seatCount < 1) {
+      throw new BadRequestException("Seat count must be a positive whole number");
+    }
+
+    const org = await this.prisma.organization.findUnique({ where: { id: organizationId } });
+    if (!org) throw new NotFoundException("Organization not found");
+    if (org.price_per_seat === null) {
+      throw new BadRequestException("Contact your PAII account manager to enable self-service billing");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const price = Number(org.price_per_seat) * seatCount;
+    const orgPortalUrl = this.config.get<string>("ORG_PORTAL_URL", "http://localhost:3007");
+    const successUrl = `${orgPortalUrl}/billing?success=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${orgPortalUrl}/billing`;
+
+    const orgStripeClient = await this.resolveStripe();
+    if (!orgStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await orgStripeClient.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "org_seats",
+          organization_id: organizationId,
+          seat_count: String(seatCount),
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(Number(org.price_per_seat) * 100),
+            product_data: {
+              name: `${org.name} — Additional Seats`,
+              description: `${seatCount} seat(s) at $${Number(org.price_per_seat).toFixed(2)}/seat`,
+            },
+          },
+          quantity: seatCount,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  async createOrgRenewalCheckoutSession(userId: string, organizationId: string) {
+    const org = await this.prisma.organization.findUnique({ where: { id: organizationId } });
+    if (!org) throw new NotFoundException("Organization not found");
+    if (org.price_per_seat === null) {
+      throw new BadRequestException("Contact your PAII account manager to enable self-service billing");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const price = Number(org.price_per_seat) * org.seats_purchased;
+    const orgPortalUrl = this.config.get<string>("ORG_PORTAL_URL", "http://localhost:3007");
+    const successUrl = `${orgPortalUrl}/billing?success=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${orgPortalUrl}/billing`;
+
+    const orgStripeClient = await this.resolveStripe();
+    if (!orgStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await orgStripeClient.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "org_renewal",
+          organization_id: organizationId,
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: `${org.name} — Subscription Renewal`,
+              description: `Renews ${org.seats_purchased} seat(s) for ${org.renewal_period_months} months`,
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
   async createRetakeCheckoutSession(userId: string, enrollmentId: string) {
     const enrollment = await this.prisma.enrollment.findFirst({
       where: { id: enrollmentId, user_id: userId },
@@ -438,6 +533,55 @@ export class PaymentsService {
             product_data: {
               name: `${enrollment.certification.acronym} — Exam Retake`,
               description: `Retake fee for ${enrollment.certification.title}`,
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  // ─── Reactivation checkout (self-pay after an org removal suspends access) ──
+
+  async createReactivationCheckoutSession(userId: string, enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, user_id: userId },
+      include: { certification: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+    if (enrollment.status !== "suspended") {
+      throw new BadRequestException("This enrollment isn't paused — there's nothing to reactivate.");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const price = Number(enrollment.certification.price);
+    const frontendUrl = this.config.get("frontendUrl");
+    const successUrl = `${frontendUrl}/certificates/${enrollment.certification_id}?reactivated=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/certificates/${enrollment.certification_id}`;
+
+    const reactivationStripeClient = await this.resolveStripe();
+    if (!reactivationStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await reactivationStripeClient.stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "reactivation",
+          enrollment_id: enrollment.id,
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: `${enrollment.certification.acronym} — Reactivate Access`,
+              description: `Resume ${enrollment.certification.title} on your own, independent of any organization`,
             },
           },
           quantity: 1,
@@ -741,7 +885,7 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code } = session.metadata || {};
+    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code, organization_id } = session.metadata || {};
 
     // Guest event registration — no user_id, handled entirely separately from
     // the account-based flows below (no Payment record, no affiliate
@@ -875,6 +1019,32 @@ export class PaymentsService {
       description = `Exam Retake: ${enrollment.certification.acronym} — ${enrollment.certification.title}`;
       this.logger.log(`Retake paid for enrollment ${enrollment_id}, paid_retakes now ${enrollment.paid_retakes}`);
 
+    } else if (checkout_type === "reactivation" && enrollment_id) {
+      const reactivated = await this.prisma.enrollment.update({
+        where: { id: enrollment_id },
+        data: { status: "active" },
+        include: { certification: { select: { title: true, acronym: true } } },
+      });
+      description = `Certification Reactivation: ${reactivated.certification.acronym} — ${reactivated.certification.title}`;
+      this.logger.log(`Enrollment ${enrollment_id} reactivated via self-pay`);
+
+    } else if (checkout_type === "org_seats" && organization_id) {
+      const seats = Number(session.metadata?.seat_count ?? 0);
+      await this.prisma.organization.update({
+        where: { id: organization_id },
+        data: { seats_purchased: { increment: seats } },
+      });
+      description = `Seat Top-Up: +${seats} seat(s)`;
+
+    } else if (checkout_type === "org_renewal" && organization_id) {
+      const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: organization_id } });
+      const base = org.subscription_expires_at && org.subscription_expires_at > new Date()
+        ? org.subscription_expires_at : new Date();
+      const next = new Date(base);
+      next.setMonth(next.getMonth() + org.renewal_period_months);
+      await this.prisma.organization.update({ where: { id: organization_id }, data: { subscription_expires_at: next } });
+      description = `Subscription Renewal (${org.renewal_period_months} months)`;
+
     } else if (application_id) {
       await this.prisma.application.update({
         where: { id: application_id },
@@ -905,10 +1075,12 @@ export class PaymentsService {
           user_id,
           type: checkout_type === "renewal" ? PaymentType.renewal_fee
             : checkout_type === "retake" ? PaymentType.retake_fee
+            : checkout_type?.startsWith("org_") ? PaymentType.corporate_bundle
             : PaymentType.enrollment,
           status: PaymentStatus.succeeded,
           amount,
           currency: session.currency ?? "usd",
+          organization_id: organization_id || undefined,
           stripe_payment_intent_id: paymentIntentId,
           stripe_checkout_session_id: session.id,
           stripe_charge_id: chargeId,
@@ -938,17 +1110,19 @@ export class PaymentsService {
           receiptUrl,
         });
 
-        // Wire up affiliate commission on the actual amount paid (after discount)
-        await this._handleAffiliateCommission({
-          userId: user_id,
-          userEmail: user.email,
-          certificationId: certification_id || undefined,
-          courseId: course_id || undefined,
-          promoId: promo_id || undefined,
-          promoCode: promo_code || undefined,
-          saleAmount: amount,
-          paymentIntentId: paymentIntentId || undefined,
-        });
+        // Org billing isn't a referral-driven purchase — skip commission wiring.
+        if (!checkout_type?.startsWith("org_")) {
+          await this._handleAffiliateCommission({
+            userId: user_id,
+            userEmail: user.email,
+            certificationId: certification_id || undefined,
+            courseId: course_id || undefined,
+            promoId: promo_id || undefined,
+            promoCode: promo_code || undefined,
+            saleAmount: amount,
+            paymentIntentId: paymentIntentId || undefined,
+          });
+        }
       }
     }
   }

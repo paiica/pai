@@ -18,6 +18,8 @@ interface StudentRow {
   last_name: string | null;
   pai_id: string | null;
   country: string | null;
+  enrolled_via_organization: string | null;
+  previously_organization_name: string | null;
 }
 
 const LIMIT = 25;
@@ -124,7 +126,22 @@ export default function StudentsPage() {
                   {fullName(s).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-navy-900 truncate">{fullName(s)}</p>
+                  <p className="text-sm font-semibold text-navy-900 truncate flex items-center gap-1.5">
+                    {fullName(s)}
+                    {s.enrolled_via_organization && (
+                      <span className="badge bg-indigo-100 text-indigo-700 !text-[10px] !py-0.5" title={`Enrolled via ${s.enrolled_via_organization}`}>
+                        {s.enrolled_via_organization}
+                      </span>
+                    )}
+                    {!s.enrolled_via_organization && s.previously_organization_name && (
+                      <span
+                        className="badge bg-slate-100 text-slate-500 !text-[10px] !py-0.5"
+                        title={`No longer enrolled — was previously with ${s.previously_organization_name}`}
+                      >
+                        Previously: {s.previously_organization_name}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-slate-400 truncate flex items-center gap-1">
                     <Mail size={10} /> {s.email}
                   </p>

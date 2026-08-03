@@ -18,6 +18,7 @@ enum Role {
   professor
   student
   sales_rep
+  org_admin
 
   @@schema("lms")
 }
@@ -305,9 +306,22 @@ model User {
   pending_referral_code      String?
   role               Role      @default(student)
   is_active          Boolean   @default(true)
+  // Distinct from the generic admin/super_admin role: the LMS admin role is
+  // handed out for unrelated admin tasks (content, marketing, support), and
+  // without this, every one of those accounts could also read every exam's
+  // correct-answer keys via the exam-admin app. super_admin always bypasses
+  // this check regardless of its value (see ExamAnswerAccessGuard).
+  can_view_exam_answers Boolean @default(false)
   last_login_at      DateTime?
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
+
+  // Set whenever the user gets an org-linked enrollment (bulk invite or
+  // self-service join link) and deliberately left in place after an org
+  // admin removes them — lets the admin panel show "Previously: Org X" even
+  // once the live enrollment is gone, instead of an unexplained orphan.
+  last_organization_id String?
+  last_organization     Organization? @relation("UserLastOrganization", fields: [last_organization_id], references: [id])
 
   profile             Profile?
   refresh_tokens      RefreshToken[]
@@ -332,6 +346,7 @@ model User {
   application_documents    ApplicationDocument[]
   exam_bookings            ExamBooking[]
   affiliate_profile        AffiliateProfile?
+  organization_admin       OrganizationAdmin?
   affiliate_commissions_as_buyer AffiliateCommission[]
   affiliate_leads_referred AffiliateLead[]
   event_registrations      EventRegistration[]
@@ -1001,6 +1016,12 @@ model Enrollment {
   // retake unlocks one additional exam attempt beyond the original (free)
   // attempt, up to the certification's max_retakes_included cap.
   paid_retakes     Int              @default(0)
+  // Set only when this enrollment was created through an org admin's
+  // bulk-invite flow — null for individual checkout/application
+  // enrollments. Lets an org admin's dashboard query "all of my org's
+  // enrollments" without touching unrelated individual students' data.
+  organization_id  String?
+  organization     Organization?    @relation(fields: [organization_id], references: [id])
 
   lesson_progress         LessonProgress[]
   exam_attempts           ExamAttempt[]
@@ -1012,6 +1033,7 @@ model Enrollment {
   @@unique([user_id, certification_id])
   @@index([user_id])
   @@index([certification_id])
+  @@index([organization_id])
   @@map("enrollments")
   @@schema("lms")
 }
@@ -1158,6 +1180,12 @@ model ExamAttempt {
   in_progress_answers Json?
   topic_breakdown    Json?
   proctor_session_id String?
+
+  // Audit trail for admin score overrides — a certification-issuing action,
+  // so who did it, when, and why must be recoverable after the fact.
+  overridden_by   String?
+  overridden_at   DateTime?
+  override_reason String?   @db.Text
 
   created_at DateTime @default(now())
 
@@ -1472,6 +1500,11 @@ model Payment {
   type    PaymentType
   status  PaymentStatus @default(pending)
 
+  // Set only for org seat-purchase/renewal payments (type: corporate_bundle
+  // via those flows) — null for individual student payments.
+  organization_id String?
+  organization    Organization? @relation(fields: [organization_id], references: [id])
+
   amount   Decimal @db.Decimal(10, 2)
   currency String  @default("USD")
 
@@ -1750,8 +1783,14 @@ model PromoCode {
   used_count       Int      @default(0)
   expires_at       DateTime?
   is_active        Boolean  @default(true)
-  course_id        String?
-  certification_id String?
+  // Empty array = unrestricted on that dimension. A code with both non-empty
+  // is valid for an order matching ANY listed course OR ANY listed cert (OR
+  // semantics, not AND) — see PromoCodesService.validate(). Plain Postgres
+  // arrays rather than a join table, matching this schema's existing
+  // convention for "multiple loosely-related IDs" (see Certification.
+  // related_slugs, skills, tags).
+  course_ids        String[] @default([])
+  certification_ids String[] @default([])
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -1824,6 +1863,82 @@ model PromoRedemption {
 
   @@index([promo_id, user_id])
   @@map("promo_redemptions")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// ORGANIZATION / CORPORATE ACCOUNTS
+// ─────────────────────────────────────────────
+
+// A corporate/group customer account. Always provisioned by PAII staff
+// (via the internal admin app) after a sales conversation — no
+// self-signup. Seats are set here by staff, not self-purchased in-portal.
+model Organization {
+  id              String   @id @default(uuid())
+  name            String
+  contact_email   String
+  seats_purchased Int      @default(0)
+  notes           String?  @db.Text
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Self-service billing. Null price = self-service billing is disabled for
+  // this org (PAII staff still manages seats/expiry manually, exactly as
+  // before this feature existed) — set by staff per org, matching that
+  // different orgs may have negotiated different per-seat deals.
+  price_per_seat          Decimal?  @db.Decimal(10, 2)
+  renewal_period_months   Int       @default(12)
+  // Null = no expiration enforced (legacy/comped orgs). Only set once an
+  // org actually completes a paid renewal. Only gates new employee invites
+  // when in the past — never revokes already-enrolled employees' access.
+  subscription_expires_at DateTime?
+
+  // Self-service employee sign-up link (org.paii.ca/join/<token>) — lazily
+  // generated on first request, regeneratable to invalidate a leaked link.
+  invite_token String? @unique
+
+  admins      OrganizationAdmin[]
+  enrollments Enrollment[]
+  payments    Payment[]
+  users_last_here User[] @relation("UserLastOrganization")
+  removal_logs OrganizationRemovalLog[]
+
+  @@map("organizations")
+  @@schema("lms")
+}
+
+// A standing record of every employee an org admin has removed — enrollment
+// rows are hard-deleted on removal (and the account itself if it was never
+// verified), so without this, PAII staff would have no way to see churn.
+// Lets staff spot abnormal patterns (e.g. many adds/removes cycling through
+// more people than the org has paid seats for) on the org detail page.
+model OrganizationRemovalLog {
+  id              String       @id @default(uuid())
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  email           String
+  full_name       String?
+  account_deleted Boolean
+  removed_at      DateTime     @default(now())
+
+  @@index([organization_id])
+  @@map("organization_removal_logs")
+  @@schema("lms")
+}
+
+// Mirrors AffiliateProfile's shape: an ordinary User (role stays
+// `student`) gains a capability via an attached profile row rather than
+// a new Role enum value, since org-admin is a narrow capability that
+// would otherwise ripple into every @Roles(...) guard check.
+model OrganizationAdmin {
+  id              String       @id @default(uuid())
+  user_id         String       @unique
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  created_at      DateTime     @default(now())
+
+  @@map("organization_admins")
   @@schema("lms")
 }
 

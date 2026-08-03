@@ -29,13 +29,23 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
   async validate(payload: JwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true, is_active: true },
+      select: {
+        id: true, email: true, role: true, is_active: true, can_view_exam_answers: true,
+        organization_admin: { select: { organization_id: true, organization: { select: { name: true } } } },
+      },
     });
 
     if (!user || !user.is_active) {
       throw new UnauthorizedException("Account not found or deactivated");
     }
 
-    return { id: user.id, email: user.email, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      can_view_exam_answers: user.can_view_exam_answers,
+      organization_id: user.organization_admin?.organization_id ?? null,
+      organization_name: user.organization_admin?.organization.name ?? null,
+    };
   }
 }
