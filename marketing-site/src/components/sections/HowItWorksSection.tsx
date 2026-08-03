@@ -75,7 +75,7 @@ export default function HowItWorksSection() {
         </div>
 
         <div className="text-center mt-12">
-          <Link href="/certifications/certified-ai-professional" className="btn-primary !py-4 !px-8 !text-base">
+          <Link href="/certifications/caip" className="btn-primary !py-4 !px-8 !text-base">
             Begin Your Application <ArrowRight size={16} />
           </Link>
           <p className="text-sm text-ink-900 mt-4">

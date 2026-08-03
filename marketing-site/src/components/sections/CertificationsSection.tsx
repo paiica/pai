@@ -2,16 +2,22 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
+// A deliberately dark, gradient-driven palette rather than flat pastel
+// blocks — reads as a premium tech/AI brand instead of a generic course
+// catalog, and every stop is far enough from the section's own beige
+// background (bg-sand-100) that no card can wash into it. The four hues
+// span the spectrum on purpose (blue / teal / violet / amber) so adjacent
+// cards never read as "the same color."
 const CERT_THEMES = [
-  { dark: false, bg: "bg-[#f5f0eb]", shapeColor: "#134e4a", shapeType: "pentagon" },
-  { dark: true,  bg: "bg-[#0f2a5c]", shapeColor: "#38bdf8", shapeType: "circle"   },
-  { dark: true,  bg: "bg-[#2d1b69]", shapeColor: "#a78bfa", shapeType: "triangle" },
-  { dark: false, bg: "bg-[#eaf5ef]", shapeColor: "#059669", shapeType: "pentagon" },
+  { dark: true, bg: "bg-gradient-to-br from-[#0a1628] via-[#122242] to-[#1e3a6e]", shapeColor: "#38bdf8", shapeType: "circle"   },
+  { dark: true, bg: "bg-gradient-to-br from-[#042f2a] via-[#0a4a41] to-[#0d9488]", shapeColor: "#5eead4", shapeType: "pentagon" },
+  { dark: true, bg: "bg-gradient-to-br from-[#180f3d] via-[#2d1b69] to-[#4c1d95]", shapeColor: "#c4b5fd", shapeType: "triangle" },
+  { dark: true, bg: "bg-gradient-to-br from-[#241207] via-[#5a2e0d] to-[#92400e]", shapeColor: "#fbbf24", shapeType: "pentagon" },
 ];
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -34,22 +40,46 @@ type CertCard = {
   flagship?: boolean;
 };
 
+// Each mark is a small layered composition (a solid base + a rotated/offset
+// outline echo, at different opacities) rather than one flat shape — reads
+// as a more deliberate, modern badge/seal instead of a plain geometric fill.
 function Shape({ type, color }: { type: string; color: string }) {
+  const wrap = "absolute top-0 right-0 w-40 h-40 transition-transform duration-300 ease-out group-hover:scale-110";
+
   if (type === "circle") {
     return (
-      <div className="absolute top-5 right-5 w-36 h-36 rounded-full opacity-30" style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }} />
+      <div className={wrap}>
+        <div
+          className="absolute top-6 right-4 w-28 h-28 rounded-full opacity-[0.28]"
+          style={{ background: `radial-gradient(circle, ${color} 0%, transparent 72%)` }}
+        />
+        <div
+          className="absolute top-1 right-10 w-16 h-16 rounded-full border-2 opacity-40"
+          style={{ borderColor: color }}
+        />
+        <div
+          className="absolute top-16 right-1 w-3 h-3 rounded-full opacity-60"
+          style={{ background: color }}
+        />
+      </div>
     );
   }
+
   if (type === "triangle") {
     return (
-      <svg className="absolute top-0 right-0 w-40 h-36 opacity-25" viewBox="0 0 130 110">
-        <polygon points="130,0 130,110 0,110" fill={color} />
+      <svg className={wrap} viewBox="0 0 160 160" fill="none">
+        <polygon points="160,10 160,140 45,140" fill={color} opacity="0.22" />
+        <polygon points="160,45 160,150 60,150" stroke={color} strokeWidth="2" opacity="0.5" />
+        <circle cx="118" cy="42" r="4" fill={color} opacity="0.6" />
       </svg>
     );
   }
+
   return (
-    <svg className="absolute top-3 right-3 w-36 h-36 opacity-20" viewBox="0 0 100 100">
-      <polygon points="50,5 95,35 80,85 20,85 5,35" fill={color} />
+    <svg className={wrap} viewBox="0 0 160 160" fill="none">
+      <polygon points="95,14 148,52 128,114 62,114 42,52" fill={color} opacity="0.22" />
+      <polygon points="98,34 138,63 122,112 74,112 58,63" stroke={color} strokeWidth="2" opacity="0.5" transform="rotate(14 98 73)" />
+      <circle cx="112" cy="30" r="4" fill={color} opacity="0.6" />
     </svg>
   );
 }
@@ -57,55 +87,80 @@ function Shape({ type, color }: { type: string; color: string }) {
 function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
   const theme = CERT_THEMES[idx % CERT_THEMES.length];
   return (
-    <div className={cn(
-      "relative flex-shrink-0 w-[85vw] max-w-[330px] h-[500px] rounded-2xl overflow-hidden flex flex-col border",
-      theme.bg,
-      theme.dark ? "border-white/10" : "border-sand-300",
-      cert.flagship && "flagship-card"
-    )}>
-      <div className="relative h-[165px] overflow-hidden">
-        <Shape type={theme.shapeType} color={theme.shapeColor} />
-        <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
-          <span className={cn(
-            "text-[12px] font-semibold px-3 py-1.5 rounded-full border",
-            theme.dark ? "bg-white/10 text-white border-white/20" : "bg-white/70 text-ink-900 border-sand-200/60"
-          )}>
-            Certification
-          </span>
-          {cert.status === "coming_soon" ? (
-            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
-              Coming Soon
-            </span>
-          ) : cert.popular === "true" && (
-            <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
-              Most Popular
+    <div className="group relative flex-shrink-0 w-[85vw] max-w-[312px] h-[480px] rounded-2xl cursor-pointer">
+      <div className={cn(
+        "relative w-full h-full rounded-2xl overflow-hidden flex flex-col border",
+        theme.bg,
+        theme.dark ? "border-white/10" : "border-sand-300"
+      )}>
+        <div className="relative h-[175px] overflow-hidden">
+          {/* Background watermark — sits in the open space below the badge
+              row, behind the Shape decoration since it's the first child
+              and nothing after it uses a negative z-index. Clipped to this
+              header zone by its own overflow-hidden. */}
+          {cert.flagship && (
+            <img
+              src={theme.dark ? "/paii.logo.white.png" : "/paii.logo.png"}
+              alt=""
+              aria-hidden="true"
+              className="absolute top-[60%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] max-w-none opacity-[0.12] pointer-events-none select-none"
+            />
+          )}
+          <Shape type={theme.shapeType} color={theme.shapeColor} />
+          {cert.flagship && (
+            <span className="flagship-pill absolute top-5 right-5 flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-gradient-to-r from-teal-500 to-teal-700 text-white border-0 flex-shrink-0">
+              <Star size={12} fill="currentColor" />
+              Flagship
             </span>
           )}
+          <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              "text-[12px] font-semibold px-3 py-1.5 rounded-full border bg-transparent",
+              theme.dark ? "text-white border-white/40" : "text-ink-900 border-ink-900/30"
+            )}>
+              Certification
+            </span>
+            {cert.status === "coming_soon" ? (
+              <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
+                Coming Soon
+              </span>
+            ) : cert.popular === "true" && (
+              <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
+                Most Popular
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="p-6 flex flex-col flex-1">
-        <p className={cn("text-[12px] font-semibold mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.level && (LEVEL_LABEL[cert.level] ?? cert.level)}
-        </p>
-        <p className={cn("text-[12px] font-bold uppercase tracking-wider mb-1.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.acronym}™
-        </p>
-        <h3 className={cn("font-display font-black text-[19px] leading-snug mb-3.5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.title}
-        </h3>
-        <p className={cn("text-[13.5px] leading-relaxed flex-1 mb-6 line-clamp-5", theme.dark ? "text-white" : "text-ink-900")}>
-          {cert.description}
-        </p>
-        <Link
-          href={`/certifications/${cert.slug}`}
-          className={cn(
-            "inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-bold transition-colors",
-            theme.dark ? "bg-white text-ink-900 hover:bg-teal-50" : "bg-ink-900 text-white hover:bg-ink-700"
-          )}
-        >
-          Learn More <ArrowRight size={13} />
-        </Link>
+        <div className="p-6 flex flex-col flex-1">
+          <p className={cn("text-sm font-semibold mb-2", theme.dark ? "text-white" : "text-ink-900")}>
+            {cert.level && (LEVEL_LABEL[cert.level] ?? cert.level)}
+          </p>
+          <p className={cn("font-display font-black text-3xl uppercase tracking-wide mb-2 leading-none", theme.dark ? "text-white" : "text-ink-900")}>
+            {cert.acronym}<span className="text-xs align-super font-semibold">™</span>
+          </p>
+          <h3 className={cn("font-display font-bold text-xl leading-snug mb-3.5", theme.dark ? "text-white" : "text-ink-900")}>
+            {cert.title}
+          </h3>
+          <p className={cn("text-[15px] leading-relaxed flex-1 mb-6 line-clamp-5", theme.dark ? "text-white/70" : "text-ink-900/70")}>
+            {cert.description}
+          </p>
+          <Link
+            href={`/certifications/${cert.slug}`}
+            className={cn(
+              // after:inset-0 stretches an invisible hit-target over the whole
+              // card. Deliberately NOT `relative` on this link itself — that
+              // would make the pseudo-element anchor to the button's own tiny
+              // box instead of escaping up to the card (the actual nearest
+              // positioned ancestor), which is the whole point of the trick.
+              "static inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-bold transition-colors after:absolute after:inset-0",
+              theme.dark ? "bg-white text-ink-900 hover:bg-teal-50" : "bg-ink-900 text-white hover:bg-ink-700"
+            )}
+          >
+            <span className="inline-block origin-left transition-transform duration-200 group-hover:scale-105">Learn More</span>
+            <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -161,19 +216,27 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
   }
 
   return (
-    <section className="section-padding bg-white">
+    // A beige background (rather than white) is what actually separates this
+    // section from its white neighbors now, so standard section-padding no
+    // longer needs the asymmetric trim it had — the color break does that job.
+    <section className="section-padding bg-sand-100">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10">
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div className="max-w-xl">
             <span className="badge-teal mb-4">{badge}</span>
-            <h2 className="section-title">
-              {title}<br />
-              <span className="text-gradient">{titleHighlight}</span>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-ink-900 tracking-tight">
+              {title}
+              {/* Stacking each word of the highlight on its own line gives
+                  this heading enough height to visually balance against the
+                  taller description + link column on the right. */}
+              {titleHighlight.split(" ").map((word: string, i: number) => (
+                <span key={i} className="text-gradient block">{word}</span>
+              ))}
             </h2>
           </div>
           <div className="max-w-sm">
-            <p className="text-ink-900 leading-relaxed mb-5">{description}</p>
+            <p className="text-ink-900 text-[24px] leading-relaxed mb-5">{description}</p>
             <Link href="/certifications" className="inline-flex items-center gap-1.5 text-ink-900 font-bold text-sm hover:text-ink-900 transition-colors border-b border-ink-300 pb-0.5">
               View All Certifications <ArrowRight size={13} />
             </Link>
@@ -182,7 +245,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
 
         <div
           ref={scrollRef}
-          className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth"
+          className="flex gap-6 overflow-x-auto overflow-y-hidden pt-2 pb-4 snap-x snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           {certs.map((cert, i) => (
@@ -192,8 +255,8 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
           ))}
 
           {/* CTA card */}
-          <div className="flex-shrink-0 w-[85vw] max-w-[330px] snap-start">
-            <div className="h-[500px] rounded-2xl bg-sand-100 border border-sand-300 flex flex-col items-center justify-center p-8 text-center">
+          <div className="flex-shrink-0 w-[85vw] max-w-[370px] snap-start">
+            <div className="h-[530px] rounded-2xl bg-sand-100 border border-sand-300 flex flex-col items-center justify-center p-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-sand-200 flex items-center justify-center mb-5">
                 <span className="text-3xl">🎓</span>
               </div>

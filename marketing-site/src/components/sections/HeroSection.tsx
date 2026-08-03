@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, Award, Users, Building2 } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SLIDE_ACCENTS = [
@@ -11,11 +11,10 @@ const SLIDE_ACCENTS = [
   "from-[#12103a] via-[#1a1760] to-[#1e1e80]",
 ];
 
-const SLIDE_ICONS = [Award, Users, Building2];
-
 type SlideData = {
   image_url?: string;
   video_url?: string;
+  overlay?: boolean;
   badge: string;
   headline: string;
   highlight: string;
@@ -49,14 +48,14 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
   const next = useCallback(() => go((current + 1) % slides.length), [current, slides.length, go]);
 
   useEffect(() => {
+    if (slides.length <= 1) return;
     const t = setInterval(next, 6000);
     return () => clearInterval(t);
-  }, [next]);
+  }, [next, slides.length]);
 
   if (slides.length === 0) return null;
 
   const slide = slides[current];
-  const Icon  = SLIDE_ICONS[current % SLIDE_ICONS.length];
 
   return (
     <section
@@ -81,55 +80,21 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
               >
                 <source src={s.video_url} type="video/mp4" />
               </video>
-              <div className="absolute inset-0 bg-black/60" />
+              {s.overlay !== false && <div className="absolute inset-0 bg-black/60" />}
             </>
           ) : s.image_url ? (
             <>
               <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: `url(${s.image_url})` }}
+                style={{ backgroundImage: `url("${s.image_url}")` }}
               />
-              <div className="absolute inset-0 bg-black/60" />
+              {s.overlay !== false && <div className="absolute inset-0 bg-black/60" />}
             </>
           ) : (
             <div className={cn("absolute inset-0 bg-gradient-to-br", SLIDE_ACCENTS[i % SLIDE_ACCENTS.length])} />
           )}
         </div>
       ))}
-
-      {/* Credential signature — a verification card standing in for the abstract decoration */}
-      <div className="absolute right-[6%] top-1/2 -translate-y-1/2 w-[340px] pointer-events-none hidden lg:block">
-        <div
-          className={cn(
-            "relative rounded-2xl border border-teal-400/40 bg-white/[0.04] backdrop-blur-sm p-6 shadow-2xl",
-            "transition-opacity duration-700",
-          )}
-          style={{ transform: "rotate(4deg)" }}
-        >
-          <div className="flex items-center justify-between mb-8">
-            <span className="text-[10px] font-mono font-semibold text-teal-300 uppercase tracking-[0.2em]">Verified Credential</span>
-            <div className="w-7 h-7 rounded-full border border-teal-400/60 flex items-center justify-center">
-              <Icon size={13} className="text-teal-300" />
-            </div>
-          </div>
-          <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1.5">Professional Artificial Intelligence Institute</div>
-          <div className="font-display font-semibold text-2xl text-white mb-6 italic">{slide.badge}</div>
-          <div className="flex items-end justify-between pt-4 border-t border-dashed border-white/15">
-            <div>
-              <div className="text-[9px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Credential ID</div>
-              <div className="text-xs font-mono text-white/70">PAII—2026—{String(current + 1).padStart(4, "0")}</div>
-            </div>
-            <div className="flex items-center gap-1 text-[10px] font-mono text-teal-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-300" /> LIVE
-            </div>
-          </div>
-        </div>
-        {/* Stacked card behind, hinting at a registry */}
-        <div
-          className="absolute inset-0 -z-10 rounded-2xl border border-white/10 bg-white/[0.02]"
-          style={{ transform: "rotate(4deg) translate(14px, 14px)" }}
-        />
-      </div>
 
       {/* Content */}
       <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex-1 flex flex-col justify-center py-16 lg:py-24">
@@ -195,34 +160,36 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
           })()}
         </div>
 
-        {/* Slide controls */}
-        <div className="flex items-center gap-4 mt-10 max-w-3xl">
-          <div className="flex items-center gap-2">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => go(i)}
-                className={cn(
-                  "rounded-full transition-all duration-300",
-                  i === current ? "w-6 h-2 bg-teal-400" : "w-2 h-2 bg-white/30 hover:bg-white/50"
-                )}
-              />
-            ))}
-          </div>
+        {/* Slide controls — nothing to navigate to with only one slide */}
+        {slides.length > 1 && (
+          <div className="flex items-center gap-4 mt-10 max-w-3xl">
+            <div className="flex items-center gap-2">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => go(i)}
+                  className={cn(
+                    "rounded-full transition-all duration-300",
+                    i === current ? "w-6 h-2 bg-teal-400" : "w-2 h-2 bg-white/30 hover:bg-white/50"
+                  )}
+                />
+              ))}
+            </div>
 
-          <div className="flex items-center gap-2 ml-4">
-            <button onClick={prev} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
-              <ChevronLeft size={17} />
-            </button>
-            <button onClick={next} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
-              <ChevronRight size={17} />
-            </button>
-          </div>
+            <div className="flex items-center gap-2 ml-4">
+              <button onClick={prev} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
+                <ChevronLeft size={17} />
+              </button>
+              <button onClick={next} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
+                <ChevronRight size={17} />
+              </button>
+            </div>
 
-          <div className="flex-1 max-w-32 h-0.5 bg-white/10 rounded-full overflow-hidden">
-            <div key={current} className="h-full bg-teal-400 rounded-full animate-hero-progress" />
+            <div className="flex-1 max-w-32 h-0.5 bg-white/10 rounded-full overflow-hidden">
+              <div key={current} className="h-full bg-teal-400 rounded-full animate-hero-progress" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
     </section>

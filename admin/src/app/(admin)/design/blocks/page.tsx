@@ -28,14 +28,14 @@ function Field({ label, value, onChange, textarea = false, placeholder = "" }: {
       {textarea ? (
         <textarea
           className="input-base resize-none h-20 text-sm"
-          value={value}
+          value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
         />
       ) : (
         <input
           className="input-base text-sm"
-          value={value}
+          value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
         />
@@ -93,14 +93,14 @@ function SimpleEditor({ block, fields, token, onSave }: {
 // ─── Hero editor ─────────────────────────────────────────────────────────────
 
 type HeroSlide = {
-  image_url: string; video_url: string; badge: string; headline: string; highlight: string; sub: string;
+  image_url: string; video_url: string; overlay: boolean; badge: string; headline: string; highlight: string; sub: string;
   cta_label: string; cta_href: string; cta2_label: string; cta2_href: string;
   stat1_value: string; stat1_label: string; stat2_value: string; stat2_label: string;
   stat3_value: string; stat3_label: string; stat4_value: string; stat4_label: string;
 };
 
 const HERO_DEFAULT_SLIDE: HeroSlide = {
-  image_url: "", video_url: "", badge: "", headline: "", highlight: "", sub: "",
+  image_url: "", video_url: "", overlay: true, badge: "", headline: "", highlight: "", sub: "",
   cta_label: "", cta_href: "", cta2_label: "", cta2_href: "",
   stat1_value: "", stat1_label: "", stat2_value: "", stat2_label: "",
   stat3_value: "", stat3_label: "", stat4_value: "", stat4_label: "",
@@ -110,11 +110,12 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    overlay: true,
     badge: "The AI Credential Standard",
     headline: "Prove Your AI Expertise.",
     highlight: "Advance Your Career.",
     sub: "PAII offers the most rigorous AI certification programs for professionals, managers, and executives. Join 3,200+ credential holders recognized by leading organizations worldwide.",
-    cta_label: "Start with CAIP", cta_href: "/certifications/certified-ai-professional",
+    cta_label: "Start with CAIP", cta_href: "/certifications/caip",
     cta2_label: "View All Programs", cta2_href: "/certifications",
     stat1_value: "3,200+", stat1_label: "Certified Professionals",
     stat2_value: "48",     stat2_label: "Countries",
@@ -124,6 +125,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    overlay: true,
     badge: "Trusted by Professionals Worldwide",
     headline: "Your Industry Needs AI-Verified",
     highlight: "Talent.",
@@ -138,6 +140,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    overlay: true,
     badge: "Enterprise AI Certification",
     headline: "Upskill Your Entire Team.",
     highlight: "All at Once.",
@@ -161,6 +164,10 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
 
   function upd(key: keyof HeroSlide, val: string) {
     setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, [key]: val } : s));
+  }
+
+  function toggleOverlay() {
+    setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, overlay: s.overlay === false } : s));
   }
 
   async function save() {
@@ -221,6 +228,25 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
             When a video is set it plays instead of the image. Use a direct .mp4 link (autoplay requires no audio) — the image above is still used as the poster frame while the video loads.
           </p>
         )}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div>
+            <p className="text-xs font-semibold text-slate-700">Dark overlay</p>
+            <p className="text-[11px] text-slate-400">Darkens the image/video so the headline text stays readable. Turn off if your background is already dark.</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleOverlay}
+            className={cn(
+              "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+              s.overlay !== false ? "bg-navy-700" : "bg-slate-300"
+            )}
+          >
+            <span className={cn(
+              "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+              s.overlay !== false ? "translate-x-4" : "translate-x-0"
+            )} />
+          </button>
+        </div>
         <Field label="Badge text" value={s.badge} onChange={(v) => upd("badge", v)} />
 
         <div className="grid grid-cols-2 gap-3">
@@ -414,6 +440,133 @@ function TestimonialsEditor({ block, token, onSave }: { block: Block; token: str
         >
           <Plus size={11} /> Add testimonial
         </button>
+      </div>
+
+      <SaveBtn saving={saving} onClick={save} />
+    </div>
+  );
+}
+
+// ─── Updates / sticky-tabs editor ──────────────────────────────────────────────
+
+type UpdateCard = {
+  badge1: string; badge2: string; title: string; description: string;
+  cta_label: string; cta_href: string; image_url: string;
+};
+type UpdateTab = { label: string; card1: UpdateCard; card2: UpdateCard };
+
+const DEFAULT_UPDATE_CARD: UpdateCard = {
+  badge1: "", badge2: "", title: "", description: "", cta_label: "Learn More", cta_href: "", image_url: "",
+};
+const DEFAULT_UPDATE_TAB: UpdateTab = {
+  label: "New Tab",
+  card1: { ...DEFAULT_UPDATE_CARD },
+  card2: { ...DEFAULT_UPDATE_CARD },
+};
+
+function UpdateCardFields({ card, onChange }: { card: UpdateCard; onChange: (c: UpdateCard) => void }) {
+  const upd = (key: keyof UpdateCard, val: string) => onChange({ ...card, [key]: val });
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Badge 1" value={card.badge1} onChange={(v) => upd("badge1", v)} placeholder="Online Tool" />
+        <Field label="Badge 2" value={card.badge2} onChange={(v) => upd("badge2", v)} placeholder="Free for Members" />
+      </div>
+      <Field label="Title" value={card.title} onChange={(v) => upd("title", v)} />
+      <Field label="Description" value={card.description} onChange={(v) => upd("description", v)} textarea />
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Button label" value={card.cta_label} onChange={(v) => upd("cta_label", v)} />
+        <Field label="Button href" value={card.cta_href} onChange={(v) => upd("cta_href", v)} placeholder="/blog/..." />
+      </div>
+      <Field label="Background image URL (optional)" value={card.image_url} onChange={(v) => upd("image_url", v)} placeholder="Leave blank for a gradient" />
+    </div>
+  );
+}
+
+function UpdatesEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
+  const c = block.content;
+  const [badge, setBadge] = useState(c?.badge ?? "Resources");
+  const [title, setTitle] = useState(c?.title ?? "Stay in the Know and");
+  const [titleHighlight, setTitleHighlight] = useState(c?.title_highlight ?? "Ahead of the Curve");
+  const [description, setDescription] = useState(c?.description ?? "");
+  const [tabs, setTabs] = useState<UpdateTab[]>(
+    (c?.tabs as UpdateTab[])?.length ? c.tabs : [{ ...DEFAULT_UPDATE_TAB, label: "AI" }]
+  );
+  const [activeTab, setActiveTab] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  const tab = tabs[Math.min(activeTab, tabs.length - 1)];
+
+  function updTab(patch: Partial<UpdateTab>) {
+    setTabs((prev) => prev.map((t, i) => i === activeTab ? { ...t, ...patch } : t));
+  }
+
+  function addTab() {
+    setTabs((prev) => [...prev, { ...DEFAULT_UPDATE_TAB, label: `Tab ${prev.length + 1}` }]);
+    setActiveTab(tabs.length);
+  }
+
+  function removeTab(idx: number) {
+    if (tabs.length <= 1) { toast.error("Need at least 1 tab"); return; }
+    setTabs((prev) => prev.filter((_, i) => i !== idx));
+    setActiveTab(Math.max(0, idx - 1));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch(`/page-blocks/${block.key}`, { content: { badge, title, title_highlight: titleHighlight, description, tabs } }, token);
+      toast.success("Saved");
+      onSave();
+    } catch { toast.error("Failed to save"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Badge" value={badge} onChange={setBadge} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Title (first line)" value={title} onChange={setTitle} />
+          <Field label="Title highlight (gradient)" value={titleHighlight} onChange={setTitleHighlight} />
+        </div>
+        <Field label="Description" value={description} onChange={setDescription} textarea />
+      </div>
+
+      <div className="border-t border-slate-100 pt-3">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Tabs</p>
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {tabs.map((t, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveTab(i)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === i ? "bg-navy-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              {t.label || `Tab ${i + 1}`}
+            </button>
+          ))}
+          <button onClick={addTab} className="p-1.5 text-slate-400 hover:text-navy-700 hover:bg-slate-100 rounded-lg">
+            <Plus size={13} />
+          </button>
+          {tabs.length > 1 && (
+            <button onClick={() => removeTab(activeTab)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg ml-auto">
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+
+        <Field label="Tab label" value={tab.label} onChange={(v) => updTab({ label: v })} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+          <div className="bg-slate-50 rounded-xl p-3">
+            <p className="text-xs font-bold text-slate-500 mb-2">Featured card (large, colored)</p>
+            <UpdateCardFields card={tab.card1} onChange={(card1) => updTab({ card1 })} />
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3">
+            <p className="text-xs font-bold text-slate-500 mb-2">Secondary card (white)</p>
+            <UpdateCardFields card={tab.card2} onChange={(card2) => updTab({ card2 })} />
+          </div>
+        </div>
       </div>
 
       <SaveBtn saving={saving} onClick={save} />
@@ -1152,6 +1305,128 @@ function LogosEditor({ block, token, onSave }: { block: Block; token: string; on
   );
 }
 
+// ─── Promo banner editor (single upload image + text overlay) ───────────────
+
+function PromoBannerEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
+  const c = block.content;
+  const [imageUrl, setImageUrl]       = useState(c?.image_url ?? "");
+  const [title, setTitle]             = useState(c?.title ?? "");
+  const [description, setDescription] = useState(c?.description ?? "");
+  const [ctaLabel, setCtaLabel]       = useState(c?.cta_label ?? "");
+  const [ctaHref, setCtaHref]         = useState(c?.cta_href ?? "");
+  const [overlay, setOverlay]         = useState(c?.overlay !== false);
+  const [uploading, setUploading]     = useState(false);
+  const [saving, setSaving]           = useState(false);
+
+  async function uploadImage(file: File) {
+    setUploading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/uploads/local?purpose=promo_banner`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const url: string = data?.url ?? data?.data?.url;
+      if (!url) throw new Error();
+      setImageUrl(url);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch(`/page-blocks/${block.key}`, {
+        content: { image_url: imageUrl, title, description, cta_label: ctaLabel, cta_href: ctaHref, overlay },
+      }, token);
+      toast.success("Saved");
+      onSave();
+    } catch { toast.error("Failed to save"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Background image</label>
+        <label className={cn(
+          "flex items-center justify-center w-full h-40 rounded-xl border-2 border-dashed cursor-pointer transition-colors overflow-hidden bg-slate-50",
+          uploading ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:border-navy-300"
+        )}>
+          {uploading ? (
+            <Loader2 size={20} className="animate-spin text-blue-500" />
+          ) : imageUrl ? (
+            <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-1.5 text-slate-400">
+              <ImageIcon size={22} />
+              <span className="text-xs font-medium">Click to upload an image</span>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) uploadImage(file);
+            }}
+          />
+        </label>
+        {imageUrl && (
+          <button onClick={() => setImageUrl("")} className="mt-1.5 text-xs text-red-500 hover:text-red-600">
+            Remove image
+          </button>
+        )}
+        <div className="mt-2">
+          <Field label="Or paste an image URL" value={imageUrl} onChange={setImageUrl} placeholder="https://..." />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div>
+          <p className="text-xs font-semibold text-slate-700">Dark overlay</p>
+          <p className="text-[11px] text-slate-400">Darkens the image so the headline text stays readable. Turn off if your image is already dark.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOverlay((v) => !v)}
+          className={cn(
+            "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+            overlay ? "bg-navy-700" : "bg-slate-300"
+          )}
+        >
+          <span className={cn(
+            "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+            overlay ? "translate-x-4" : "translate-x-0"
+          )} />
+        </button>
+      </div>
+
+      <div className="border-t border-slate-100 pt-3 space-y-3">
+        <Field label="Title" value={title} onChange={setTitle} placeholder="New Agile Practice Guide" />
+        <Field label="Description" value={description} onChange={setDescription} textarea placeholder="Enable enterprise agility with modern, framework-neutral guidance." />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Button label" value={ctaLabel} onChange={setCtaLabel} placeholder="Get the Guide" />
+          <Field label="Button link" value={ctaHref} onChange={setCtaHref} placeholder="/resources/..." />
+        </div>
+      </div>
+
+      <SaveBtn saving={saving} onClick={save} />
+    </div>
+  );
+}
+
 // ─── Block editor router ─────────────────────────────────────────────────────
 
 function BlockEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
@@ -1164,6 +1439,8 @@ function BlockEditor({ block, token, onSave }: { block: Block; token: string; on
   if (block.key === "courses")        return <CoursesEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "video")          return <VideoEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "logos")          return <LogosEditor block={block} token={token} onSave={onSave} />;
+  if (block.key === "updates")        return <UpdatesEditor block={block} token={token} onSave={onSave} />;
+  if (block.key === "promo_banner")   return <PromoBannerEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "footer") return (
     <div className="py-2">
       <p className="text-sm text-slate-500 mb-4">The footer has a dedicated editor with full column, social link, and trust bar management.</p>
@@ -1197,6 +1474,8 @@ const BLOCK_TEMPLATES = [
   { key: "blog",          label: "Latest Articles" },
   { key: "cta",           label: "Call to Action" },
   { key: "logos",         label: "Logo Strip / Partners" },
+  { key: "updates",       label: "Resource Updates (Sticky Tabs)" },
+  { key: "promo_banner",  label: "Promo Banner (Image + Overlay Text)" },
 ];
 
 // ─── Page ────────────────────────────────────────────────────────────────────

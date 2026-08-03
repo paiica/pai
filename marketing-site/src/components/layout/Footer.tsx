@@ -116,10 +116,15 @@ export default async function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/10">
           <div className="lg:col-span-1">
             <Link href="/" className="inline-flex items-center mb-5">
+              {/* Same white-on-dark handling as the header: the default PAII mark
+                  uses a pre-whitened asset (avoids a runtime CSS filter turning
+                  the whole box solid white on some mobile browsers' PNG alpha
+                  handling), while a custom logo from site settings falls back
+                  to the filter since no pre-whitened variant exists for it. */}
               <img
-                src={logoUrl || "/paii.logo.png"}
+                src={logoUrl || "/paii.logo.white.png"}
                 alt="Professional Artificial Intelligence Institute"
-                style={{ height: `${logoHeight}px` }}
+                style={logoUrl ? { height: `${logoHeight}px`, filter: "brightness(0) invert(1)" } : { height: `${logoHeight}px` }}
                 className="w-auto object-contain"
               />
             </Link>

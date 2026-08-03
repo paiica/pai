@@ -83,7 +83,7 @@ const CERTS = [
     level: "Professional",
     desc: "For practitioners applying AI in real-world roles. The most in-demand credential in our catalog.",
     color: "bg-teal-500",
-    href: "/certifications/certified-ai-professional",
+    href: "/certifications/caip",
   },
   {
     acronym: "CAIM",
@@ -91,7 +91,7 @@ const CERTS = [
     level: "Management",
     desc: "For leaders responsible for AI strategy, governance, and team execution.",
     color: "bg-blue-500",
-    href: "/certifications/certified-ai-manager",
+    href: "/certifications/caim",
   },
   {
     acronym: "CAIE",
@@ -99,7 +99,7 @@ const CERTS = [
     level: "Education",
     desc: "Designed specifically for educators and trainers teaching AI concepts and applications.",
     color: "bg-purple-500",
-    href: "/certifications/certified-ai-educator",
+    href: "/certifications/caie",
   },
   {
     acronym: "CAIDA",
@@ -107,7 +107,7 @@ const CERTS = [
     level: "Analytics",
     desc: "For data professionals integrating AI into analytical workflows and decision-making.",
     color: "bg-emerald-500",
-    href: "/certifications/certified-ai-data-analyst",
+    href: "/certifications/caida",
   },
 ];
 

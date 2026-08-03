@@ -10,6 +10,8 @@ import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import IdentitySection from "@/components/sections/IdentitySection";
 import CTASection from "@/components/sections/CTASection";
 import LogoStripSection from "@/components/sections/LogoStripSection";
+import UpdatesSection from "@/components/sections/UpdatesSection";
+import PromoBannerSection from "@/components/sections/PromoBannerSection";
 
 type PageBlock = { key: string; is_visible: boolean; sort_order: number; content: Record<string, any> };
 
@@ -24,6 +26,8 @@ const SECTION_MAP: Record<string, React.ComponentType<any>> = {
   blog:           BlogSection,
   cta:            CTASection,
   logos:          LogoStripSection,
+  updates:        UpdatesSection,
+  promo_banner:   PromoBannerSection,
 };
 
 async function getBlocks(): Promise<PageBlock[]> {

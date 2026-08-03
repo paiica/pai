@@ -126,7 +126,7 @@ export default function NavbarClient({
                 </button>
               )}
               <Link
-                href="/certifications/certified-ai-professional"
+                href="/certifications/caip"
                 className="ml-1 px-5 py-2 bg-ink-900 hover:bg-ink-800 text-white text-[13px] font-semibold rounded-lg transition-colors"
               >
                 Get Certified
@@ -173,7 +173,7 @@ export default function NavbarClient({
               </div>
             ))}
             <div className="border-t border-sand-200 mt-2 pt-3">
-              <Link href="/certifications/certified-ai-professional"
+              <Link href="/certifications/caip"
                 className="block text-center py-3 bg-ink-900 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors">
                 Get Certified
               </Link>

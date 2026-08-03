@@ -4,6 +4,10 @@
 
 @layer base {
   html {
+    /* Bumps the root size from the 16px browser default to 18px (+2px).
+       Every Tailwind text-* utility is rem-based, so this scales all text
+       site-wide proportionally instead of editing every className. */
+    font-size: 112.5%;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -120,34 +124,8 @@
   }
 }
 
-/* Flagship certification highlight — a slow-shifting teal gradient border,
-   drawn as a pseudo-element ring so it doesn't affect layout or the card's
-   own border/background underneath. */
-.flagship-card {
-  position: relative;
-}
-.flagship-card::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  padding: 2px;
-  background: linear-gradient(120deg, #99f6e4, #0d9488, #5eead4, #0f766e);
-  background-size: 300% 300%;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  box-shadow: 0 0 16px rgba(20, 184, 166, 0.45);
-  animation: flagship-shine 4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 2;
-}
-@keyframes flagship-shine {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .flagship-card::before {
-    animation: none;
-  }
+/* "Flagship" pill — soft static shadow to lift the gradient pill off the
+   card, no animation. */
+.flagship-pill {
+  box-shadow: 0 4px 14px -2px rgba(13, 148, 136, 0.45), 0 2px 6px -1px rgba(13, 148, 136, 0.3);
 }
