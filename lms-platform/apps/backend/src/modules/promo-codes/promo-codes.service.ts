@@ -32,15 +32,17 @@ export class PromoCodesService {
       }
     }
 
-    // Enforce item restriction if the code is scoped to a specific course or certification
-    if (promo.course_id) {
-      if (!context?.courseId || context.courseId !== promo.course_id) {
-        return { valid: false, discount_amount: 0, message: "This promo code is not valid for this course" };
-      }
-    }
-    if (promo.certification_id) {
-      if (!context?.certificationId || context.certificationId !== promo.certification_id) {
-        return { valid: false, discount_amount: 0, message: "This promo code is not valid for this certification" };
+    // Enforce item restriction if the code is scoped to specific courses/certs.
+    // A code can be scoped to a set of courses, a set of certifications, both,
+    // or neither (unrestricted). When both are set, the order needs to match
+    // ANY listed course OR ANY listed certification — not both at once.
+    const restrictedCourseIds: string[] = promo.course_ids ?? [];
+    const restrictedCertIds: string[] = promo.certification_ids ?? [];
+    if (restrictedCourseIds.length > 0 || restrictedCertIds.length > 0) {
+      const matchesCourse = restrictedCourseIds.length > 0 && !!context?.courseId && restrictedCourseIds.includes(context.courseId);
+      const matchesCert = restrictedCertIds.length > 0 && !!context?.certificationId && restrictedCertIds.includes(context.certificationId);
+      if (!matchesCourse && !matchesCert) {
+        return { valid: false, discount_amount: 0, message: "This promo code is not valid for this item" };
       }
     }
 
@@ -103,31 +105,29 @@ export class PromoCodesService {
   }
 
   async adminList() {
+    // No join for course/cert titles here — course_ids/certification_ids are
+    // arrays now, so resolving titles per-row would need an array-aware join.
+    // The admin frontend already fetches the full courses/certifications
+    // lists for the picker UI, so it resolves titles client-side by ID.
     return this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT p.*,
-        c.title AS course_title,
-        cert.title AS certification_title, cert.acronym AS certification_acronym
-      FROM lms.promo_codes p
-      LEFT JOIN lms.courses c ON c.id = p.course_id
-      LEFT JOIN lms.certifications cert ON cert.id = p.certification_id
-      ORDER BY p.created_at DESC
+      SELECT * FROM lms.promo_codes ORDER BY created_at DESC
     `);
   }
 
   async adminCreate(dto: {
     code: string; description?: string; discount_type: string; discount_value: number;
     max_uses?: number; expires_at?: string; is_active?: boolean;
-    course_id?: string; certification_id?: string;
+    course_ids?: string[]; certification_ids?: string[];
   }) {
-    const { code, description, discount_type, discount_value, max_uses, expires_at, is_active = true, course_id, certification_id } = dto;
+    const { code, description, discount_type, discount_value, max_uses, expires_at, is_active = true, course_ids, certification_ids } = dto;
     if (!["percentage", "fixed"].includes(discount_type)) throw new BadRequestException("discount_type must be percentage or fixed");
     this.assertValidDiscountValue(discount_type, discount_value);
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `INSERT INTO lms.promo_codes (id, code, description, discount_type, discount_value, max_uses, expires_at, is_active, used_count, course_id, certification_id, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4::numeric, $5, $6, $7, 0, $8, $9, now(), now()) RETURNING *`,
+      `INSERT INTO lms.promo_codes (id, code, description, discount_type, discount_value, max_uses, expires_at, is_active, used_count, course_ids, certification_ids, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4::numeric, $5, $6, $7, 0, $8::text[], $9::text[], now(), now()) RETURNING *`,
       code.toUpperCase(), description ?? null, discount_type, discount_value, max_uses ?? null,
       expires_at ? new Date(expires_at) : null, is_active,
-      course_id || null, certification_id || null
+      course_ids ?? [], certification_ids ?? []
     );
     return rows[0];
   }
@@ -135,9 +135,9 @@ export class PromoCodesService {
   async adminUpdate(id: string, dto: Partial<{
     description: string; discount_type: string; discount_value: number;
     max_uses: number; expires_at: string; is_active: boolean;
-    course_id: string; certification_id: string;
+    course_ids: string[]; certification_ids: string[];
   }>) {
-    const { description, discount_type, discount_value, max_uses, expires_at, is_active, course_id, certification_id } = dto;
+    const { description, discount_type, discount_value, max_uses, expires_at, is_active, course_ids, certification_ids } = dto;
     if (discount_type !== undefined || discount_value !== undefined) {
       if (discount_type !== undefined && !["percentage", "fixed"].includes(discount_type)) {
         throw new BadRequestException("discount_type must be percentage or fixed");
@@ -161,13 +161,13 @@ export class PromoCodesService {
         max_uses = COALESCE($4, max_uses),
         expires_at = COALESCE($5, expires_at),
         is_active = COALESCE($6, is_active),
-        course_id = $7,
-        certification_id = $8,
+        course_ids = $7::text[],
+        certification_ids = $8::text[],
         updated_at = now()
        WHERE id = $9`,
       description ?? null, discount_type ?? null, discount_value ?? null, max_uses ?? null,
       expires_at ? new Date(expires_at) : null, is_active ?? null,
-      course_id ?? null, certification_id ?? null, id
+      course_ids ?? [], certification_ids ?? [], id
     );
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`SELECT * FROM lms.promo_codes WHERE id = $1`, id);
     return rows[0];

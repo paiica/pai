@@ -16,8 +16,68 @@ import toast from "react-hot-toast";
 
 const EMPTY_GENERAL = {
   code: "", description: "", discount_type: "percentage", discount_value: "",
-  max_uses: "", expires_at: "", is_active: true, course_id: "", certification_id: "",
+  max_uses: "", expires_at: "", is_active: true,
+  course_ids: [] as string[], certification_ids: [] as string[],
 };
+
+// Mirrors the checkbox-grid pattern already used for admin tab permissions
+// elsewhere in this app. Empty selection = unrestricted on that dimension.
+function MultiSelectPicker({ label, items, selected, onChange, getLabel }: {
+  label: string;
+  items: any[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  getLabel: (item: any) => string;
+}) {
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  }
+  function selectAll() { onChange(items.map((i: any) => i.id)); }
+  function clearAll() { onChange([]); }
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</label>
+        {items.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={selectAll} className="text-xs text-navy-600 hover:underline">All</button>
+            <span className="text-xs text-slate-300">|</span>
+            <button type="button" onClick={clearAll} className="text-xs text-slate-500 hover:underline">None</button>
+          </div>
+        )}
+      </div>
+      <div className="border border-slate-200 rounded-lg max-h-40 overflow-y-auto p-1.5 space-y-0.5">
+        {items.length === 0 ? (
+          <p className="text-xs text-slate-400 px-2 py-1.5">None available</p>
+        ) : items.map((item: any) => {
+          const isSelected = selected.includes(item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggle(item.id)}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm transition-colors",
+                isSelected ? "bg-navy-50 text-navy-900" : "hover:bg-slate-50 text-slate-600"
+              )}
+            >
+              <span className={cn(
+                "w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0",
+                isSelected ? "bg-navy-700 border-navy-700" : "border-slate-300"
+              )}>
+                {isSelected && <Check size={9} className="text-white" />}
+              </span>
+              <span className="truncate">{getLabel(item)}</span>
+            </button>
+          );
+        })}
+      </div>
+      {selected.length === 0 && (
+        <p className="text-[11px] text-slate-400 mt-1">Unrestricted — no {label.toLowerCase()} selected.</p>
+      )}
+    </div>
+  );
+}
 
 function GeneralCodesTab() {
   const { accessToken } = useAuthStore();
@@ -52,7 +112,9 @@ function GeneralCodesTab() {
       discount_type: c.discount_type, discount_value: String(c.discount_value),
       max_uses: c.max_uses ? String(c.max_uses) : "",
       expires_at: c.expires_at ? c.expires_at.split("T")[0] : "",
-      is_active: c.is_active, course_id: c.course_id ?? "", certification_id: c.certification_id ?? "",
+      is_active: c.is_active,
+      course_ids: Array.isArray(c.course_ids) ? c.course_ids : [],
+      certification_ids: Array.isArray(c.certification_ids) ? c.certification_ids : [],
     });
     setEditId(c.id); setShowForm(true);
   }
@@ -69,8 +131,8 @@ function GeneralCodesTab() {
         max_uses: form.max_uses ? Number(form.max_uses) : undefined,
         expires_at: form.expires_at || undefined,
         is_active: form.is_active,
-        course_id: form.course_id || undefined,
-        certification_id: form.certification_id || undefined,
+        course_ids: form.course_ids,
+        certification_ids: form.certification_ids,
       };
       if (editId) {
         await api.patch(`/promo-codes/${editId}`, payload, accessToken!);
@@ -103,9 +165,20 @@ function GeneralCodesTab() {
   }
 
   function scopeLabel(c: any) {
-    if (c.course_id && c.course_title) return `Course: ${c.course_title}`;
-    if (c.certification_id && c.certification_acronym) return `Cert: ${c.certification_acronym}`;
-    return "All items";
+    const courseIds: string[] = Array.isArray(c.course_ids) ? c.course_ids : [];
+    const certIds: string[] = Array.isArray(c.certification_ids) ? c.certification_ids : [];
+    const parts: string[] = [];
+    if (courseIds.length === 1) {
+      parts.push(`Course: ${courses.find((x) => x.id === courseIds[0])?.title ?? "Unknown"}`);
+    } else if (courseIds.length > 1) {
+      parts.push(`${courseIds.length} Courses`);
+    }
+    if (certIds.length === 1) {
+      parts.push(`Cert: ${certs.find((x) => x.id === certIds[0])?.acronym ?? "Unknown"}`);
+    } else if (certIds.length > 1) {
+      parts.push(`${certIds.length} Certs`);
+    }
+    return parts.length > 0 ? parts.join(" + ") : "All items";
   }
 
   return (
@@ -157,24 +230,22 @@ function GeneralCodesTab() {
                 onChange={(e) => setForm((p) => ({ ...p, expires_at: e.target.value }))}
                 className="input-base text-sm" />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Course (optional)</label>
-              <select value={form.course_id}
-                onChange={(e) => setForm((p) => ({ ...p, course_id: e.target.value, certification_id: "" }))}
-                className="input-base text-sm" disabled={!!form.certification_id}>
-                <option value="">— All courses —</option>
-                {courses.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Restrict to Certification (optional)</label>
-              <select value={form.certification_id}
-                onChange={(e) => setForm((p) => ({ ...p, certification_id: e.target.value, course_id: "" }))}
-                className="input-base text-sm" disabled={!!form.course_id}>
-                <option value="">— All certifications —</option>
-                {certs.map((c: any) => <option key={c.id} value={c.id}>{c.acronym} — {c.title}</option>)}
-              </select>
-            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <MultiSelectPicker
+              label="Restrict to Courses"
+              items={courses}
+              selected={form.course_ids}
+              onChange={(ids) => setForm((p) => ({ ...p, course_ids: ids }))}
+              getLabel={(c) => c.title}
+            />
+            <MultiSelectPicker
+              label="Restrict to Certifications"
+              items={certs}
+              selected={form.certification_ids}
+              onChange={(ids) => setForm((p) => ({ ...p, certification_ids: ids }))}
+              getLabel={(c) => `${c.acronym} — ${c.title}`}
+            />
           </div>
           <label className="flex items-center gap-2 cursor-pointer mb-4">
             <input type="checkbox" checked={form.is_active}
@@ -224,8 +295,8 @@ function GeneralCodesTab() {
                   <td className="px-4 py-3">
                     <span className={cn(
                       "text-xs font-medium px-2 py-0.5 rounded-full",
-                      c.course_id ? "bg-blue-50 text-blue-700" :
-                      c.certification_id ? "bg-purple-50 text-purple-700" :
+                      (c.course_ids?.length > 0) ? "bg-blue-50 text-blue-700" :
+                      (c.certification_ids?.length > 0) ? "bg-purple-50 text-purple-700" :
                       "bg-slate-100 text-slate-500"
                     )}>
                       {scopeLabel(c)}
@@ -541,7 +612,7 @@ export default function PromoCodesPage() {
   const [tab, setTab] = useState<Tab>("general");
 
   const TABS: { key: Tab; label: string; description: string }[] = [
-    { key: "general",   label: "General Codes",   description: "Discount codes for any student — can be scoped to a course or certification" },
+    { key: "general",   label: "General Codes",   description: "Discount codes for any student — can be scoped to one or more courses and/or certifications" },
     { key: "affiliate", label: "Affiliate Codes",  description: "Codes assigned to sales reps that track referral commissions" },
   ];
 
