@@ -14,6 +14,10 @@ const SLIDE_ACCENTS = [
 type SlideData = {
   image_url?: string;
   video_url?: string;
+  image_position?: string;
+  image_position_mobile?: string;
+  image_zoom?: number;
+  image_zoom_mobile?: number;
   overlay?: boolean;
   align_right?: boolean;
   badge: string;
@@ -60,7 +64,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
 
   return (
     <section
-      className="relative min-h-screen flex flex-col overflow-hidden"
+      className="relative min-h-[70vh] flex flex-col overflow-hidden"
       style={{ paddingTop: "var(--header-height, 88px)" }}
     >
 
@@ -77,7 +81,8 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
                 key={s.video_url}
                 autoPlay muted loop playsInline
                 poster={s.image_url || undefined}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain bg-[#0e1e3d]"
+                style={{ objectPosition: s.image_position || "50% 50%" }}
               >
                 <source src={s.video_url} type="video/mp4" />
               </video>
@@ -85,9 +90,33 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             </>
           ) : s.image_url ? (
             <>
+              {/* `contain` (not `cover`) so the uploaded photo is always shown in
+                  full, never cropped or auto-zoomed to fill the box — `cover`
+                  crops by however much a given viewer's own window width forces
+                  (worse on wide/ultra-wide monitors, since it can even crop the
+                  top/bottom once the window gets wide enough), which isn't
+                  something an admin can predict or control from one preview.
+                  The solid fallback color behind it fills any letterboxing where
+                  the image's own aspect ratio doesn't exactly match the box.
+                  Two layers (desktop/mobile) so each breakpoint can use its own
+                  focal point rather than fighting over one `background-position`. */}
               <div
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: `url("${s.image_url}")` }}
+                className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d] hidden sm:block"
+                style={{
+                  backgroundImage: `url("${s.image_url}")`,
+                  backgroundPosition: s.image_position || "50% 50%",
+                  transform: `scale(${(s.image_zoom ?? 100) / 100})`,
+                  transformOrigin: s.image_position || "50% 50%",
+                }}
+              />
+              <div
+                className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d] sm:hidden"
+                style={{
+                  backgroundImage: `url("${s.image_url}")`,
+                  backgroundPosition: s.image_position_mobile || s.image_position || "50% 50%",
+                  transform: `scale(${(s.image_zoom_mobile ?? s.image_zoom ?? 100) / 100})`,
+                  transformOrigin: s.image_position_mobile || s.image_position || "50% 50%",
+                }}
               />
               {s.overlay !== false && <div className="absolute inset-0 bg-black/60" />}
             </>
@@ -98,7 +127,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
       ))}
 
       {/* Content */}
-      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex-1 flex flex-col justify-center py-16 lg:py-24">
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex-1 flex flex-col justify-center py-10 lg:py-14">
         <div className={cn(
           "transition-opacity duration-[220ms] max-w-3xl",
           animating ? "opacity-0" : "opacity-100",
@@ -106,27 +135,27 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
         )}>
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-300 pl-3 border-l-2 border-teal-400 uppercase tracking-[0.15em] mb-7">
+          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-300 pl-3 border-l-2 border-teal-400 uppercase tracking-[0.15em] mb-5">
             {slide.badge}
           </div>
 
           {/* Headline */}
           <h1 className="
             text-4xl sm:text-5xl lg:text-6xl xl:text-7xl
-            font-display font-black text-white leading-[1.08] mb-5
-            min-h-[90px] sm:min-h-[120px] lg:min-h-[150px] xl:min-h-[190px]
+            font-display font-black text-white leading-[1.08] mb-4
+            min-h-[80px] sm:min-h-[108px] lg:min-h-[135px] xl:min-h-[165px]
           ">
             {slide.headline}{" "}
             <span className="text-gradient">{slide.highlight}</span>
           </h1>
 
           {/* Sub */}
-          <p className="text-lg sm:text-xl text-white leading-relaxed max-w-2xl mb-10 min-h-[80px] sm:min-h-[88px]">
+          <p className="text-lg sm:text-xl text-white leading-relaxed max-w-2xl mb-6 min-h-[70px] sm:min-h-[76px]">
             {slide.sub}
           </p>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-12">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
             <Link href={slide.cta_href} className="btn-primary !py-4 !px-8 !text-base gap-2.5">
               {slide.cta_label} <ArrowRight size={16} />
             </Link>
@@ -167,7 +196,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
 
         {/* Slide controls — nothing to navigate to with only one slide */}
         {slides.length > 1 && (
-          <div className={cn("flex items-center gap-4 mt-10 max-w-3xl", slide.align_right && "ml-auto")}>
+          <div className={cn("flex items-center gap-4 mt-6 max-w-3xl", slide.align_right && "ml-auto")}>
             <div className="flex items-center gap-2">
               {slides.map((_, i) => (
                 <button

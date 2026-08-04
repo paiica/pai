@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Film, Save, ExternalLink, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
+import { GripVertical, Loader2, Edit2, X, Plus, Copy, Trash2, Image as ImageIcon, Film, Save, ExternalLink, ChevronUp, ChevronDown, Sparkles, Maximize2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -110,14 +111,14 @@ function SimpleEditor({ block, fields, token, onSave }: {
 // ─── Hero editor ─────────────────────────────────────────────────────────────
 
 type HeroSlide = {
-  image_url: string; video_url: string; overlay: boolean; align_right: boolean; badge: string; headline: string; highlight: string; sub: string;
+  image_url: string; video_url: string; image_position: string; image_position_mobile: string; image_zoom: number; image_zoom_mobile: number; overlay: boolean; align_right: boolean; badge: string; headline: string; highlight: string; sub: string;
   cta_label: string; cta_href: string; cta2_label: string; cta2_href: string;
   stat1_value: string; stat1_label: string; stat2_value: string; stat2_label: string;
   stat3_value: string; stat3_label: string; stat4_value: string; stat4_label: string;
 };
 
 const HERO_DEFAULT_SLIDE: HeroSlide = {
-  image_url: "", video_url: "", overlay: true, align_right: false, badge: "", headline: "", highlight: "", sub: "",
+  image_url: "", video_url: "", image_position: "50% 50%", image_position_mobile: "", image_zoom: 100, image_zoom_mobile: 100, overlay: true, align_right: false, badge: "", headline: "", highlight: "", sub: "",
   cta_label: "", cta_href: "", cta2_label: "", cta2_href: "",
   stat1_value: "", stat1_label: "", stat2_value: "", stat2_label: "",
   stat3_value: "", stat3_label: "", stat4_value: "", stat4_label: "",
@@ -127,6 +128,10 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    image_position: "50% 50%",
+    image_position_mobile: "",
+    image_zoom: 100,
+    image_zoom_mobile: 100,
     overlay: true,
     align_right: false,
     badge: "The AI Credential Standard",
@@ -143,6 +148,10 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    image_position: "50% 50%",
+    image_position_mobile: "",
+    image_zoom: 100,
+    image_zoom_mobile: 100,
     overlay: true,
     align_right: false,
     badge: "Trusted by Professionals Worldwide",
@@ -159,6 +168,10 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
   {
     image_url: "",
     video_url: "",
+    image_position: "50% 50%",
+    image_position_mobile: "",
+    image_zoom: 100,
+    image_zoom_mobile: 100,
     overlay: true,
     align_right: false,
     badge: "Enterprise AI Certification",
@@ -173,6 +186,344 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     stat4_value: "100%",  stat4_label: "Custom Pathways",
   },
 ];
+
+// The draggable crop preview itself, reused both inline (small, boxed in by
+// the admin panel's own width) and full-screen (via a portal, so it isn't
+// constrained by any ancestor's max-width/overflow). Pointer capture on the
+// frame — rather than just the marker — means the drag keeps tracking
+// smoothly even if the cursor slips past the frame edge mid-drag.
+function FocalFrame({ imageUrl, position, zoom = 100, onChange, className, markerSize = 16 }: {
+  imageUrl: string; position: string; zoom?: number; onChange: (pos: string) => void; className?: string; markerSize?: number;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [px, py] = (position || "50% 50%").split(" ");
+
+  function updateFromPointer(e: { clientX: number; clientY: number }) {
+    const rect = frameRef.current!.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+    onChange(`${x}% ${y}%`);
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    updateFromPointer(e);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.buttons !== 1) return; // only while dragging (primary button/touch held)
+    updateFromPointer(e);
+  }
+
+  return (
+    <div
+      ref={frameRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      className={cn("relative w-full overflow-hidden border border-slate-200 cursor-crosshair bg-slate-100 touch-none select-none", className)}
+    >
+      {/* The frame itself (drag hit-area) never transforms — only this inner
+          layer scales, so pointer math above (based on the frame's own,
+          unscaled bounding box) stays correct at any zoom level. `contain`
+          (not `cover`) matches the live site — the full image always shows,
+          never auto-cropped; zoom multiplies on top of that if you want to
+          deliberately crop in, anchored at the focal point. */}
+      <div
+        className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d]"
+        style={{
+          backgroundImage: `url("${imageUrl}")`,
+          backgroundPosition: position || "50% 50%",
+          transform: `scale(${zoom / 100})`,
+          transformOrigin: position || "50% 50%",
+        }}
+      />
+      <div
+        className="absolute rounded-full border-2 border-white bg-navy-700 shadow-md pointer-events-none"
+        style={{ left: px, top: py, width: markerSize, height: markerSize, marginLeft: -markerSize / 2, marginTop: -markerSize / 2 }}
+      />
+    </div>
+  );
+}
+
+// Small inline preview is boxed in by the admin panel's own (much narrower)
+// column, so it can't show the crop at anywhere near the width the marketing
+// site actually renders it at. "Expand" opens the same frame full-bleed in a
+// portal mounted on document.body, escaping the panel's width/overflow
+// entirely so it matches real browser-window scale.
+//
+// Default aspect ratio (1920/775) mirrors the hero's real shape at a common
+// 1920px-wide desktop — NOT an arbitrary 21:9. The hero's height is fixed by
+// its content (~775px) regardless of window width, so there's no single
+// aspect ratio that's exactly right at every size; narrower browser windows
+// will crop a bit tighter on the sides than this preview shows. If the hero's
+// own padding/spacing changes meaningfully, this ratio should be re-measured
+// (render the live hero and read its actual box height) so this preview keeps
+// matching reality.
+function ImageFocalPicker({ imageUrl, position, onChange, zoom = 100, onZoomChange, aspectClassName = "aspect-[1920/775]", expandedMaxWidth = "max-w-4xl", hint = "Drag to the part of the image you want centered — expand for a full-screen preview at real scale." }: {
+  imageUrl: string; position: string; onChange: (pos: string) => void; zoom?: number; onZoomChange?: (z: number) => void; aspectClassName?: string; expandedMaxWidth?: string; hint?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isDefault = position === "50% 50%" && zoom === 100;
+
+  useEffect(() => {
+    if (!expanded) return;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setExpanded(false); }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
+
+  function reset() {
+    onChange("50% 50%");
+    onZoomChange?.(100);
+  }
+
+  const zoomSlider = onZoomChange && (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-semibold text-slate-400 w-8">Zoom</span>
+      <input
+        type="range"
+        min={100}
+        max={200}
+        step={5}
+        value={zoom}
+        onChange={(e) => onZoomChange(Number(e.target.value))}
+        className="flex-1 accent-navy-700"
+      />
+      <span className="text-[10px] font-mono text-slate-400 w-9 text-right">{zoom}%</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-1.5">
+      <div className="relative">
+        <FocalFrame imageUrl={imageUrl} position={position} zoom={zoom} onChange={onChange} className={cn(aspectClassName, "rounded-xl")} />
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          title="Expand to full screen width"
+          className="absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white hover:bg-black/70 transition-colors"
+        >
+          <Maximize2 size={13} />
+        </button>
+      </div>
+      {zoomSlider}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-slate-400">{hint}</p>
+        {!isDefault && (
+          <button type="button" onClick={reset} className="text-[11px] font-semibold text-navy-600 hover:text-navy-800 flex-shrink-0 ml-2">
+            Reset
+          </button>
+        )}
+      </div>
+
+      {expanded && createPortal(
+        <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-6 sm:p-12" onClick={() => setExpanded(false)}>
+          <div className={cn("w-full space-y-3", expandedMaxWidth)} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-white/70">Drag to set the focal point</p>
+              <div className="flex items-center gap-2">
+                {!isDefault && (
+                  <button type="button" onClick={reset} className="text-xs font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+                    Reset
+                  </button>
+                )}
+                <button type="button" onClick={() => setExpanded(false)} className="p-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <FocalFrame imageUrl={imageUrl} position={position} zoom={zoom} onChange={onChange} className={cn(aspectClassName, "rounded-xl")} markerSize={20} />
+            {onZoomChange && (
+              <div className="bg-black/40 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-white/70 w-10">Zoom</span>
+                  <input
+                    type="range"
+                    min={100}
+                    max={200}
+                    step={5}
+                    value={zoom}
+                    onChange={(e) => onZoomChange(Number(e.target.value))}
+                    className="flex-1 accent-teal-400"
+                  />
+                  <span className="text-[11px] font-mono text-white/70 w-9 text-right">{zoom}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// Facebook-cover-photo-style: the same large frame is both the upload target
+// (click or drop a file directly onto it when empty) and the drag-to-position
+// editor (once an image is set) — no separate small thumbnail plus a
+// disconnected big preview to keep in sync. Sized at the hero's real aspect
+// ratio (see ImageFocalPicker's comment above) so what you frame here is what
+// appears live.
+function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, onPositionChange, onZoomChange }: {
+  imageUrl: string; position: string; zoom: number; uploading: boolean;
+  onUpload: (file: File) => void; onPositionChange: (pos: string) => void; onZoomChange: (zoom: number) => void;
+}) {
+  const aspectClassName = "aspect-[1920/775]";
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const isDefault = position === "50% 50%" && zoom === 100;
+
+  useEffect(() => {
+    if (!expanded) return;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setExpanded(false); }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
+
+  function reset() {
+    onPositionChange("50% 50%");
+    onZoomChange(100);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) onUpload(file);
+  }
+
+  const fileInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      disabled={uploading}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (file) onUpload(file);
+      }}
+    />
+  );
+
+  const zoomSlider = (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-semibold text-slate-400 w-8">Zoom</span>
+      <input type="range" min={100} max={200} step={5} value={zoom} onChange={(e) => onZoomChange(Number(e.target.value))} className="flex-1 accent-navy-700" />
+      <span className="text-[10px] font-mono text-slate-400 w-9 text-right">{zoom}%</span>
+    </div>
+  );
+
+  if (!imageUrl) {
+    return (
+      <div className="space-y-1.5">
+        {fileInput}
+        <div
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={cn(
+            "w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors",
+            aspectClassName,
+            dragOver ? "border-navy-400 bg-navy-50" : "border-slate-200 hover:border-navy-300 bg-slate-50"
+          )}
+        >
+          {uploading ? <Loader2 size={22} className="animate-spin text-blue-500" /> : (
+            <>
+              <ImageIcon size={22} className="text-slate-300" />
+              <p className="text-xs font-semibold text-slate-500">Click or drop an image here</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {fileInput}
+      <div className="relative">
+        <FocalFrame imageUrl={imageUrl} position={position} zoom={zoom} onChange={onPositionChange} className={cn(aspectClassName, "rounded-xl")} />
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            title="Replace image"
+            disabled={uploading}
+            className="p-1.5 rounded-md bg-black/50 text-white hover:bg-black/70 transition-colors disabled:opacity-50"
+          >
+            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            title="Expand to full screen width"
+            className="p-1.5 rounded-md bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            <Maximize2 size={13} />
+          </button>
+        </div>
+      </div>
+      {zoomSlider}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-slate-400">Drag to the part of the image you want centered — this frame matches the real hero shape.</p>
+        {!isDefault && (
+          <button type="button" onClick={reset} className="text-[11px] font-semibold text-navy-600 hover:text-navy-800 flex-shrink-0 ml-2">
+            Reset
+          </button>
+        )}
+      </div>
+
+      {expanded && createPortal(
+        <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-6 sm:p-12" onClick={() => setExpanded(false)}>
+          <div className="w-full max-w-5xl space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-white/70">Drag to set the focal point</p>
+              <div className="flex items-center gap-2">
+                {!isDefault && (
+                  <button type="button" onClick={reset} className="text-xs font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+                    Reset
+                  </button>
+                )}
+                <button type="button" onClick={() => setExpanded(false)} className="p-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <FocalFrame imageUrl={imageUrl} position={position} zoom={zoom} onChange={onPositionChange} className={cn(aspectClassName, "rounded-xl")} markerSize={20} />
+            <div className="bg-black/40 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-white/70 w-10">Zoom</span>
+                <input
+                  type="range"
+                  min={100}
+                  max={200}
+                  step={5}
+                  value={zoom}
+                  onChange={(e) => onZoomChange(Number(e.target.value))}
+                  className="flex-1 accent-teal-400"
+                />
+                <span className="text-[11px] font-mono text-white/70 w-9 text-right">{zoom}%</span>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
 
 function HeroEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   const [slides, setSlides] = useState<HeroSlide[]>(() => {
@@ -217,6 +568,14 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
 
   function toggleAlignRight() {
     setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, align_right: !s.align_right } : s));
+  }
+
+  function updZoom(zoom: number) {
+    setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, image_zoom: zoom } : s));
+  }
+
+  function updZoomMobile(zoom: number) {
+    setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, image_zoom_mobile: zoom } : s));
   }
 
   async function save() {
@@ -281,34 +640,60 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
           <ImageIcon size={12} /> Background image or video (leave both blank to use gradient)
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className={cn(
-            "flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed cursor-pointer transition-colors flex-shrink-0 overflow-hidden bg-white",
-            uploading ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:border-navy-300"
-          )}>
-            {uploading ? (
-              <Loader2 size={16} className="animate-spin text-blue-500" />
-            ) : s.image_url ? (
-              <img src={s.image_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <ImageIcon size={18} className="text-slate-300" />
+        <HeroImageFrame
+          imageUrl={s.image_url}
+          position={s.image_position || "50% 50%"}
+          zoom={s.image_zoom ?? 100}
+          uploading={uploading}
+          onUpload={(file) => uploadHeroFile(file, "image_url", setUploading)}
+          onPositionChange={(pos) => upd("image_position", pos)}
+          onZoomChange={updZoom}
+        />
+        <Field label="Image URL" value={s.image_url} onChange={(v) => upd("image_url", v)} placeholder="Upload above, or paste a URL — leave blank for gradient" />
+
+        {s.image_url && (
+          <>
+            {/* Wide images often crop badly on narrow phones with the same focal
+                point that works on desktop — e.g. a wide two-person photo can crop
+                down to empty background between them once most of the width is cut
+                away. This lets an admin pick a second, mobile-only focal point;
+                leaving it off just reuses the desktop one everywhere. */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Different focal point on mobile</p>
+                <p className="text-[11px] text-slate-400">Wide images often need a tighter, different crop on narrow phone screens than on desktop.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => upd("image_position_mobile", s.image_position_mobile ? "" : (s.image_position || "50% 50%"))}
+                className={cn(
+                  "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+                  s.image_position_mobile ? "bg-navy-700" : "bg-slate-300"
+                )}
+              >
+                <span className={cn(
+                  "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition-transform",
+                  s.image_position_mobile ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+
+            {s.image_position_mobile && (
+              <div className="max-w-[220px] mx-auto">
+                <ImageFocalPicker
+                  imageUrl={s.image_url}
+                  position={s.image_position_mobile}
+                  onChange={(pos) => upd("image_position_mobile", pos)}
+                  zoom={s.image_zoom_mobile ?? 100}
+                  onZoomChange={updZoomMobile}
+                  aspectClassName="aspect-[390/782]"
+                  expandedMaxWidth="max-w-sm"
+                  hint="This is what shows on phone screens — drag to keep the subject in frame."
+                />
+              </div>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) uploadHeroFile(file, "image_url", setUploading);
-              }}
-            />
-          </label>
-          <div className="flex-1">
-            <Field label="Image URL" value={s.image_url} onChange={(v) => upd("image_url", v)} placeholder="Upload above, or paste a URL — leave blank for gradient" />
-          </div>
-        </div>
+          </>
+        )}
 
         <div className="flex items-center gap-3">
           <label className={cn(
@@ -1877,12 +2262,9 @@ export default function PageBlocksPage() {
           {sorted.map((block, idx) => (
             <div
               key={block.key}
-              draggable
-              onDragStart={() => onDragStart(block.key)}
               onDragOver={(e) => onDragOver(e, block.key)}
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, block.key)}
-              onDragEnd={onDragEnd}
               className={cn(
                 "card transition-all duration-150",
                 !block.is_visible && "opacity-60",
@@ -1891,8 +2273,16 @@ export default function PageBlocksPage() {
               )}
             >
               <div className="p-4 flex items-center gap-3">
-                {/* Drag handle */}
-                <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0">
+                {/* Drag handle — draggable is scoped to just this handle (not the
+                    whole card) so drag gestures elsewhere in the expanded editor,
+                    like the hero focal-point picker, aren't hijacked as a native
+                    row-reorder drag by the browser. */}
+                <div
+                  draggable
+                  onDragStart={() => onDragStart(block.key)}
+                  onDragEnd={onDragEnd}
+                  className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0"
+                >
                   <GripVertical size={16} />
                 </div>
 
