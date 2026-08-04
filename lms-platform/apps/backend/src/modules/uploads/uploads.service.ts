@@ -246,6 +246,37 @@ export class UploadsService {
     }
   }
 
+  // For uploads that never get an UploadedFile row (hero/logo/promo-banner
+  // images via uploadLocal, which just return a URL) — replacing one of
+  // these previously just orphaned the old object in R2 forever, since
+  // nothing else references it by key. Reverses buildPublicUrl to recover
+  // the key, then reuses the same batch-delete used for lesson cleanup.
+  // Silently no-ops if the URL doesn't match our own bucket's URL shape
+  // (e.g. someone pasted an external image URL instead of uploading) or if
+  // storage isn't configured at all (nothing to delete against).
+  async deleteByPublicUrl(url: string): Promise<void> {
+    const cfg = await this.getS3Config();
+    if (!cfg.accessKeyId || !cfg.secretAccessKey) return;
+
+    let key: string | null = null;
+    if (cfg.publicUrlBase && url.startsWith(cfg.publicUrlBase)) {
+      key = url.slice(cfg.publicUrlBase.replace(/\/$/, "").length + 1);
+    } else if (cfg.endpoint) {
+      const prefix = `${cfg.endpoint.replace(/\/$/, "")}/${cfg.bucket}/`;
+      if (url.startsWith(prefix)) key = url.slice(prefix.length);
+    } else {
+      const awsPrefix = `https://${cfg.bucket}.s3.${cfg.region}.amazonaws.com/`;
+      if (url.startsWith(awsPrefix)) key = url.slice(awsPrefix.length);
+    }
+    if (!key) return;
+
+    try {
+      await this.deleteObjectsByKeys([key]);
+    } catch (err) {
+      this.logger.error(`Failed to delete replaced upload at key ${key}`, err);
+    }
+  }
+
   async confirmUpload(userId: string, dto: ConfirmUploadDto) {
     // The presign step scopes every key under uploads/{userId}/... — confirming a key
     // outside your own prefix would let you register another user's file as your own.

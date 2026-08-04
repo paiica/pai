@@ -15,6 +15,7 @@ type SlideData = {
   image_url?: string;
   video_url?: string;
   overlay?: boolean;
+  align_right?: boolean;
   badge: string;
   headline: string;
   highlight: string;
@@ -98,7 +99,11 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
 
       {/* Content */}
       <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 w-full flex-1 flex flex-col justify-center py-16 lg:py-24">
-        <div className={cn("transition-opacity duration-[220ms] max-w-3xl", animating ? "opacity-0" : "opacity-100")}>
+        <div className={cn(
+          "transition-opacity duration-[220ms] max-w-3xl",
+          animating ? "opacity-0" : "opacity-100",
+          slide.align_right && "ml-auto",
+        )}>
 
           {/* Badge */}
           <div className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-300 pl-3 border-l-2 border-teal-400 uppercase tracking-[0.15em] mb-7">
@@ -162,12 +167,13 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
 
         {/* Slide controls — nothing to navigate to with only one slide */}
         {slides.length > 1 && (
-          <div className="flex items-center gap-4 mt-10 max-w-3xl">
+          <div className={cn("flex items-center gap-4 mt-10 max-w-3xl", slide.align_right && "ml-auto")}>
             <div className="flex items-center gap-2">
               {slides.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => go(i)}
+                  aria-label={`Go to slide ${i + 1}`}
                   className={cn(
                     "rounded-full transition-all duration-300",
                     i === current ? "w-6 h-2 bg-teal-400" : "w-2 h-2 bg-white/30 hover:bg-white/50"
@@ -177,10 +183,10 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             </div>
 
             <div className="flex items-center gap-2 ml-4">
-              <button onClick={prev} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
+              <button onClick={prev} aria-label="Previous slide" className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
                 <ChevronLeft size={17} />
               </button>
-              <button onClick={next} className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
+              <button onClick={next} aria-label="Next slide" className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white hover:border-white/40 transition-colors">
                 <ChevronRight size={17} />
               </button>
             </div>

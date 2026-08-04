@@ -17,6 +17,23 @@ type Block = {
   content: Record<string, any>;
 };
 
+// Cleans up the replaced file in R2 once a new upload has taken its place —
+// otherwise the old object just orphans there forever, since uploadLocal
+// never creates an UploadedFile row to track it. Fire-and-forget: this is
+// best-effort cleanup, not something that should block or fail the upload
+// the user is actually waiting on. No-ops silently if there was no old URL
+// (a fresh field) or if it wasn't one of our own uploads (e.g. a pasted
+// external URL) — the backend already handles both cases safely.
+function deleteOldUpload(oldUrl: string | undefined, token: string) {
+  if (!oldUrl) return;
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+  fetch(`${API}/uploads/delete-by-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: oldUrl }),
+  }).catch(() => {});
+}
+
 // ─── Shared field components ────────────────────────────────────────────────
 
 function Field({ label, value, onChange, textarea = false, placeholder = "" }: {
@@ -93,14 +110,14 @@ function SimpleEditor({ block, fields, token, onSave }: {
 // ─── Hero editor ─────────────────────────────────────────────────────────────
 
 type HeroSlide = {
-  image_url: string; video_url: string; overlay: boolean; badge: string; headline: string; highlight: string; sub: string;
+  image_url: string; video_url: string; overlay: boolean; align_right: boolean; badge: string; headline: string; highlight: string; sub: string;
   cta_label: string; cta_href: string; cta2_label: string; cta2_href: string;
   stat1_value: string; stat1_label: string; stat2_value: string; stat2_label: string;
   stat3_value: string; stat3_label: string; stat4_value: string; stat4_label: string;
 };
 
 const HERO_DEFAULT_SLIDE: HeroSlide = {
-  image_url: "", video_url: "", overlay: true, badge: "", headline: "", highlight: "", sub: "",
+  image_url: "", video_url: "", overlay: true, align_right: false, badge: "", headline: "", highlight: "", sub: "",
   cta_label: "", cta_href: "", cta2_label: "", cta2_href: "",
   stat1_value: "", stat1_label: "", stat2_value: "", stat2_label: "",
   stat3_value: "", stat3_label: "", stat4_value: "", stat4_label: "",
@@ -111,6 +128,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     overlay: true,
+    align_right: false,
     badge: "The AI Credential Standard",
     headline: "Prove Your AI Expertise.",
     highlight: "Advance Your Career.",
@@ -126,6 +144,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     overlay: true,
+    align_right: false,
     badge: "Trusted by Professionals Worldwide",
     headline: "Your Industry Needs AI-Verified",
     highlight: "Talent.",
@@ -141,6 +160,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     overlay: true,
+    align_right: false,
     badge: "Enterprise AI Certification",
     headline: "Upskill Your Entire Team.",
     highlight: "All at Once.",
@@ -195,11 +215,25 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
     setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, overlay: s.overlay === false } : s));
   }
 
+  function toggleAlignRight() {
+    setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, align_right: !s.align_right } : s));
+  }
+
   async function save() {
     setSaving(true);
     try {
       await api.patch(`/page-blocks/${block.key}`, { content: { slides } }, token);
       toast.success("Hero slides saved");
+      // Only clean up replaced/removed files once the new state is actually
+      // persisted — deleting on upload instead would break the still-live
+      // saved image if the admin uploaded a replacement, then navigated away
+      // without saving.
+      const originalSlides = (block.content?.slides as HeroSlide[]) ?? [];
+      originalSlides.forEach((orig, i) => {
+        const current = slides[i];
+        if (orig.image_url && orig.image_url !== current?.image_url) deleteOldUpload(orig.image_url, token);
+        if (orig.video_url && orig.video_url !== current?.video_url) deleteOldUpload(orig.video_url, token);
+      });
       onSave();
     } catch { toast.error("Failed to save"); }
     setSaving(false);
@@ -328,6 +362,27 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
             )} />
           </button>
         </div>
+
+        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div>
+            <p className="text-xs font-semibold text-slate-700">Align content right</p>
+            <p className="text-[11px] text-slate-400">Shifts the badge, headline, subtitle, and CTAs to the right side of the screen instead of the left.</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAlignRight}
+            className={cn(
+              "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+              s.align_right ? "bg-navy-700" : "bg-slate-300"
+            )}
+          >
+            <span className={cn(
+              "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+              s.align_right ? "translate-x-4" : "translate-x-0"
+            )} />
+          </button>
+        </div>
+
         <Field label="Badge text" value={s.badge} onChange={(v) => upd("badge", v)} />
 
         <div className="grid grid-cols-2 gap-3">
@@ -1314,6 +1369,12 @@ function LogosEditor({ block, token, onSave }: { block: Block; token: string; on
     try {
       await api.patch(`/page-blocks/${block.key}`, { content: { badge, title, items } }, token);
       toast.success("Saved");
+      // Clean up any logo image replaced/removed since load — only once the
+      // new state is actually persisted (see hero editor's save() for why).
+      const originalItems = (block.content?.items as LogoItem[]) ?? [];
+      originalItems.forEach((orig, i) => {
+        if (orig.image_url && orig.image_url !== items[i]?.image_url) deleteOldUpload(orig.image_url, token);
+      });
       onSave();
     } catch { toast.error("Failed to save"); }
     setSaving(false);
@@ -1429,6 +1490,10 @@ function PromoBannerEditor({ block, token, onSave }: { block: Block; token: stri
         content: { image_url: imageUrl, title, description, cta_label: ctaLabel, cta_href: ctaHref, overlay },
       }, token);
       toast.success("Saved");
+      // Clean up the replaced banner image — only once the new state is
+      // actually persisted (see hero editor's save() for why).
+      const originalUrl = block.content?.image_url as string | undefined;
+      if (originalUrl && originalUrl !== imageUrl) deleteOldUpload(originalUrl, token);
       onSave();
     } catch { toast.error("Failed to save"); }
     setSaving(false);

@@ -6,8 +6,11 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { extname, join } from "path";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { Role } from "@prisma/client";
 import { UploadsService } from "./uploads.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { PresignDto } from "./dto/presign.dto";
 import { ConfirmUploadDto } from "./dto/confirm-upload.dto";
@@ -106,6 +109,16 @@ export class UploadsController {
       mime_type: file.mimetype,
       purpose,
     };
+  }
+
+  @Post("delete-by-url")
+  @UseGuards(RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @ApiOperation({ summary: "Delete a previously-uploaded file by its public URL (admin) — e.g. cleaning up a replaced hero/logo/banner image" })
+  async deleteByUrl(@Body("url") url: string) {
+    if (!url) throw new BadRequestException("url is required");
+    await this.uploadsService.deleteByPublicUrl(url);
+    return { deleted: true };
   }
 
   @Post("content-image")
