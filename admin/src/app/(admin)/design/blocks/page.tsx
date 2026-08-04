@@ -111,14 +111,14 @@ function SimpleEditor({ block, fields, token, onSave }: {
 // ─── Hero editor ─────────────────────────────────────────────────────────────
 
 type HeroSlide = {
-  image_url: string; video_url: string; image_position: string; image_position_mobile: string; image_zoom: number; image_zoom_mobile: number; overlay: boolean; align_right: boolean; badge: string; headline: string; highlight: string; sub: string;
+  image_url: string; video_url: string; image_url_mobile: string; image_position: string; image_position_mobile: string; image_zoom: number; image_zoom_mobile: number; overlay: boolean; align_right: boolean; badge: string; headline: string; highlight: string; sub: string;
   cta_label: string; cta_href: string; cta2_label: string; cta2_href: string;
   stat1_value: string; stat1_label: string; stat2_value: string; stat2_label: string;
   stat3_value: string; stat3_label: string; stat4_value: string; stat4_label: string;
 };
 
 const HERO_DEFAULT_SLIDE: HeroSlide = {
-  image_url: "", video_url: "", image_position: "50% 50%", image_position_mobile: "", image_zoom: 100, image_zoom_mobile: 100, overlay: true, align_right: false, badge: "", headline: "", highlight: "", sub: "",
+  image_url: "", video_url: "", image_url_mobile: "", image_position: "50% 50%", image_position_mobile: "", image_zoom: 100, image_zoom_mobile: 100, overlay: true, align_right: false, badge: "", headline: "", highlight: "", sub: "",
   cta_label: "", cta_href: "", cta2_label: "", cta2_href: "",
   stat1_value: "", stat1_label: "", stat2_value: "", stat2_label: "",
   stat3_value: "", stat3_label: "", stat4_value: "", stat4_label: "",
@@ -129,6 +129,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     image_position: "50% 50%",
+    image_url_mobile: "",
     image_position_mobile: "",
     image_zoom: 100,
     image_zoom_mobile: 100,
@@ -149,6 +150,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     image_position: "50% 50%",
+    image_url_mobile: "",
     image_position_mobile: "",
     image_zoom: 100,
     image_zoom_mobile: 100,
@@ -169,6 +171,7 @@ const HERO_PREFILLED_SLIDES: HeroSlide[] = [
     image_url: "",
     video_url: "",
     image_position: "50% 50%",
+    image_url_mobile: "",
     image_position_mobile: "",
     image_zoom: 100,
     image_zoom_mobile: 100,
@@ -224,12 +227,12 @@ function FocalFrame({ imageUrl, position, zoom = 100, onChange, className, marke
     >
       {/* The frame itself (drag hit-area) never transforms — only this inner
           layer scales, so pointer math above (based on the frame's own,
-          unscaled bounding box) stays correct at any zoom level. `contain`
-          (not `cover`) matches the live site — the full image always shows,
-          never auto-cropped; zoom multiplies on top of that if you want to
-          deliberately crop in, anchored at the focal point. */}
+          unscaled bounding box) stays correct at any zoom level. `cover`
+          matches the live site's full-bleed hero — position/zoom are what let
+          you choose what stays in frame as it crops to fill, anchored at the
+          focal point so zooming doesn't fight the position. */}
       <div
-        className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d]"
+        className="absolute inset-0 bg-cover bg-no-repeat"
         style={{
           backgroundImage: `url("${imageUrl}")`,
           backgroundPosition: position || "50% 50%",
@@ -368,11 +371,11 @@ function ImageFocalPicker({ imageUrl, position, onChange, zoom = 100, onZoomChan
 // disconnected big preview to keep in sync. Sized at the hero's real aspect
 // ratio (see ImageFocalPicker's comment above) so what you frame here is what
 // appears live.
-function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, onPositionChange, onZoomChange }: {
+function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, onPositionChange, onZoomChange, aspectClassName = "aspect-[1920/775]", expandedMaxWidth = "max-w-5xl" }: {
   imageUrl: string; position: string; zoom: number; uploading: boolean;
   onUpload: (file: File) => void; onPositionChange: (pos: string) => void; onZoomChange: (zoom: number) => void;
+  aspectClassName?: string; expandedMaxWidth?: string;
 }) {
-  const aspectClassName = "aspect-[1920/775]";
   const fileRef = useRef<HTMLInputElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -487,7 +490,7 @@ function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, onPosit
 
       {expanded && createPortal(
         <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-6 sm:p-12" onClick={() => setExpanded(false)}>
-          <div className="w-full max-w-5xl space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className={cn("w-full space-y-3", expandedMaxWidth)} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-white/70">Drag to set the focal point</p>
               <div className="flex items-center gap-2">
@@ -534,12 +537,13 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
   const [saving, setSaving]           = useState(false);
   const [uploading, setUploading]     = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingMobile, setUploadingMobile] = useState(false);
 
   function upd(key: keyof HeroSlide, val: string) {
     setSlides((prev) => prev.map((s, i) => i === activeSlide ? { ...s, [key]: val } : s));
   }
 
-  async function uploadHeroFile(file: File, key: "image_url" | "video_url", setBusy: (v: boolean) => void) {
+  async function uploadHeroFile(file: File, key: "image_url" | "video_url" | "image_url_mobile", setBusy: (v: boolean) => void) {
     setBusy(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -592,6 +596,7 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
         const current = slides[i];
         if (orig.image_url && orig.image_url !== current?.image_url) deleteOldUpload(orig.image_url, token);
         if (orig.video_url && orig.video_url !== current?.video_url) deleteOldUpload(orig.video_url, token);
+        if (orig.image_url_mobile && orig.image_url_mobile !== current?.image_url_mobile) deleteOldUpload(orig.image_url_mobile, token);
       });
       onSave();
     } catch { toast.error("Failed to save"); }
@@ -654,18 +659,28 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
         {s.image_url && (
           <>
             {/* Wide images often crop badly on narrow phones with the same focal
-                point that works on desktop — e.g. a wide two-person photo can crop
-                down to empty background between them once most of the width is cut
-                away. This lets an admin pick a second, mobile-only focal point;
-                leaving it off just reuses the desktop one everywhere. */}
+                point/image that works on desktop — e.g. a wide two-person photo
+                can crop down to empty background between them once most of the
+                width is cut away. This lets an admin optionally upload a whole
+                separate mobile image, or just re-frame the same one; leaving it
+                off reuses the desktop image/position/zoom everywhere. */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
               <div>
-                <p className="text-xs font-semibold text-slate-700">Different focal point on mobile</p>
-                <p className="text-[11px] text-slate-400">Wide images often need a tighter, different crop on narrow phone screens than on desktop.</p>
+                <p className="text-xs font-semibold text-slate-700">Different image or crop on mobile</p>
+                <p className="text-[11px] text-slate-400">Wide images often need a different photo or a tighter crop on narrow phone screens than on desktop.</p>
               </div>
               <button
                 type="button"
-                onClick={() => upd("image_position_mobile", s.image_position_mobile ? "" : (s.image_position || "50% 50%"))}
+                onClick={() => {
+                  if (s.image_position_mobile) {
+                    // Turning off — fully revert to sharing the desktop image/crop.
+                    setSlides((prev) => prev.map((sl, i) => i === activeSlide
+                      ? { ...sl, image_position_mobile: "", image_url_mobile: "", image_zoom_mobile: 100 }
+                      : sl));
+                  } else {
+                    upd("image_position_mobile", s.image_position || "50% 50%");
+                  }
+                }}
                 className={cn(
                   "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
                   s.image_position_mobile ? "bg-navy-700" : "bg-slate-300"
@@ -679,16 +694,25 @@ function HeroEditor({ block, token, onSave }: { block: Block; token: string; onS
             </div>
 
             {s.image_position_mobile && (
-              <div className="max-w-[220px] mx-auto">
-                <ImageFocalPicker
-                  imageUrl={s.image_url}
+              <div className="max-w-[220px] mx-auto space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-slate-500">This is what shows on phone screens</p>
+                  {s.image_url_mobile && (
+                    <button type="button" onClick={() => upd("image_url_mobile", "")} className="text-[11px] font-semibold text-red-500 hover:text-red-700 flex-shrink-0">
+                      Use desktop image
+                    </button>
+                  )}
+                </div>
+                <HeroImageFrame
+                  imageUrl={s.image_url_mobile || s.image_url}
                   position={s.image_position_mobile}
-                  onChange={(pos) => upd("image_position_mobile", pos)}
                   zoom={s.image_zoom_mobile ?? 100}
+                  uploading={uploadingMobile}
+                  onUpload={(file) => uploadHeroFile(file, "image_url_mobile", setUploadingMobile)}
+                  onPositionChange={(pos) => upd("image_position_mobile", pos)}
                   onZoomChange={updZoomMobile}
                   aspectClassName="aspect-[390/782]"
                   expandedMaxWidth="max-w-sm"
-                  hint="This is what shows on phone screens — drag to keep the subject in frame."
                 />
               </div>
             )}

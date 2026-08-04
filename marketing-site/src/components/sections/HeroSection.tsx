@@ -14,6 +14,7 @@ const SLIDE_ACCENTS = [
 type SlideData = {
   image_url?: string;
   video_url?: string;
+  image_url_mobile?: string;
   image_position?: string;
   image_position_mobile?: string;
   image_zoom?: number;
@@ -81,7 +82,7 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
                 key={s.video_url}
                 autoPlay muted loop playsInline
                 poster={s.image_url || undefined}
-                className="absolute inset-0 w-full h-full object-contain bg-[#0e1e3d]"
+                className="absolute inset-0 w-full h-full object-cover"
                 style={{ objectPosition: s.image_position || "50% 50%" }}
               >
                 <source src={s.video_url} type="video/mp4" />
@@ -90,18 +91,20 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
             </>
           ) : s.image_url ? (
             <>
-              {/* `contain` (not `cover`) so the uploaded photo is always shown in
-                  full, never cropped or auto-zoomed to fill the box — `cover`
-                  crops by however much a given viewer's own window width forces
-                  (worse on wide/ultra-wide monitors, since it can even crop the
-                  top/bottom once the window gets wide enough), which isn't
-                  something an admin can predict or control from one preview.
-                  The solid fallback color behind it fills any letterboxing where
-                  the image's own aspect ratio doesn't exactly match the box.
-                  Two layers (desktop/mobile) so each breakpoint can use its own
-                  focal point rather than fighting over one `background-position`. */}
+              {/* `cover` — full-bleed, never leaves gaps, which is what a hero
+                  banner should look like. The trade-off is it crops by however
+                  much a given viewer's own window width needs to fill the box
+                  (varies per screen, occasionally more on very wide monitors) —
+                  the position/zoom controls below (and the separate mobile
+                  image/focal point/zoom) are what let an admin choose what stays
+                  in frame, rather than leaving it to a `contain` fallback that
+                  shows empty letterbox bars instead. Two layers (desktop/mobile)
+                  so each breakpoint can use its own image, focal point, and zoom
+                  rather than fighting over one `background-image`/
+                  `background-position` — image_url_mobile falls back to the
+                  desktop image_url when not set. */}
               <div
-                className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d] hidden sm:block"
+                className="absolute inset-0 bg-cover bg-no-repeat hidden sm:block"
                 style={{
                   backgroundImage: `url("${s.image_url}")`,
                   backgroundPosition: s.image_position || "50% 50%",
@@ -110,9 +113,9 @@ export default function HeroSection({ cmsContent = {} }: { cmsContent?: Record<s
                 }}
               />
               <div
-                className="absolute inset-0 bg-contain bg-no-repeat bg-[#0e1e3d] sm:hidden"
+                className="absolute inset-0 bg-cover bg-no-repeat sm:hidden"
                 style={{
-                  backgroundImage: `url("${s.image_url}")`,
+                  backgroundImage: `url("${s.image_url_mobile || s.image_url}")`,
                   backgroundPosition: s.image_position_mobile || s.image_position || "50% 50%",
                   transform: `scale(${(s.image_zoom_mobile ?? s.image_zoom ?? 100) / 100})`,
                   transformOrigin: s.image_position_mobile || s.image_position || "50% 50%",
