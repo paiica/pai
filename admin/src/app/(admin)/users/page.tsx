@@ -522,7 +522,10 @@ export default function UsersPage() {
         </select>
       </div>
 
-      {/* Table */}
+      {/* Table — this has ~12 columns, so on anything narrower than a wide
+          desktop monitor it needs to scroll horizontally rather than
+          silently clip columns with no way to reach them. */}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -660,6 +663,7 @@ export default function UsersPage() {
                       <button
                         data-menu
                         onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}
+                        aria-label="Row actions"
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
                       >
                         <MoreHorizontal size={15} />
@@ -758,6 +762,7 @@ export default function UsersPage() {
               })}
             </tbody>
           </table>
+      </div>
 
       {/* Pagination */}
       {meta.totalPages > 1 && (
@@ -765,10 +770,12 @@ export default function UsersPage() {
           <p className="text-xs text-slate-500">Page {page} of {meta.totalPages} · {meta.total} users</p>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+              aria-label="Previous page"
               className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
               <ChevronLeft size={14} />
             </button>
             <button onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page >= meta.totalPages}
+              aria-label="Next page"
               className="btn-outline !px-2 !py-1.5 disabled:opacity-40">
               <ChevronRight size={14} />
             </button>
@@ -957,7 +964,7 @@ export default function UsersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
             <div className="flex items-start justify-between mb-1">
               <h3 className="font-display font-black text-navy-900 text-lg">Admin Permissions</h3>
-              <button onClick={() => setPermissionsModal(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setPermissionsModal(null)} aria-label="Close" className="text-slate-400 hover:text-slate-600">
                 <X size={18} />
               </button>
             </div>
@@ -992,7 +999,7 @@ export default function UsersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-1">
               <h3 className="font-display font-black text-navy-900 text-lg">Invite Admin</h3>
-              <button onClick={() => setInviteModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setInviteModal(false)} aria-label="Close" className="text-slate-400 hover:text-slate-600">
                 <X size={18} />
               </button>
             </div>

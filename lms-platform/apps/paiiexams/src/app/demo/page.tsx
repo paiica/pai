@@ -255,9 +255,11 @@ export default function DemoExamPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-52 flex-shrink-0 flex flex-col bg-slate-900 border-r border-slate-800 p-3 gap-3">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
+        {/* Sidebar — stacks above the question on mobile instead of squeezing
+            it into a narrow column, so nothing (camera, violations log,
+            question navigator) has to be hidden to keep proctoring intact. */}
+        <div className="w-full lg:w-52 flex-shrink-0 flex flex-col bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 p-3 gap-3 max-h-[45vh] lg:max-h-none overflow-y-auto lg:overflow-visible">
           <ProctorCamera onNoFace={() => logViolation("face_missing", "Face not detected — please reposition.")} />
 
           <div className="space-y-1.5">
@@ -282,7 +284,7 @@ export default function DemoExamPage() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="lg:flex-1 max-h-32 lg:max-h-none overflow-y-auto">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Questions</p>
             <div className="grid grid-cols-5 gap-1">
               {questions.map((_, i) => (

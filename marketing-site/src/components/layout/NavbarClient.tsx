@@ -115,12 +115,12 @@ export default function NavbarClient({
                     className="w-44 pl-3 pr-2 py-1.5 text-sm text-ink-900 focus:outline-none"
                     onBlur={() => setSearchOpen(false)}
                   />
-                  <button className="px-2 text-ink-900 hover:text-ink-900" onClick={() => setSearchOpen(false)}>
+                  <button aria-label="Close search" className="px-2 text-ink-900 hover:text-ink-900" onClick={() => setSearchOpen(false)}>
                     <X size={14} />
                   </button>
                 </div>
               ) : (
-                <button onClick={() => setSearchOpen(true)}
+                <button aria-label="Open search" onClick={() => setSearchOpen(true)}
                   className="p-2 text-ink-900 hover:text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
                   <Search size={17} />
                 </button>
@@ -134,7 +134,7 @@ export default function NavbarClient({
             </div>
 
             {/* Mobile hamburger */}
-            <button onClick={() => setMobileOpen(!mobileOpen)}
+            <button aria-label={mobileOpen ? "Close menu" : "Open menu"} onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden p-2 text-ink-900 hover:text-ink-900 hover:bg-teal-100 rounded-lg">
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>

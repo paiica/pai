@@ -47,57 +47,69 @@ export default function AnalyticsPage() {
           <>
             <div className="card p-5">
               <p className="text-sm font-semibold text-slate-700 mb-4">Revenue Over Time</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={analytics.revenue_over_time} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatCurrency(v)} />
-                  <Tooltip formatter={(v: number) => [formatCurrency(v), "Revenue"]}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  <Area type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} fill="url(#grad-revenue)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+              {analytics.revenue_over_time.length === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-slate-400">No revenue data for this period.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={analytics.revenue_over_time} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: number) => [formatCurrency(v), "Revenue"]}
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                    <Area type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} fill="url(#grad-revenue)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="card p-5">
               <p className="text-sm font-semibold text-slate-700 mb-4">Clicks vs Conversions</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={analytics.clicks_vs_conversions} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  <Bar dataKey="clicks" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Clicks" />
-                  <Bar dataKey="conversions" fill="#10b981" radius={[4, 4, 0, 0]} name="Conversions" />
-                </BarChart>
-              </ResponsiveContainer>
+              {analytics.clicks_vs_conversions.length === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-slate-400">No click/conversion data for this period.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={analytics.clicks_vs_conversions} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                    <Bar dataKey="clicks" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Clicks" />
+                    <Bar dataKey="conversions" fill="#10b981" radius={[4, 4, 0, 0]} name="Conversions" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="card p-5">
               <p className="text-sm font-semibold text-slate-700 mb-4">Conversion Funnel</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <FunnelChart>
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  <Funnel
-                    dataKey="value"
-                    data={analytics.funnel.map((s, i) => ({
-                      value: s.count,
-                      name: s.stage,
-                      fill: ["#1e3a5f", "#14b8a6", "#3b82f6", "#10b981"][i % 4],
-                    }))}
-                  >
-                    <LabelList position="right" content={({ value, name }) => (
-                      <text fontSize={11} fill="#64748b">{name}: {value}</text>
-                    )} />
-                  </Funnel>
-                </FunnelChart>
-              </ResponsiveContainer>
+              {analytics.funnel.every((s) => s.count === 0) ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-slate-400">No funnel activity for this period.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <FunnelChart>
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                    <Funnel
+                      dataKey="value"
+                      data={analytics.funnel.map((s, i) => ({
+                        value: s.count,
+                        name: s.stage,
+                        fill: ["#1e3a5f", "#14b8a6", "#3b82f6", "#10b981"][i % 4],
+                      }))}
+                    >
+                      <LabelList position="right" content={({ value, name }) => (
+                        <text fontSize={11} fill="#64748b">{name}: {value}</text>
+                      )} />
+                    </Funnel>
+                  </FunnelChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="card p-5">

@@ -55,6 +55,7 @@ export default function LoginModal({
       >
         <button
           onClick={onClose}
+          aria-label="Close"
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
         >
           <X size={18} />

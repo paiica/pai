@@ -1500,6 +1500,18 @@ export default function CertDetailPage() {
     ? { ...application, certification: cert ?? application.certification }
     : null;
 
+  // Neither SWR call has resolved for the first time yet — without this
+  // guard, a slow connection would hit the "not found" branch below before
+  // enrollment/application data ever arrives, showing a false error instead
+  // of a loading state.
+  if (enrollmentsData === undefined && appsData === undefined) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[40vh]">
+        <Loader2 size={24} className="animate-spin text-slate-300" />
+      </div>
+    );
+  }
+
   if (!cert && !application) {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[40vh]">

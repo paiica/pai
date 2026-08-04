@@ -95,7 +95,7 @@ function ApplicationDrawer({
             <h2 className="font-display font-black text-navy-900 text-base">{app.full_name}</h2>
             <p className="text-xs text-slate-400">{app.email}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -678,6 +678,7 @@ export default function ApplicationsPage() {
                   onClick={(e) => handleDeleteOne(app, e)}
                   className="flex-shrink-0 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
                   title="Delete application"
+                  aria-label="Delete application"
                 >
                   {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 </button>

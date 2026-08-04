@@ -635,6 +635,7 @@ function CourseCard({
             href={`/courses/${course.id}`}
             className="btn-outline !py-1.5 !px-2.5 !text-xs"
             title="Edit"
+            aria-label="Edit course"
           >
             <Edit3 size={12} />
           </Link>
@@ -647,6 +648,7 @@ function CourseCard({
                 : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"
             )}
             title={course.status === "active" ? "Archive" : "Activate"}
+            aria-label={course.status === "active" ? "Archive course" : "Activate course"}
           >
             {course.status === "active" ? <Archive size={12} /> : <Globe size={12} />}
           </button>
@@ -654,6 +656,7 @@ function CourseCard({
             onClick={onDelete}
             className="btn-outline !py-1.5 !px-2.5 !text-xs text-red-500 border-red-200 hover:bg-red-50"
             title="Delete"
+            aria-label="Delete course"
           >
             <Trash2 size={12} />
           </button>

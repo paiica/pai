@@ -38,15 +38,20 @@ const LEVEL_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-async function getCertifications(): Promise<any[]> {
+// Distinguishes "the backend request failed" from "there are genuinely zero
+// certifications" — collapsing both into an empty array (the previous
+// behavior) made a transient fetch failure on this page indistinguishable
+// from a real empty catalog, with no indication to the visitor that
+// anything went wrong.
+async function getCertifications(): Promise<{ items: any[]; failed: boolean }> {
   try {
     const res = await fetch(`${API}/courses`, { cache: "no-store" });
-    if (!res.ok) return [];
+    if (!res.ok) return { items: [], failed: true };
     const json = await res.json();
     const items: any[] = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
-    return items.filter((c: any) => c.status !== "archived");
+    return { items: items.filter((c: any) => c.status !== "archived"), failed: false };
   } catch {
-    return [];
+    return { items: [], failed: true };
   }
 }
 
@@ -140,7 +145,7 @@ function CertCard({ cert, idx }: { cert: any; idx: number }) {
 }
 
 export default async function CertificationsListPage() {
-  const certs = await getCertifications();
+  const { items: certs, failed } = await getCertifications();
 
   // Assign a stable global theme index before grouping so colours vary across the whole page
   const certsWithIdx = certs.map((cert: any, i: number) => ({ ...cert, _themeIdx: i }));
@@ -188,7 +193,13 @@ export default async function CertificationsListPage() {
         {/* Grouped sections */}
         <section className="section-padding bg-white">
           <div className="container-lg space-y-16">
-            {certs.length === 0 && (
+            {failed && (
+              <div className="text-center py-20 text-ink-500 text-sm">
+                <p className="font-semibold text-ink-700 mb-1">We're having trouble loading certifications right now.</p>
+                <p>Please refresh the page — if this keeps happening, contact support.</p>
+              </div>
+            )}
+            {!failed && certs.length === 0 && (
               <div className="text-center py-20 text-ink-500 text-sm">No certifications published yet — check back soon.</div>
             )}
             {groups.map((group) => (

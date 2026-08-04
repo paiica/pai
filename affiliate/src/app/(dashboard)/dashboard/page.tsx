@@ -23,29 +23,35 @@ function ChartCard({ title, data, dataKey, color = CHART_COLOR, formatter }: {
   color?: string;
   formatter?: (v: number) => string;
 }) {
+  const hasData = data.some((d) => d.value > 0);
+
   return (
     <div className="card p-5">
       <p className="text-sm font-semibold text-slate-700 mb-4">{title}</p>
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.15} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false}
-            tickFormatter={formatter} />
-          <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
-            formatter={(v: number) => [formatter ? formatter(v) : v, title]}
-          />
-          <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2}
-            fill={`url(#grad-${dataKey})`} dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
+      {!hasData ? (
+        <div className="h-[200px] flex items-center justify-center text-sm text-slate-400">No data for this period.</div>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false}
+              tickFormatter={formatter} />
+            <Tooltip
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+              formatter={(v: number) => [formatter ? formatter(v) : v, title]}
+            />
+            <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2}
+              fill={`url(#grad-${dataKey})`} dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

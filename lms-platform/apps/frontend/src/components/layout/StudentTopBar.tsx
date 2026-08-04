@@ -49,6 +49,7 @@ export default function StudentTopBar() {
       <div className="relative" ref={cartRef}>
         <button
           onClick={() => { setCartOpen(v => !v); setUserOpen(false); }}
+          aria-label="Cart"
           className="flex items-center gap-1.5 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
         >
           <div className="relative">
@@ -68,7 +69,7 @@ export default function StudentTopBar() {
               <span className="text-xs font-bold text-slate-700">
                 Cart {items.length > 0 ? `(${items.length})` : ""}
               </span>
-              <button onClick={() => setCartOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setCartOpen(false)} aria-label="Close cart" className="text-slate-400 hover:text-slate-600">
                 <X size={13} />
               </button>
             </div>
@@ -98,6 +99,7 @@ export default function StudentTopBar() {
                         onClick={() => removeItem(item.id)}
                         className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 p-1"
                         title="Remove"
+                        aria-label="Remove from cart"
                       >
                         <X size={13} />
                       </button>

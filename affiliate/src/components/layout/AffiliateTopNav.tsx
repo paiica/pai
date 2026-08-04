@@ -51,7 +51,7 @@ export default function AffiliateTopNav() {
   const title = Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k))?.[1] ?? "Dashboard";
 
   return (
-    <header className="h-16 bg-white border-b border-slate-100 flex items-center px-6 gap-4 flex-shrink-0 dark:bg-slate-900 dark:border-slate-800">
+    <header className="h-16 bg-white border-b border-slate-100 flex items-center pl-16 lg:pl-6 pr-6 gap-4 flex-shrink-0 dark:bg-slate-900 dark:border-slate-800">
       <h1 className="text-lg font-display font-black text-navy-900 dark:text-white flex-1">{title}</h1>
 
       {/* Quick referral link copy */}

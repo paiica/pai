@@ -276,10 +276,10 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => scroll("left")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronLeft size={18} />
             </button>
-            <button onClick={() => scroll("right")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronRight size={18} />
             </button>
           </div>
