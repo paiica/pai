@@ -442,7 +442,7 @@ function DocumentUploadSection({
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await fetch(`${API_BASE}/uploads/document`, {
+        const res = await fetch(`${API_BASE}/uploads/document?purpose=application_document`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
@@ -1064,7 +1064,7 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/uploads/document`, {
+      const res = await fetch(`${API_BASE}/uploads/document?purpose=pdu_proof`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

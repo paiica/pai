@@ -15,6 +15,28 @@ type S3Config = {
   secretAccessKey: string;
 };
 
+// Every user-facing "purpose" a file can be uploaded for, mapped to the R2
+// folder it lands in — so browsing the bucket mirrors what the file is
+// actually for, instead of every upload task dumping into one flat prefix.
+// Keys are what callers pass as `?purpose=`; unrecognized/missing purposes
+// fall back to "misc" rather than failing the upload.
+export const PURPOSE_FOLDERS: Record<string, string> = {
+  hero: "marketing-site/hero",
+  logo: "marketing-site/logos",
+  promo_banner: "marketing-site/promo-banners",
+  event_image: "marketing-site/events",
+  branding: "marketing-site/branding",
+  avatar: "profile-photos",
+  pdu_proof: "pdus",
+  application_document: "application-documents",
+  lesson_content: "lesson-content",
+  lesson_attachment: "lesson-attachments",
+  assignment_submission: "assignment-submissions",
+  proctoring_snapshot: "proctoring-snapshots",
+  document: "documents",
+};
+export const DEFAULT_FOLDER = "misc";
+
 const MAX_SIZE_BY_TYPE: Record<string, number> = {
   "video/mp4": 500 * 1024 * 1024,
   "video/webm": 500 * 1024 * 1024,
@@ -128,8 +150,8 @@ export class UploadsService {
   // Server-side counterpart to the presigned-upload flow above — used when the
   // backend already holds the file bytes in memory (e.g. images pulled out of
   // an imported course package) rather than the browser uploading directly.
-  async uploadBufferServerSide(buffer: Buffer, keySuffix: string, contentType: string): Promise<string> {
-    const s3Key = `imports/${uuidv4()}-${keySuffix}`;
+  async uploadBufferServerSide(buffer: Buffer, keySuffix: string, contentType: string, folder = "imports"): Promise<string> {
+    const s3Key = `${folder}/${uuidv4()}-${keySuffix}`;
     const cfg = await this.getS3Config();
 
     if (!cfg.accessKeyId || !cfg.secretAccessKey) {
@@ -224,7 +246,8 @@ export class UploadsService {
   // Cleans up whatever R2 objects a lesson's content referenced, before its
   // row is deleted — otherwise the file just stays orphaned in the bucket
   // forever. Best-effort: pattern-matches our own known key prefixes
-  // ("imports/" for decompose-mode images, "rise-sites/{id}/" for a
+  // ("imports/" for decompose-mode images, "lesson-content/" for images
+  // pasted into a rich-text lesson editor, "rise-sites/{id}/" for a
   // preserve-mode lesson's whole hosted site, "scorm-sites/{id}/" for a
   // SCORM lesson's whole hosted package) rather than fully parsing the
   // URL, since the public URL format varies by provider (custom domain,
@@ -233,7 +256,7 @@ export class UploadsService {
   async cleanupLessonStorage(lesson: { content_body?: string | null; external_url?: string | null }): Promise<void> {
     try {
       if (lesson.content_body) {
-        const keys = [...lesson.content_body.matchAll(/imports\/[^\s"')]+/g)].map((m) => m[0]);
+        const keys = [...lesson.content_body.matchAll(/(?:imports|lesson-content)\/[^\s"')]+/g)].map((m) => m[0]);
         if (keys.length) await this.deleteObjectsByKeys(keys);
       }
       if (lesson.external_url) {

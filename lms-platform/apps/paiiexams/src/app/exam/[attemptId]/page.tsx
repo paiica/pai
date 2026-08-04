@@ -35,7 +35,7 @@ async function uploadSnapshot(blob: Blob, token: string): Promise<string | null>
   try {
     const formData = new FormData();
     formData.append("file", blob, `snapshot-${Date.now()}.jpg`);
-    const res = await fetch(`${API_BASE}/uploads/local`, {
+    const res = await fetch(`${API_BASE}/uploads/local?purpose=proctoring_snapshot`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,

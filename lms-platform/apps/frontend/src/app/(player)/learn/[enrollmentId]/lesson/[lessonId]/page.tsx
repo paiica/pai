@@ -482,7 +482,7 @@ function AssignmentLesson({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/uploads/local`, {
+      const res = await fetch(`${API_BASE}/uploads/local?purpose=assignment_submission`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

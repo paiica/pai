@@ -480,7 +480,7 @@ function DocumentsTab({ courseId, token }: { courseId: string; token: string }) 
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await fetch(`${API_BASE}/uploads/local`, {
+        const res = await fetch(`${API_BASE}/uploads/local?purpose=lesson_attachment`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
@@ -972,7 +972,7 @@ function DownloadEditor({ lesson, token, onSaved }: { lesson: Lesson; token: str
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/uploads/local`, {
+      const res = await fetch(`${API_BASE}/uploads/local?purpose=lesson_attachment`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

@@ -7,7 +7,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { extname, join } from "path";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { Role } from "@prisma/client";
-import { UploadsService } from "./uploads.service";
+import { UploadsService, PURPOSE_FOLDERS, DEFAULT_FOLDER } from "./uploads.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -94,9 +94,10 @@ export class UploadsController {
     @Query("purpose") purpose = "document",
   ) {
     if (!file) throw new BadRequestException("No file received");
+    const folder = PURPOSE_FOLDERS[purpose] ?? DEFAULT_FOLDER;
 
     if (await this.uploadsService.isS3Configured()) {
-      const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+      const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype, folder);
       return { url, filename: file.originalname, original_name: file.originalname, size: file.size, mime_type: file.mimetype, purpose };
     }
 
@@ -124,20 +125,22 @@ export class UploadsController {
   @Post("content-image")
   @ApiOperation({ summary: "Upload an image for lesson content (block builder, rich text editors)" })
   @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 15 * 1024 * 1024 } }))
-  async uploadContentImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadContentImage(@UploadedFile() file: Express.Multer.File, @Query("purpose") purpose = "lesson_content") {
     if (!file) throw new BadRequestException("No file received");
-    const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+    const folder = PURPOSE_FOLDERS[purpose] ?? DEFAULT_FOLDER;
+    const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype, folder);
     return { url };
   }
 
   @Post("document")
   @ApiOperation({ summary: "Upload a document — R2 when configured, local disk fallback in dev" })
   @UseInterceptors(FileInterceptor("file", { storage: RAM_STORAGE, limits: { fileSize: 50 * 1024 * 1024 } }))
-  async uploadDocument(@UploadedFile() file: Express.Multer.File) {
+  async uploadDocument(@UploadedFile() file: Express.Multer.File, @Query("purpose") purpose = "document") {
     if (!file) throw new BadRequestException("No file received");
+    const folder = PURPOSE_FOLDERS[purpose] ?? DEFAULT_FOLDER;
     try {
       if (await this.uploadsService.isS3Configured()) {
-        const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype);
+        const url = await this.uploadsService.uploadBufferServerSide(file.buffer, file.originalname, file.mimetype, folder);
         return {
           file_url: url,
           public_url: url,

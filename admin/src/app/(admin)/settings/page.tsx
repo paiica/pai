@@ -21,7 +21,7 @@ async function uploadImage(file: File, token: string, refreshTokens: () => Promi
   const formData = new FormData();
   formData.append("file", file);
   let activeToken = token;
-  let res = await fetch(`${API_BASE}/uploads/content-image`, {
+  let res = await fetch(`${API_BASE}/uploads/content-image?purpose=branding`, {
     method: "POST",
     headers: { Authorization: `Bearer ${activeToken}` },
     body: formData,
@@ -30,7 +30,7 @@ async function uploadImage(file: File, token: string, refreshTokens: () => Promi
     const refreshed = await refreshTokens();
     if (!refreshed) throw new Error("Session expired — please sign in again");
     activeToken = useAuthStore.getState().accessToken!;
-    res = await fetch(`${API_BASE}/uploads/content-image`, {
+    res = await fetch(`${API_BASE}/uploads/content-image?purpose=branding`, {
       method: "POST",
       headers: { Authorization: `Bearer ${activeToken}` },
       body: formData,
