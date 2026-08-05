@@ -53,6 +53,24 @@ export const useAuthStore = create<AuthState>()(
             accessToken: data.data.access_token,
             refreshToken: data.data.refresh_token,
           });
+          // Separate origin in production, so setting this store's own state
+          // above doesn't touch the marketing site's independent session at
+          // all — only logging in *through* the marketing site (via its
+          // ssoLink handoff, which sets state directly rather than calling
+          // this action, so this can't loop back on itself) currently syncs
+          // the other direction. Push it forward the same way logout()
+          // pushes a sign-out forward: a hidden iframe loading the
+          // marketing site's own login-sync receiver with the new session.
+          if (typeof window !== "undefined") {
+            const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+            const params = new URLSearchParams({ t: data.data.access_token, r: data.data.refresh_token });
+            params.set("u", JSON.stringify(data.data.user));
+            const iframe = document.createElement("iframe");
+            iframe.src = `${marketingUrl}/auth/login-sync?${params.toString()}`;
+            iframe.style.display = "none";
+            iframe.onload = () => iframe.remove();
+            document.body.appendChild(iframe);
+          }
         } finally {
           set({ isLoading: false });
         }

@@ -122,16 +122,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [accessToken]);
 
   // Mirrors auth.store.ts's cross-tab sync on the student portal side —
-  // catches both this app's own other open tabs signing out, and the
-  // student portal's logout-sync iframe (above) clearing this origin's
-  // localStorage from the other direction.
+  // catches this app's own other open tabs signing in/out, and the student
+  // portal's login-sync/logout-sync iframes (above) writing to this
+  // origin's localStorage from the other direction, so an already-open
+  // marketing-site tab updates live instead of only on next page load.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key === AUTH_KEY && e.newValue === null) {
+      if (e.key !== AUTH_KEY) return;
+      if (e.newValue === null) {
         setUser(null);
         setAccessToken(null);
         setRefreshToken(null);
+        return;
       }
+      try {
+        const parsed = JSON.parse(e.newValue);
+        const state = parsed.state ?? parsed;
+        setUser(state.user ?? null);
+        setAccessToken(state.accessToken ?? null);
+        setRefreshToken(state.refreshToken ?? null);
+      } catch {}
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

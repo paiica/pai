@@ -20,11 +20,12 @@ const nextConfig: NextConfig = {
     const lmsPublicUrl = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
     return [
       {
-        // Excludes /auth/logout-sync (via the negative lookahead below) —
-        // that one route needs to be embeddable in an iframe from the
-        // student portal's origin (see its page.tsx for why) and gets its
-        // own, narrower frame policy instead, further down.
-        source: "/((?!auth/logout-sync).*)",
+        // Excludes /auth/logout-sync and /auth/login-sync (via the negative
+        // lookahead below) — those two routes need to be embeddable in an
+        // iframe from the student portal's origin (see their page.tsx files
+        // for why) and get their own, narrower frame policy instead, further
+        // down.
+        source: "/((?!auth/(?:logout|login)-sync).*)",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
@@ -38,8 +39,8 @@ const nextConfig: NextConfig = {
         // one specific origin instead of only DENY/SAMEORIGIN — deliberately
         // omitting X-Frame-Options here rather than setting it to DENY,
         // which would just override this and block the one origin that's
-        // actually supposed to be able to frame this route.
-        source: "/auth/logout-sync",
+        // actually supposed to be able to frame these routes.
+        source: "/auth/:kind(logout|login)-sync",
         headers: [
           { key: "Content-Security-Policy", value: `frame-ancestors 'self' ${lmsPublicUrl}` },
           { key: "X-Content-Type-Options", value: "nosniff" },
