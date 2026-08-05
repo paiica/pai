@@ -75,6 +75,19 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch {}
         set({ user: null, accessToken: null, refreshToken: null });
+        // Separate origin in production, so clearing this store's own state
+        // above doesn't touch the marketing site's independent session at
+        // all. Load its logout-sync page in a hidden iframe so it clears its
+        // own localStorage too — mirrors what the marketing site's own
+        // logout() does in the other direction.
+        if (typeof window !== "undefined") {
+          const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+          const iframe = document.createElement("iframe");
+          iframe.src = `${marketingUrl}/auth/logout-sync`;
+          iframe.style.display = "none";
+          iframe.onload = () => iframe.remove();
+          document.body.appendChild(iframe);
+        }
       },
 
       refreshTokens: async () => {

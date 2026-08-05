@@ -70,17 +70,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { user: u, accessToken: access_token, refreshToken: refresh_token };
   }, []);
 
-  // Both apps share localhost:3000 as their origin (student portal is proxied at /lms/*).
-  // localStorage is the same, so a plain link is all that's needed — no SSO params.
-  // Forwards a captured affiliate ref code explicitly (on top of the shared cookie) so
-  // attribution survives even if cross-subdomain cookie sharing doesn't work in some
-  // browser/privacy setting — same mechanism the invite link already relies on.
+  // In local dev, both apps share one origin (student portal proxied at
+  // /lms/*), so localStorage is naturally shared and a plain link would be
+  // enough. In production they're on separate origins (paii.ca vs
+  // learn.paii.ca) — a plain link lands the student portal on its own login
+  // page with no idea who you are. Route through its /auth/sso receiver
+  // instead, handing off the current session via URL params (one-time, not
+  // a standing link between the sessions — see the logout() comment below).
+  // The affiliate ref code rides along inside `next` (rather than as its own
+  // top-level param) purely so it survives to the final destination without
+  // the /auth/sso page needing to know anything about referral tracking.
   const ssoLink = useCallback((path: string) => {
     const ref = getRefCookie();
-    if (!ref) return `${LMS}${path}`;
-    const sep = path.includes("?") ? "&" : "?";
-    return `${LMS}${path}${sep}ref=${encodeURIComponent(ref)}`;
-  }, []);
+    const targetPath = ref
+      ? `${path}${path.includes("?") ? "&" : "?"}ref=${encodeURIComponent(ref)}`
+      : path;
+
+    if (!accessToken) return `${LMS}${targetPath}`;
+
+    const params = new URLSearchParams({ t: accessToken, next: targetPath });
+    if (refreshToken) params.set("r", refreshToken);
+    if (user) params.set("u", JSON.stringify(user));
+    return `${LMS}/auth/sso?${params.toString()}`;
+  }, [accessToken, refreshToken, user]);
 
   const logout = useCallback(() => {
     const token = accessToken;
@@ -95,9 +107,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ refresh_token: null }),
       }).catch(() => {});
     }
-    // Student portal shares the same origin — clearing localStorage here is enough.
-    // The storage event listener in auth.store.ts handles any open student-portal tabs.
+    // Separate origin in production, so clearing this app's own localStorage
+    // above doesn't touch the student portal's session at all. Load its
+    // logout-sync page in a hidden iframe so it clears its own localStorage
+    // too (that origin, in turn, notifies any other open student-portal tabs
+    // the normal way — via the native `storage` event, which fires for every
+    // other browsing context on that origin once its localStorage changes).
+    // The iframe removes itself once loaded; it has nothing left to do.
+    const iframe = document.createElement("iframe");
+    iframe.src = `${LMS}/auth/logout-sync`;
+    iframe.style.display = "none";
+    iframe.onload = () => iframe.remove();
+    document.body.appendChild(iframe);
   }, [accessToken]);
+
+  // Mirrors auth.store.ts's cross-tab sync on the student portal side —
+  // catches both this app's own other open tabs signing out, and the
+  // student portal's logout-sync iframe (above) clearing this origin's
+  // localStorage from the other direction.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === AUTH_KEY && e.newValue === null) {
+        setUser(null);
+        setAccessToken(null);
+        setRefreshToken(null);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, accessToken, refreshToken, hydrated, login, logout, ssoLink }}>
