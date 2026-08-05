@@ -28,10 +28,14 @@ export default function EnrollButton({
   const [showLogin, setShowLogin] = useState(false);
   const inCart = hasItem(courseId);
 
-  function handleEnroll() {
+  async function handleEnroll() {
     if (!user) { setShowLogin(true); return; }
+    // Must await this — redirecting to the student portal (a different
+    // origin, so this is a full page unload) before the POST resolves
+    // aborts the in-flight request, leaving this button showing "In Cart"
+    // for an item that was never actually saved server-side.
     if (!inCart) {
-      addItem({ id: courseId, type: "course", slug: courseSlug, title, price, level });
+      await addItem({ id: courseId, type: "course", slug: courseSlug, title, price, level });
     }
     window.location.href = ssoLink("/cart");
   }

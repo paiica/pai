@@ -50,9 +50,13 @@ export default function CertCTAButton({
       .finally(() => setChecking(false));
   }, [user, accessToken, certId]);
 
-  function handleGetCertified() {
+  async function handleGetCertified() {
+    // Must await this — redirecting to the student portal (a different
+    // origin, so this is a full page unload) before the POST resolves
+    // aborts the in-flight request, leaving this button showing "In Cart"
+    // for an item that was never actually saved server-side.
     if (!inCart) {
-      addItem({ id: certId, type: "certification", slug: certSlug, title, price });
+      await addItem({ id: certId, type: "certification", slug: certSlug, title, price });
     }
     window.location.href = ssoLink("/cart");
   }
