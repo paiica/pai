@@ -65,6 +65,21 @@ export class PaymentsService {
     throw new BadRequestException(msg);
   }
 
+  // Every checkout session in this file uses inline `price_data` with no
+  // persistent Stripe Product to attach a tax_code to — Stripe's newer
+  // "Managed Payments" (enabled by default on new accounts) requires one on
+  // every line item's product, so opt out account-wide here rather than
+  // creating/tagging a real Product for each dynamically-priced item. The
+  // installed stripe SDK's types predate this param, hence the cast — once
+  // it ships real types, this whole wrapper can go away and callers can go
+  // back to calling `stripe.checkout.sessions.create` directly.
+  private startCheckout(stripe: Stripe, params: Stripe.Checkout.SessionCreateParams) {
+    return stripe.checkout.sessions.create({
+      ...params,
+      managed_payments: { enabled: false },
+    } as unknown as Stripe.Checkout.SessionCreateParams);
+  }
+
   // ─── Existing certification checkout (via application) ──────────────────────
 
   async createCheckoutSession(userId: string, certificationSlug: string, applicationId?: string) {
@@ -81,7 +96,7 @@ export class PaymentsService {
     const cancelUrl = `${this.config.get("frontendUrl")}/certifications/${certificationSlug}`;
 
     try {
-      const session = await stripe.checkout.sessions.create({
+      const session = await this.startCheckout(stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: { user_id: userId, certification_id: cert.id, application_id: applicationId || "" },
@@ -172,7 +187,7 @@ export class PaymentsService {
     const courseStripeClient = await this.resolveStripe();
     if (!courseStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await courseStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(courseStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -310,7 +325,7 @@ export class PaymentsService {
     const certStripeClient = await this.resolveStripe();
     if (!certStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await certStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(certStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -368,7 +383,7 @@ export class PaymentsService {
     const renewalStripeClient = await this.resolveStripe();
     if (!renewalStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await renewalStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(renewalStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -419,7 +434,7 @@ export class PaymentsService {
     const orgStripeClient = await this.resolveStripe();
     if (!orgStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await orgStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(orgStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -464,7 +479,7 @@ export class PaymentsService {
     const orgStripeClient = await this.resolveStripe();
     if (!orgStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await orgStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(orgStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -517,7 +532,7 @@ export class PaymentsService {
     const retakeStripeClient = await this.resolveStripe();
     if (!retakeStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await retakeStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(retakeStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -567,7 +582,7 @@ export class PaymentsService {
     const reactivationStripeClient = await this.resolveStripe();
     if (!reactivationStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     try {
-      const session = await reactivationStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(reactivationStripeClient.stripe, {
         mode: "payment",
         customer_email: user.email,
         metadata: {
@@ -630,7 +645,7 @@ export class PaymentsService {
       // instead of redirecting to a Stripe-hosted page. Fulfillment is
       // unchanged: this is still a Checkout Session under the hood, so the
       // existing checkout.session.completed webhook handling applies as-is.
-      const session = await eventStripeClient.stripe.checkout.sessions.create({
+      const session = await this.startCheckout(eventStripeClient.stripe, {
         mode: "payment",
         ui_mode: "embedded",
         customer_email: dto.email,
