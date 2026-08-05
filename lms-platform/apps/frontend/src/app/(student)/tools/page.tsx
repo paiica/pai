@@ -146,9 +146,11 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
               {item.type === "certification" ? (CERT_LEVEL_LABEL[item.level] ?? item.level) : item.level}
             </span>
           )}
-          <span className="text-xs font-black text-navy-900 ml-auto flex items-center gap-1.5">
-            {pct > 0 && <span className="text-slate-400 font-semibold line-through">${price.toFixed(0)}</span>}
-            {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(0)}`}
+          <span className="ml-auto flex items-center gap-1.5">
+            {pct > 0 && <span className="text-xs text-slate-400 font-semibold line-through">${price.toFixed(0)}</span>}
+            <span className="text-lg font-black text-navy-900">
+              {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(0)}`}
+            </span>
           </span>
         </div>
         {pct > 0 && (
