@@ -315,7 +315,7 @@ export default function StudentSidebar() {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
-        className="lg:hidden fixed top-3 left-3 z-30 p-2 rounded-lg bg-white border border-slate-200 shadow-lg text-slate-600"
+        className="lg:hidden fixed top-3 left-3 z-40 p-2 rounded-lg bg-white border border-slate-200 shadow-lg text-slate-600"
       >
         <Menu size={20} />
       </button>

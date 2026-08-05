@@ -20,9 +20,22 @@ export class LearningService {
 
   // ─── Course Access ────────────────────────────────────────────────────
 
-  private async assertEnrollment(enrollmentId: string, userId: string) {
+  // `allowCompleted` lets a student who's already finished (and passed) their
+  // certification still open lesson content and their own notes — otherwise
+  // getCourseOutline (no status filter) lists every module/lesson as if
+  // accessible, but this check would silently 403 the moment they clicked
+  // into one, since completing a certification doesn't mean every bundled
+  // required-course lesson was actually opened. Left false (the original,
+  // stricter behavior) for anything that writes new progress/submissions —
+  // whether a completed student should be able to re-submit a quiz or
+  // assignment is a separate question from whether they can review content.
+  private async assertEnrollment(enrollmentId: string, userId: string, allowCompleted = false) {
     const enrollment = await this.prisma.enrollment.findFirst({
-      where: { id: enrollmentId, user_id: userId, status: "active" },
+      where: {
+        id: enrollmentId,
+        user_id: userId,
+        status: allowCompleted ? { in: ["active", "completed"] } : "active",
+      },
     });
     if (!enrollment) throw new ForbiddenException("No active enrollment found");
     return enrollment;
@@ -165,7 +178,7 @@ export class LearningService {
   }
 
   async getLessonContent(enrollmentId: string, lessonId: string, userId: string) {
-    await this.assertEnrollment(enrollmentId, userId);
+    await this.assertEnrollment(enrollmentId, userId, true);
 
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -263,7 +276,7 @@ export class LearningService {
   // visible to instructors/admins.
 
   async getNote(enrollmentId: string, lessonId: string, userId: string) {
-    await this.assertEnrollment(enrollmentId, userId);
+    await this.assertEnrollment(enrollmentId, userId, true);
     const note = await this.prisma.lessonNote.findUnique({
       where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
     });
@@ -271,7 +284,7 @@ export class LearningService {
   }
 
   async upsertNote(enrollmentId: string, lessonId: string, userId: string, content: string) {
-    await this.assertEnrollment(enrollmentId, userId);
+    await this.assertEnrollment(enrollmentId, userId, true);
     const note = await this.prisma.lessonNote.upsert({
       where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
       create: { user_id: userId, lesson_id: lessonId, content },
@@ -289,7 +302,7 @@ export class LearningService {
     dto: { message: string; history?: { role: "user" | "assistant"; content: string }[] },
   ) {
     const enrollment = await this.prisma.enrollment.findFirst({
-      where: { id: enrollmentId, user_id: userId, status: "active" },
+      where: { id: enrollmentId, user_id: userId, status: { in: ["active", "completed"] } },
       include: {
         certification: { select: { id: true, title: true, ai_professor_enabled: true } },
       },
