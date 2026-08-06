@@ -62,7 +62,13 @@ export const useAuthStore = create<AuthState>()(
           // pushes a sign-out forward: a hidden iframe loading the
           // marketing site's own login-sync receiver with the new session.
           if (typeof window !== "undefined") {
-            const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+            // Must be the canonical host: the bare domain 308-redirects to
+          // this one, and a hidden iframe following a cross-subdomain
+          // redirect isn't reliable the way a real top-level navigation is
+          // — confirmed live: login-sync worked immediately, but
+          // logout-sync silently never took effect while pointed at the
+          // bare (redirecting) domain.
+          const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.paii.ca";
             const params = new URLSearchParams({ t: data.data.access_token, r: data.data.refresh_token });
             params.set("u", JSON.stringify(data.data.user));
             const iframe = document.createElement("iframe");
@@ -99,7 +105,13 @@ export const useAuthStore = create<AuthState>()(
         // own localStorage too — mirrors what the marketing site's own
         // logout() does in the other direction.
         if (typeof window !== "undefined") {
-          const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
+          // Must be the canonical host: the bare domain 308-redirects to
+          // this one, and a hidden iframe following a cross-subdomain
+          // redirect isn't reliable the way a real top-level navigation is
+          // — confirmed live: login-sync worked immediately, but
+          // logout-sync silently never took effect while pointed at the
+          // bare (redirecting) domain.
+          const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.paii.ca";
           const iframe = document.createElement("iframe");
           iframe.src = `${marketingUrl}/auth/logout-sync`;
           iframe.style.display = "none";
