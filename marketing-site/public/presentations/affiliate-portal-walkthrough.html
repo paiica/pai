@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAII Affiliate Portal — Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<style>
+/* ── Prevent page scroll ────────────────────────────────────────────── */
+html,body{overflow:hidden;height:100%;width:100%;}
+/* ── Design tokens ──────────────────────────────────────────────────── */
+:root{
+  --bg:#faf9f7;--bg-alt:#f0ede6;--bg-div:#14b8a6;
+  --ink:#171527;--ink-4:#4b4869;--muted:#8c8aa8;
+  --teal:#14b8a6;--teal-1:#0d9488;
+  --teal-10:rgba(20,184,166,.10);--teal-20:rgba(20,184,166,.20);
+  --amber:#d97706;--amber-100:#fef3c7;
+  --green:#059669;--green-100:#d1fae5;
+  --red:#dc2626;--red-100:#fee2e2;
+  --border:#e8e5de;--border-l:#f0ede6;
+  --card:#ffffff;
+  --shadow:0 2px 12px rgba(23,21,39,.07);
+  --shadow-md:0 4px 24px rgba(23,21,39,.10);
+  --r:12px;
+}
+html.dark{
+  --bg:#171527;--bg-alt:#1f1d38;--bg-div:#0d9488;
+  --ink:#ede9fe;--ink-4:#b0aecf;--muted:#6b6990;
+  --border:rgba(255,255,255,.09);--border-l:rgba(255,255,255,.05);
+  --card:#25233e;
+  --shadow:0 2px 12px rgba(0,0,0,.25);
+  --shadow-md:0 4px 24px rgba(0,0,0,.35);
+}
+/* ── Reset & base ───────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+.reveal,.reveal .slides{font-family:'Plus Jakarta Sans',sans-serif;}
+.reveal .slides section{
+  display:flex;flex-direction:column;justify-content:center;align-items:stretch;
+  padding:26px 44px;background:var(--bg);color:var(--ink);
+  text-align:left;height:100%;overflow:hidden;
+}
+.reveal .slides section.S-title{background:var(--bg-alt);}
+.reveal .slides section.S-div{background:var(--bg-div);}
+.reveal .progress{height:3px;}
+.reveal .progress span{background:var(--teal);}
+.reveal .controls button{color:var(--teal)!important;}
+/* ── Typography ─────────────────────────────────────────────────────── */
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;}
+h1{font-size:clamp(32px,4vw,52px);font-weight:900;line-height:1.08;color:var(--ink);letter-spacing:-.02em;}
+h2{font-size:clamp(22px,2.8vw,36px);font-weight:800;line-height:1.15;color:var(--ink);letter-spacing:-.015em;margin-bottom:6px;}
+h3{font-size:16px;font-weight:700;color:var(--ink);}
+.sub{font-size:16px;color:var(--ink-4);line-height:1.6;margin-top:10px;}
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.hdr{margin-bottom:14px;}
+/* ── Cards ──────────────────────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);}
+html.dark .card{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);box-shadow:none;}
+.card-t{background:var(--teal-10);border:1px solid rgba(20,184,166,.22);border-radius:var(--r);padding:14px 18px;}
+html.dark .card-t{background:rgba(20,184,166,.08);border-color:rgba(20,184,166,.20);}
+/* ── Portal mockup chrome ───────────────────────────────────────────── */
+.mockup-wrap{border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(23,21,39,.18);border:1px solid var(--border);}
+html.dark .mockup-wrap{box-shadow:0 8px 40px rgba(0,0,0,.4);border-color:rgba(255,255,255,.09);}
+.mockup-chrome{background:#f0eff4;padding:8px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+html.dark .mockup-chrome{background:#2d2b43;border-color:rgba(255,255,255,.08);}
+.chrome-dots{display:flex;gap:5px;}
+.chrome-dots span{width:10px;height:10px;border-radius:50%;display:block;}
+.chrome-dots span:nth-child(1){background:#ff5f57;}
+.chrome-dots span:nth-child(2){background:#ffbd2e;}
+.chrome-dots span:nth-child(3){background:#28ca41;}
+.chrome-url{flex:1;background:white;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:10px;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;}
+html.dark .chrome-url{background:#1f1d38;color:var(--muted);}
+/* ── Portal layout ──────────────────────────────────────────────────── */
+.p-body{display:flex;height:320px;}
+.p-sidebar{width:52px;background:#171527;display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;flex-shrink:0;}
+html.dark .p-sidebar{background:#0e0c1e;}
+.p-logo{width:32px;height:32px;border-radius:8px;background:var(--teal);display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.p-logo span{color:#fff;font-weight:900;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;}
+.p-nav-item{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+.p-nav-item.active{background:rgba(20,184,166,.2);}
+.p-nav-item svg{width:18px;height:18px;stroke:rgba(255,255,255,.4);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+.p-nav-item.active svg{stroke:#14b8a6;}
+.p-main{flex:1;background:#f8f7fa;overflow:hidden;display:flex;flex-direction:column;}
+html.dark .p-main{background:#1a1832;}
+.p-topbar{padding:10px 16px;background:white;border-bottom:1px solid var(--border-l);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+html.dark .p-topbar{background:#22203a;border-color:rgba(255,255,255,.07);}
+.p-page-title{font-size:13px;font-weight:700;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;}
+.p-content{padding:14px 16px;overflow:hidden;flex:1;}
+/* ── Stat cards ─────────────────────────────────────────────────────── */
+.p-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.p-stat{background:white;border:1px solid var(--border-l);border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(23,21,39,.05);}
+html.dark .p-stat{background:#22203a;border-color:rgba(255,255,255,.07);}
+.p-stat-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;font-family:'Plus Jakarta Sans',sans-serif;}
+.p-stat-n{font-size:18px;font-weight:900;color:var(--ink);line-height:1;font-family:'Plus Jakarta Sans',sans-serif;}
+.p-stat-b{font-size:9px;margin-top:4px;font-family:'Plus Jakarta Sans',sans-serif;}
+.p-stat-b.up{color:var(--green);}
+.p-stat-b.pend{color:var(--amber);}
+/* ── Panel & table ──────────────────────────────────────────────────── */
+.p-panel{background:white;border:1px solid var(--border-l);border-radius:10px;padding:12px 14px;}
+html.dark .p-panel{background:#22203a;border-color:rgba(255,255,255,.07);}
+.p-table{width:100%;border-collapse:collapse;font-size:10px;font-family:'Plus Jakarta Sans',sans-serif;}
+.p-table th{text-align:left;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:6px 10px;border-bottom:1px solid var(--border-l);font-size:9px;}
+.p-table td{padding:7px 10px;color:var(--ink-4);border-bottom:1px solid var(--border-l);}
+.p-table tr:last-child td{border-bottom:none;}
+/* ── Badges ─────────────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;}
+.badge-g{background:var(--green-100);color:var(--green);}
+.badge-a{background:var(--amber-100);color:var(--amber);}
+.badge-r{background:var(--red-100);color:var(--red);}
+.badge-b{background:rgba(99,102,241,.12);color:#6366f1;}
+.badge-ink{background:var(--border-l);color:var(--ink-4);}
+html.dark .badge-g{background:rgba(5,150,105,.15);color:#34d399;}
+html.dark .badge-a{background:rgba(217,119,6,.15);color:#fbbf24;}
+html.dark .badge-b{background:rgba(99,102,241,.18);}
+html.dark .badge-ink{background:rgba(255,255,255,.08);}
+/* ── Progress bar ───────────────────────────────────────────────────── */
+.prog-track{background:var(--border-l);border-radius:99px;height:6px;overflow:hidden;margin-top:4px;}
+html.dark .prog-track{background:rgba(255,255,255,.08);}
+.prog-fill{height:100%;border-radius:99px;background:var(--teal);}
+/* ── Callout ────────────────────────────────────────────────────────── */
+.callout{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);}
+html.dark .callout{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08);box-shadow:none;}
+.callout-ic{width:36px;height:36px;border-radius:10px;background:var(--teal-10);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.callout-ic svg{width:18px;height:18px;stroke:var(--teal);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+.callout-hd{font-size:12px;font-weight:700;color:var(--ink);}
+.callout-bd{font-size:11px;color:var(--ink-4);line-height:1.5;margin-top:2px;}
+/* ── Overview grid ──────────────────────────────────────────────────── */
+.ov-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.ov-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;align-items:flex-start;gap:12px;box-shadow:var(--shadow);}
+html.dark .ov-card{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);box-shadow:none;}
+.ov-ic{width:38px;height:38px;border-radius:10px;background:var(--teal-10);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ov-ic svg{width:20px;height:20px;stroke:var(--teal);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+.ov-hd{font-size:13px;font-weight:700;color:var(--ink);}
+.ov-bd{font-size:11px;color:var(--ink-4);line-height:1.4;margin-top:3px;}
+/* ── Timeline ───────────────────────────────────────────────────────── */
+.timeline{display:flex;position:relative;margin:18px 0 20px;}
+.tl-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;}
+.tl-step:not(:last-child)::after{content:'';position:absolute;top:18px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
+.tl-step.done::after{background:var(--teal);}
+.tl-dot{width:36px;height:36px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;position:relative;z-index:1;font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;color:var(--muted);}
+.tl-step.done .tl-dot{background:var(--teal);color:white;}
+.tl-step.active .tl-dot{background:var(--amber);color:white;}
+.tl-label{font-size:11px;font-weight:600;color:var(--ink-4);text-align:center;margin-top:8px;font-family:'Plus Jakarta Sans',sans-serif;}
+.tl-sub{font-size:9px;color:var(--muted);text-align:center;margin-top:2px;font-family:'Plus Jakarta Sans',sans-serif;}
+/* ── Download cards ─────────────────────────────────────────────────── */
+.dl-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+html.dark .dl-card{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);box-shadow:none;}
+.dl-thumb{width:48px;height:48px;border-radius:8px;background:var(--teal-10);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.dl-thumb svg{width:22px;height:22px;stroke:var(--teal);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+.dl-title{font-size:12px;font-weight:700;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;}
+.dl-meta{font-size:10px;color:var(--muted);margin-top:2px;font-family:'Plus Jakarta Sans',sans-serif;}
+.dl-btn{margin-left:auto;background:var(--teal);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;flex-shrink:0;}
+/* ── Invite form field ──────────────────────────────────────────────── */
+.inv-field{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--ink-4);width:100%;font-family:'Plus Jakarta Sans',sans-serif;}
+html.dark .inv-field{background:rgba(255,255,255,.05);}
+.inv-submit{background:var(--teal);color:white;border:none;border-radius:8px;padding:9px 20px;font-size:11px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;width:100%;cursor:pointer;}
+/* ── Summary stat bar ───────────────────────────────────────────────── */
+.sum-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.sum-cell{border-radius:8px;padding:10px 12px;}
+.sum-cell-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-family:'Plus Jakarta Sans',sans-serif;}
+.sum-cell-val{font-size:16px;font-weight:900;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;margin-top:2px;}
+/* ── Divider slide ──────────────────────────────────────────────────── */
+.S-div .eyebrow{color:rgba(255,255,255,.7);}
+.S-div h2,.S-div h1{color:white;}
+.S-div .sub{color:rgba(255,255,255,.8);}
+/* ── Watermark ──────────────────────────────────────────────────────── */
+.wm{position:absolute;bottom:14px;left:44px;display:flex;align-items:center;gap:8px;opacity:.55;}
+.wm img{height:18px;display:block;}
+html.dark .wm img{filter:brightness(0) invert(1);}
+.S-div .wm{opacity:.45;}
+.S-div .wm img{filter:brightness(0) invert(1);}
+/* ── Dark mode toggle ───────────────────────────────────────────────── */
+#tm{
+  position:fixed;top:20px;left:20px;z-index:9999;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.88);backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:100px;
+  padding:5px 12px 5px 9px;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:11px;font-weight:700;color:var(--ink-4);
+  cursor:pointer;box-shadow:0 1px 3px rgba(23,21,39,.1);
+  transition:background .2s,color .2s,border-color .2s;
+}
+html.dark #tm{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.6);box-shadow:none;}
+#tm svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+/* ── Presenter controls ─────────────────────────────────────────────── */
+#pctrl{position:fixed;bottom:18px;left:20px;z-index:9999;display:flex;align-items:center;gap:8px;}
+#timer{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);background:rgba(255,255,255,.82);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:100px;padding:4px 12px;cursor:pointer;user-select:none;transition:all .2s;}
+html.dark #timer{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.3);}
+#hbtn{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.82);backdrop-filter:blur(6px);border:1px solid var(--border);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;color:var(--ink-4);display:flex;align-items:center;justify-content:center;transition:all .2s;}
+html.dark #hbtn{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.35);}
+/* ── Help overlay ───────────────────────────────────────────────────── */
+#hov{position:fixed;inset:0;z-index:10000;background:rgba(23,21,39,.55);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;}
+#hov.open{display:flex;}
+#hbox{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 32px;width:360px;box-shadow:0 16px 60px rgba(23,21,39,.2);}
+#hbox h4{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:16px;}
+#hbox table{width:100%;border-collapse:collapse;font-size:13px;}
+#hbox td{padding:5px 0;color:var(--ink-4);}
+#hbox td:first-child{font-family:monospace;background:var(--bg-alt);padding:3px 8px;border-radius:5px;color:var(--ink);font-weight:600;width:90px;}
+#hbox td:last-child{padding-left:12px;}
+#hbox .hclose{display:block;margin-top:18px;text-align:center;font-size:12px;color:var(--muted);cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- SVG icon library -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+  <symbol id="ic-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="ic-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+  <symbol id="ic-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="ic-dollar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></symbol>
+  <symbol id="ic-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+  <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+  <symbol id="ic-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="ic-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="ic-credit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></symbol>
+  <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="ic-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+  <symbol id="ic-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+  <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+</svg>
+
+<div class="reveal">
+<div class="slides">
+
+<!-- ── SLIDE 1: Title ──────────────────────────────────────────────── -->
+<section class="S-title">
+  <div class="eyebrow">Affiliate Portal Walkthrough</div>
+  <h1>Your Portal,<br>Explained</h1>
+  <p class="sub" style="max-width:560px;">A complete guide to your PAII Affiliate Portal — from dashboard stats to payouts and marketing materials.</p>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 2: Overview ───────────────────────────────────────────── -->
+<section>
+  <div class="hdr">
+    <div class="eyebrow">Overview</div>
+    <h2>Everything in One Place</h2>
+    <p class="sub">Six sections — each designed to give you full visibility and control over your affiliate activity.</p>
+  </div>
+  <div class="ov-grid">
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-home"/></svg></div>
+      <div><div class="ov-hd">Dashboard</div><div class="ov-bd">Live earnings snapshot, conversion metrics, and click stats at a glance</div></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-package"/></svg></div>
+      <div><div class="ov-hd">My Products</div><div class="ov-bd">Your assigned certifications with unique, trackable referral links</div></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-tag"/></svg></div>
+      <div><div class="ov-hd">Promo Codes</div><div class="ov-bd">Discount codes you can share to remove price friction at checkout</div></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-users"/></svg></div>
+      <div><div class="ov-hd">Leads Tracking</div><div class="ov-bd">See every person you referred and their real-time journey status</div></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-dollar"/></svg></div>
+      <div><div class="ov-hd">Commissions</div><div class="ov-bd">Full commission history — pending, approved, and paid out</div></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-ic"><svg><use href="#ic-download"/></svg></div>
+      <div><div class="ov-hd">Marketing Kit</div><div class="ov-bd">Ready-to-use slides, email templates, social graphics, and flyers</div></div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 3: Dashboard mockup ──────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 1 — Dashboard</div>
+    <h2>Your Command Center</h2>
+    <p class="sub" style="font-size:13px;">The first screen you see on login — all key numbers updated in real time.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/dashboard</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item active"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar">
+          <span class="p-page-title">Dashboard</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;">Welcome back, Sarah</span>
+        </div>
+        <div class="p-content">
+          <div class="p-stats">
+            <div class="p-stat">
+              <div class="p-stat-l">Total Earnings</div>
+              <div class="p-stat-n">$2,340</div>
+              <div class="p-stat-b up">+18% this month</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-l">Pending</div>
+              <div class="p-stat-n">$480</div>
+              <div class="p-stat-b pend">Awaiting approval</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-l">Total Leads</div>
+              <div class="p-stat-n">87</div>
+              <div class="p-stat-b up">34 converted</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-l">Conversion Rate</div>
+              <div class="p-stat-n">39%</div>
+              <div class="p-stat-b up">+4 pts vs last month</div>
+            </div>
+          </div>
+          <div class="p-panel">
+            <div style="font-size:10px;font-weight:700;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:8px;">Recent Activity</div>
+            <table class="p-table">
+              <tr><th>Event</th><th>Lead</th><th>Commission</th><th>Date</th></tr>
+              <tr><td>Purchase</td><td>J. Martinez</td><td style="color:var(--green);font-weight:700;">+$120</td><td>Today</td></tr>
+              <tr><td>Registered</td><td>A. Patel</td><td>—</td><td>Yesterday</td></tr>
+              <tr><td>Purchase</td><td>M. Chen</td><td style="color:var(--green);font-weight:700;">+$75</td><td>Jun 28</td></tr>
+              <tr><td>Logged In</td><td>L. Kim</td><td>—</td><td>Jun 27</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 4: Dashboard metrics explained ───────────────────────── -->
+<section>
+  <div class="hdr">
+    <div class="eyebrow">Dashboard</div>
+    <h2>What Each Number Means</h2>
+    <p class="sub">Eight metrics — all calculated automatically as leads move through the funnel.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-dollar"/></svg></div>
+      <div><div class="callout-hd">Total Earnings</div><div class="callout-bd">Lifetime commissions — paid + approved + pending combined</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-clock"/></svg></div>
+      <div><div class="callout-hd">Pending Commissions</div><div class="callout-bd">Sales in the 30-day refund window — held before approval</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-users"/></svg></div>
+      <div><div class="callout-hd">Total Leads</div><div class="callout-bd">Everyone who clicked your referral link and entered the funnel</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-zap"/></svg></div>
+      <div><div class="callout-hd">Conversions</div><div class="callout-bd">Leads who completed a purchase on any product</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-chart"/></svg></div>
+      <div><div class="callout-hd">Conversion Rate</div><div class="callout-bd">Conversions ÷ total leads — your funnel efficiency score</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-external"/></svg></div>
+      <div><div class="callout-hd">Total Clicks</div><div class="callout-bd">Raw clicks across all your referral links combined</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-mail"/></svg></div>
+      <div><div class="callout-hd">Invites Sent</div><div class="callout-bd">Direct personalized invitations you've sent via the Invite tab</div></div>
+    </div>
+    <div class="callout">
+      <div class="callout-ic"><svg><use href="#ic-tag"/></svg></div>
+      <div><div class="callout-hd">Active Promo Codes</div><div class="callout-bd">Discount codes currently live and accepting redemptions</div></div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 5: My Products & Referral Links ──────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 2 — My Products</div>
+    <h2>Referral Links</h2>
+    <p class="sub" style="font-size:13px;">Each certification you're approved to promote gets its own trackable URL with your code already embedded.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/products</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item active"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar"><span class="p-page-title">My Products</span></div>
+        <div class="p-content">
+          <div class="p-panel">
+            <table class="p-table">
+              <tr><th>Certification</th><th>Price</th><th>Commission</th><th>Your Referral Link</th><th></th></tr>
+              <tr>
+                <td><strong style="color:var(--ink);">CAIP — Level 1</strong></td>
+                <td>$399</td>
+                <td style="color:var(--teal);font-weight:700;">30% · $120</td>
+                <td style="color:var(--teal);font-family:monospace;font-size:9px;">pai.institute/cert/caip-1?ref=AB12CD34</td>
+                <td><svg style="width:12px;height:12px;stroke:var(--muted);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;"><use href="#ic-copy"/></svg></td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--ink);">CAIP — Level 2</strong></td>
+                <td>$499</td>
+                <td style="color:var(--teal);font-weight:700;">30% · $150</td>
+                <td style="color:var(--teal);font-family:monospace;font-size:9px;">pai.institute/cert/caip-2?ref=AB12CD34</td>
+                <td><svg style="width:12px;height:12px;stroke:var(--muted);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;"><use href="#ic-copy"/></svg></td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--ink);">AI Business Fundamentals</strong></td>
+                <td>$299</td>
+                <td style="color:var(--teal);font-weight:700;">25% · $75</td>
+                <td style="color:var(--teal);font-family:monospace;font-size:9px;">pai.institute/cert/ai-biz?ref=AB12CD34</td>
+                <td><svg style="width:12px;height:12px;stroke:var(--muted);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;"><use href="#ic-copy"/></svg></td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--ink);">Prompt Engineering Pro</strong></td>
+                <td>$249</td>
+                <td style="color:var(--teal);font-weight:700;">25% · $62</td>
+                <td style="color:var(--teal);font-family:monospace;font-size:9px;">pai.institute/cert/pe-pro?ref=AB12CD34</td>
+                <td><svg style="width:12px;height:12px;stroke:var(--muted);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;"><use href="#ic-copy"/></svg></td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-top:10px;padding:10px 14px;background:var(--teal-10);border:1px solid rgba(20,184,166,.2);border-radius:8px;font-size:10px;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;">
+            <strong style="color:var(--teal);">Your referral code:</strong> <code style="background:var(--border-l);padding:2px 6px;border-radius:4px;font-family:monospace;font-weight:700;">AB12CD34</code> — embedded automatically in every link. Never edit it.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 6: Promo Codes ───────────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 3 — Promo Codes</div>
+    <h2>Discount Codes</h2>
+    <p class="sub" style="font-size:13px;">Codes issued by PAII that you share with students. They save at checkout — you still earn commission on the net sale.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/promo-codes</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item active"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar"><span class="p-page-title">Promo Codes</span></div>
+        <div class="p-content" style="display:flex;gap:12px;">
+          <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+            <div class="p-panel">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:18px;font-weight:900;letter-spacing:.1em;color:var(--ink);font-family:monospace;">PROF20</span>
+                <span class="badge badge-g">Active</span>
+              </div>
+              <div style="font-size:10px;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:8px;">20% off — all certifications &nbsp;·&nbsp; Expires Dec 31, 2026</div>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:4px;"><span>14 / 50 uses</span><span>28%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="width:28%;"></div></div>
+            </div>
+            <div class="p-panel">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:18px;font-weight:900;letter-spacing:.1em;color:var(--ink);font-family:monospace;">LAUNCH50</span>
+                <span class="badge badge-ink">Expired</span>
+              </div>
+              <div style="font-size:10px;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:8px;">$50 off CAIP Level 1 &nbsp;·&nbsp; Expired Jan 15, 2026</div>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:4px;"><span>50 / 50 uses</span><span>100%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="width:100%;"></div></div>
+            </div>
+          </div>
+          <div style="width:190px;">
+            <div class="p-panel" style="height:100%;">
+              <div style="font-size:10px;font-weight:700;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:8px;">How it works</div>
+              <div style="font-size:10px;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;line-height:1.6;">
+                Student enters code at checkout and receives the discount.<br><br>
+                You earn commission on the <strong style="color:var(--ink);">discounted sale price</strong>.<br><br>
+                Codes are assigned by PAII — contact your account manager to request one.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 7: Leads Tracking ───────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 4 — Leads</div>
+    <h2>Leads Tracking</h2>
+    <p class="sub" style="font-size:13px;">Every person you referred — and exactly where they are in the journey right now.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/leads</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item active"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar">
+          <span class="p-page-title">Leads</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;">87 total</span>
+        </div>
+        <div class="p-content">
+          <div class="p-panel" style="margin-bottom:8px;">
+            <table class="p-table">
+              <tr><th>Name</th><th>Email</th><th>Status</th><th>Product</th><th>Source</th><th>Date</th></tr>
+              <tr><td><strong style="color:var(--ink);">James Martinez</strong></td><td>j.martinez@…</td><td><span class="badge badge-g">Purchased</span></td><td>CAIP – L1</td><td>Referral link</td><td>Jun 30</td></tr>
+              <tr><td><strong style="color:var(--ink);">Aisha Patel</strong></td><td>aisha@…</td><td><span class="badge badge-b">Registered</span></td><td>—</td><td>Referral link</td><td>Jun 29</td></tr>
+              <tr><td><strong style="color:var(--ink);">Ming Chen</strong></td><td>m.chen@…</td><td><span class="badge badge-g">Purchased</span></td><td>AI Biz Fund.</td><td>Promo code</td><td>Jun 28</td></tr>
+              <tr><td><strong style="color:var(--ink);">Lisa Kim</strong></td><td>lisa.k@…</td><td><span class="badge badge-a">Logged In</span></td><td>—</td><td>Direct invite</td><td>Jun 27</td></tr>
+              <tr><td><strong style="color:var(--ink);">Robert Singh</strong></td><td>r.singh@…</td><td><span class="badge badge-ink">Invited</span></td><td>—</td><td>Direct invite</td><td>Jun 25</td></tr>
+            </table>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <div style="background:var(--green-100);border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:var(--green);font-family:'Plus Jakarta Sans',sans-serif;">Purchased = commission earned</div>
+            <div style="background:rgba(99,102,241,.1);border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:#6366f1;font-family:'Plus Jakarta Sans',sans-serif;">Registered = in funnel</div>
+            <div style="background:var(--amber-100);border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:var(--amber);font-family:'Plus Jakarta Sans',sans-serif;">Logged In = engaged</div>
+            <div style="background:var(--border-l);border-radius:6px;padding:4px 10px;font-size:9px;font-weight:700;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;">Invited = awaiting signup</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 8: Commissions History ──────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 5 — Commissions</div>
+    <h2>Commission History</h2>
+    <p class="sub" style="font-size:13px;">Every transaction with full status tracking — from the moment of sale to the moment funds land in your account.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/commissions</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item active"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar"><span class="p-page-title">Commissions</span></div>
+        <div class="p-content">
+          <div class="sum-bar">
+            <div class="sum-cell" style="background:var(--teal-10);border:1px solid rgba(20,184,166,.2);">
+              <div class="sum-cell-label" style="color:var(--teal);">Total Earned</div>
+              <div class="sum-cell-val">$2,340</div>
+            </div>
+            <div class="sum-cell" style="background:var(--amber-100);border:1px solid rgba(217,119,6,.2);">
+              <div class="sum-cell-label" style="color:var(--amber);">Pending</div>
+              <div class="sum-cell-val">$480</div>
+            </div>
+            <div class="sum-cell" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.18);">
+              <div class="sum-cell-label" style="color:#6366f1;">Approved</div>
+              <div class="sum-cell-val">$360</div>
+            </div>
+            <div class="sum-cell" style="background:var(--green-100);border:1px solid rgba(5,150,105,.18);">
+              <div class="sum-cell-label" style="color:var(--green);">Paid Out</div>
+              <div class="sum-cell-val">$1,500</div>
+            </div>
+          </div>
+          <div class="p-panel">
+            <table class="p-table">
+              <tr><th>Lead</th><th>Product</th><th>Sale</th><th>Rate</th><th>Commission</th><th>Status</th><th>Paid</th></tr>
+              <tr><td>J. Martinez</td><td>CAIP L1</td><td>$399</td><td>30%</td><td style="font-weight:700;color:var(--ink);">$120</td><td><span class="badge badge-a">Pending</span></td><td>—</td></tr>
+              <tr><td>M. Chen</td><td>AI Biz</td><td>$299</td><td>25%</td><td style="font-weight:700;color:var(--ink);">$75</td><td><span class="badge badge-b">Approved</span></td><td>—</td></tr>
+              <tr><td>T. Williams</td><td>CAIP L2</td><td>$499</td><td>30%</td><td style="font-weight:700;color:var(--ink);">$150</td><td><span class="badge badge-g">Paid</span></td><td>Jun 1</td></tr>
+              <tr><td>P. Johnson</td><td>CAIP L1</td><td>$399</td><td>30%</td><td style="font-weight:700;color:var(--ink);">$120</td><td><span class="badge badge-g">Paid</span></td><td>Jun 1</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 9: Getting Paid ──────────────────────────────────────── -->
+<section>
+  <div class="hdr">
+    <div class="eyebrow">Commissions</div>
+    <h2>How Payouts Work</h2>
+    <p class="sub">From a student's purchase to cash in your account — four clear stages.</p>
+  </div>
+  <div class="timeline">
+    <div class="tl-step done">
+      <div class="tl-dot">1</div>
+      <div class="tl-label">Sale Made</div>
+      <div class="tl-sub">Student purchases via your link or promo code</div>
+    </div>
+    <div class="tl-step active">
+      <div class="tl-dot">2</div>
+      <div class="tl-label">Pending — 30 days</div>
+      <div class="tl-sub">Refund window — commission held</div>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot">3</div>
+      <div class="tl-label">Approved</div>
+      <div class="tl-sub">PAII confirms — queued for next payout</div>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot">4</div>
+      <div class="tl-label">Paid Out</div>
+      <div class="tl-sub">Transferred to bank or PayPal</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+    <div class="card-t">
+      <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Payout Schedule</div>
+      <div style="font-size:13px;color:var(--ink-4);line-height:1.55;">Processed on the <strong style="color:var(--ink);">1st of each month</strong> for all approved commissions.</div>
+    </div>
+    <div class="card-t">
+      <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Minimum Threshold</div>
+      <div style="font-size:13px;color:var(--ink-4);line-height:1.55;">Minimum payout of <strong style="color:var(--ink);">$50</strong> — smaller balances roll over to the next month.</div>
+    </div>
+    <div class="card-t">
+      <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Payment Methods</div>
+      <div style="font-size:13px;color:var(--ink-4);line-height:1.55;"><strong style="color:var(--ink);">Bank transfer</strong> or <strong style="color:var(--ink);">PayPal</strong> — configured in Payout Settings.</div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 10: Payout Settings ─────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Commissions</div>
+    <h2>Payout Settings</h2>
+    <p class="sub" style="font-size:13px;">Enter your bank or PayPal details once — commissions are sent there automatically each month.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+    <div class="mockup-wrap">
+      <div class="mockup-chrome">
+        <div class="chrome-dots"><span></span><span></span><span></span></div>
+        <div class="chrome-url">app.pai.institute/affiliate/commissions/payout</div>
+      </div>
+      <div style="background:var(--bg);padding:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;font-family:'Plus Jakarta Sans',sans-serif;">Payout Method</div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <div style="flex:1;background:var(--teal);border-radius:8px;padding:10px;text-align:center;font-size:11px;font-weight:700;color:white;font-family:'Plus Jakarta Sans',sans-serif;">Bank Transfer</div>
+          <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;font-size:11px;font-weight:700;color:var(--ink-4);font-family:'Plus Jakarta Sans',sans-serif;">PayPal</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--ink-4);margin-bottom:4px;font-family:'Plus Jakarta Sans',sans-serif;">Account Holder Name</div>
+            <div class="inv-field">Sarah Johnson</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--ink-4);margin-bottom:4px;font-family:'Plus Jakarta Sans',sans-serif;">Account Number</div>
+            <div class="inv-field">•••• •••• 4821</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--ink-4);margin-bottom:4px;font-family:'Plus Jakarta Sans',sans-serif;">Routing / Transit Number</div>
+            <div class="inv-field">021000089</div>
+          </div>
+          <button class="inv-submit">Save Payout Method</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding-top:4px;">
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-check"/></svg></div>
+        <div><div class="callout-hd">Set it once</div><div class="callout-bd">Details are saved securely. No need to re-enter each payout cycle.</div></div>
+      </div>
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-clock"/></svg></div>
+        <div><div class="callout-hd">Update any time</div><div class="callout-bd">Changes take effect from the next payout cycle — not the current one.</div></div>
+      </div>
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-credit"/></svg></div>
+        <div><div class="callout-hd">Both methods supported</div><div class="callout-bd">Switch between bank transfer and PayPal whenever you like.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 11: Marketing Materials ────────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Section 6 — Marketing</div>
+    <h2>Marketing Materials</h2>
+    <p class="sub" style="font-size:13px;">Everything you need to promote PAII — professionally designed and kept up to date by the PAII team.</p>
+  </div>
+  <div class="mockup-wrap">
+    <div class="mockup-chrome">
+      <div class="chrome-dots"><span></span><span></span><span></span></div>
+      <div class="chrome-url">app.pai.institute/affiliate/marketing</div>
+    </div>
+    <div class="p-body">
+      <div class="p-sidebar">
+        <div class="p-logo"><span>P</span></div>
+        <div class="p-nav-item"><svg><use href="#ic-home"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-package"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-tag"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-users"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-dollar"/></svg></div>
+        <div class="p-nav-item active"><svg><use href="#ic-download"/></svg></div>
+        <div class="p-nav-item"><svg><use href="#ic-mail"/></svg></div>
+      </div>
+      <div class="p-main">
+        <div class="p-topbar"><span class="p-page-title">Marketing Materials</span></div>
+        <div class="p-content" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="dl-card">
+            <div class="dl-thumb"><svg><use href="#ic-book"/></svg></div>
+            <div><div class="dl-title">Student Presentation Deck</div><div class="dl-meta">PowerPoint + PDF &nbsp;·&nbsp; 21 slides &nbsp;·&nbsp; Updated Jun 2026</div></div>
+            <button class="dl-btn">Download</button>
+          </div>
+          <div class="dl-card">
+            <div class="dl-thumb"><svg><use href="#ic-mail"/></svg></div>
+            <div><div class="dl-title">Email Templates (3-sequence)</div><div class="dl-meta">HTML + plain text &nbsp;·&nbsp; Introduction, follow-up, last chance</div></div>
+            <button class="dl-btn">Download</button>
+          </div>
+          <div class="dl-card">
+            <div class="dl-thumb"><svg><use href="#ic-zap"/></svg></div>
+            <div><div class="dl-title">Social Media Graphics Pack</div><div class="dl-meta">Instagram, LinkedIn, X &nbsp;·&nbsp; 12 images + suggested captions</div></div>
+            <button class="dl-btn">Download</button>
+          </div>
+          <div class="dl-card">
+            <div class="dl-thumb"><svg><use href="#ic-award"/></svg></div>
+            <div><div class="dl-title">Program One-Pager (Flyer)</div><div class="dl-meta">A4 PDF &nbsp;·&nbsp; Print-ready &nbsp;·&nbsp; English + French</div></div>
+            <button class="dl-btn">Download</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 12: Invite System ───────────────────────────────────── -->
+<section>
+  <div class="hdr" style="margin-bottom:16px;">
+    <div class="eyebrow">Bonus Feature</div>
+    <h2>Direct Invite System</h2>
+    <p class="sub" style="font-size:13px;">Send a personalized invitation email directly from your portal — your referral code is automatically embedded.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+    <div class="mockup-wrap">
+      <div class="mockup-chrome">
+        <div class="chrome-dots"><span></span><span></span><span></span></div>
+        <div class="chrome-url">app.pai.institute/affiliate/invites</div>
+      </div>
+      <div style="background:var(--bg);padding:18px;">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;font-family:'Plus Jakarta Sans',sans-serif;">Send an Invitation</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--ink-4);margin-bottom:3px;font-family:'Plus Jakarta Sans',sans-serif;">Recipient Name</div>
+            <div class="inv-field">Alex Thompson</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;color:var(--ink-4);margin-bottom:3px;font-family:'Plus Jakarta Sans',sans-serif;">Email Address</div>
+            <div class="inv-field">alex.thompson@university.ca</div>
+          </div>
+          <button class="inv-submit">Send Invitation</button>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--ink);margin-bottom:8px;font-family:'Plus Jakarta Sans',sans-serif;">Recent Invites</div>
+        <table class="p-table">
+          <tr><th>Name</th><th>Status</th></tr>
+          <tr><td>Robert Singh</td><td><span class="badge badge-ink">Invited</span></td></tr>
+          <tr><td>Lisa Kim</td><td><span class="badge badge-a">Logged In</span></td></tr>
+          <tr><td>Tom Blake</td><td><span class="badge badge-g">Purchased</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding-top:4px;">
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-mail"/></svg></div>
+        <div><div class="callout-hd">PAII sends the email</div><div class="callout-bd">You enter the name and email. PAII sends a professionally branded invitation on your behalf.</div></div>
+      </div>
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-link"/></svg></div>
+        <div><div class="callout-hd">Your code is embedded</div><div class="callout-bd">The invite link contains your referral code — any purchase is automatically credited to you.</div></div>
+      </div>
+      <div class="callout">
+        <div class="callout-ic"><svg><use href="#ic-users"/></svg></div>
+        <div><div class="callout-hd">Tracked in Leads</div><div class="callout-bd">Every invite appears in your Leads tab with status updated in real time.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+<!-- ── SLIDE 13: Closing CTA ─────────────────────────────────────── -->
+<section class="S-div">
+  <div class="eyebrow">You're Ready</div>
+  <h1>Log In &amp; Start<br>Earning Today</h1>
+  <p class="sub">Your portal is live. Your referral links are waiting. Your commissions are already tracking.</p>
+  <div style="display:flex;gap:14px;margin-top:32px;">
+    <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:var(--r);padding:18px 24px;backdrop-filter:blur(10px);">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em;">Your Portal</div>
+      <div style="font-size:14px;font-weight:800;color:white;font-family:monospace;">app.pai.institute/affiliate</div>
+    </div>
+    <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:var(--r);padding:18px 24px;backdrop-filter:blur(10px);">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em;">Support</div>
+      <div style="font-size:14px;font-weight:800;color:white;font-family:monospace;">affiliates@pai.institute</div>
+    </div>
+  </div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"></div>
+</section>
+
+</div><!-- .slides -->
+</div><!-- .reveal -->
+
+<!-- UI chrome -->
+<button id="tm">
+  <svg id="tm-sun"><use href="#ic-sun"/></svg>
+  <svg id="tm-moon" style="display:none"><use href="#ic-moon"/></svg>
+  <span id="tm-lbl">Dark</span>
+</button>
+
+<div id="pctrl">
+  <div id="timer" title="Click start/pause · Double-click reset">00:00</div>
+  <button id="hbtn" title="Keyboard shortcuts">?</button>
+</div>
+
+<div id="hov">
+  <div id="hbox">
+    <h4>Keyboard Shortcuts</h4>
+    <table>
+      <tr><td>→ / Space</td><td>Next slide</td></tr>
+      <tr><td>←</td><td>Previous slide</td></tr>
+      <tr><td>F</td><td>Fullscreen</td></tr>
+      <tr><td>O</td><td>Slide overview</td></tr>
+      <tr><td>B</td><td>Blackout screen</td></tr>
+      <tr><td>Ctrl +/-</td><td>Zoom in / out</td></tr>
+    </table>
+    <span class="hclose">Click anywhere to close</span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+Reveal.initialize({
+  hash:true,
+  transition:'fade',
+  transitionSpeed:'fast',
+  controls:true,
+  progress:true,
+  center:false,
+  width:1280,
+  height:720,
+  margin:0,
+  minScale:0.1,
+  maxScale:2.0,
+  slideNumber:false,
+  plugins:[]
+});
+</script>
+
+<!-- Dark mode toggle -->
+<script>
+(function(){
+  var sun=document.getElementById('tm-sun'),moon=document.getElementById('tm-moon'),lbl=document.getElementById('tm-lbl');
+  function set(dark){
+    document.documentElement.classList.toggle('dark',dark);
+    sun.style.display=dark?'none':'';
+    moon.style.display=dark?'':'none';
+    lbl.textContent=dark?'Light':'Dark';
+    try{localStorage.setItem('paii-theme',dark?'dark':'light');}catch(e){}
+  }
+  var saved;try{saved=localStorage.getItem('paii-theme');}catch(e){}
+  set(saved==='dark');
+  document.getElementById('tm').addEventListener('click',function(){
+    set(!document.documentElement.classList.contains('dark'));
+  });
+})();
+</script>
+
+<!-- Timer + help overlay + auto-fragments -->
+<script>
+(function(){
+  /* Timer */
+  var t=0,run=false,iv=null,el=document.getElementById('timer');
+  function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+  el.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(run){clearInterval(iv);run=false;}
+    else{run=true;iv=setInterval(function(){t++;el.textContent=fmt(t);},1000);}
+  });
+  el.addEventListener('dblclick',function(e){e.stopPropagation();clearInterval(iv);run=false;t=0;el.textContent='00:00';});
+
+  /* Help overlay */
+  var hov=document.getElementById('hov');
+  document.getElementById('hbtn').addEventListener('click',function(){hov.classList.toggle('open');});
+  hov.addEventListener('click',function(e){if(e.target===hov||e.target.closest('.hclose'))hov.classList.remove('open');});
+
+  /* Auto-fragments */
+  Reveal.on('ready',function(){
+    document.querySelectorAll('.reveal .slides section').forEach(function(sec){
+      sec.querySelectorAll('.ov-card,.callout,.dl-card,.tl-step').forEach(function(node){
+        if(!node.classList.contains('fragment')){node.classList.add('fragment','fade-up');}
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

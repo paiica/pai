@@ -20,12 +20,13 @@ const nextConfig: NextConfig = {
     const lmsPublicUrl = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
     return [
       {
-        // Excludes /auth/logout-sync and /auth/login-sync (via the negative
-        // lookahead below) — those two routes need to be embeddable in an
-        // iframe from the student portal's origin (see their page.tsx files
-        // for why) and get their own, narrower frame policy instead, further
-        // down.
-        source: "/((?!auth/(?:logout|login)-sync).*)",
+        // Excludes /auth/logout-sync, /auth/login-sync, and everything under
+        // /presentations (via the negative lookahead below) — those need to
+        // be embeddable in an iframe (the auth routes from the student
+        // portal's origin, the presentation decks from this same site's own
+        // wrapper page at /presentations/[slug]) and get their own, narrower
+        // frame policy instead, further down.
+        source: "/((?!auth/(?:logout|login)-sync|presentations/).*)",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
@@ -43,6 +44,19 @@ const nextConfig: NextConfig = {
         source: "/auth/:kind(logout|login)-sync",
         headers: [
           { key: "Content-Security-Policy", value: `frame-ancestors 'self' ${lmsPublicUrl}` },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        // The static .html decks under public/presentations are embedded via
+        // iframe by /presentations/[slug]/page.tsx on this same origin —
+        // SAMEORIGIN (not the blanket DENY above) allows that self-embed
+        // while still blocking any other site from framing them.
+        source: "/presentations/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },

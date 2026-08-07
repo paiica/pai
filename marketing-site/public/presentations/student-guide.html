@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PAII — Student Certification Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css"/>
+<style>
+:root{
+  --bg:#ffffff;--bg-alt:#f5f0eb;--bg-sand:#faf7f4;--bg-teal:#f0fdfa;
+  --ink:#171527;--ink-2:#2d2b43;--ink-3:#403d57;--ink-4:#55516f;--muted:#948e84;
+  --teal:#14b8a6;--teal-d:#0d9488;--teal-l:#2dd4bf;
+  --teal-50:#f0fdfa;--teal-100:#ccfbf1;--teal-200:#99f6e4;
+  --green:#059669;--green-bg:#f0fdf4;--green-100:#bbf7d0;
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-100:#bfdbfe;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;
+  --red:#dc2626;--red-bg:#fef2f2;
+  --amber:#d97706;--amber-bg:#fffbeb;
+  --border:#ddd8d0;--border-l:#ece8e2;
+  --shadow-xs:0 1px 2px rgba(23,21,39,.05);
+  --shadow-sm:0 1px 3px rgba(23,21,39,.07),0 1px 2px rgba(23,21,39,.04);
+  --shadow:0 4px 12px rgba(23,21,39,.08),0 2px 4px rgba(23,21,39,.04);
+  --shadow-tl:0 4px 16px rgba(20,184,166,.2);
+  --r:12px;--r-sm:8px;
+}
+.reveal-viewport{background:var(--bg-alt);}
+.reveal{font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
+.reveal .slides{text-align:left;}
+.reveal h1,.reveal h2,.reveal h3,.reveal h4{font-family:'Plus Jakarta Sans',system-ui,sans-serif;text-transform:none;letter-spacing:-.025em;color:var(--ink);margin:0;}
+.reveal p,.reveal li{color:var(--ink-3);}
+.reveal section{padding:0!important;}
+.reveal .progress{height:3px;background:var(--border);}
+.reveal .progress span{background:var(--teal);}
+.reveal .controls button{color:var(--ink-4);}
+
+.S{width:1280px;height:720px;padding:44px 64px;box-sizing:border-box;overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column;justify-content:center;}
+.accent-bar{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--teal),var(--teal-l),rgba(45,212,191,.15));}
+.wm{position:absolute;top:16px;right:52px;z-index:30;}
+.wm img{height:20px;display:block;opacity:.45;}
+.sn{position:absolute;bottom:16px;right:52px;font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--muted);}
+
+/* Divider slides */
+.S-div{background:var(--teal);align-items:center;text-align:center;}
+.S-div .accent-bar{display:none;}
+.S-div .wm img{filter:brightness(0) invert(1);opacity:.45;}
+.S-div .sn{color:rgba(255,255,255,.4);}
+
+/* Sand title slide */
+.S-title{background:var(--bg-alt);}
+
+/* Decorative */
+.rule{width:32px;height:3px;background:var(--teal);border-radius:2px;margin-bottom:14px;flex-shrink:0;}
+.lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.lbl::before{content:'';width:16px;height:2px;background:var(--teal);border-radius:1px;flex-shrink:0;}
+.S-div .lbl{color:rgba(255,255,255,.75);justify-content:center;}
+.S-div .lbl::before{background:rgba(255,255,255,.5);}
+
+/* Typography */
+.t1{font-size:46px;font-weight:900;line-height:1.08;color:var(--ink);}
+.t2{font-size:30px;font-weight:800;line-height:1.15;color:var(--ink);}
+.t3{font-size:22px;font-weight:800;line-height:1.2;color:var(--ink);}
+.t4{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+.body{font-size:13px;color:var(--ink-3);line-height:1.6;}
+.sm{font-size:11.5px;color:var(--ink-4);line-height:1.55;}
+.xsm{font-size:10.5px;color:var(--ink-4);line-height:1.5;}
+.teal{color:var(--teal);}
+.ink{color:var(--ink);}
+.grn{color:var(--green);}
+.S-div .t1,.S-div .t2,.S-div .t3,.S-div .t4{color:#fff;}
+.S-div .body,.S-div .sm,.S-div .xsm{color:rgba(255,255,255,.75);}
+.S-div .teal{color:rgba(255,255,255,.9);}
+
+/* Cards */
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow-sm);}
+.card-t{background:var(--teal-50);border-color:var(--teal-100);}
+.card-gn{background:var(--green-bg);border-color:var(--green-100);}
+.card-b{background:var(--blue-bg);border-color:var(--blue-100);}
+.card-alt{background:var(--bg-alt);border-color:var(--border);}
+
+/* Grids */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.g-60-40{display:grid;grid-template-columns:60fr 40fr;gap:24px;}
+.g-55-45{display:grid;grid-template-columns:55fr 45fr;gap:22px;}
+.g-50-50{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+
+/* Stats */
+.stat-n{font-size:30px;font-weight:900;color:var(--teal);line-height:1;}
+.stat-l{font-size:11px;color:var(--ink-4);margin-top:3px;line-height:1.35;}
+
+/* Checklist */
+.cl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.cl li{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--ink-3);line-height:1.5;}
+.cl li::before{content:'';width:16px;height:16px;border-radius:50%;background:var(--teal-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") no-repeat center/10px;border:1.5px solid var(--teal-100);flex-shrink:0;margin-top:1px;}
+
+/* Step badge */
+.step{width:32px;height:32px;border-radius:50%;background:var(--teal-50);border:2px solid var(--teal);color:var(--teal);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-gn{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.S-div .step{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.7);color:#fff;}
+
+/* Icons */
+.icon{width:18px;height:18px;display:block;flex-shrink:0;}
+.icon-lg{width:22px;height:22px;}
+.icon-xl{width:28px;height:28px;}
+.ibox{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ibox-t{background:var(--teal-50);color:var(--teal);}
+.ibox-gn{background:var(--green-bg);color:var(--green);}
+.ibox-b{background:var(--blue-bg);color:var(--blue);}
+.ibox-p{background:var(--purple-bg);color:var(--purple);}
+.ibox-ink{background:#f3f2f7;color:var(--ink-3);}
+.ibox-sm{width:32px;height:32px;border-radius:8px;}
+
+/* Pills */
+.pill{display:inline-flex;align-items:center;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 9px;border-radius:100px;}
+.pill-t{background:var(--teal-50);color:var(--teal-d);border:1px solid var(--teal-100);}
+.pill-gn{background:var(--green-bg);color:var(--green);border:1px solid var(--green-100);}
+.pill-ink{background:#f3f2f7;color:var(--ink-4);border:1px solid var(--border);}
+
+/* Level rows */
+.lvl-row{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-xs);}
+.lvl-row.active{background:var(--teal-50);border-color:var(--teal-100);}
+.lvl-num{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;}
+.lvl-badge{display:inline-flex;align-items:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:100px;}
+
+/* Progress bar */
+.bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;width:64px;flex-shrink:0;}
+.bar-f{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--teal),var(--teal-l));}
+
+/* Journey */
+.jrow{display:flex;gap:0;align-items:stretch;}
+.jcol{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);box-shadow:var(--shadow-xs);}
+.jcol.active{background:var(--teal-50);border-color:var(--teal-100);}
+.jcol.done{background:var(--green-bg);border-color:var(--green-100);}
+.jdiv{display:flex;align-items:center;color:var(--border);font-size:22px;font-weight:300;padding:0 3px;}
+
+/* Misc */
+.sep{border:none;border-top:1px solid var(--border-l);margin:14px 0;}
+.highlight{border-left:3px solid var(--teal);border-radius:0 var(--r-sm) var(--r-sm) 0;background:var(--teal-50);padding:12px 16px;}
+.highlight-gn{border-left:3px solid var(--green);border-radius:0 var(--r-sm) var(--r-sm) 0;background:var(--green-bg);padding:12px 16px;}
+.q-text{font-size:12px;color:var(--ink-3);line-height:1.6;font-style:italic;}
+.q-attr{font-size:10.5px;color:var(--muted);margin-top:6px;}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--teal);color:white;font-size:14px;font-weight:700;padding:13px 28px;border-radius:10px;text-decoration:none;box-shadow:var(--shadow-tl);}
+.btn-outline{display:inline-flex;align-items:center;gap:8px;background:transparent;border:2px solid rgba(255,255,255,.5);color:white;font-size:13px;font-weight:600;padding:11px 22px;border-radius:10px;text-decoration:none;}
+
+/* Pricing */
+.price-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px 12px;text-align:center;position:relative;box-shadow:var(--shadow-sm);}
+.price-card.featured{background:var(--teal-50);border-color:var(--teal-100);box-shadow:var(--shadow-tl);}
+.price-tag{font-size:26px;font-weight:900;color:var(--ink);line-height:1;}
+.price-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
+.popular-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--teal);color:white;font-size:8.5px;font-weight:800;padding:3px 10px;border-radius:100px;white-space:nowrap;letter-spacing:.05em;}
+
+/* Stats bar (title slide) */
+.stats-bar{display:flex;gap:0;border-top:1px solid var(--border);padding-top:22px;align-self:stretch;}
+.stat-div{width:1px;background:var(--border);margin:0 24px;}
+
+/* ── Dark mode ─────────────────────────────────────────────────── */
+html.dark{
+  --bg:#171527;--bg-alt:#1f1d38;--bg-sand:#1a1833;--bg-teal:#162421;
+  --ink:#f0effe;--ink-2:#d1cfef;--ink-3:#c8c6de;--ink-4:#a09dbe;--muted:#6b6885;
+  --teal:#14b8a6;--teal-d:#2dd4bf;--teal-l:#2dd4bf;
+  --teal-50:rgba(20,184,166,.1);--teal-100:rgba(20,184,166,.22);--teal-200:rgba(20,184,166,.32);
+  --green:#10b981;--green-bg:rgba(16,185,129,.1);--green-100:rgba(16,185,129,.22);
+  --blue:#60a5fa;--blue-bg:rgba(59,130,246,.09);--blue-100:rgba(59,130,246,.22);
+  --purple:#a78bfa;--purple-bg:rgba(139,92,246,.09);
+  --red:#f87171;--red-bg:rgba(239,68,68,.09);
+  --amber:#f59e0b;--amber-bg:rgba(245,158,11,.09);
+  --border:rgba(255,255,255,.1);--border-l:rgba(255,255,255,.06);
+  --shadow-xs:none;--shadow-sm:none;--shadow:none;--shadow-tl:0 4px 16px rgba(20,184,166,.25);
+}
+html.dark .reveal-viewport{background:var(--bg);}
+html.dark .S{background:var(--bg);}
+html.dark .S-title{background:var(--bg-alt);}
+html.dark .card{box-shadow:none;}
+html.dark .card-alt{background:rgba(255,255,255,.04);}
+html.dark .ibox-ink{background:rgba(255,255,255,.1);color:var(--ink-4);}
+html.dark .pill-ink{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);color:var(--ink-4);}
+html.dark .lvl-row{box-shadow:none;}
+html.dark .jcol{box-shadow:none;}
+html.dark .price-card{box-shadow:none;}
+html.dark .price-card.featured{box-shadow:0 4px 16px rgba(20,184,166,.25);}
+html.dark .highlight{background:rgba(20,184,166,.1);}
+html.dark .highlight-gn{background:rgba(16,185,129,.1);}
+html.dark .bar{background:rgba(255,255,255,.12);}
+html.dark .jdiv{color:rgba(255,255,255,.15);}
+html.dark .sep{border-color:var(--border-l);}
+html.dark .stats-bar{border-color:var(--border);}
+html.dark .stat-div{background:var(--border);}
+html.dark .wm img{filter:brightness(0) invert(1);opacity:.5;}
+html.dark .S-div .wm img{filter:brightness(0) invert(1);opacity:.45;}
+html.dark .sn{color:rgba(255,255,255,.25);}
+
+/* ── Theme toggle button ────────────────────────────────────────── */
+#tm{
+  position:fixed;top:20px;left:20px;z-index:9999;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.88);backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:100px;
+  padding:5px 12px 5px 9px;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--ink-4);
+  cursor:pointer;box-shadow:0 1px 3px rgba(23,21,39,.1);
+  transition:background .2s,color .2s,border-color .2s;
+}
+html.dark #tm{
+  background:rgba(255,255,255,.1);
+  border-color:rgba(255,255,255,.15);
+  color:rgba(255,255,255,.6);
+  box-shadow:none;
+}
+
+/* ── Presenter controls (timer + help) ──────────────────────────── */
+#pctrl{position:fixed;bottom:18px;left:20px;z-index:9999;display:flex;align-items:center;gap:8px;}
+#timer{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);background:rgba(255,255,255,.82);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:100px;padding:4px 12px;cursor:pointer;transition:all .2s;user-select:none;}
+#timer:hover,#timer.run{color:var(--teal);}
+html.dark #timer{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.3);}
+html.dark #timer:hover,html.dark #timer.run{color:var(--teal-l);}
+#hbtn{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.82);backdrop-filter:blur(6px);border:1px solid var(--border);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;color:var(--ink-4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+html.dark #hbtn{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.35);}
+/* Shortcuts overlay */
+#hov{display:none;position:fixed;inset:0;z-index:10000;background:rgba(23,21,39,.5);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+#hov.open{display:flex;}
+#hbox{background:#fff;border-radius:16px;padding:22px 26px;box-shadow:0 20px 60px rgba(23,21,39,.25);font-family:'Plus Jakarta Sans',sans-serif;width:320px;}
+html.dark #hbox{background:#1f1d38;}
+.ht{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:14px;}
+.hg{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;align-items:center;}
+.hg kbd{background:var(--border-l);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;color:var(--ink-3);white-space:nowrap;}
+.hg span{font-size:11px;color:var(--ink-4);}
+.hc{margin-top:10px;font-size:10px;opacity:.45;text-align:center;color:var(--ink-4);}
+</style>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="ic-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></symbol>
+<symbol id="ic-trending" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
+<symbol id="ic-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></symbol>
+<symbol id="ic-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+<symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+<symbol id="ic-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+<symbol id="ic-dollar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+<symbol id="ic-briefcase" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+<symbol id="ic-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+<symbol id="ic-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="ic-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></symbol>
+<symbol id="ic-graduation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></symbol>
+<symbol id="ic-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="19" rx="2"/><path d="M8 21V8h8v13"/><path d="M8 11h2M14 11h2M8 15h2M14 15h2"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+<symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+<symbol id="ic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+<symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+<symbol id="ic-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></symbol>
+<symbol id="ic-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></symbol>
+<symbol id="ic-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="ic-linkedin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="ic-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+<symbol id="ic-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></symbol>
+<symbol id="ic-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></symbol>
+<symbol id="ic-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+<symbol id="ic-credit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></symbol>
+<symbol id="ic-lightbulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></symbol>
+<symbol id="ic-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+<symbol id="ic-percent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></symbol>
+<symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></symbol>
+<symbol id="ic-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+</svg>
+
+<div class="reveal">
+<div class="slides">
+
+<!-- ═══ SLIDE 1 — TITLE ═══ -->
+<section>
+<div class="S S-title" style="justify-content:space-between;padding-top:40px;padding-bottom:40px;">
+  <div class="accent-bar"></div>
+  <div style="background:white;border-radius:12px;padding:10px 22px;display:inline-block;align-self:flex-start;box-shadow:var(--shadow-sm);">
+    <img src="/paii.logo.png" alt="PAII" style="height:52px;display:block;"/>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 0 16px;">
+    <div class="lbl">Certification Program</div>
+    <div class="t1">Your Path to<br/><span class="teal">AI Leadership.</span></div>
+    <p class="body" style="margin-top:14px;max-width:520px;">The global standard for Artificial Intelligence certification. Verify your expertise. Advance your career. Join professionals in 40+ countries.</p>
+  </div>
+  <div class="stats-bar">
+    <div style="flex:1;"><div class="stat-n">5</div><div class="stat-l">Certification<br/>Levels</div></div>
+    <div class="stat-div"></div>
+    <div style="flex:1;"><div class="stat-n">40+</div><div class="stat-l">Countries<br/>Recognized</div></div>
+    <div class="stat-div"></div>
+    <div style="flex:1;"><div class="stat-n">CAIP</div><div class="stat-l">Flagship<br/>Credential</div></div>
+    <div class="stat-div"></div>
+    <div style="flex:1;"><div class="stat-n">94%</div><div class="stat-l">Prep Course<br/>Pass Rate</div></div>
+  </div>
+  <div class="sn">01 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 2 — THE AI MOMENT ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:8px;">We are at a <span class="teal">defining moment</span><br/>in the history of work.</div>
+  <p class="body" style="margin-bottom:20px;max-width:680px;">Every industry is being reshaped by AI. The professionals who thrive will be those who can demonstrate verified, structured competency — not just surface familiarity.</p>
+  <div class="g3" style="margin-bottom:14px;">
+    <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+      <div class="ibox ibox-ink"><svg class="icon icon-lg"><use href="#ic-cpu"/></svg></div>
+      <div><div class="t4">AI is Everywhere</div><div class="xsm">Healthcare, finance, legal, education — AI is transforming every sector simultaneously. No industry is untouched.</div></div>
+    </div>
+    <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+      <div class="ibox ibox-t"><svg class="icon icon-lg"><use href="#ic-trending"/></svg></div>
+      <div><div class="t4">Demand is Exploding</div><div class="xsm">The global AI market is anticipated to reach <span class="teal" style="font-weight:700;">$1.8 trillion by 2030</span>. The talent gap is severe and growing rapidly.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+      <div class="ibox ibox-ink"><svg class="icon icon-lg"><use href="#ic-award"/></svg></div>
+      <div><div class="t4">Credentials Are the Signal</div><div class="xsm">Employers need a universal, trustworthy way to verify AI competency. Certification is that signal.</div></div>
+    </div>
+  </div>
+  <div class="highlight">
+    <p class="sm" style="margin:0;color:var(--ink-2);">The question isn't <em>whether</em> AI will affect your career — it's whether you'll be the one <strong>leading</strong> the change or reacting to it.</p>
+  </div>
+  <div class="sn">02 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 3 — WHAT IS PAI? ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="lbl">About Us</div>
+  <div class="t2" style="margin-bottom:16px;">The <span class="teal">Professional AI Institute</span></div>
+  <div class="g-55-45" style="align-items:start;">
+    <div>
+      <p class="body" style="margin-bottom:14px;">PAI is an <strong class="ink">independent, globally recognized certification body</strong> dedicated to establishing and verifying professional competency in Artificial Intelligence.</p>
+      <p class="sm" style="margin-bottom:16px;">Every PAI credential represents rigorous evaluation — not just a course completion. We assess knowledge, applied reasoning, and ethical understanding of AI systems.</p>
+      <ul class="cl">
+        <li>Vendor-neutral — not tied to any single AI company such as Google or IBM, and applicable across all AI platforms and industries</li>
+        <li>Internationally recognized standards developed with industry leaders</li>
+        <li>Verified digital credentials with public authenticity URLs</li>
+        <li>Continuing education pathway to keep certification current</li>
+        <li>Backed by a global community of certified AI professionals</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-target"/></svg></div>
+        <div><div class="t4">Our Mission</div><div class="xsm">Make AI competency measurable, verifiable, and universally respected — creating a standard that employers and clients trust worldwide.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-globe"/></svg></div>
+        <div><div class="t4">Our Reach</div><div class="xsm">Active certified professionals in 40+ countries across enterprise, government, academia, startups, and independent consultancy.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-zap"/></svg></div>
+        <div><div class="t4">Our Standard</div><div class="xsm">Rigorous, peer-reviewed exam content updated continuously to reflect the rapidly evolving AI landscape.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">03 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 4 — WHY CERTIFY? ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:16px;">Why get <span class="teal">certified</span>?</div>
+  <div class="g2" style="gap:12px;">
+    <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="ibox ibox-gn"><svg class="icon icon-lg"><use href="#ic-dollar"/></svg></div>
+      <div><div class="t4">Higher Earning Potential</div><div class="xsm" style="margin-top:4px;">Certified AI professionals earn 25–40% more than non-certified peers in equivalent roles. Certification signals higher value — and compensation follows.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="ibox ibox-t"><svg class="icon icon-lg"><use href="#ic-trending"/></svg></div>
+      <div><div class="t4">Faster Career Advancement</div><div class="xsm" style="margin-top:4px;">A visible, verifiable credential signals readiness for AI leadership. 78% of PAI graduates report career advancement within 6 months of certifying.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="ibox ibox-ink"><svg class="icon icon-lg"><use href="#ic-shield"/></svg></div>
+      <div><div class="t4">Employer &amp; Client Trust</div><div class="xsm" style="margin-top:4px;">PAI certification is increasingly listed as preferred or required in AI-related job postings. It removes ambiguity about your competency level.</div></div>
+    </div>
+    <div class="card card-t" style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="ibox ibox-t"><svg class="icon icon-lg"><use href="#ic-lightbulb"/></svg></div>
+      <div><div class="t4">Structured, Verified Knowledge</div><div class="xsm" style="margin-top:4px;">The preparation process fills gaps and builds a complete, structured understanding of AI — making you genuinely more capable, not just credentialed.</div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:14px;">
+    <div class="card card-alt" style="flex:1;padding:13px 16px;display:flex;gap:14px;align-items:center;">
+      <div class="stat-n" style="font-size:22px;">25–40%</div>
+      <div class="xsm">Salary premium for certified<br/>AI professionals</div>
+    </div>
+    <div class="card card-alt" style="flex:1;padding:13px 16px;display:flex;gap:14px;align-items:center;">
+      <div class="stat-n" style="font-size:22px;">78%</div>
+      <div class="xsm">Career advancement within<br/>6 months of certifying</div>
+    </div>
+    <div class="card card-alt" style="flex:1;padding:13px 16px;display:flex;gap:14px;align-items:center;">
+      <div class="stat-n" style="font-size:22px;">4.8</div>
+      <div class="xsm">Average student satisfaction<br/>rating across all programs</div>
+    </div>
+  </div>
+  <div class="sn">04 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 5 — DIVIDER: CERTIFICATIONS ═══ -->
+<section>
+<div class="S S-div">
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="lbl">Our Credentials</div>
+  <div class="t2" style="font-size:36px;margin-bottom:12px;">The PAI <span class="teal">Certification Framework</span></div>
+  <p class="body" style="max-width:560px;margin:0 auto;">Five certification levels, each matched to a different professional profile — not a ladder to climb, but a set of credentials you qualify for based on your education, experience, and role.</p>
+  <div style="display:flex;gap:18px;justify-content:center;margin-top:36px;align-items:center;">
+    <div style="text-align:center;">
+      <div style="width:46px;height:46px;border-radius:11px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;margin:0 auto 6px;">1</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:600;">Pre-Certificate</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="width:46px;height:46px;border-radius:11px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;margin:0 auto 6px;">2</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:600;">Foundation</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="width:52px;height:52px;border-radius:12px;background:rgba(255,255,255,.9);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--teal);margin:0 auto 6px;box-shadow:0 4px 12px rgba(0,0,0,.1);">3</div>
+      <div style="font-size:10px;color:#fff;font-weight:700;">Advanced (CAIP) ★</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="width:46px;height:46px;border-radius:11px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;margin:0 auto 6px;">4</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:600;">Executive</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="width:46px;height:46px;border-radius:11px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;margin:0 auto 6px;">5</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:600;">Specialist</div>
+    </div>
+  </div>
+  <div class="sn">05 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 6 — ALL LEVELS ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Five <span class="teal">certification levels</span></div>
+  <p class="sm" style="margin-bottom:16px;">Each level has its own eligibility criteria — education, professional experience, and the nature of your role. You apply for the level you qualify for.</p>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="lvl-row">
+      <div class="lvl-num" style="background:#f1f5f9;color:#64748b;border:2px solid #cbd5e1;">1</div>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;"><span class="t4">Pre-Certificate</span><span class="lvl-badge" style="background:#f1f5f9;color:#64748b;">Entry</span></div><div class="xsm">AI awareness, ethics, and fundamentals. No prior technical experience required. Open to anyone regardless of background.</div></div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;flex-shrink:0;width:110px;">No experience required</div>
+    </div>
+    <div class="lvl-row">
+      <div class="lvl-num" style="background:var(--blue-bg);color:var(--blue);border:2px solid var(--blue-100);">2</div>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;"><span class="t4">Foundation</span><span class="lvl-badge" style="background:var(--blue-bg);color:var(--blue);">Core</span></div><div class="xsm">Core AI concepts, machine learning fundamentals, practical implementation principles. For professionals adopting AI tools in their role.</div></div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;flex-shrink:0;width:110px;">Entry-level role or study</div>
+    </div>
+    <div class="lvl-row active">
+      <div class="lvl-num" style="background:var(--teal-100);color:var(--teal-d);border:2px solid var(--teal);">3</div>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;"><span class="t4">Advanced <span class="teal">(CAIP)</span></span><span class="lvl-badge" style="background:var(--teal-100);color:var(--teal-d);">Flagship ★</span></div><div class="xsm">Deep AI expertise, system design, real-world deployment, ethics governance. The most recognized and sought-after PAI credential.</div></div>
+      <div style="font-size:10px;color:var(--teal-d);text-align:right;flex-shrink:0;width:110px;">Relevant experience or degree</div>
+    </div>
+    <div class="lvl-row">
+      <div class="lvl-num" style="background:var(--purple-bg);color:var(--purple);border:2px solid #ddd6fe;">4</div>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;"><span class="t4">Executive</span><span class="lvl-badge" style="background:var(--purple-bg);color:var(--purple);">Leadership</span></div><div class="xsm">AI strategy, governance, and organizational transformation. For those in senior leadership roles driving AI adoption.</div></div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;flex-shrink:0;width:110px;">Senior / leadership role</div>
+    </div>
+    <div class="lvl-row">
+      <div class="lvl-num" style="background:var(--red-bg);color:var(--red);border:2px solid #fecaca;">5</div>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;"><span class="t4">Specialist</span><span class="lvl-badge" style="background:var(--red-bg);color:var(--red);">Expert</span></div><div class="xsm">Domain-specific AI mastery — Healthcare AI, Legal AI, Financial AI, and more. For deep subject-matter expertise in a specific field.</div></div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;flex-shrink:0;width:110px;">Domain expertise</div>
+    </div>
+  </div>
+  <div class="highlight" style="margin-top:14px;">
+    <p class="sm" style="margin:0;color:var(--ink-2);">There's no requirement to complete levels in order or work up from Pre-Certificate. Eligibility for each level is assessed independently, based on your education, years of experience, and the nature of your role — so you can apply directly for the level that fits you today.</p>
+  </div>
+  <div class="sn">06 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 7 — CAIP SPOTLIGHT ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="lbl">Flagship Credential</div>
+  <div class="t2" style="margin-bottom:16px;">The <span class="teal">CAIP</span> — Certified AI Professional</div>
+  <div class="g-55-45" style="align-items:start;">
+    <div>
+      <p class="body" style="margin-bottom:14px;">The <strong class="ink">CAIP</strong> is PAI's most recognized credential — the benchmark employers use when building AI teams. It validates your ability to design, evaluate, and deploy AI solutions responsibly.</p>
+      <ul class="cl" style="margin-bottom:16px;">
+        <li>75 comprehensive, scenario-based questions</li>
+        <li>90-minute timed exam with a detailed results report</li>
+        <li>70% minimum passing score required</li>
+        <li>2-year validity with clear renewal pathway</li>
+        <li>One retake available (separate retake fee applies)</li>
+        <li>LinkedIn-shareable digital badge on pass</li>
+      </ul>
+      <div class="card card-alt" style="padding:13px 16px;display:flex;gap:12px;align-items:center;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-clock"/></svg></div>
+        <div class="xsm"><strong class="ink">Typical preparation: 6–8 weeks</strong> — most students complete the structured prep course and pass the exam within 6–8 weeks studying part-time.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-layers"/></svg></div>
+        <div><div class="t4">What it covers</div><div class="xsm">AI &amp; ML fundamentals · Deep learning · NLP &amp; computer vision · AI ethics &amp; governance · System architecture · Real-world deployment</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-users"/></svg></div>
+        <div><div class="t4">Who it's for</div><div class="xsm">Developers, data scientists, product managers, analysts, consultants — any professional who needs verified AI expertise.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-link"/></svg></div>
+        <div><div class="t4">Verification</div><div class="xsm">Every CAIP credential has a unique public verification URL — employers can confirm authenticity in seconds, no account required.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">07 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 8 — DIVIDER: THE JOURNEY ═══ -->
+<section>
+<div class="S S-div">
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="lbl">Your Journey</div>
+  <div class="t2" style="font-size:36px;margin-bottom:12px;">From <span class="teal">Applicant</span> to <span class="teal">Certified</span></div>
+  <p class="body" style="max-width:520px;margin:0 auto;">Here's exactly what the process looks like — step by step, from the moment you decide to certify, to the moment you share your credential.</p>
+  <div class="sn">08 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 9 — JOURNEY OVERVIEW ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Five steps to <span class="teal">certification</span></div>
+  <p class="sm" style="margin-bottom:20px;">Most students go from application to certified in 6–10 weeks.</p>
+  <div class="jrow" style="gap:4px;margin-bottom:18px;">
+    <div class="jcol"><div class="step" style="margin-bottom:10px;">1</div><div class="t4" style="text-align:center;margin-bottom:4px;font-size:12px;">Apply</div><div class="xsm" style="text-align:center;">Complete application &amp; submit credentials</div></div>
+    <div class="jdiv">›</div>
+    <div class="jcol"><div class="step" style="margin-bottom:10px;">2</div><div class="t4" style="text-align:center;margin-bottom:4px;font-size:12px;">Enroll</div><div class="xsm" style="text-align:center;">Get approved &amp; activate portal access</div></div>
+    <div class="jdiv">›</div>
+    <div class="jcol active"><div class="step" style="margin-bottom:10px;border-color:var(--teal-d);color:var(--teal-d);">3</div><div class="t4" style="text-align:center;margin-bottom:4px;font-size:12px;color:var(--teal);">Study</div><div class="xsm" style="text-align:center;">Complete prep course at your own pace</div></div>
+    <div class="jdiv">›</div>
+    <div class="jcol"><div class="step" style="margin-bottom:10px;">4</div><div class="t4" style="text-align:center;margin-bottom:4px;font-size:12px;">Exam</div><div class="xsm" style="text-align:center;">Book &amp; sit your proctored exam online</div></div>
+    <div class="jdiv">›</div>
+    <div class="jcol done"><div class="step step-gn" style="margin-bottom:10px;">✓</div><div class="t4" style="text-align:center;margin-bottom:4px;font-size:12px;color:var(--green);">Certified</div><div class="xsm" style="text-align:center;">Receive digital certificate &amp; badge</div></div>
+  </div>
+  <div class="g3" style="gap:12px;">
+    <div class="card card-alt" style="display:flex;gap:10px;align-items:center;padding:13px 16px;">
+      <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-clock"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;font-size:12px;">Average timeline</div><div class="xsm">Most students complete in <span class="teal" style="font-weight:700;">6–10 weeks</span> studying part-time.</div></div>
+    </div>
+    <div class="card card-alt" style="display:flex;gap:10px;align-items:center;padding:13px 16px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-calendar"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;font-size:12px;">Fully flexible</div><div class="xsm">No cohort deadlines. Study at your own pace with 12 months to complete.</div></div>
+    </div>
+    <div class="card card-alt" style="display:flex;gap:10px;align-items:center;padding:13px 16px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-globe"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;font-size:12px;">100% online</div><div class="xsm">Every step — application, study, and exam — completed remotely from anywhere.</div></div>
+    </div>
+  </div>
+  <div class="sn">09 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 10 — STEP 1: APPLY ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+    <div class="step">1</div>
+    <div><div class="lbl" style="margin-bottom:2px;">Step 1 of 5</div><div class="t2" style="font-size:24px;">The <span class="teal">Application</span></div></div>
+  </div>
+  <div class="g-55-45" style="align-items:start;">
+    <div>
+      <p class="sm" style="margin-bottom:14px;">Your application tells us about your background and confirms you meet prerequisites for your chosen certification level. The process takes around 10 minutes.</p>
+      <div class="t4" style="margin-bottom:8px;">What you'll provide:</div>
+      <ul class="cl">
+        <li>Personal and professional information</li>
+        <li>Educational background and credentials</li>
+        <li>Years of relevant experience (advanced levels)</li>
+        <li>LinkedIn profile or CV attachment</li>
+        <li>Supporting documents if required by level</li>
+        <li>Application fee — paid securely via Stripe</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-zap"/></svg></div>
+        <div><div class="t4">Fast Review</div><div class="xsm">Applications are reviewed within <span class="teal" style="font-weight:700;">3–5 business days</span>. You'll receive a decision by email with next steps.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-file"/></svg></div>
+        <div><div class="t4">No Degree Required</div><div class="xsm">For Pre-Certificate and Foundation levels, a university degree is not required. Professional experience is sufficient.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-tag"/></svg></div>
+        <div><div class="t4">Promo Codes</div><div class="xsm">Have a discount code? Apply it during checkout. Student, corporate, and referral discounts are all supported.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">10 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 11 — STEP 2: STUDENT PORTAL ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+    <div class="step">2</div>
+    <div><div class="lbl" style="margin-bottom:2px;">Step 2 of 5</div><div class="t2" style="font-size:24px;">Your <span class="teal">Student Portal</span></div></div>
+  </div>
+  <p class="sm" style="margin-bottom:16px;">Once approved, you get instant access to your personal student dashboard — your Command Center for the entire certification journey.</p>
+  <div class="g3" style="gap:10px;">
+    <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-chart"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Dashboard</div><div class="xsm">Enrollment status, progress tracker, exam eligibility, and upcoming sessions — all at a glance.</div></div>
+    </div>
+    <div class="card card-t" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-book"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Prep Courses</div><div class="xsm">Structured video lessons, readings, quizzes, assignments, and downloadable study materials.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-calendar"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Exam Booking</div><div class="xsm">Browse available exam sessions and book your slot directly when you feel ready.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-user"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Your Profile</div><div class="xsm">Manage personal information, contact details, notification preferences, and privacy settings.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-gn ibox-sm"><svg class="icon"><use href="#ic-award"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Certificates</div><div class="xsm">View, download, and share earned certificates. Each has a unique public verification URL.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-bell"/></svg></div>
+      <div><div class="t4" style="margin-bottom:3px;">Notifications</div><div class="xsm">Exam results, assignment feedback, and important announcements delivered in real time.</div></div>
+    </div>
+  </div>
+  <div class="sn">11 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 12 — STEP 3: PREP COURSES ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+    <div class="step">3</div>
+    <div><div class="lbl" style="margin-bottom:2px;">Step 3 of 5</div><div class="t2" style="font-size:24px;"><span class="teal">Prep Courses</span> — Learn at Your Pace</div></div>
+  </div>
+  <div class="g-60-40" style="align-items:start;gap:22px;">
+    <div>
+      <p class="sm" style="margin-bottom:14px;">Our prep courses are purpose-built to prepare you for your exam — every lesson connects directly to what you'll be assessed on. No fluff, no filler.</p>
+      <div class="t4" style="margin-bottom:10px;">Course structure:</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;">
+          <div class="ibox ibox-sm ibox-ink" style="font-size:11px;font-weight:900;color:var(--ink-4);background:#e9e7f3;color:var(--ink-3);">M</div>
+          <div><div class="t4" style="margin-bottom:2px;">Modules</div><div class="xsm">Thematic modules covering a major certification topic area — structured for progressive learning.</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--teal-50);border:1px solid var(--teal-100);border-radius:10px;">
+          <div class="ibox ibox-t ibox-sm" style="font-size:11px;font-weight:900;">L</div>
+          <div><div class="t4" style="margin-bottom:2px;">Lessons</div><div class="xsm">Videos, readings, interactive content, and downloadable materials within each module.</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--green-bg);border:1px solid var(--green-100);border-radius:10px;">
+          <div class="ibox ibox-gn ibox-sm" style="font-size:11px;font-weight:900;">Q</div>
+          <div><div class="t4" style="margin-bottom:2px;">Quizzes &amp; Assignments</div><div class="xsm">Knowledge checks after each module identify gaps before your final exam.</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-phone"/></svg></div>
+        <div><div class="t4" style="margin-bottom:3px;">Learn Anywhere</div><div class="xsm">Fully responsive on laptop, tablet, or phone. Progress syncs automatically across all devices.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-pause"/></svg></div>
+        <div><div class="t4" style="margin-bottom:3px;">Pause &amp; Resume</div><div class="xsm">No time pressure within sessions. Pause whenever and resume exactly where you left off.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-download"/></svg></div>
+        <div><div class="t4" style="margin-bottom:3px;">Offline Resources</div><div class="xsm">Download study guides, reference sheets, and lesson materials for offline review.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:10px;align-items:flex-start;padding:14px;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-clock"/></svg></div>
+        <div><div class="t4" style="margin-bottom:3px;">12-Month Access</div><div class="xsm">You have 12 months from enrollment to complete the course and pass your exam.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">12 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 13 — STEP 4: THE EXAM ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+    <div class="step">4</div>
+    <div><div class="lbl" style="margin-bottom:2px;">Step 4 of 5</div><div class="t2" style="font-size:24px;">The <span class="teal">Certification Exam</span></div></div>
+  </div>
+  <div class="g-55-45" style="align-items:start;">
+    <div>
+      <div class="g4" style="gap:10px;margin-bottom:16px;">
+        <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:26px;">75</div><div class="stat-l">Questions</div></div>
+        <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:26px;">90</div><div class="stat-l">Minutes</div></div>
+        <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:26px;">70%</div><div class="stat-l">Pass Score</div></div>
+        <div class="card card-t" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:26px;">1</div><div class="stat-l">Retake<br/>Available</div></div>
+      </div>
+      <ul class="cl">
+        <li>Multiple choice, scenario-based questions testing applied reasoning</li>
+        <li>Detailed topic breakdown in your results report</li>
+        <li>Results report helps target revision if a retake is needed</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-monitor"/></svg></div>
+        <div><div class="t4">Online &amp; Proctored</div><div class="xsm">Take the exam from anywhere. Our proctoring system ensures integrity without a physical test center.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-calendar"/></svg></div>
+        <div><div class="t4">Book Your Session</div><div class="xsm">Choose from scheduled exam sessions in your portal. You typically have up to a year from registering to book and sit your exam — after that, registration lapses and you'd need to register again.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-repeat"/></svg></div>
+        <div><div class="t4">Retake Policy</div><div class="xsm">One retake is available for a separate fee (set per certification), drawing a different set of questions from the exam bank. You typically have about two months after a failed attempt to purchase and use it — after that, the retake lapses and you'd need to register again.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">13 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 14 — STEP 5: YOUR CERTIFICATE ═══ -->
+<section>
+<div class="S" style="background:var(--teal-50);">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+    <div class="step step-gn">✓</div>
+    <div><div class="lbl" style="margin-bottom:2px;">Step 5 of 5</div><div class="t2" style="font-size:24px;"><span class="teal">You're Certified.</span> Now what?</div></div>
+  </div>
+  <div class="g-55-45" style="align-items:start;">
+    <div>
+      <p class="sm" style="margin-bottom:14px;">Upon passing, your PAI certificate is issued immediately. It's more than a PDF — it's a living, verifiable credential that employers can check in real time.</p>
+      <ul class="cl">
+        <li>Unique certificate number issued within minutes of passing</li>
+        <li>Downloadable PDF with your name and date issued</li>
+        <li>Public verification URL — anyone can confirm authenticity</li>
+        <li>QR code on certificate for instant mobile verification</li>
+        <li>One-click LinkedIn badge sharing with correct metadata</li>
+        <li>Appears on your PAI public certified professional profile</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-refresh"/></svg></div>
+        <div><div class="t4">2-Year Validity</div><div class="xsm">Certifications are valid for 2 years. Renew by completing continuing education credits to keep your credential active and current.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-globe"/></svg></div>
+        <div><div class="t4">Public Verification</div><div class="xsm">Every certificate has a dedicated verification page. No account needed — just share the URL and anyone can confirm it instantly.</div></div>
+      </div>
+      <div class="card card-gn" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-gn ibox-sm"><svg class="icon"><use href="#ic-linkedin"/></svg></div>
+        <div><div class="t4" style="color:var(--green);">LinkedIn Ready</div><div class="xsm">Add your PAI certification to LinkedIn with a single click. Credential name, issuer, and verification URL are all pre-filled.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">14 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 15 — CONTINUING EDUCATION ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Staying <span class="teal">current</span> — continuing education</div>
+  <p class="sm" style="margin-bottom:18px;">Certification isn't a one-time event. AI moves fast — your credential is designed to move with it.</p>
+  <div class="g-55-45" style="gap:20px;align-items:start;">
+    <div>
+      <ul class="cl">
+        <li>Certifications are valid for 2 years from the date of issue</li>
+        <li>Renewal is earned through Professional Development Units (PDUs)</li>
+        <li>PDUs are earned by completing continuing education activities — additional courses, updated modules, and approved learning hours</li>
+        <li>Renewal opens in the months leading up to your expiry date, from inside your student portal</li>
+        <li>Staying current keeps your public verification page and LinkedIn badge active and accurate</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-refresh"/></svg></div>
+        <div><div class="t4">2-Year Cycle</div><div class="xsm">Every PAI certification runs on a 2-year validity cycle — long enough to be meaningful, short enough to stay relevant.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-award"/></svg></div>
+        <div><div class="t4">PDUs, Not a Retest</div><div class="xsm">Renewal is about staying current, not re-proving what you already demonstrated — no need to resit the full exam.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-bell"/></svg></div>
+        <div><div class="t4">Track It in Your Portal</div><div class="xsm">Your renewal window and PDU progress are visible in your student portal ahead of your expiry date, so you can plan renewal activities early.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">15 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 16 — IS THIS FOR YOU? ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Is a PAI certification <span class="teal">right for you?</span></div>
+  <p class="sm" style="margin-bottom:18px;">Designed for a wide range — from those beginning their AI journey to practitioners seeking formal recognition.</p>
+  <div class="g-55-45" style="gap:20px;align-items:start;">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:12px;">This is for you if...</div>
+      <ul class="cl">
+        <li>You want to validate your AI knowledge with a recognized credential</li>
+        <li>You're transitioning into an AI-focused role or industry</li>
+        <li>Employers or clients are asking about your AI competency level</li>
+        <li>You want a structured, comprehensive path to master AI</li>
+        <li>You're a developer, analyst, or PM working with AI systems</li>
+        <li>You need to stand out in a competitive, AI-heavy job market</li>
+        <li>You lead a team building or adopting AI solutions</li>
+        <li>You want a credential you can reference in proposals and pitches</li>
+      </ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-graduation"/></svg></div>
+        <div><div class="t4">Academic Students</div><div class="xsm">Add an industry-recognized credential alongside your degree. Employers increasingly request applied AI credentials, not just diplomas.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-briefcase"/></svg></div>
+        <div><div class="t4">Working Professionals</div><div class="xsm">Upskill without quitting your job. Our flexible online format is built for people with busy careers and competing demands.</div></div>
+      </div>
+      <div class="card" style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-repeat"/></svg></div>
+        <div><div class="t4">Career Changers</div><div class="xsm">A PAI certification signals commitment and verified competency to hiring managers who may not know your background.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sn">16 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 17 — TESTIMONIALS ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:16px;">What our <span class="teal">certified professionals</span> say</div>
+  <div class="g3" style="margin-bottom:14px;gap:12px;">
+    <div class="card" style="padding:18px 20px;">
+      <div style="font-size:32px;color:var(--teal);opacity:.3;font-family:Georgia,serif;line-height:1;margin-bottom:6px;">"</div>
+      <div class="q-text">The CAIP was the best career investment I've made. Within 3 months of certifying, I was promoted to AI Lead at my company.</div>
+      <div class="q-attr">— Sarah K., Data Scientist · Toronto</div>
+    </div>
+    <div class="card card-t" style="padding:18px 20px;">
+      <div style="font-size:32px;color:var(--teal);opacity:.4;font-family:Georgia,serif;line-height:1;margin-bottom:6px;">"</div>
+      <div class="q-text">I studied while working full-time. The self-paced format made it possible. Passed on my first attempt — the prep course covered everything.</div>
+      <div class="q-attr">— James M., Product Manager · London</div>
+    </div>
+    <div class="card" style="padding:18px 20px;">
+      <div style="font-size:32px;color:var(--teal);opacity:.3;font-family:Georgia,serif;line-height:1;margin-bottom:6px;">"</div>
+      <div class="q-text">As a consultant, clients need verifiable proof. My PAI certificate URL has been shared in more proposals than I can count. It converts.</div>
+      <div class="q-attr">— Priya R., AI Consultant · Singapore</div>
+    </div>
+  </div>
+  <div class="g4" style="gap:10px;">
+    <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:22px;">94%</div><div class="stat-l">Pass rate for students who complete the full prep course</div></div>
+    <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:22px;">4.8</div><div class="stat-l">Average student satisfaction rating across all programs</div></div>
+    <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:22px;">78%</div><div class="stat-l">Report career advancement within 6 months of certifying</div></div>
+    <div class="card card-alt" style="padding:14px;text-align:center;"><div class="stat-n" style="font-size:22px;">10 wks</div><div class="stat-l">Median time from application to certified</div></div>
+  </div>
+  <div class="sn">17 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 18 — PRICING ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Your <span class="teal">investment</span></div>
+  <p class="sm" style="margin-bottom:16px;">All fees include the prep course and your first exam sitting. One retake is available afterward for a separate, per-certification retake fee if you need it.</p>
+  <div class="g5" style="margin-bottom:14px;">
+    <div class="price-card"><div class="price-name" style="color:#64748b;">Pre-Certificate</div><div class="price-tag">$149</div><div class="stat-l" style="margin-top:6px;">Entry level</div></div>
+    <div class="price-card"><div class="price-name" style="color:var(--blue);">Foundation</div><div class="price-tag">$299</div><div class="stat-l" style="margin-top:6px;">Core credential</div></div>
+    <div class="price-card featured"><div class="popular-badge">MOST POPULAR</div><div class="price-name teal">Advanced (CAIP)</div><div class="price-tag" style="color:var(--teal);">$499</div><div class="stat-l" style="margin-top:6px;">Flagship</div></div>
+    <div class="price-card"><div class="price-name" style="color:var(--purple);">Executive</div><div class="price-tag">$799</div><div class="stat-l" style="margin-top:6px;">Leadership tier</div></div>
+    <div class="price-card"><div class="price-name" style="color:var(--red);">Specialist</div><div class="price-tag">$999</div><div class="stat-l" style="margin-top:6px;">Domain expert</div></div>
+  </div>
+  <div class="g3" style="gap:12px;">
+    <div class="card" style="display:flex;gap:12px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-ink ibox-sm"><svg class="icon"><use href="#ic-building"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;">Corporate Pricing</div><div class="xsm">Enrolling 5+ employees? Contact us for volume pricing and custom enterprise bundles.</div></div>
+    </div>
+    <div class="card" style="display:flex;gap:12px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-percent"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;">Student Discount</div><div class="xsm">Full-time students receive 20% off with a valid student ID. Apply the promo code at checkout.</div></div>
+    </div>
+    <div class="card card-t" style="display:flex;gap:12px;align-items:flex-start;padding:14px;">
+      <div class="ibox ibox-t ibox-sm"><svg class="icon"><use href="#ic-credit"/></svg></div>
+      <div><div class="t4" style="margin-bottom:2px;">Payment Plans</div><div class="xsm">Split your enrollment fee into 3 monthly installments at no extra cost. Available at checkout.</div></div>
+    </div>
+  </div>
+  <div class="sn">18 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 19 — FAQ ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:16px;">Common <span class="teal">questions</span></div>
+  <div class="g2" style="gap:10px;">
+    <div class="card" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">Do I need a computer science degree?</div><div class="xsm">No. Pre-Certificate and Foundation levels require no prior technical background. For Advanced levels, professional experience in a technical or analytical role is helpful but a degree is not mandatory.</div></div>
+    <div class="card" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">How long do I have to complete the course?</div><div class="xsm">You typically have up to a year from registering to complete the prep course and book/sit your exam. If that window passes without booking or sitting, your registration lapses and you'd need to register (and pay) again.</div></div>
+    <div class="card" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">What happens if I don't pass the exam?</div><div class="xsm">One retake is available for a separate fee, drawing a different set of questions from the exam bank. You typically have about two months to purchase and use it — if that window passes, the retake lapses and you'd need to register again.</div></div>
+    <div class="card" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">Is the certification internationally recognized?</div><div class="xsm">Yes. PAI certifications are recognized by employers in 40+ countries. They are vendor-neutral, applying across all AI platforms, industries, and sectors.</div></div>
+    <div class="card" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">How do I maintain my certification?</div><div class="xsm">Certifications are valid for 2 years. Renewal requires completing continuing education credits — ensuring you stay current in the fast-moving AI landscape.</div></div>
+    <div class="card card-t" style="padding:14px 18px;"><div class="t4" style="margin-bottom:4px;">Can I start right away?</div><div class="xsm">Yes — applications are open 24/7 and reviewed within 3–5 business days. You can begin your prep course the moment your application is approved.</div></div>
+  </div>
+  <div class="sn">19 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 20 — NEXT STEPS ═══ -->
+<section>
+<div class="S">
+  <div class="accent-bar"></div>
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div class="rule"></div>
+  <div class="t2" style="margin-bottom:6px;">Your next steps <span class="teal">start now</span></div>
+  <p class="sm" style="margin-bottom:20px;">One application away from joining thousands of PAI-certified professionals worldwide.</p>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+    <div style="display:flex;gap:16px;align-items:flex-start;padding:14px 18px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;">
+      <div class="step" style="width:28px;height:28px;font-size:12px;flex-shrink:0;">1</div>
+      <div><div class="t4" style="margin-bottom:3px;">Choose your certification level</div><div class="xsm">Not sure which level you're eligible for? Take our 5-minute self-assessment at <span class="teal" style="font-weight:600;">paii.ca/assess</span> — it matches your education, experience, and role to the level you qualify for.</div></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;padding:14px 18px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;">
+      <div class="step" style="width:28px;height:28px;font-size:12px;flex-shrink:0;">2</div>
+      <div><div class="t4" style="margin-bottom:3px;">Start your application</div><div class="xsm">Visit <span class="teal" style="font-weight:600;">paii.ca</span> and click "Get Started". The application takes around 10 minutes to complete.</div></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;padding:14px 18px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;">
+      <div class="step" style="width:28px;height:28px;font-size:12px;flex-shrink:0;">3</div>
+      <div><div class="t4" style="margin-bottom:3px;">Receive your approval (3–5 days)</div><div class="xsm">Check your inbox. Once approved, your student portal access is activated immediately and you can begin your prep course right away.</div></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;padding:14px 18px;background:var(--teal-50);border:1px solid var(--teal-100);border-radius:12px;">
+      <div class="step step-gn" style="width:28px;height:28px;font-size:12px;flex-shrink:0;">4</div>
+      <div><div class="t4" style="margin-bottom:3px;color:var(--green);">Start learning today</div><div class="xsm">Log in, open your prep course, and take the first step toward being a certified AI professional.</div></div>
+    </div>
+  </div>
+  <div class="sn">20 / 21</div>
+</div>
+</section>
+
+<!-- ═══ SLIDE 21 — CLOSING CTA ═══ -->
+<section>
+<div class="S S-div" style="background:var(--teal);">
+  <div class="wm"><img src="/paii.logo.png" alt="PAII"/></div>
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;">
+    <div style="background:white;border-radius:14px;padding:12px 28px;margin-bottom:26px;display:inline-block;box-shadow:0 4px 24px rgba(0,0,0,.12);">
+      <img src="/paii.logo.png" alt="PAII" style="height:52px;display:block;"/>
+    </div>
+    <div class="t2" style="font-size:34px;text-align:center;line-height:1.15;margin-bottom:12px;">The world needs <span style="color:rgba(255,255,255,.9);">certified</span><br/>AI professionals.</div>
+    <p class="body" style="text-align:center;max-width:480px;line-height:1.7;margin-bottom:28px;">Your certification is not just a credential — it's proof that you're ready to lead in the age of Artificial Intelligence.</p>
+    <a href="https://paii.ca" class="btn" style="background:white;color:var(--teal);box-shadow:0 4px 20px rgba(0,0,0,.15);">
+      Apply Now at paii.ca
+      <svg width="16" height="16"><use href="#ic-arrow"/></svg>
+    </a>
+    <div style="display:flex;gap:48px;justify-content:center;margin-top:30px;padding-top:22px;border-top:1px solid rgba(255,255,255,.2);width:100%;max-width:460px;">
+      <div style="text-align:center;"><div class="stat-n" style="font-size:18px;color:#fff;">paii.ca</div><div class="stat-l" style="color:rgba(255,255,255,.65);">Apply online</div></div>
+      <div style="width:1px;background:rgba(255,255,255,.2);"></div>
+      <div style="text-align:center;"><div class="stat-n" style="font-size:18px;color:#fff;">5 levels</div><div class="stat-l" style="color:rgba(255,255,255,.65);">Find your fit</div></div>
+      <div style="width:1px;background:rgba(255,255,255,.2);"></div>
+      <div style="text-align:center;"><div class="stat-n" style="font-size:18px;color:#fff;">40+ countries</div><div class="stat-l" style="color:rgba(255,255,255,.65);">Globally recognized</div></div>
+    </div>
+  </div>
+  <div class="sn">21 / 21</div>
+</div>
+</section>
+
+</div>
+</div>
+
+<button id="tm" aria-label="Toggle theme">
+  <svg id="tm-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <span id="tm-lbl">Dark</span>
+</button>
+
+<div id="pctrl">
+  <div id="timer" title="Click to start / pause · Double-click to reset">00:00</div>
+  <button id="hbtn" aria-label="Keyboard shortcuts">?</button>
+</div>
+<div id="hov">
+  <div id="hbox">
+    <div class="ht">Keyboard Shortcuts</div>
+    <div class="hg">
+      <kbd>→ / Space</kbd><span>Next slide</span>
+      <kbd>←</kbd><span>Previous slide</span>
+      <kbd>F</kbd><span>Fullscreen</span>
+      <kbd>S</kbd><span>Speaker view + notes</span>
+      <kbd>O</kbd><span>Slide overview</span>
+      <kbd>B</kbd><span>Blackout screen</span>
+      <kbd>Scroll</kbd><span>Zoom in / out</span>
+      <kbd>Drag</kbd><span>Pan when zoomed</span>
+      <kbd>Dbl-click</kbd><span>Reset zoom</span>
+      <kbd>?</kbd><span>This help panel</span>
+    </div>
+    <div class="hc">Press Esc or click outside to close</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+Reveal.initialize({
+  width:1280,height:720,margin:0,
+  controls:true,progress:true,history:true,center:false,
+  transition:'slide',transitionSpeed:'fast',
+  slideNumber:false,
+  plugins:[RevealNotes],
+});
+</script>
+<script>
+(function(){
+  var zoom=1,panX=0,panY=0;
+  var MIN=0.25,MAX=3,STEP=0.07;
+  var startX,startY,startPanX,startPanY,dragging=false;
+  var hideTimer,THRESHOLD=55;
+  var reveal=document.querySelector('.reveal');
+  var ind=document.createElement('div');
+  ind.style.cssText=[
+    'position:fixed;bottom:20px;left:50%;transform:translateX(-50%)',
+    'background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.25)',
+    'color:#0d9488;font-family:"Plus Jakarta Sans",sans-serif',
+    'font-size:11px;font-weight:700;letter-spacing:.08em',
+    'padding:5px 16px;border-radius:100px',
+    'opacity:0;transition:opacity .18s ease;pointer-events:none;z-index:9998'
+  ].join(';');
+  document.body.appendChild(ind);
+  document.documentElement.style.overflow='hidden';
+  document.body.style.transformOrigin='center center';
+  function applyTransform(a){document.body.style.transition=a?'transform .08s ease-out':'none';document.body.style.transform='translate('+panX+'px,'+panY+'px) scale('+zoom+')';}
+  function showIndicator(){ind.textContent=Math.round(zoom*100)+'%';ind.style.opacity='1';clearTimeout(hideTimer);hideTimer=setTimeout(function(){ind.style.opacity='0';},900);}
+  function updateCursor(){reveal.style.cursor=zoom>1?'grab':'default';}
+  window.addEventListener('wheel',function(e){
+    e.preventDefault();
+    zoom+=e.deltaY<0?STEP:-STEP;
+    zoom=Math.round(Math.min(MAX,Math.max(MIN,zoom))*1000)/1000;
+    if(zoom<=1.01){zoom=1;panX=0;panY=0;}
+    applyTransform(true);showIndicator();updateCursor();
+  },{passive:false});
+  function onDown(x,y){startX=x;startY=y;startPanX=panX;startPanY=panY;dragging=false;if(zoom>1)reveal.style.cursor='grabbing';document.body.style.userSelect='none';}
+  function onMove(x,y){if(startX===undefined)return;var dx=x-startX,dy=y-startY;if(!dragging&&(Math.abs(dx)>5||Math.abs(dy)>5))dragging=true;if(dragging&&zoom>1){panX=startPanX+dx;panY=startPanY+dy;applyTransform(false);}}
+  function onUp(x,y){updateCursor();document.body.style.userSelect='';if(!dragging||startX===undefined){startX=undefined;return;}if(zoom<=1){var dx=x-startX,dy=y-startY;if(Math.abs(dx)>THRESHOLD&&Math.abs(dx)>Math.abs(dy)*1.4){dx<0?Reveal.next():Reveal.prev();}}startX=undefined;dragging=false;}
+  function onCancel(){updateCursor();document.body.style.userSelect='';startX=undefined;dragging=false;}
+  document.addEventListener('mousedown',function(e){if(e.button===0)onDown(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',function(e){onMove(e.clientX,e.clientY);});
+  document.addEventListener('mouseup',function(e){onUp(e.clientX,e.clientY);});
+  document.addEventListener('mouseleave',onCancel);
+  document.addEventListener('touchstart',function(e){onDown(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+  document.addEventListener('touchmove',function(e){onMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+  document.addEventListener('touchend',function(e){onUp(e.changedTouches[0].clientX,e.changedTouches[0].clientY);},{passive:true});
+  window.addEventListener('dblclick',function(){zoom=1;panX=0;panY=0;applyTransform(true);showIndicator();updateCursor();});
+  updateCursor();
+})();
+</script>
+<script>
+(function(){
+  var MOON='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  var SUN='<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>';
+  var dark=localStorage.getItem('paii-theme')==='dark';
+  function set(d){
+    dark=d;
+    document.documentElement.classList.toggle('dark',d);
+    document.getElementById('tm-icon').innerHTML=d?SUN:MOON;
+    document.getElementById('tm-lbl').textContent=d?'Light':'Dark';
+    localStorage.setItem('paii-theme',d?'dark':'light');
+  }
+  set(dark);
+  document.getElementById('tm').addEventListener('click',function(){set(!dark);});
+})();
+</script>
+<script>
+/* ── Timer ─────────────────────────────────────────────────────── */
+(function(){
+  var el=document.getElementById('timer');
+  var start=null,running=false,elapsed=0,raf;
+  function fmt(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60),ss=s%60;return(m<10?'0':'')+m+':'+(ss<10?'0':'')+ss;}
+  function tick(){elapsed=performance.now()-start;el.textContent=fmt(elapsed);raf=requestAnimationFrame(tick);}
+  function go(){running=true;el.classList.add('run');start=performance.now()-elapsed;raf=requestAnimationFrame(tick);}
+  function pause(){running=false;el.classList.remove('run');cancelAnimationFrame(raf);}
+  el.addEventListener('click',function(e){e.stopPropagation();running?pause():go();});
+  el.addEventListener('dblclick',function(e){e.stopPropagation();pause();elapsed=0;el.textContent='00:00';});
+})();
+
+/* ── Shortcut overlay ──────────────────────────────────────────── */
+(function(){
+  var ov=document.getElementById('hov');
+  document.getElementById('hbtn').addEventListener('click',function(e){e.stopPropagation();ov.classList.add('open');});
+  ov.addEventListener('click',function(){ov.classList.remove('open');});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='?')ov.classList.toggle('open');
+    if(e.key==='Escape')ov.classList.remove('open');
+  });
+})();
+
+/* ── Auto-fragments ────────────────────────────────────────────── */
+Reveal.on('ready',function(){
+  document.querySelectorAll('.reveal .slides section').forEach(function(sec){
+    sec.querySelectorAll('.cl').forEach(function(list){
+      Array.from(list.children).forEach(function(li,i){li.classList.add('fragment','fade-up');li.setAttribute('data-fragment-index',i);});
+    });
+    sec.querySelectorAll('.g3,.g4').forEach(function(grid){
+      Array.from(grid.children).forEach(function(c,i){c.classList.add('fragment','fade-up');c.setAttribute('data-fragment-index',i);});
+    });
+    sec.querySelectorAll('[class*="step-row"]').forEach(function(row,i){row.classList.add('fragment','fade-up');row.setAttribute('data-fragment-index',i);});
+  });
+});
+
+/* ── Speaker notes ─────────────────────────────────────────────── */
+Reveal.on('ready',function(){
+  var notes=[
+    "Open with energy. Key message: a degree is the floor, certification is the differentiator. Welcome everyone and set the expectation — this is practical career advice, not a sales pitch.",
+    "Name the gap clearly. Employers are overwhelmed by applicants who all have degrees. They need a fast signal for AI capability. A resume bullet saying 'AI coursework' doesn't cut it — a verifiable credential does.",
+    "CAIP is what most people in this room should be targeting. Walk through the five levels briefly so they can self-select — these aren't sequential, each has its own eligibility criteria. Non-STEM students typically qualify for Pre-Certificate. Engineering/science undergrads: Foundation or CAIP.",
+    "These are real people with real outcomes. Pause on this slide. Engineering student, business grad, mid-career switcher — AI certification is not just for computer science majors.",
+    "Speak to the skeptics. Some students think: 'does this actually matter in interviews?' Yes. The public verification URL means any hiring manager can check the credential in 30 seconds — it's tamper-proof proof.",
+    "Transition beat. Pause here — you're shifting from 'why' to 'how'. Let the slide land for a moment before moving.",
+    "Help them self-select the right level. Ask the room: who's in STEM? Who's in business? Who's in grad school? Point them to the right row on screen. Be clear these are independent credentials, not a ladder — eligibility is based on their education and experience today, not on completing lower levels first.",
+    "The prep course is what produces the 94% pass rate. 6–8 weeks, completely self-paced. Built to fit around a full semester schedule — students can do it while finishing their degree. If you can, pull up the actual portal here and click through a lesson live — seeing the real product lands harder than a slide.",
+    "Demystify the exam. Online-proctored means they take it from their bedroom. 75 questions, 90 minutes. If they need it, one retake is available for a separate fee, drawing a fresh set of questions from the bank.",
+    "This is the tangible deliverable. A digital certificate with a public verification URL and a LinkedIn badge they can add the same day they pass. If you have a sample certificate handy, show the verification page loading in real time — it's the single most convincing demo in this whole deck.",
+    "Transition beat. You've covered the credential. Now you're showing what it actually does in the job market.",
+    "25–40% salary premium is the headline stat. It varies by sector but the trend is consistent across technical and non-technical roles. Certified professionals get flagged faster in applicant tracking systems.",
+    "In a stack of 200 applicants, the CAIP creates a secondary filter that works in their favor. A recruiter spends 7 seconds on a resume on average — a visible credential clears that bar.",
+    "These aren't exceptional people — they made a strategic decision at the right time. That decision is available to every person in this room.",
+    "New slide — don't rush this one. Certification isn't 'set and forget': it's a 2-year cycle renewed through PDUs, not a re-exam. This reassures students the credential stays meaningful and up to date, and heads off the 'does this expire and become useless' question before it's asked.",
+    "Transition. The case is made. Now: what do they actually do next? Keep this beat short.",
+    "The timeline is reassuring to anxious students. They can apply today and be studying next week. Some can be certified before graduation. Point out the 12-month completion window — no rush, no cohort pressure.",
+    "Reframe the price as an investment with a measurable ROI. CAIP at $499 is less than most students spend on a single semester's textbooks. The salary premium covers this cost in the first week of employment.",
+    "Load these answers in your head — you'll get them live. The 'is it worth it' question is really a confidence gap. Reassure: 94% who complete the prep course pass on their first attempt.",
+    "Walk through the three steps slowly. Emphasize: step 1 takes 10 minutes. They can start the application tonight before they sleep. Nothing is stopping them from doing it right now.",
+    "End with conviction. Your call to action: paii.ca, tonight. Don't let anyone leave without knowing that URL. The world genuinely needs certified AI professionals — and they can be one."
+  ];
+  document.querySelectorAll('.reveal .slides>section').forEach(function(sec,i){
+    if(notes[i]){var a=document.createElement('aside');a.className='notes';a.textContent=notes[i];sec.appendChild(a);}
+  });
+});
+</script>
+</body>
+</html>
