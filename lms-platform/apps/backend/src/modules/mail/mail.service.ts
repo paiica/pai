@@ -17,6 +17,7 @@ export class MailService {
   private readonly envResend: Resend | null;
   private readonly envFrom: string;
   private readonly frontendUrl: string;
+  private readonly supportEmail: string;
 
   constructor(private config: ConfigService, private settings: SiteSettingsService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
@@ -25,6 +26,7 @@ export class MailService {
     const fromAddr = config.get<string>("EMAIL_FROM", "noreply@paii.ca");
     this.envFrom = `${fromName} <${fromAddr}>`;
     this.frontendUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
+    this.supportEmail = config.get<string>("SUPPORT_EMAIL", "support@paii.ca");
   }
 
   // Resolve Resend client and from address — env takes priority, then site settings
@@ -56,7 +58,7 @@ export class MailService {
     );
   }
 
-  private async send(opts: { to: string; subject: string; html: string }): Promise<{ sent: boolean; reason?: string }> {
+  private async send(opts: { to: string; subject: string; html: string; replyTo?: string }): Promise<{ sent: boolean; reason?: string }> {
     const client = await this.resolveClient();
     if (!client) {
       this.logger.warn(`[Mail skipped — no RESEND_API_KEY] To: ${opts.to} | ${opts.subject}`);
@@ -73,6 +75,28 @@ export class MailService {
   }
 
   // ─── Send methods ─────────────────────────────────────────────────────────────
+
+  // Sent from the public /support page — no template lookup (support requests
+  // aren't customizable copy like the transactional emails below), always
+  // goes to the fixed support inbox, reply-to set to the submitter so the
+  // support team can just hit reply.
+  async sendSupportRequest(opts: { name: string; email: string; subject: string; message: string }) {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = this.wrapper(`
+      <p style="margin:0 0 20px;font-size:22px;font-weight:900;color:#0f172a">New Support Request</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;color:#334155;margin-bottom:20px">
+        <tr><td style="padding:4px 0;width:80px;color:#94a3b8">From</td><td style="padding:4px 0">${esc(opts.name)} &lt;${esc(opts.email)}&gt;</td></tr>
+        <tr><td style="padding:4px 0;color:#94a3b8">Subject</td><td style="padding:4px 0">${esc(opts.subject)}</td></tr>
+      </table>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;white-space:pre-wrap;font-size:14px;line-height:1.6;color:#0f172a">${esc(opts.message)}</div>
+    `);
+    return this.send({
+      to: this.supportEmail,
+      subject: `[Support] ${opts.subject}`,
+      html,
+      replyTo: opts.email,
+    });
+  }
 
   async sendVerificationEmail(to: string, firstName: string, token: string, baseUrl?: string) {
     const { subject, enabled, html: customHtml } = await this.tpl("verification");

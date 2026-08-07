@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
-  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2,
+  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -14,7 +14,7 @@ import { useAuthStore } from "@/store/auth.store";
 // ── Tab keys ──────────────────────────────────────────────────────────────────
 export const ADMIN_TAB_KEYS = [
   "dashboard", "applications", "assignments", "exam_sessions",
-  "users", "students", "blog", "pages", "online_tools", "events",
+  "users", "students", "blog", "pages", "online_tools", "events", "leads",
   "sales", "payments", "prep_courses", "certificates", "design", "settings",
 ] as const;
 
@@ -31,6 +31,7 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
   pages:         { label: "Pages",            description: "Static pages" },
   online_tools:  { label: "Online Tools",     description: "Online tools catalog" },
   events:        { label: "Events",           description: "Live training events, workshops & seminars" },
+  leads:         { label: "Leads",            description: "Email leads captured from the blog subscribe popup" },
   sales:         { label: "Sales",            description: "Sales reps, commissions, promo codes, organizations" },
   payments:      { label: "Payments",         description: "Transactions & reports" },
   prep_courses:  { label: "Prep Courses",     description: "Course management" },
@@ -49,6 +50,7 @@ const NAV = [
   { href: "/users",        label: "Users",         icon: Users,                       tab: "users"          },
   { href: "/students",     label: "Students",      icon: GraduationCap,               tab: "students"       },
   { href: "/blog",         label: "Blog",          icon: Rss,                         tab: "blog"           },
+  { href: "/leads",        label: "Leads",         icon: Magnet,                      tab: "leads"          },
   { href: "/pages",        label: "Pages",         icon: FileText,                    tab: "pages"          },
   { href: "/online-tools", label: "Online Tools",  icon: Wrench,                      tab: "online_tools"   },
   { href: "/events",       label: "Events",        icon: Presentation,                tab: "events"         },

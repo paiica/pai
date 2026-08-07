@@ -1660,6 +1660,22 @@ model BlogPost {
   @@schema("lms")
 }
 
+// Captured from the blog post reading-page popup (and any future lead
+// magnet). Upserted by email — a repeat visit updates source/page_url
+// rather than creating a duplicate row, so the admin list stays one row
+// per real person.
+model Lead {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  source     String   @default("") // e.g. "blog" — where the capture happened
+  page_url   String   @default("")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("leads")
+  @@schema("lms")
+}
+
 // ─────────────────────────────────────────────
 // EVENTS
 // ─────────────────────────────────────────────

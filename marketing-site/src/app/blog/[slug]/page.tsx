@@ -4,6 +4,7 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ShareButtons from "./ShareButtons";
+import LeadCapturePopup from "./LeadCapturePopup";
 import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 
 type Post = {
@@ -141,6 +142,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </div>
       </main>
       <Footer />
+      <LeadCapturePopup />
     </>
   );
 }

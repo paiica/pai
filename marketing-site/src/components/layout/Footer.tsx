@@ -43,6 +43,7 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
       { label: "Blog & Insights", href: "/blog" },
       { label: "Verify Certificate", href: "/verify" },
       { label: "FAQs", href: "/faq" },
+      { label: "Support", href: "/support" },
     ],
   },
   {
