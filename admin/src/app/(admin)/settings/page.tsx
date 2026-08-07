@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Settings, Globe, ImageIcon, Upload } from "lucide-react";
+import { Save, Loader2, Settings, Globe, ImageIcon, Upload, Magnet } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -60,6 +60,7 @@ export default function SiteSettingsPage() {
   const [faviconUrl, setFaviconUrl] = useState("");
   const [logoUrl,    setLogoUrl]    = useState("");
   const [logoHeight, setLogoHeight] = useState("48");
+  const [leadPopupHomepage, setLeadPopupHomepage] = useState(false);
   const [saving,     setSaving]     = useState(false);
 
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
@@ -106,6 +107,7 @@ export default function SiteSettingsPage() {
       setFaviconUrl(data.favicon_url     ?? "");
       setLogoUrl(data.site_logo_url      ?? "");
       setLogoHeight(data.logo_height     ?? "48");
+      setLeadPopupHomepage(data.lead_popup_homepage_enabled === "true");
     }
   }, [data]);
 
@@ -118,6 +120,7 @@ export default function SiteSettingsPage() {
       favicon_url:      faviconUrl,
       site_logo_url:    logoUrl,
       logo_height:      String(parseInt(logoHeight, 10) || 48),
+      lead_popup_homepage_enabled: String(leadPopupHomepage),
     };
     try {
       let token = accessToken!;
@@ -246,6 +249,28 @@ export default function SiteSettingsPage() {
                 <p className="text-xs text-slate-400 mt-1.5">Meta description shown in search results (160 chars recommended).</p>
               </div>
             </div>
+          </div>
+
+          {/* Lead Capture */}
+          <div className="card p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <Magnet size={16} className="text-navy-600" />
+              <h2 className="font-semibold text-navy-900">Lead Capture</h2>
+            </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={leadPopupHomepage}
+                onChange={(e) => setLeadPopupHomepage(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-slate-300 text-navy-700 accent-navy-700 cursor-pointer"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-slate-700">Show the subscribe popup on the homepage</span>
+                <span className="block text-xs text-slate-400 mt-0.5">
+                  Appears 5 seconds after a visitor lands, same as it already does on every blog post. Captured emails show up under Leads.
+                </span>
+              </span>
+            </label>
           </div>
 
           <button type="submit" disabled={saving} className="btn-primary w-full justify-center disabled:opacity-60">

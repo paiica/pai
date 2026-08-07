@@ -12,6 +12,7 @@ import CTASection from "@/components/sections/CTASection";
 import LogoStripSection from "@/components/sections/LogoStripSection";
 import UpdatesSection from "@/components/sections/UpdatesSection";
 import PromoBannerSection from "@/components/sections/PromoBannerSection";
+import LeadCapturePopup from "@/components/LeadCapturePopup";
 
 type PageBlock = { key: string; is_visible: boolean; sort_order: number; content: Record<string, any> };
 
@@ -43,8 +44,21 @@ async function getBlocks(): Promise<PageBlock[]> {
   }
 }
 
+async function getLeadPopupEnabled(): Promise<boolean> {
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+  try {
+    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
+    if (!res.ok) return false;
+    const json = await res.json();
+    const settings = json.data ?? json;
+    return settings?.lead_popup_homepage_enabled === "true";
+  } catch {
+    return false;
+  }
+}
+
 export default async function HomePage() {
-  const blocks = await getBlocks();
+  const [blocks, leadPopupEnabled] = await Promise.all([getBlocks(), getLeadPopupEnabled()]);
   const sorted = [...blocks].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -60,6 +74,7 @@ export default async function HomePage() {
         })}
       </main>
       <Footer />
+      {leadPopupEnabled && <LeadCapturePopup source="homepage" />}
     </>
   );
 }
