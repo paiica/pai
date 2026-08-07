@@ -12,10 +12,16 @@ export class LeadsService {
   // duplicates for the same person.
   capture(dto: CaptureLeadDto) {
     const email = dto.email.trim().toLowerCase();
+    const fields = {
+      name: dto.name ?? "",
+      interest: dto.interest ?? "",
+      source: dto.source ?? "",
+      page_url: dto.page_url ?? "",
+    };
     return this.prisma.lead.upsert({
       where: { email },
-      create: { email, source: dto.source ?? "", page_url: dto.page_url ?? "" },
-      update: { source: dto.source ?? "", page_url: dto.page_url ?? "" },
+      create: { email, ...fields },
+      update: fields,
     });
   }
 

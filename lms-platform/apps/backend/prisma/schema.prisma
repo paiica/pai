@@ -1667,6 +1667,8 @@ model BlogPost {
 model Lead {
   id         String   @id @default(uuid())
   email      String   @unique
+  name       String   @default("")
+  interest   String   @default("") // which "What are you interested in?" option they picked
   source     String   @default("") // e.g. "blog" — where the capture happened
   page_url   String   @default("")
   created_at DateTime @default(now())

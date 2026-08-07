@@ -10,6 +10,8 @@ import { api } from "@/lib/api";
 interface Lead {
   id: string;
   email: string;
+  name: string;
+  interest: string;
   source: string;
   page_url: string;
   created_at: string;
@@ -83,7 +85,9 @@ export default function LeadsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Page</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Captured</th>
@@ -94,7 +98,7 @@ export default function LeadsPage() {
             {isLoading ? (
               [...Array(6)].map((_, i) => (
                 <tr key={i}>
-                  {[...Array(5)].map((_, j) => (
+                  {[...Array(7)].map((_, j) => (
                     <td key={j} className="px-4 py-3.5">
                       <div className="h-3.5 bg-slate-100 rounded animate-pulse" style={{ width: `${50 + (j * 13) % 40}%` }} />
                     </td>
@@ -103,14 +107,16 @@ export default function LeadsPage() {
               ))
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-16 text-center">
+                <td colSpan={7} className="px-4 py-16 text-center">
                   <Magnet size={28} className="text-slate-200 mx-auto mb-3" />
                   <p className="text-slate-400 text-sm">No leads captured yet.</p>
                 </td>
               </tr>
             ) : leads.map((lead) => (
               <tr key={lead.id} className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-4 py-3 text-navy-900">{lead.name || "—"}</td>
                 <td className="px-4 py-3 font-medium text-navy-900">{lead.email}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">{lead.interest || "—"}</td>
                 <td className="px-4 py-3">
                   <span className="badge bg-teal-100 text-teal-700 capitalize">{lead.source || "—"}</span>
                 </td>

@@ -6,6 +6,16 @@ export class CaptureLeadDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  interest?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(60)
   source?: string;
 
