@@ -7,6 +7,37 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
 const AUTH_KEY = "pai-auth";
 
+// Hidden iframes sync auth state to the other origin without a real
+// navigation. iframe.onload only guarantees the framed document has
+// loaded — for a Next.js page that's before React hydrates and its
+// useEffect runs, so removing the iframe right on onload can kill it
+// before the sync page ever gets to write/clear localStorage (confirmed
+// live: this silently dropped logout-sync every time). Wait for the sync
+// page's own "done" postMessage instead, with a timeout fallback so a
+// blocked or unusually slow load can't leave the iframe stuck forever.
+function syncViaIframe(url: string) {
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.style.display = "none";
+  let done = false;
+  function cleanup() {
+    if (done) return;
+    done = true;
+    window.removeEventListener("message", onMessage);
+    iframe.remove();
+  }
+  function onMessage(e: MessageEvent) {
+    // Scoped to this iframe specifically — otherwise a second sync fired in
+    // quick succession (e.g. logout immediately followed by login) would
+    // have its completion message satisfy the wrong listener and get
+    // removed early, reintroducing a narrower version of the onload race.
+    if (e.data?.type === "pai-sync-complete" && e.source === iframe.contentWindow) cleanup();
+  }
+  window.addEventListener("message", onMessage);
+  setTimeout(cleanup, 4000);
+  document.body.appendChild(iframe);
+}
+
 type UserProfile = {
   id: string;
   email: string;
@@ -113,12 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // too (that origin, in turn, notifies any other open student-portal tabs
     // the normal way — via the native `storage` event, which fires for every
     // other browsing context on that origin once its localStorage changes).
-    // The iframe removes itself once loaded; it has nothing left to do.
-    const iframe = document.createElement("iframe");
-    iframe.src = `${LMS}/auth/logout-sync`;
-    iframe.style.display = "none";
-    iframe.onload = () => iframe.remove();
-    document.body.appendChild(iframe);
+    syncViaIframe(`${LMS}/auth/logout-sync`);
   }, [accessToken]);
 
   // Mirrors auth.store.ts's cross-tab sync on the student portal side —

@@ -31,6 +31,37 @@ interface AuthState {
   fetchMe: () => Promise<void>;
 }
 
+// Hidden iframes sync auth state to the other origin without a real
+// navigation. iframe.onload only guarantees the framed document has
+// loaded — for a Next.js page that's before React hydrates and its
+// useEffect runs, so removing the iframe right on onload can kill it
+// before the sync page ever gets to write/clear localStorage (confirmed
+// live: this silently dropped logout-sync every time). Wait for the sync
+// page's own "done" postMessage instead, with a timeout fallback so a
+// blocked or unusually slow load can't leave the iframe stuck forever.
+function syncViaIframe(url: string) {
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.style.display = "none";
+  let done = false;
+  function cleanup() {
+    if (done) return;
+    done = true;
+    window.removeEventListener("message", onMessage);
+    iframe.remove();
+  }
+  function onMessage(e: MessageEvent) {
+    // Scoped to this iframe specifically — otherwise a second sync fired in
+    // quick succession (e.g. login immediately followed by logout) would
+    // have its completion message satisfy the wrong listener and get
+    // removed early, reintroducing a narrower version of the onload race.
+    if (e.data?.type === "pai-sync-complete" && e.source === iframe.contentWindow) cleanup();
+  }
+  window.addEventListener("message", onMessage);
+  setTimeout(cleanup, 4000);
+  document.body.appendChild(iframe);
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -71,11 +102,7 @@ export const useAuthStore = create<AuthState>()(
           const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.paii.ca";
             const params = new URLSearchParams({ t: data.data.access_token, r: data.data.refresh_token });
             params.set("u", JSON.stringify(data.data.user));
-            const iframe = document.createElement("iframe");
-            iframe.src = `${marketingUrl}/auth/login-sync?${params.toString()}`;
-            iframe.style.display = "none";
-            iframe.onload = () => iframe.remove();
-            document.body.appendChild(iframe);
+            syncViaIframe(`${marketingUrl}/auth/login-sync?${params.toString()}`);
           }
         } finally {
           set({ isLoading: false });
@@ -112,11 +139,7 @@ export const useAuthStore = create<AuthState>()(
           // logout-sync silently never took effect while pointed at the
           // bare (redirecting) domain.
           const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.paii.ca";
-          const iframe = document.createElement("iframe");
-          iframe.src = `${marketingUrl}/auth/logout-sync`;
-          iframe.style.display = "none";
-          iframe.onload = () => iframe.remove();
-          document.body.appendChild(iframe);
+          syncViaIframe(`${marketingUrl}/auth/logout-sync`);
         }
       },
 

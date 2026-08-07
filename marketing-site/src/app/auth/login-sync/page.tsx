@@ -31,6 +31,11 @@ export default function LoginSyncPage() {
       state: { user, accessToken: t, refreshToken: r || null },
       version: 0,
     }));
+    // Tells the parent it's safe to remove this iframe now — onload alone
+    // fires once the document loads, before this effect runs, so removing
+    // on onload can kill the iframe before the localStorage write above
+    // ever happens (see the syncViaIframe fix on the sender side).
+    try { window.parent.postMessage({ type: "pai-sync-complete" }, "*"); } catch {}
   }, []);
 
   return null;

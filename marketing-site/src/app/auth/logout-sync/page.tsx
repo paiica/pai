@@ -15,6 +15,11 @@ import { useEffect } from "react";
 export default function LogoutSyncPage() {
   useEffect(() => {
     localStorage.removeItem("pai-auth");
+    // Tells the parent it's safe to remove this iframe now — onload alone
+    // fires once the document loads, before this effect runs, so removing
+    // on onload can kill the iframe before the localStorage write above
+    // ever happens (see the syncViaIframe fix on the sender side).
+    try { window.parent.postMessage({ type: "pai-sync-complete" }, "*"); } catch {}
   }, []);
 
   return null;
