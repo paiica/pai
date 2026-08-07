@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
-const PUBLIC_KEYS = ["site_title", "site_description", "favicon_url", "site_logo_url", "logo_height", "google_analytics_id", "lead_popup_homepage_enabled"];
+const PUBLIC_KEYS = ["site_title", "site_description", "favicon_url", "site_logo_url", "logo_height", "google_analytics_id", "lead_popup_homepage_enabled", "lead_popup_blog_enabled"];
 
 @Injectable()
 export class SiteSettingsService {

@@ -29,6 +29,20 @@ async function getPost(slug: string): Promise<Post | null> {
   }
 }
 
+// Defaults to on — the popup has always shown on blog posts, so an unset
+// setting (nobody's touched the toggle yet) must not silently disable it.
+async function getLeadPopupEnabled(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
+    if (!res.ok) return true;
+    const json = await res.json();
+    const settings = json.data ?? json;
+    return settings?.lead_popup_blog_enabled !== "false";
+  } catch {
+    return true;
+  }
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
@@ -51,7 +65,7 @@ function formatDate(dateStr: string | null) {
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = await getPost(slug);
+  const [post, leadPopupEnabled] = await Promise.all([getPost(slug), getLeadPopupEnabled()]);
   if (!post) notFound();
 
   const postUrl = `${SITE_URL}/blog/${post.slug}`;
@@ -142,7 +156,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </div>
       </main>
       <Footer />
-      <LeadCapturePopup source="blog" />
+      {leadPopupEnabled && <LeadCapturePopup source="blog" />}
     </>
   );
 }
