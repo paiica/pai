@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import {
   BookOpen, Plus, PlusCircle, Loader2, AlertCircle, RefreshCw,
   Users, Layers, Edit3, Archive, Globe, Trash2, DollarSign, Clock, ExternalLink, Search, X,
+  CheckCircle2, XCircle, ShieldAlert,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -29,12 +30,29 @@ const STATUS_COLORS: Record<string, string> = {
   archived: "bg-red-50 text-red-700",
 };
 
+const APPROVAL_COLORS: Record<string, string> = {
+  none: "bg-slate-100 text-slate-500",
+  pending: "bg-amber-50 text-amber-700",
+  approved: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-700",
+};
+const APPROVAL_LABELS: Record<string, string> = {
+  none: "Not Submitted",
+  pending: "Pending Approval",
+  approved: "PAII Approved",
+  rejected: "Rejected",
+};
+
 type Course = {
   id: string; slug: string; title: string; subtitle?: string;
   description?: string; price: number; status: string; level: string;
   duration_hours: number; module_count: number; enrollment_count: number;
   certification_id?: string; cert_acronym?: string; cert_title?: string;
   is_featured: boolean;
+  created_by?: string | null;
+  approval_status?: string;
+  is_listed?: boolean;
+  rejection_reason?: string | null;
   instructors?: { user_id: string; is_lead: boolean; first_name: string; last_name: string }[];
 };
 
@@ -87,13 +105,17 @@ export default function AdminCoursesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
   const [certFilter, setCertFilter] = useState("");
+  const [pendingOnly, setPendingOnly] = useState(false);
 
-  const filtersActive = !!(search || statusFilter || levelFilter || certFilter);
+  const pendingCount = courses.filter((c) => c.approval_status === "pending").length;
+
+  const filtersActive = !!(search || statusFilter || levelFilter || certFilter || pendingOnly);
 
   const filteredCourses = courses.filter((course) => {
     if (statusFilter && course.status !== statusFilter) return false;
     if (levelFilter && course.level !== levelFilter) return false;
     if (certFilter && course.certification_id !== certFilter) return false;
+    if (pendingOnly && course.approval_status !== "pending") return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const haystack = [course.title, course.slug, course.subtitle, course.cert_acronym]
@@ -110,6 +132,37 @@ export default function AdminCoursesPage() {
     setStatusFilter("");
     setLevelFilter("");
     setCertFilter("");
+    setPendingOnly(false);
+  }
+
+  const [approving, setApproving] = useState<string | null>(null);
+
+  async function approveCourse(course: Course) {
+    setApproving(course.id);
+    try {
+      await api.post(`/admin/courses/${course.id}/approve`, {}, token);
+      mutate();
+      toast.success("Course approved and listed in the catalog");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to approve");
+    } finally {
+      setApproving(null);
+    }
+  }
+
+  async function rejectCourse(course: Course) {
+    const reason = window.prompt(`Reason for rejecting "${course.title}"?`);
+    if (!reason || !reason.trim()) return;
+    setApproving(course.id);
+    try {
+      await api.post(`/admin/courses/${course.id}/reject`, { reason: reason.trim() }, token);
+      mutate();
+      toast.success("Course rejected");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to reject");
+    } finally {
+      setApproving(null);
+    }
   }
 
   // ── Create form state ─────────────────────────────────────────
@@ -375,6 +428,17 @@ export default function AdminCoursesPage() {
               ))}
             </select>
           )}
+          {pendingCount > 0 && (
+            <button
+              onClick={() => setPendingOnly((v) => !v)}
+              className={cn(
+                "btn-outline !py-2 !px-3 !text-xs flex-shrink-0 flex items-center gap-1.5",
+                pendingOnly && "!bg-amber-50 !border-amber-300 !text-amber-700"
+              )}
+            >
+              <ShieldAlert size={13} /> Pending Approval ({pendingCount})
+            </button>
+          )}
           {filtersActive && (
             <button
               onClick={clearFilters}
@@ -431,6 +495,9 @@ export default function AdminCoursesPage() {
               togglingFeatured={togglingFeatured === course.id}
               onDelete={() => deleteCourse(course)}
               onMutate={mutate}
+              onApprove={() => approveCourse(course)}
+              onReject={() => rejectCourse(course)}
+              approving={approving === course.id}
             />
           ))}
         </div>
@@ -545,6 +612,7 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
 function CourseCard({
   course, certs, professors, token,
   onToggleStatus, onToggleFeatured, togglingFeatured, onDelete, onMutate,
+  onApprove, onReject, approving,
 }: {
   course: Course;
   certs: any[];
@@ -555,9 +623,13 @@ function CourseCard({
   togglingFeatured: boolean;
   onDelete: () => void;
   onMutate: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  approving: boolean;
 }) {
 
   const instructors = course.instructors ?? [];
+  const creator = instructors.find((i) => i.is_lead) ?? instructors[0];
 
   return (
     <div className={cn("card overflow-hidden", course.status === "archived" && "opacity-60")}>
@@ -581,6 +653,11 @@ function CourseCard({
                 Featured
               </span>
             )}
+            {course.created_by && (
+              <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", APPROVAL_COLORS[course.approval_status ?? "none"])}>
+                {APPROVAL_LABELS[course.approval_status ?? "none"]}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
             <span className="font-mono text-[10px]">/{course.slug}</span>
@@ -593,7 +670,13 @@ function CourseCard({
             )}
             <span className="flex items-center gap-1"><Layers size={10} />{course.module_count} modules</span>
             <span className="flex items-center gap-1"><Users size={10} />{course.enrollment_count} enrolled</span>
+            {course.created_by && (
+              <span>Submitted by {creator ? `${creator.first_name} ${creator.last_name}` : "a professor"}</span>
+            )}
           </div>
+          {course.approval_status === "rejected" && course.rejection_reason && (
+            <p className="text-xs text-red-600 mt-1">Rejection reason: {course.rejection_reason}</p>
+          )}
           {instructors.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {instructors.map((ins) => (
@@ -606,6 +689,27 @@ function CourseCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {course.approval_status === "pending" && (
+            <>
+              <button
+                onClick={onApprove}
+                disabled={approving}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 disabled:opacity-50"
+                title="Approve"
+              >
+                {approving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Approve
+              </button>
+              <button
+                onClick={onReject}
+                disabled={approving}
+                className="btn-outline !py-1.5 !px-2.5 !text-xs text-red-500 border-red-200 hover:bg-red-50 disabled:opacity-50"
+                title="Reject"
+                aria-label="Reject course"
+              >
+                <XCircle size={12} />
+              </button>
+            </>
+          )}
           <button
             onClick={onToggleFeatured}
             disabled={togglingFeatured || course.status !== "active"}

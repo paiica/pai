@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { BookOpen, Users, FileText, ChevronRight } from "lucide-react";
+import { BookOpen, Users, Users2, FileText, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -18,9 +18,18 @@ export default function ProfDashboardPage() {
     token ? ["/prof/courses", token] : null,
     ([url, t]) => fetcher(url, t)
   );
+  const { data: roster } = useSWR(
+    token ? ["/prof/students", token] : null,
+    ([url, t]) => fetcher(url, t)
+  );
 
   const totalEnrollments = certs?.reduce((s: number, c: any) => s + (c.enrollment_count ?? 0), 0) ?? 0;
   const totalModules = certs?.reduce((s: number, c: any) => s + (c.module_count ?? 0), 0) ?? 0;
+  const invitationsAccepted = roster?.reduce((s: number, r: any) => s + (r.invitations_accepted ?? 0), 0) ?? 0;
+  const invitationsSent = roster?.reduce((s: number, r: any) => s + (r.invitations_sent ?? 0), 0) ?? 0;
+  const coursesCreated = certs?.filter((c: any) => c.created_by === user?.id).length ?? 0;
+  const coursesPending = certs?.filter((c: any) => c.approval_status === "pending").length ?? 0;
+  const coursesApproved = certs?.filter((c: any) => c.created_by && c.approval_status === "approved").length ?? 0;
 
   const firstName = user?.profile?.first_name ?? "Professor";
 
@@ -34,11 +43,31 @@ export default function ProfDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
         {[
           { label: "Assigned Courses", value: certs?.length ?? 0, icon: BookOpen, color: "text-navy-700 bg-navy-50" },
           { label: "Active Students", value: totalEnrollments, icon: Users, color: "text-gold-600 bg-gold-50" },
           { label: "Total Modules", value: totalModules, icon: FileText, color: "text-emerald-700 bg-emerald-50" },
+          { label: "My Students", value: roster?.length ?? 0, icon: Users2, color: "text-purple-700 bg-purple-50" },
+          { label: "Invitations Accepted", value: `${invitationsAccepted}/${invitationsSent}`, icon: Users2, color: "text-blue-700 bg-blue-50" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card p-5 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+              <Icon size={22} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-navy-900">{value}</p>
+              <p className="text-sm text-slate-500">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {[
+          { label: "Courses Created", value: coursesCreated, icon: BookOpen, color: "text-navy-700 bg-navy-50" },
+          { label: "Pending Approval", value: coursesPending, icon: FileText, color: "text-amber-700 bg-amber-50" },
+          { label: "Approved by PAII", value: coursesApproved, icon: BookOpen, color: "text-emerald-700 bg-emerald-50" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-5 flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
@@ -96,7 +125,17 @@ export default function ProfDashboardPage() {
       </div>
 
       {/* Quick links */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link href="/students" className="card p-5 hover:shadow-md transition-shadow flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-50 text-purple-700 rounded-lg flex items-center justify-center">
+            <Users2 size={18} />
+          </div>
+          <div>
+            <p className="font-semibold text-navy-900">My Students</p>
+            <p className="text-sm text-slate-500">Add students, share courses</p>
+          </div>
+          <ChevronRight size={16} className="ml-auto text-slate-300" />
+        </Link>
         <Link href="/grades" className="card p-5 hover:shadow-md transition-shadow flex items-center gap-3">
           <div className="w-10 h-10 bg-amber-50 text-amber-700 rounded-lg flex items-center justify-center">
             <FileText size={18} />

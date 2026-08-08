@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowRight, Play, ChevronRight,
-  Clock, CheckCircle2, GraduationCap, LayoutDashboard, FileText,
+  Clock, CheckCircle2, GraduationCap, LayoutDashboard, FileText, Mail,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -219,6 +219,11 @@ export default function StudentDashboard() {
     accessToken ? ["/users/me/profile", accessToken] : null,
     ([url, t]) => fetcher(url, t),
   );
+  const { data: invitations } = useSWR(
+    accessToken ? ["/me/course-invitations", accessToken] : null,
+    ([url, t]) => fetcher(url, t),
+  );
+  const pendingInvitations: any[] = (invitations ?? []).filter((i: any) => i.status === "pending");
 
   const profile = profileData?.profile ?? profileData;
   const paiId   = profile?.pai_id ?? null;
@@ -325,6 +330,25 @@ export default function StudentDashboard() {
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
+
+        {/* Pending course invitations */}
+        {pendingInvitations.length > 0 && (
+          <Link
+            href="/invitations"
+            className="flex items-center gap-4 rounded-2xl bg-gold-50 border border-gold-200 p-5 hover:bg-gold-100 transition-colors"
+          >
+            <div className="w-11 h-11 rounded-xl bg-gold-500 text-white flex items-center justify-center flex-shrink-0">
+              <Mail size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-navy-900">
+                You have {pendingInvitations.length} pending course invitation{pendingInvitations.length !== 1 ? "s" : ""}
+              </p>
+              <p className="text-sm text-slate-500">Tap to review and accept or decline.</p>
+            </div>
+            <ChevronRight size={18} className="text-navy-400 flex-shrink-0" />
+          </Link>
+        )}
 
         {/* Your Certifications */}
         <section>

@@ -2,6 +2,7 @@ import { Injectable, ExecutionContext, UnauthorizedException } from "@nestjs/com
 import { AuthGuard } from "@nestjs/passport";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { IS_OPTIONAL_AUTH_KEY } from "../decorators/optional-auth.decorator";
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard("jwt") {
@@ -18,7 +19,12 @@ export class JwtAuthGuard extends AuthGuard("jwt") {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any): any {
+  handleRequest(err: any, user: any, info: any, context: ExecutionContext): any {
+    const isOptional = this.reflector.getAllAndOverride<boolean>(IS_OPTIONAL_AUTH_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isOptional) return user || undefined;
     if (err || !user) {
       throw new UnauthorizedException("Invalid or expired access token");
     }

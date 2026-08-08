@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
-import { ArrowLeft, Users, Mail, Phone, MapPin, CheckCircle2, FileText } from "lucide-react";
+import { ArrowLeft, Users, Mail, Phone, MapPin, CheckCircle2, FileText, XCircle, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -11,6 +11,12 @@ import { formatDate } from "@/lib/utils";
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data);
 }
+
+const INVITATION_STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
+  pending:  { label: "Pending",  cls: "badge bg-amber-100 text-amber-700",   icon: Clock },
+  rejected: { label: "Declined", cls: "badge bg-red-100 text-red-600",      icon: XCircle },
+  accepted: { label: "Accepted", cls: "badge bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+};
 
 export default function CourseStudentsPage() {
   const { certId: courseId } = useParams<{ certId: string }>();
@@ -20,6 +26,13 @@ export default function CourseStudentsPage() {
     courseId && token ? [`/prof/courses/${courseId}/students`, token] : null,
     ([url, t]) => fetcher(url, t)
   );
+  const { data: invitations } = useSWR(
+    courseId && token ? [`/prof/courses/${courseId}/invitations`, token] : null,
+    ([url, t]) => fetcher(url, t)
+  );
+  // Accepted invitations are already reflected in the enrolled list above —
+  // this section is only useful for statuses that aren't visible there yet.
+  const pendingOrRejected = (invitations ?? []).filter((i: any) => i.status !== "accepted");
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -92,6 +105,34 @@ export default function CourseStudentsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {pendingOrRejected.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-display font-black text-navy-900 mb-1">Pending &amp; Declined Invitations</h2>
+          <p className="text-slate-500 text-sm mb-4">Students you've invited who haven't enrolled yet.</p>
+          <div className="space-y-2">
+            {pendingOrRejected.map((inv: any) => {
+              const status = INVITATION_STATUS[inv.status] ?? INVITATION_STATUS.pending;
+              const Icon = status.icon;
+              return (
+                <div key={inv.id} className="card p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-navy-900 text-sm truncate">{inv.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{inv.email}</p>
+                  </div>
+                  <div className="text-xs text-slate-400 flex-shrink-0">
+                    Invited {formatDate(inv.invited_at)}
+                    {inv.responded_at && ` · Responded ${formatDate(inv.responded_at)}`}
+                  </div>
+                  <span className={`${status.cls} flex items-center gap-1 flex-shrink-0`}>
+                    <Icon size={11} /> {status.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import {
 import { Role } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { MailService } from "../mail/mail.service";
 import { SubmitAssignmentDto } from "../learning/dto/submit-assignment.dto";
 import { GradeSubmissionDto } from "../courses/dto/grade-submission.dto";
 import { CompleteLessonDto } from "../learning/dto/complete-lesson.dto";
@@ -21,6 +22,7 @@ export class PrepCoursesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private mail: MailService,
     private contentImport: ContentImportService,
     private uploads: UploadsService,
     private aiService: AiService,
@@ -810,7 +812,7 @@ export class PrepCoursesService {
         ) AS instructors
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
-      WHERE c.status = 'active'
+      WHERE c.status = 'active' AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
   }
@@ -823,12 +825,12 @@ export class PrepCoursesService {
              cert.acronym AS cert_acronym, cert.title AS cert_title
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
-      WHERE c.status = 'active' AND c.is_featured = true
+      WHERE c.status = 'active' AND c.is_featured = true AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, userId?: string, role?: Role) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         c.price::float AS price,
@@ -873,7 +875,27 @@ export class PrepCoursesService {
       WHERE c.slug = $1
     `, slug);
     if (!rows.length) throw new NotFoundException("Course not found");
-    return rows[0];
+    const course = rows[0];
+
+    if (!course.is_listed) {
+      const hasAccess = await this.canViewPrivateCourse(course.id, userId, role);
+      if (!hasAccess) throw new NotFoundException("Course not found");
+    }
+    return course;
+  }
+
+  // Private/unlisted courses are only viewable by an admin, someone who
+  // teaches it, or a student who's been invited to it (any invitation
+  // status — a rejected invitation should still let them look back at what
+  // they turned down, they just can't accept it again from here).
+  private async canViewPrivateCourse(courseId: string, userId?: string, role?: Role): Promise<boolean> {
+    if (!userId) return false;
+    if (role === Role.admin || role === Role.super_admin) return true;
+    const [teaches, invited] = await Promise.all([
+      this.prisma.courseTeacher.findFirst({ where: { course_id: courseId, user_id: userId }, select: { id: true } }),
+      this.prisma.courseInvitation.findFirst({ where: { course_id: courseId, student_id: userId }, select: { id: true } }),
+    ]);
+    return !!teaches || !!invited;
   }
 
   // ─── Admin ───────────────────────────────────────────────────────────
@@ -913,6 +935,47 @@ export class PrepCoursesService {
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
+  }
+
+  async adminApproveCourse(courseId: string, adminUserId: string) {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new NotFoundException("Course not found");
+    if (course.approval_status !== "pending") throw new BadRequestException("This course isn't awaiting review");
+
+    const updated = await this.prisma.course.update({
+      where: { id: courseId },
+      data: { approval_status: "approved", is_listed: true, reviewed_by: adminUserId, reviewed_at: new Date() },
+    });
+
+    if (course.created_by) {
+      const creator = await this.prisma.user.findUnique({ where: { id: course.created_by }, select: { email: true, profile: { select: { first_name: true } } } });
+      if (creator) {
+        this.notifications.create(course.created_by, "course_approved", "Course approved", `"${course.title}" has been approved and is now live in the PAII catalog.`).catch(() => {});
+        this.mail.sendCourseApproved({ to: creator.email, firstName: creator.profile?.first_name || "there", courseTitle: course.title }).catch(() => {});
+      }
+    }
+    return updated;
+  }
+
+  async adminRejectCourse(courseId: string, adminUserId: string, reason: string) {
+    if (!reason?.trim()) throw new BadRequestException("A reason is required");
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new NotFoundException("Course not found");
+    if (course.approval_status !== "pending") throw new BadRequestException("This course isn't awaiting review");
+
+    const updated = await this.prisma.course.update({
+      where: { id: courseId },
+      data: { approval_status: "rejected", reviewed_by: adminUserId, reviewed_at: new Date(), rejection_reason: reason.trim() },
+    });
+
+    if (course.created_by) {
+      const creator = await this.prisma.user.findUnique({ where: { id: course.created_by }, select: { email: true, profile: { select: { first_name: true } } } });
+      if (creator) {
+        this.notifications.create(course.created_by, "course_rejected", "Course needs changes", `"${course.title}" was not approved: ${reason.trim()}`).catch(() => {});
+        this.mail.sendCourseRejected({ to: creator.email, firstName: creator.profile?.first_name || "there", courseTitle: course.title, reason: reason.trim() }).catch(() => {});
+      }
+    }
+    return updated;
   }
 
   async adminGetOne(id: string) {
@@ -1574,6 +1637,55 @@ export class PrepCoursesService {
   async profPublishAll(courseId: string, userId: string, role: Role) {
     await this.assertTeacherAccess(courseId, userId, role);
     return this.adminPublishAll(courseId);
+  }
+
+  // ─── Course creation & approval (professor-authored courses) ─────────
+
+  // status: active (not draft) so the course is immediately shareable via
+  // invitation the moment it's created — is_listed: false is the actual
+  // "private" gate, kept separate so approval only controls public catalog
+  // visibility, never enrollment eligibility (see schema.prisma comment on
+  // Course.is_listed for why these can't share one field).
+  async profCreateCourse(userId: string, dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string }) {
+    if (!dto.title?.trim()) throw new BadRequestException("Title is required");
+
+    const base = dto.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    let slug = base || "course";
+    for (let i = 0; ; i++) {
+      const candidate = i === 0 ? slug : `${slug}-${i}`;
+      const existing = await this.prisma.course.findUnique({ where: { slug: candidate }, select: { id: true } });
+      if (!existing) { slug = candidate; break; }
+    }
+
+    const course = await this.prisma.course.create({
+      data: {
+        slug,
+        title: dto.title.trim(),
+        subtitle: dto.subtitle?.trim() || null,
+        description: dto.description?.trim() || null,
+        price: dto.price ?? 0,
+        level: (dto.level as any) ?? "beginner",
+        status: "active",
+        is_listed: false,
+        approval_status: "none",
+        created_by: userId,
+        created_by_role: Role.professor,
+        instructors: { create: { user_id: userId, is_lead: true } },
+      },
+    });
+    return course;
+  }
+
+  async profSubmitForApproval(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    const course = await this.prisma.course.findUniqueOrThrow({ where: { id: courseId } });
+    if (course.approval_status !== "none" && course.approval_status !== "rejected") {
+      throw new BadRequestException(`This course is already ${course.approval_status === "pending" ? "pending review" : "approved"}.`);
+    }
+    return this.prisma.course.update({
+      where: { id: courseId },
+      data: { approval_status: "pending", submitted_at: new Date(), rejection_reason: null },
+    });
   }
 
   // ─── Quiz questions (course builder) ──────────────────────────────────

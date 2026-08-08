@@ -36,6 +36,7 @@ import { CartModule } from "./modules/cart/cart.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { LeadsModule } from "./modules/leads/leads.module";
 import { SupportModule } from "./modules/support/support.module";
+import { ProfessorStudentsModule } from "./modules/professor-students/professor-students.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -87,6 +88,7 @@ import { AppController } from "./app.controller";
     OrganizationsModule,
     LeadsModule,
     SupportModule,
+    ProfessorStudentsModule,
   ],
   controllers: [AppController],
   providers: [

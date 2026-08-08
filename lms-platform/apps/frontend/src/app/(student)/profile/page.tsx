@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
+import Link from "next/link";
 import {
   User, Lock, Bell, CreditCard, FileText, Briefcase,
   GraduationCap, MapPin, Plus, Trash2, ExternalLink,
   Save, Loader2, Eye, EyeOff, Building, Calendar, ChevronDown, ChevronUp,
-  Award,
+  Award, Mail, CheckCircle2, XCircle, ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -757,10 +758,33 @@ function SecuritySection({ token }: { token: string }) {
 
 // ── Communication ─────────────────────────────────────────────────────────────
 
+const NOTIF_TYPE_ICON: Record<string, any> = {
+  course_invitation_received: Mail,
+  course_invitation_accepted: CheckCircle2,
+  course_invitation_rejected: XCircle,
+  course_approved: CheckCircle2,
+  course_rejected: XCircle,
+  certification_recommendation_received: Award,
+  application_submitted: ClipboardList,
+  application_approved: CheckCircle2,
+  application_rejected: XCircle,
+};
+
+const NOTIF_TYPE_LINK: Record<string, string> = {
+  course_invitation_received: "/invitations",
+  certification_recommendation_received: "/invitations",
+};
+
 function CommsSection({ token, profile, mutate }: any) {
+  const router = useRouter();
   const [emailNotif,      setEmailNotif]      = useState(true);
   const [marketingEmails, setMarketingEmails] = useState(false);
   const [saving,          setSaving]          = useState(false);
+
+  const { data: notifications, isLoading: loadingNotifs, mutate: mutateNotifs } = useSWR(
+    token ? ["/notifications", token] : null,
+    ([url, t]) => fetcher(url, t)
+  );
 
   useEffect(() => {
     if (!profile) return;
@@ -778,6 +802,43 @@ function CommsSection({ token, profile, mutate }: any) {
       toast.error(err.message ?? "Failed to save");
     } finally { setSaving(false); }
   }
+
+  async function markRead(id: string) {
+    try {
+      await api.patch(`/notifications/${id}/read`, {}, token);
+      mutateNotifs();
+    } catch {
+      // best-effort
+    }
+  }
+
+  function handleNotificationClick(n: any) {
+    if (!n.read) markRead(n.id);
+    const dest = NOTIF_TYPE_LINK[n.type];
+    if (dest) router.push(dest);
+  }
+
+  async function markAllRead() {
+    try {
+      await api.patch("/notifications/read-all", {}, token);
+      mutateNotifs();
+    } catch {
+      // best-effort
+    }
+  }
+
+  async function clearAll() {
+    if (!confirm("Clear all notifications? This can't be undone.")) return;
+    try {
+      await api.delete("/notifications", token);
+      mutateNotifs();
+    } catch {
+      // best-effort
+    }
+  }
+
+  const notifList: any[] = notifications ?? [];
+  const hasUnread = notifList.some((n) => !n.read);
 
   return (
     <div className="space-y-5">
@@ -799,6 +860,63 @@ function CommsSection({ token, profile, mutate }: any) {
         ))}
       </div>
       <SaveBar saving={saving} onSave={save} />
+
+      <div className="pt-2">
+        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+          <h2 className="text-base font-display font-bold text-navy-900">Recent Notifications</h2>
+          <div className="flex items-center gap-4">
+            {hasUnread && (
+              <button onClick={markAllRead} className="text-xs font-semibold text-navy-600 hover:underline">
+                Mark all read
+              </button>
+            )}
+            {notifList.length > 0 && (
+              <button onClick={clearAll} className="text-xs font-semibold text-slate-400 hover:text-red-600 hover:underline">
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+
+        {loadingNotifs ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-14 rounded-xl animate-pulse bg-slate-100" />)}
+          </div>
+        ) : notifList.length === 0 ? (
+          <div className="p-6 text-center border border-slate-200 rounded-xl">
+            <Bell size={24} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-sm text-slate-400">No notifications yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {notifList.slice(0, 10).map((n: any) => {
+              const Icon = NOTIF_TYPE_ICON[n.type] ?? Bell;
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className={`w-full text-left flex items-start gap-3 p-4 border rounded-xl transition-colors ${!n.read ? "bg-navy-50/40 border-navy-100" : "border-slate-200"}`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-navy-50 text-navy-700 flex items-center justify-center flex-shrink-0">
+                    <Icon size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800">{n.title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{n.body}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">{new Date(n.created_at).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                  </div>
+                  {!n.read && <span className="w-2 h-2 rounded-full bg-navy-600 flex-shrink-0 mt-1.5" />}
+                </button>
+              );
+            })}
+            {notifList.length > 10 && (
+              <Link href="/notifications" className="block text-center text-xs font-semibold text-navy-600 hover:underline pt-2">
+                View all {notifList.length} notifications
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

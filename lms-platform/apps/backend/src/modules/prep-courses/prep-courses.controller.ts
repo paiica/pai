@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Role } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
+import { OptionalAuth } from "../../common/decorators/optional-auth.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { PrepCoursesService } from "./prep-courses.service";
@@ -185,10 +187,10 @@ export class PrepCoursesController {
     return this.service.getRecommendedCoursesByCert(certificationId);
   }
 
-  @Public()
+  @OptionalAuth()
   @Get(":slug")
-  @ApiOperation({ summary: "Get prep course by slug" })
-  findOne(@Param("slug") slug: string) {
-    return this.service.findBySlug(slug);
+  @ApiOperation({ summary: "Get prep course by slug — publicly listed courses are open to anyone; private/unlisted courses require the caller to teach it, be invited to it, or be an admin" })
+  findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role) {
+    return this.service.findBySlug(slug, userId, role);
   }
 }

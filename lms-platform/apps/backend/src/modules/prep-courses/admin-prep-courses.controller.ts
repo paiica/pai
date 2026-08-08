@@ -8,6 +8,7 @@ import { PrepCoursesService } from "./prep-courses.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 
 // In-memory storage that avoids importing multer v2 directly (ESM-only
 // package) — same pattern as ai.controller.ts / uploads.controller.ts.
@@ -39,6 +40,25 @@ export class AdminPrepCoursesController {
   @ApiOperation({ summary: "List all course enrollments with student details" })
   getEnrollments() {
     return this.service.adminGetEnrollments();
+  }
+
+  @Post(":courseId/approve")
+  @ApiOperation({ summary: "Approve a professor-submitted course — publishes it to the public catalog" })
+  approveCourse(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") adminUserId: string,
+  ) {
+    return this.service.adminApproveCourse(courseId, adminUserId);
+  }
+
+  @Post(":courseId/reject")
+  @ApiOperation({ summary: "Reject a professor-submitted course, with a reason" })
+  rejectCourse(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @Body() dto: { reason: string },
+    @CurrentUser("id") adminUserId: string,
+  ) {
+    return this.service.adminRejectCourse(courseId, adminUserId, dto.reason);
   }
 
   @Delete("enrollments/:enrollmentId")

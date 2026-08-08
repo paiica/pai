@@ -469,6 +469,15 @@ export class UsersService {
   }
 
   async changeRole(userId: string, role: Role, affiliateAccess?: boolean, canViewExamAnswers?: boolean, organizationId?: string) {
+    // Fetched before the update so we can tell a genuine grant (wasn't
+    // professor, now is) from an admin re-saving other fields on someone
+    // who already holds the role — the latter must not re-send the email.
+    const before = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, profile: { select: { first_name: true } } },
+    });
+    if (!before) throw new NotFoundException("User not found");
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -480,6 +489,10 @@ export class UsersService {
       },
       select: { id: true, email: true, role: true, can_view_exam_answers: true },
     });
+
+    if (role === Role.professor && before.role !== Role.professor) {
+      this.mail.sendProfessorGranted({ to: updated.email, firstName: before.profile?.first_name ?? "there" }).catch(() => {});
+    }
 
     const wantsAffiliate = affiliateAccess ?? (role === ("sales_rep" as Role));
     if (wantsAffiliate) {
@@ -529,10 +542,23 @@ export class UsersService {
   }
 
   async bulkChangeRole(ids: string[], role: Role, affiliateAccess?: boolean) {
+    // Same before/after check as changeRole, batched — only the users who
+    // weren't already professors get the email.
+    const newlyProfessor = role === Role.professor
+      ? await this.prisma.user.findMany({
+          where: { id: { in: ids }, role: { not: Role.professor } },
+          select: { email: true, profile: { select: { first_name: true } } },
+        })
+      : [];
+
     const result = await this.prisma.user.updateMany({
       where: { id: { in: ids } },
       data: { role },
     });
+
+    for (const u of newlyProfessor) {
+      this.mail.sendProfessorGranted({ to: u.email, firstName: u.profile?.first_name ?? "there" }).catch(() => {});
+    }
 
     if (affiliateAccess) {
       const existing = await this.prisma.affiliateProfile.findMany({

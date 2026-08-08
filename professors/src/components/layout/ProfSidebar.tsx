@@ -3,27 +3,44 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import useSWR from "swr";
 import {
-  BookOpen, LayoutDashboard, FileText, Award,
+  BookOpen, LayoutDashboard, FileText, Award, Users2, Compass, Bell,
   ChevronLeft, ChevronRight, LogOut, Shield, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
+import { api } from "@/lib/api";
 
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/students", icon: Users2, label: "My Students" },
   { href: "/courses", icon: BookOpen, label: "My Courses" },
+  { href: "/browse", icon: Compass, label: "Online Tools" },
   { href: "/certifications", icon: Award, label: "Certifications" },
   { href: "/grades", icon: FileText, label: "Submissions" },
+  { href: "/notifications", icon: Bell, label: "Notifications" },
   { href: "/profile", icon: User, label: "My Profile" },
 ];
+
+function fetcher(url: string, token: string) {
+  return api.get<any>(url, token).then((r: any) => r.data);
+}
 
 export function ProfSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.accessToken);
   const [collapsed, setCollapsed] = useState(false);
+
+  const { data: countData } = useSWR(
+    token ? ["/notifications/unread-count", token] : null,
+    ([url, t]) => fetcher(url, t),
+    { refreshInterval: 30000 }
+  );
+  const unreadCount = countData?.count ?? 0;
 
   async function handleLogout() {
     await logout();
@@ -58,6 +75,7 @@ export function ProfSidebar() {
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {NAV.map(({ href, icon: Icon, label }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
+          const isNotifications = href === "/notifications";
           return (
             <Link
               key={href}
@@ -70,7 +88,14 @@ export function ProfSidebar() {
                   : "text-navy-300 hover:bg-navy-700 hover:text-white"
               )}
             >
-              <Icon size={18} className="flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <Icon size={18} />
+                {isNotifications && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </div>
               {!collapsed && label}
             </Link>
           );

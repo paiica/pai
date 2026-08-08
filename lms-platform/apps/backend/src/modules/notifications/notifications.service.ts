@@ -40,4 +40,8 @@ export class NotificationsService {
     });
     return { count };
   }
+
+  async clearAll(userId: string) {
+    return this.prisma.notification.deleteMany({ where: { user_id: userId } });
+  }
 }

@@ -117,7 +117,7 @@ export class PaymentsService {
 
   // ─── Course checkout (direct enrollment) ────────────────────────────────────
 
-  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string) {
+  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string, extraMetadata?: Record<string, string>) {
     const courses = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM lms.courses WHERE id = $1 AND status = 'active'`, courseId
     );
@@ -197,6 +197,7 @@ export class PaymentsService {
           promo_id: promoId || "",
           original_price: String(course.price),
           member_discount_percentage: promoId ? "0" : String(memberDiscountInfo.percentage),
+          ...extraMetadata,
         },
         line_items: [{
           price_data: {
@@ -900,7 +901,7 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code, organization_id } = session.metadata || {};
+    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code, organization_id, invitation_id } = session.metadata || {};
 
     // Guest event registration — no user_id, handled entirely separately from
     // the account-based flows below (no Payment record, no affiliate
@@ -945,6 +946,20 @@ export class PaymentsService {
       const rows = await this.prisma.$queryRawUnsafe<any[]>(`SELECT title FROM lms.courses WHERE id = $1`, course_id);
       description = rows[0] ? `Course: ${rows[0].title}` : "Course Enrollment";
       await this.prisma.cartItem.deleteMany({ where: { user_id, course_id } });
+
+      // Paid acceptance of a professor's course invitation — the invite
+      // endpoint couldn't enroll synchronously (unlike the free path), so
+      // it deferred to this webhook. Non-critical if the invitation was
+      // since deleted or already resolved another way.
+      if (invitation_id) {
+        const courseEnrollment = await this.prisma.courseEnrollment.findUnique({
+          where: { user_id_course_id: { user_id, course_id } },
+        });
+        await this.prisma.courseInvitation.update({
+          where: { id: invitation_id },
+          data: { status: "accepted", payment_status: "paid", enrollment_id: courseEnrollment?.id, responded_at: new Date() },
+        }).catch(() => {});
+      }
 
     } else if (checkout_type === "certification" && certification_id) {
       // Look for any in-flight application — if one exists, NEVER auto-enroll;

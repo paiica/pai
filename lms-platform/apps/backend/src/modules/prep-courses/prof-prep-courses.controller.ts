@@ -40,6 +40,25 @@ export class ProfPrepCoursesController {
     return this.service.profGetMyCourses(userId, role);
   }
 
+  @Post()
+  @ApiOperation({ summary: "Create a new course — private until submitted and approved" })
+  createCourse(
+    @Body() dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string },
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.service.profCreateCourse(userId, dto);
+  }
+
+  @Post(":courseId/submit-for-approval")
+  @ApiOperation({ summary: "Submit a course for admin review" })
+  submitForApproval(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profSubmitForApproval(courseId, userId, role);
+  }
+
   @Get(":courseId")
   @ApiOperation({ summary: "Get course with full module/lesson tree (builder view)" })
   getCourse(

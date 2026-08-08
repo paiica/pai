@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  LayoutDashboard, Users, BookOpen, Award, GraduationCap,
+  LayoutDashboard, Users, Users2, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
   Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { useAuthStore } from "@/store/auth.store";
 // ── Tab keys ──────────────────────────────────────────────────────────────────
 export const ADMIN_TAB_KEYS = [
   "dashboard", "applications", "assignments", "exam_sessions",
-  "users", "students", "blog", "pages", "online_tools", "events", "leads",
+  "users", "students", "professors", "blog", "pages", "online_tools", "events", "leads",
   "sales", "payments", "prep_courses", "certificates", "design", "settings",
 ] as const;
 
@@ -27,6 +27,7 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
   exam_sessions: { label: "Exam Sessions",    description: "Schedule & manage exams" },
   users:         { label: "Users",            description: "User management" },
   students:      { label: "Students",         description: "Full student profiles — courses, certificates, renewals, payments" },
+  professors:    { label: "Professors",       description: "Professor roster, courses, invitations & recommendations" },
   blog:          { label: "Blog",             description: "Blog posts" },
   pages:         { label: "Pages",            description: "Static pages" },
   online_tools:  { label: "Online Tools",     description: "Online tools catalog" },
@@ -49,6 +50,7 @@ const NAV = [
   { href: "/exam-sessions",label: "Exam Sessions", icon: CalendarDays,                tab: "exam_sessions"  },
   { href: "/users",        label: "Users",         icon: Users,                       tab: "users"          },
   { href: "/students",     label: "Students",      icon: GraduationCap,               tab: "students"       },
+  { href: "/professors",   label: "Professors",    icon: Users2,                      tab: "professors"     },
   { href: "/blog",         label: "Blog",          icon: Rss,                         tab: "blog"           },
   { href: "/leads",        label: "Leads",         icon: Magnet,                      tab: "leads"          },
   { href: "/pages",        label: "Pages",         icon: FileText,                    tab: "pages"          },

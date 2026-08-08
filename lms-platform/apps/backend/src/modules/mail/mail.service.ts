@@ -17,6 +17,7 @@ export class MailService {
   private readonly envResend: Resend | null;
   private readonly envFrom: string;
   private readonly frontendUrl: string;
+  private readonly professorUrl: string;
   private readonly supportEmail: string;
 
   constructor(private config: ConfigService, private settings: SiteSettingsService) {
@@ -26,6 +27,7 @@ export class MailService {
     const fromAddr = config.get<string>("EMAIL_FROM", "noreply@paii.ca");
     this.envFrom = `${fromName} <${fromAddr}>`;
     this.frontendUrl = config.get<string>("FRONTEND_URL", "http://localhost:3001");
+    this.professorUrl = config.get<string>("PROFESSOR_URL", "https://professors.paii.ca");
     this.supportEmail = config.get<string>("SUPPORT_EMAIL", "support@paii.ca");
   }
 
@@ -118,6 +120,45 @@ export class MailService {
     return this.send({ to, subject: subject ?? "Reset your PAII password", html });
   }
 
+  // Fired from UsersService.changeRole/bulkChangeRole only on the actual
+  // transition into professor — not on every unrelated edit while someone
+  // already holds the role. Unlike sendEmployeeInvite, this is always an
+  // existing account, so it links straight to login rather than a
+  // password-setup token.
+  async sendProfessorGranted(opts: { to: string; firstName: string; baseUrl?: string }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("professor_granted");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    // Professors sign in at professors.paii.ca, a separate app from the
+    // student frontend this.frontendUrl points at.
+    const link = `${opts.baseUrl ?? this.professorUrl}/login`;
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, link })
+      : this.wrapper(this.professorGrantedBody(opts.firstName, link));
+    return this.send({ to: opts.to, subject: subject ?? "You've been granted Professor access on PAII", html });
+  }
+
+  async sendCourseApproved(opts: { to: string; firstName: string; courseTitle: string; baseUrl?: string }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("course_approved");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.professorUrl}/courses`;
+    const resolvedSubject = (subject ?? "Your course was approved: {courseTitle}").replace("{courseTitle}", opts.courseTitle);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, courseTitle: opts.courseTitle, link })
+      : this.wrapper(this.courseApprovedBody(opts.firstName, opts.courseTitle, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  async sendCourseRejected(opts: { to: string; firstName: string; courseTitle: string; reason: string; baseUrl?: string }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("course_rejected");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.professorUrl}/courses`;
+    const resolvedSubject = (subject ?? "Your course needs changes: {courseTitle}").replace("{courseTitle}", opts.courseTitle);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, courseTitle: opts.courseTitle, reason: opts.reason, link })
+      : this.wrapper(this.courseRejectedBody(opts.firstName, opts.courseTitle, opts.reason, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   // Reuses the same underlying set-a-password token mechanism as
   // sendPasswordResetEmail — the invited employee logs into the same
   // student frontend everyone else uses (org-portal is only for the org
@@ -132,6 +173,55 @@ export class MailService {
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, orgName: opts.orgName, certTitles: opts.certTitles.join(", "), link })
       : this.wrapper(this.employeeInviteBody(opts.firstName, opts.orgName, opts.certTitles, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  // Same set-a-password token mechanism as sendEmployeeInvite, for a
+  // professor adding a brand-new student to their roster (not yet
+  // inviting them to a specific course — that's sendCourseInvitation).
+  async sendStudentInvite(opts: {
+    to: string; firstName: string; professorName: string; token: string; baseUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("student_invite");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.frontendUrl}/reset-password?token=${opts.token}`;
+    const resolvedSubject = (subject ?? "{professorName} invited you to PAII").replace("{professorName}", opts.professorName);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, link })
+      : this.wrapper(this.studentInviteBody(opts.firstName, opts.professorName, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  // For a student who already has a PAII account being invited to a
+  // specific course — no token/password-setup, just a link to sign in.
+  async sendCourseInvitation(opts: {
+    to: string; firstName: string; professorName: string; courseTitle: string; isPaid: boolean; isRecommendation?: boolean; baseUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("course_invitation");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.frontendUrl}/dashboard`;
+    const resolvedSubject = (subject ?? (opts.isRecommendation ? "Course recommendation: {courseTitle}" : "New course invitation: {courseTitle}")).replace("{courseTitle}", opts.courseTitle);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, courseTitle: opts.courseTitle, link })
+      : this.wrapper(this.courseInvitationBody(opts.firstName, opts.professorName, opts.courseTitle, opts.isPaid, !!opts.isRecommendation, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  // Certification recommendations have no accept/reject/checkout action —
+  // the student still has to independently complete the admin-reviewed
+  // Application flow, so this just points them at the certifications list
+  // in their own portal (same link convention certificate-renewal emails
+  // in this file already use).
+  async sendCertificationRecommendation(opts: {
+    to: string; firstName: string; professorName: string; certTitle: string; certSlug: string; baseUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("certification_recommendation");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.frontendUrl}/certifications`;
+    const resolvedSubject = (subject ?? "Certification recommendation: {certTitle}").replace("{certTitle}", opts.certTitle);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, certTitle: opts.certTitle, link })
+      : this.wrapper(this.certificationRecommendationBody(opts.firstName, opts.professorName, opts.certTitle, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -669,6 +759,46 @@ export class MailService {
     `;
   }
 
+  private professorGrantedBody(firstName: string, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">An administrator has granted you <strong>Professor</strong> access on PAII. You can now manage courses, grade assignments, and access the professor tools from your dashboard.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Go to Dashboard</a>
+      </div>
+      <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;line-height:1.6">Or copy this link into your browser:</p>
+      <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all">${link}</p>
+      <p style="margin:0;font-size:13px;color:#94a3b8">If you weren't expecting this, contact PAII support.</p>
+    `;
+  }
+
+  private courseApprovedBody(firstName: string, courseTitle: string, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Good news — your course <strong>${courseTitle}</strong> has been reviewed and approved. It's now part of the PAII course catalog, and you can share it with your students at any time.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View My Courses</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8">Or copy this link into your browser: ${link}</p>
+    `;
+  }
+
+  private courseRejectedBody(firstName: string, courseTitle: string, reason: string, link: string): string {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Your course <strong>${courseTitle}</strong> wasn't approved for the public PAII catalog this time. It's still fully usable — you can keep sharing it privately with your own students, or revise and resubmit it.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b">Reviewer feedback</p>
+        <p style="margin:6px 0 0;font-size:14px;color:#7f1d1d">${esc(reason)}</p>
+      </div>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View My Courses</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8">Or copy this link into your browser: ${link}</p>
+    `;
+  }
+
   private employeeInviteBody(firstName: string, orgName: string, certTitles: string[], link: string): string {
     const certList = certTitles.map(t => `<li style="margin:0 0 4px">${t}</li>`).join("");
     return `
@@ -682,6 +812,50 @@ export class MailService {
       <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;line-height:1.6">Or copy this link into your browser:</p>
       <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all">${link}</p>
       <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren't expecting this, contact ${orgName} or PAII support.</p>
+    `;
+  }
+
+  private studentInviteBody(firstName: string, professorName: string, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6"><strong>${professorName}</strong> has invited you to join PAII. Set a password to activate your account — your professor will be able to share courses with you once you're set up.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">Set Your Password</a>
+      </div>
+      <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;line-height:1.6">Or copy this link into your browser:</p>
+      <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all">${link}</p>
+      <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren't expecting this, contact PAII support.</p>
+    `;
+  }
+
+  private courseInvitationBody(firstName: string, professorName: string, courseTitle: string, isPaid: boolean, isRecommendation: boolean, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6"><strong>${professorName}</strong> ${isRecommendation ? "recommends a course for you" : "has invited you to join a course"}:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a">${courseTitle}</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#94a3b8">${isPaid ? "Payment required to enroll" : "Free"}</p>
+      </div>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Sign in to your PAII dashboard to accept or decline this invitation.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View Invitation</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8">If you weren't expecting this, you can safely ignore this email.</p>
+    `;
+  }
+
+  private certificationRecommendationBody(firstName: string, professorName: string, certTitle: string, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6"><strong>${professorName}</strong> recommends a certification for you:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a">${certTitle}</p>
+      </div>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Sign in to your PAII portal to learn more and start your application.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View Certifications</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8">If you weren't expecting this, you can safely ignore this email.</p>
     `;
   }
 

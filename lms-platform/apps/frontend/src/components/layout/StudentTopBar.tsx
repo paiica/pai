@@ -7,6 +7,7 @@ import { ShoppingCart, X, Award, BookOpen, LogOut, User, ChevronDown } from "luc
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
 import { cn } from "@/lib/utils";
+import NotificationBell from "./NotificationBell";
 
 export default function StudentTopBar() {
   const [mounted,   setMounted]   = useState(false);
@@ -123,6 +124,9 @@ export default function StudentTopBar() {
           </div>
         )}
       </div>
+
+      {/* Notifications */}
+      <NotificationBell />
 
       {/* Divider */}
       <span className="h-4 w-px bg-slate-200" />

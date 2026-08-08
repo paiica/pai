@@ -242,6 +242,12 @@ enum NotificationType {
   assignment_submitted
   assignment_graded
   system_announcement
+  course_invitation_received
+  course_invitation_accepted
+  course_invitation_rejected
+  course_approved
+  course_rejected
+  certification_recommendation_received
 
   @@schema("lms")
 }
@@ -277,6 +283,15 @@ enum CourseStatus {
   draft
   active
   archived
+
+  @@schema("lms")
+}
+
+enum CourseApprovalStatus {
+  none
+  pending
+  approved
+  rejected
 
   @@schema("lms")
 }
@@ -355,6 +370,14 @@ model User {
   granted_course_waivers   EnrollmentCourseWaiver[] @relation("CourseWaiverGrantedBy")
   external_pdu_submissions ExternalPduSubmission[] @relation("ExternalPduSubmissions")
   reviewed_external_pdus   ExternalPduSubmission[] @relation("ExternalPduReviews")
+  professor_students       ProfessorStudent[] @relation("ProfessorStudents")
+  student_professors       ProfessorStudent[] @relation("StudentProfessors")
+  invitations_sent         CourseInvitation[] @relation("ProfessorInvitationsSent")
+  invitations_received     CourseInvitation[] @relation("StudentInvitationsReceived")
+  courses_created          Course[] @relation("CourseCreatedBy")
+  courses_reviewed         Course[] @relation("CourseReviewedBy")
+  cert_recommendations_sent     CertificationRecommendation[] @relation("ProfessorCertRecommendationsSent")
+  cert_recommendations_received CertificationRecommendation[] @relation("StudentCertRecommendationsReceived")
 
   @@index([email])
   @@map("users")
@@ -538,6 +561,7 @@ model Certification {
   affiliate_leads        AffiliateLead[]
   affiliate_commissions  AffiliateCommission[]
   cart_items             CartItem[]
+  professor_recommendations CertificationRecommendation[]
 
   @@index([slug])
   @@index([status])
@@ -728,6 +752,25 @@ model Course {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
+  // Professor-authored courses only — null/default values below leave every
+  // existing admin-created course completely untouched. `status` (above)
+  // still governs whether the course is enrollable at all; `is_listed` is a
+  // SEPARATE gate for the public catalog specifically, so a private/
+  // unapproved professor course can be `status: active` (shareable via
+  // invitation the moment it's created) while staying out of public
+  // listings until an admin approves it — see prep-courses.service.ts's
+  // findAll/findFeatured for where is_listed is enforced.
+  created_by       String?
+  creator          User?    @relation("CourseCreatedBy", fields: [created_by], references: [id])
+  created_by_role  Role?
+  approval_status  CourseApprovalStatus @default(none)
+  is_listed        Boolean  @default(true)
+  rejection_reason String?
+  submitted_at     DateTime?
+  reviewed_at      DateTime?
+  reviewed_by      String?
+  reviewer         User?    @relation("CourseReviewedBy", fields: [reviewed_by], references: [id])
+
   modules          Module[]
   instructors      CourseTeacher[]
   enrollments      CourseEnrollment[]
@@ -737,6 +780,7 @@ model Course {
   affiliate_commissions  AffiliateCommission[]
   documents        CourseDocument[]
   cart_items       CartItem[]
+  invitations      CourseInvitation[]
 
   // Prerequisites/co-requisites — self-referential. `prerequisites` = rows
   // where this course is the one being gated ("this course requires X");
@@ -783,6 +827,105 @@ model CourseTeacher {
 
   @@unique([course_id, user_id])
   @@map("course_teachers")
+  @@schema("lms")
+}
+
+// Many-to-many: a student can belong to multiple professors' rosters, and a
+// professor's roster is distinct from actual course enrollment — being on
+// this list just means the professor can invite this student to courses,
+// nothing more. `status` lets a professor remove someone from their roster
+// (Remove Student Association) without touching the student's own account
+// or their past invitation history, which still references student_id
+// directly rather than through this row.
+model ProfessorStudent {
+  id           String                 @id @default(uuid())
+  professor_id String
+  professor    User                   @relation("ProfessorStudents", fields: [professor_id], references: [id], onDelete: Cascade)
+  student_id   String
+  student      User                   @relation("StudentProfessors", fields: [student_id], references: [id], onDelete: Cascade)
+  status       ProfessorStudentStatus @default(active)
+  created_at   DateTime               @default(now())
+
+  @@unique([professor_id, student_id])
+  @@map("professor_students")
+  @@schema("lms")
+}
+
+enum ProfessorStudentStatus {
+  active
+  removed
+
+  @@schema("lms")
+}
+
+// A professor sharing a Course with one of their students. Deliberately
+// Course-only for now — Certification enrollment already goes through the
+// Application/admin-review gate even on a $0 purchase, a materially
+// different flow than this one; adding that as a second invitation type is
+// a natural follow-up once this is proven, not part of this pass.
+//
+// No hard DB uniqueness on (professor_id, student_id, course_id): enforced
+// in the service layer instead, since "resend after rejection" needs to
+// reset an existing row back to pending rather than fail on a duplicate.
+model CourseInvitation {
+  id               String                 @id @default(uuid())
+  professor_id     String
+  professor        User                   @relation("ProfessorInvitationsSent", fields: [professor_id], references: [id], onDelete: Cascade)
+  student_id       String
+  student          User                   @relation("StudentInvitationsReceived", fields: [student_id], references: [id], onDelete: Cascade)
+  course_id        String
+  course           Course                 @relation(fields: [course_id], references: [id], onDelete: Cascade)
+
+  status           CourseInvitationStatus @default(pending)
+  invited_at       DateTime               @default(now())
+  responded_at     DateTime?
+  rejection_reason String?
+  // null = free course (n/a); "pending" = paid, awaiting checkout; "paid" = paid and confirmed
+  payment_status   String?
+  // true when the professor doesn't teach this course (browsed the public
+  // catalog and recommended it) — false for invitations to a course they teach
+  is_recommendation Boolean @default(false)
+  // Set to the resulting CourseEnrollment.id once accept succeeds (free path immediately, paid path after webhook fulfillment)
+  enrollment_id    String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([student_id, status])
+  @@index([professor_id, course_id])
+  @@map("course_invitations")
+  @@schema("lms")
+}
+
+// A professor pointing a student at one of PAII's accredited certifications.
+// Unlike CourseInvitation, there's no accept/reject/enrollment state here —
+// certification enrollment always requires the student to independently
+// complete the admin-reviewed Application flow (applications.service.ts),
+// so "recommending" can't itself produce an enrollment. This is purely an
+// informational, idempotent record used to notify/email the student.
+model CertificationRecommendation {
+  id               String        @id @default(uuid())
+  professor_id     String
+  professor        User          @relation("ProfessorCertRecommendationsSent", fields: [professor_id], references: [id], onDelete: Cascade)
+  student_id       String
+  student          User          @relation("StudentCertRecommendationsReceived", fields: [student_id], references: [id], onDelete: Cascade)
+  certification_id String
+  certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([professor_id, student_id, certification_id])
+  @@index([student_id])
+  @@map("certification_recommendations")
+  @@schema("lms")
+}
+
+enum CourseInvitationStatus {
+  pending
+  accepted
+  rejected
+
   @@schema("lms")
 }
 

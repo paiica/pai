@@ -4,22 +4,16 @@ import { use, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  ChevronRight, CheckCircle, ShoppingCart, Loader2,
-  Clock, BarChart2, BookOpen, PlayCircle, FileText, Lock,
+  ChevronRight, Loader2, Clock, BarChart2, BookOpen, PlayCircle, FileText, Compass,
 } from "lucide-react";
-import { useAuthStore } from "@/store/auth.store";
-import { useCartStore } from "@/store/cart.store";
 import { cn } from "@/lib/utils";
-import toast from "react-hot-toast";
+import { ShareCourseModal } from "@/components/ShareCourseModal";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+const API_BASE  = process.env.NEXT_PUBLIC_API_URL       || "http://localhost:4000/api/v1";
+const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 function fetcher(url: string) {
   return fetch(`${API_BASE}${url}`).then(r => r.json()).then(r => r.data ?? r);
-}
-function authFetcher(url: string, token: string) {
-  return fetch(`${API_BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } })
-    .then(r => r.json()).then(r => r.data ?? r);
 }
 
 const GRADIENTS = [
@@ -49,24 +43,16 @@ const LEVEL_LABEL: Record<string, string> = {
   beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced",
 };
 
-export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function BrowseCourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const token = useAuthStore(s => s.accessToken);
-  const { addItem, hasItem } = useCartStore();
   const [activeTab, setActiveTab] = useState(0);
   const [openModule, setOpenModule] = useState<string | null>(null);
+  const [recommending, setRecommending] = useState(false);
 
   const overviewRef   = useRef<HTMLElement>(null);
   const curriculumRef = useRef<HTMLElement>(null);
 
-  const { data: course, isLoading } = useSWR(
-    token ? [`/prep-courses/${slug}`, token] : `/prep-courses/${slug}`,
-    (key: string | [string, string]) => Array.isArray(key) ? authFetcher(key[0], key[1]) : fetcher(key)
-  );
-  const { data: myEnrollmentsRaw } = useSWR(
-    token ? ["/prep-courses/my/enrollments", token] : null,
-    ([url, t]) => authFetcher(url, t)
-  );
+  const { data: course, isLoading } = useSWR(`/prep-courses/${slug}`, fetcher);
 
   if (isLoading) {
     return (
@@ -81,7 +67,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
       <div className="min-h-screen flex items-center justify-center text-center p-8">
         <div>
           <p className="text-2xl font-display font-black text-navy-900 mb-3">Course not found</p>
-          <Link href="/tools" className="text-sm text-slate-500 hover:text-navy-700">← Back to Online Tools</Link>
+          <Link href="/browse" className="text-sm text-slate-500 hover:text-navy-700">← Back to Online Tools</Link>
         </div>
       </div>
     );
@@ -91,10 +77,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const price     = Number(course.price);
   const modules: any[] = Array.isArray(course.modules) ? course.modules : [];
   const totalLessons = modules.reduce((s: number, m: any) => s + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0);
-  const enrollments: any[] = Array.isArray(myEnrollmentsRaw) ? myEnrollmentsRaw : [];
-  const enrollment = enrollments.find(e => e.course_id === course.id);
-  const enrolled   = !!enrollment;
-  const inCart     = hasItem(course.id);
 
   const tabs = [
     { label: "Overview",    ref: overviewRef,   show: !!course.description },
@@ -106,13 +88,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function handleAddToCart() {
-    addItem({ id: course.id, type: "course", course_id: course.id,
-      title: course.title, subtitle: course.subtitle, price,
-      thumbnail_url: course.thumbnail_url, level: course.level });
-    toast.success("Added to cart");
-  }
-
   return (
     <div className="min-h-screen bg-white">
 
@@ -120,7 +95,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
       <div style={{ background: `linear-gradient(135deg, ${grad.from} 0%, ${grad.to} 100%)` }}>
         {/* Breadcrumb */}
         <div className="max-w-6xl mx-auto px-6 pt-6 pb-2 flex items-center gap-2 text-xs text-navy-700/60">
-          <Link href="/tools" className="hover:text-navy-900 transition-colors font-medium">Online Tools</Link>
+          <Link href="/browse" className="hover:text-navy-900 transition-colors font-medium">Online Tools</Link>
           <ChevronRight size={12} />
           <span className="text-navy-800 font-medium truncate max-w-xs">{course.title}</span>
         </div>
@@ -193,33 +168,12 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {!token ? (
-                    <Link
-                      href={`/login?redirect=/tools/course/${slug}`}
-                      className="px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2"
-                    >
-                      <ShoppingCart size={14} />
-                      {price === 0 ? "Enroll Free" : "Get Started"}
-                    </Link>
-                  ) : enrolled ? (
-                    <Link href={`/learn/course/${enrollment.id}`} target="_blank" rel="noopener noreferrer" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2">
-                      <CheckCircle size={14} /> Access Course
-                    </Link>
-                  ) : inCart ? (
-                    <Link href="/cart" className="px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2">
-                      <ShoppingCart size={14} /> Go to Cart
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={handleAddToCart}
-                      className="px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2"
-                    >
-                      <ShoppingCart size={14} />
-                      {price === 0 ? "Enroll Free" : "Add to Cart"}
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={() => setRecommending(true)}
+                  className="px-6 py-2.5 bg-navy-900 hover:bg-navy-700 text-white text-sm font-bold rounded-full transition-colors inline-flex items-center gap-2"
+                >
+                  <Compass size={14} /> Recommend to Students
+                </button>
               </div>
             </div>
           </div>
@@ -292,9 +246,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                               {lesson.duration_minutes > 0 && (
                                 <span className="text-xs text-slate-400">{lesson.duration_minutes}m</span>
                               )}
-                              {!lesson.is_free_preview && !enrolled && (
-                                <Lock size={12} className="text-slate-300" />
-                              )}
                             </div>
                           );
                         })}
@@ -308,6 +259,16 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         )}
 
       </div>
+
+      {recommending && (
+        <ShareCourseModal
+          courseId={course.id}
+          courseTitle={course.title}
+          itemUrl={`${MARKETING}/courses/${course.slug}`}
+          mode="recommend"
+          onClose={() => setRecommending(false)}
+        />
+      )}
     </div>
   );
 }
