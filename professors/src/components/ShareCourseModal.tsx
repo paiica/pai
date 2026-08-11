@@ -27,7 +27,7 @@ export function ShareCourseModal({
   courseTitle: string;
   onClose: () => void;
   mode?: "share" | "recommend";
-  itemType?: "course" | "certification";
+  itemType?: "course" | "certification" | "program";
   itemUrl?: string;
 }) {
   const token = useAuthStore((s) => s.accessToken)!;
@@ -61,7 +61,7 @@ export function ShareCourseModal({
       .catch(() => toast.error("Could not copy link"));
   }
 
-  const itemLabel = itemType === "certification" ? "certification" : "course";
+  const itemLabel = itemType === "certification" ? "certification" : itemType === "program" ? "program" : "course";
   const shareText = `Check out this ${itemLabel}: ${courseTitle}`;
   const socialLinks = itemUrl ? [
     { label: "LinkedIn", icon: Linkedin, href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(itemUrl)}` },
@@ -76,10 +76,12 @@ export function ShareCourseModal({
     try {
       const endpoint = itemType === "certification"
         ? `/prof/certifications/${courseId}/recommendations`
+        : itemType === "program"
+        ? `/prof/programs/${courseId}/recommendations`
         : `/prof/courses/${courseId}/invitations`;
       const r = await api.post<any>(endpoint, { student_ids: [...selected] }, token);
       setResults(r.data.results);
-      toast.success(itemType === "certification" ? "Recommendations sent" : "Invitations sent");
+      toast.success(itemType === "course" ? "Invitations sent" : "Recommendations sent");
     } catch (err: any) {
       toast.error(err instanceof ApiError ? err.message : "Failed to send");
     } finally {
@@ -109,7 +111,7 @@ export function ShareCourseModal({
 
         {mode === "recommend" && itemUrl && (
           <div className="mb-5 p-3 rounded-xl border border-slate-200 bg-slate-50">
-            <p className="text-xs font-semibold text-slate-500 mb-2">{itemType === "certification" ? "Certification link" : "Course link"}</p>
+            <p className="text-xs font-semibold text-slate-500 mb-2">{itemType === "certification" ? "Certification link" : itemType === "program" ? "Program link" : "Course link"}</p>
             <div className="flex items-center gap-2 mb-3">
               <input
                 readOnly

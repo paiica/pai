@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ForbiddenException, BadRequestException,
+  Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger,
 } from "@nestjs/common";
 // ─── Types ───────────────────────────────────────────────────────────────────
 import { Role } from "@prisma/client";
@@ -13,11 +13,12 @@ import { UpdateProgressDto } from "../learning/dto/update-progress.dto";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
+import { ProgramsService } from "../programs/programs.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 
 @Injectable()
 export class PrepCoursesService {
-  private static readonly MAX_ASSIGNMENT_ATTEMPTS = 2;
+  private readonly logger = new Logger(PrepCoursesService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -26,6 +27,7 @@ export class PrepCoursesService {
     private contentImport: ContentImportService,
     private uploads: UploadsService,
     private aiService: AiService,
+    private programs: ProgramsService,
   ) {}
 
   // ─── Auth helpers ────────────────────────────────────────────────────
@@ -90,7 +92,17 @@ export class PrepCoursesService {
       ORDER BY m.sort_order ASC
     `, enrollment.course_id);
 
-    return { ...enrollment, modules };
+    // If this course is bundled into a Program the student is enrolled in
+    // (most commonly a capstone/internship course), surface that so the
+    // player can show a "back to program" link instead of "My Courses" —
+    // otherwise a student working through it has no way back to the
+    // program dashboard.
+    const programEnrollment = await this.prisma.programEnrollment.findFirst({
+      where: { user_id: userId, program: { courses: { some: { course_id: enrollment.course_id } } } },
+      select: { program: { select: { id: true, title: true } } },
+    });
+
+    return { ...enrollment, modules, program: programEnrollment?.program ?? null };
   }
 
   async getCourseLessonContent(enrollmentId: string, lessonId: string, userId: string) {
@@ -104,6 +116,10 @@ export class PrepCoursesService {
              l.download_url, l.allow_download, l.external_url,
              l.duration_minutes::int, l.passing_score::int, l.max_attempts::int,
              l.max_score::int, l.due_date, l.allow_text_response, l.text_word_limit::int,
+             l.available_from, l.accept_submissions, l.allow_late_submissions,
+             l.late_submission_deadline, l.late_penalty_type, l.late_penalty_value,
+             l.allow_file_upload, l.max_files::int, l.accepted_file_types,
+             l.max_file_size_mb::int, l.rubric_json,
              m.id AS module_id, m.title AS module_title, m.sort_order::int AS module_order
       FROM lms.lessons l
       JOIN lms.modules m ON m.id = l.module_id
@@ -123,8 +139,16 @@ export class PrepCoursesService {
     }
 
     if (lesson.type === 'assignment') {
-      lesson.submission = await this.prisma.assignmentSubmission.findUnique({
-        where: { lesson_id_user_id: { lesson_id: lessonId, user_id: userId } },
+      const attempts = await this.prisma.assignmentSubmission.findMany({
+        where: { lesson_id: lessonId, user_id: userId },
+        include: { files: true },
+        orderBy: { attempt_number: "asc" },
+      });
+      lesson.submission = attempts.find((a) => a.is_latest) ?? null;
+      lesson.submission_attempts = attempts;
+      lesson.resources = await this.prisma.lessonResource.findMany({
+        where: { lesson_id: lessonId },
+        orderBy: { sort_order: "asc" },
       });
     }
 
@@ -302,13 +326,30 @@ export class PrepCoursesService {
     const completedLessons = enrollment.lesson_progress.length;
     const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
+    const justCompleted = pct === 100 && !enrollment.completed_at;
     await this.prisma.courseEnrollment.update({
       where: { id: courseEnrollmentId },
       data: {
         progress_percentage: pct,
-        ...(pct === 100 && !enrollment.completed_at ? { completed_at: new Date() } : {}),
+        ...(justCompleted ? { completed_at: new Date() } : {}),
       },
     });
+
+    // Cheap no-op for the overwhelming majority of course completions that
+    // aren't part of any Program — see ProgramsService.onCourseCompleted.
+    // Awaited (not fire-and-forget) so that by the time this call returns,
+    // any Program completion it triggers has actually been persisted —
+    // callers that immediately re-fetch program/enrollment state right
+    // after marking a lesson complete would otherwise see stale data.
+    // Wrapped in try/catch so a failure here can't break the student's
+    // basic "mark this lesson complete" action.
+    if (justCompleted) {
+      try {
+        await this.programs.onCourseCompleted(enrollment.user_id, enrollment.course_id);
+      } catch (err) {
+        this.logger.error("onCourseCompleted failed", err);
+      }
+    }
   }
 
   // ─── Assignment Submission (student) ──────────────────────────────────
@@ -333,46 +374,91 @@ export class PrepCoursesService {
     if (!lesson.module.course_id || lesson.module.course_id !== enrollment.course_id) {
       throw new ForbiddenException("Lesson is not part of your enrollment");
     }
-    if (!dto.file_url && !dto.text_content) {
+
+    const allFiles = dto.files?.length ? dto.files : (dto.file_url ? [{ file_url: dto.file_url, file_name: dto.file_name ?? "file", file_size: dto.file_size }] : []);
+    if (allFiles.length === 0 && !dto.text_content) {
       throw new BadRequestException("Either file or text content is required");
     }
-
-    const existing = await this.prisma.assignmentSubmission.findUnique({
-      where: { lesson_id_user_id: { lesson_id: lessonId, user_id: userId } },
-    });
-    if (existing) {
-      if (existing.grade !== null && existing.grade !== undefined) {
-        throw new BadRequestException("This assignment has already been graded and can no longer be resubmitted.");
+    if (allFiles.length > 0 && lesson.allow_file_upload === false) {
+      throw new BadRequestException("This assignment does not accept file uploads");
+    }
+    if (dto.text_content && lesson.allow_text_response === false) {
+      throw new BadRequestException("This assignment does not accept a text response");
+    }
+    const maxFiles = lesson.max_files ?? 1;
+    if (allFiles.length > maxFiles) {
+      throw new BadRequestException(`A maximum of ${maxFiles} file${maxFiles === 1 ? "" : "s"} is allowed for this assignment`);
+    }
+    if (lesson.accepted_file_types.length > 0) {
+      for (const f of allFiles) {
+        const ext = "." + (f.file_name.split(".").pop() ?? "").toLowerCase();
+        if (!lesson.accepted_file_types.map((t) => t.toLowerCase()).includes(ext)) {
+          throw new BadRequestException(`File type ${ext} is not accepted. Allowed: ${lesson.accepted_file_types.join(", ")}`);
+        }
       }
-      if (existing.attempt_count >= PrepCoursesService.MAX_ASSIGNMENT_ATTEMPTS) {
-        throw new BadRequestException(`Maximum of ${PrepCoursesService.MAX_ASSIGNMENT_ATTEMPTS} submission attempts reached.`);
+    }
+    const maxSizeBytes = (lesson.max_file_size_mb ?? 10) * 1024 * 1024;
+    for (const f of allFiles) {
+      if (f.file_size && f.file_size > maxSizeBytes) {
+        throw new BadRequestException(`File "${f.file_name}" exceeds the ${lesson.max_file_size_mb ?? 10}MB limit for this assignment`);
       }
     }
 
-    const submission = await this.prisma.assignmentSubmission.upsert({
-      where: { lesson_id_user_id: { lesson_id: lessonId, user_id: userId } },
-      create: {
-        lesson_id: lessonId,
-        user_id: userId,
-        course_enrollment_id: enrollmentId,
-        file_url: dto.file_url,
-        file_name: dto.file_name,
-        file_size: dto.file_size,
-        text_content: dto.text_content,
-        status: "submitted",
-        submitted_at: new Date(),
-        attempt_count: 1,
-      },
-      update: {
-        file_url: dto.file_url,
-        file_name: dto.file_name,
-        file_size: dto.file_size,
-        text_content: dto.text_content,
-        status: "submitted",
-        submitted_at: new Date(),
-        attempt_count: { increment: 1 },
-        updated_at: new Date(),
-      },
+    // ── Availability window + accept-submissions gate ─────────────────────
+    const now = new Date();
+    if (!lesson.accept_submissions) {
+      throw new BadRequestException("Submissions are currently disabled for this assignment");
+    }
+    if (lesson.available_from && now < lesson.available_from) {
+      throw new BadRequestException("This assignment is not yet open for submissions");
+    }
+    let isLate = false;
+    if (lesson.due_date && now > lesson.due_date) {
+      if (!lesson.allow_late_submissions) {
+        throw new BadRequestException("The submission period for this assignment has closed");
+      }
+      if (lesson.late_submission_deadline && now > lesson.late_submission_deadline) {
+        throw new BadRequestException("The late submission period for this assignment has closed");
+      }
+      isLate = true;
+    }
+
+    // ── Attempt cap (reuses the generic Lesson.max_attempts field also used
+    //    by quizzes, rather than a hardcoded/assignment-specific constant) ─
+    const priorAttempts = await this.prisma.assignmentSubmission.count({ where: { lesson_id: lessonId, user_id: userId } });
+    const maxAttempts = lesson.max_attempts ?? 1;
+    if (priorAttempts >= maxAttempts) {
+      throw new BadRequestException(`Maximum of ${maxAttempts} submission attempt${maxAttempts === 1 ? "" : "s"} reached.`);
+    }
+
+    const primaryFile = allFiles[0];
+    const extraFiles = allFiles.slice(1);
+
+    const submission = await this.prisma.$transaction(async (tx) => {
+      // Every submit is a NEW attempt row — never overwrites a prior one, so
+      // attempt history is preserved (see schema comment on is_latest).
+      await tx.assignmentSubmission.updateMany({
+        where: { lesson_id: lessonId, user_id: userId, is_latest: true },
+        data: { is_latest: false },
+      });
+      return tx.assignmentSubmission.create({
+        data: {
+          lesson_id: lessonId,
+          user_id: userId,
+          course_enrollment_id: enrollmentId,
+          file_url: primaryFile?.file_url,
+          file_name: primaryFile?.file_name,
+          file_size: primaryFile?.file_size,
+          text_content: dto.text_content,
+          status: "submitted",
+          submitted_at: now,
+          attempt_count: priorAttempts + 1,
+          attempt_number: priorAttempts + 1,
+          is_latest: true,
+          is_late: isLate,
+          files: extraFiles.length ? { createMany: { data: extraFiles.map((f) => ({ file_url: f.file_url, file_name: f.file_name, file_size: f.file_size })) } } : undefined,
+        },
+      });
     });
 
     for (const teacher of (lesson.module.course?.instructors ?? [])) {
@@ -380,10 +466,25 @@ export class PrepCoursesService {
         teacher.user_id,
         "assignment_submitted",
         "New assignment submission",
-        `A student submitted "${lesson.title}"`,
+        `A student submitted "${lesson.title}"${isLate ? " (late)" : ""}`,
         { lesson_id: lessonId, submission_id: submission.id }
       );
     }
+
+    // Submitting an assignment marks its lesson complete — same as every
+    // other lesson type (video finishing, reading scrolled, quiz passed).
+    // Previously this never happened, so a course made solely of an
+    // assignment (e.g. a program's capstone/internship course) could never
+    // reach 100% progress. Grading is a separate, advisory feedback loop —
+    // it doesn't gate completion, matching how this app has no pass/fail
+    // concept for course progress generally (only certifications do, via
+    // their own proctored exam).
+    await this.prisma.lessonProgress.upsert({
+      where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
+      create: { user_id: userId, course_enrollment_id: enrollmentId, lesson_id: lessonId, completed: true, completed_at: new Date() },
+      update: { completed: true, completed_at: new Date(), updated_at: new Date() },
+    });
+    await this.recalculateCourseProgress(enrollmentId);
 
     return submission;
   }
@@ -428,6 +529,124 @@ export class PrepCoursesService {
     }));
   }
 
+  // ─── My Course Grades (every course enrollment — certification-required
+  // or fully standalone — not just courses tied to one certification) ────
+  // Mirrors LearningService's transcript-style per-course grade averaging
+  // (latest-attempt AssignmentSubmission.grade only, is_latest: true) but
+  // rooted at CourseEnrollment directly instead of a certification
+  // Enrollment, so a purchased-standalone course (no CourseCertRecommendation
+  // at all) still gets a grade breakdown and completion certificate.
+
+  private async computeCourseGradeItems(userId: string, courseId: string) {
+    const lessons = await this.prisma.lesson.findMany({
+      where: { type: { in: ["quiz", "assignment"] }, is_published: true, module: { course_id: courseId } },
+      select: { id: true, title: true, type: true, max_score: true, passing_score: true },
+    });
+    if (!lessons.length) return { items: [] as any[], grade_percentage: null as number | null };
+
+    const lessonIds = lessons.map((l) => l.id);
+    const [quizProgress, assignmentSubs] = await Promise.all([
+      this.prisma.lessonProgress.findMany({ where: { user_id: userId, lesson_id: { in: lessonIds }, quiz_score: { not: null } } }),
+      this.prisma.assignmentSubmission.findMany({ where: { user_id: userId, lesson_id: { in: lessonIds }, grade: { not: null }, is_latest: true } }),
+    ]);
+    const quizScores = new Map(quizProgress.map((p) => [p.lesson_id, p.quiz_score!]));
+    const assignmentGrades = new Map(assignmentSubs.map((s) => [s.lesson_id, { grade: s.grade!, max_grade: s.max_grade, feedback: s.feedback }]));
+
+    const items = lessons.map((l) => ({
+      lesson_id: l.id,
+      course_id: courseId,
+      title: l.title,
+      type: l.type,
+      max_score: l.max_score,
+      passing_score: l.passing_score,
+      ...(l.type === "quiz"
+        ? { score: quizScores.get(l.id) ?? null, passed: quizScores.has(l.id) ? quizScores.get(l.id)! >= (l.passing_score ?? 70) : null }
+        : { grade: assignmentGrades.get(l.id)?.grade ?? null, feedback: assignmentGrades.get(l.id)?.feedback ?? null }
+      ),
+    }));
+
+    const percentages = assignmentSubs.map((s) => (s.grade! / s.max_grade) * 100);
+    const grade_percentage = percentages.length
+      ? Math.round((percentages.reduce((a, b) => a + b, 0) / percentages.length) * 10) / 10
+      : null;
+
+    return { items, grade_percentage };
+  }
+
+  async getMyCourseGrades(userId: string) {
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { user_id: userId },
+      include: { course: { select: { id: true, title: true, slug: true, passing_score: true } } },
+      orderBy: { enrolled_at: "desc" },
+    });
+    if (!enrollments.length) return [];
+
+    const courseIds = enrollments.map((e) => e.course_id);
+    const [moduleCounts, certLinks] = await Promise.all([
+      this.prisma.module.groupBy({ by: ["course_id"], where: { course_id: { in: courseIds } }, _count: { _all: true } }),
+      this.prisma.courseCertRecommendation.findMany({
+        where: { course_id: { in: courseIds }, is_required: true },
+        include: { certification: { select: { id: true, acronym: true, title: true } } },
+      }),
+    ]);
+    const moduleCountByCourse = new Map(moduleCounts.map((m) => [m.course_id, m._count._all]));
+    const certsByCourse = new Map<string, { id: string; acronym: string; title: string }[]>();
+    for (const link of certLinks) {
+      if (!certsByCourse.has(link.course_id)) certsByCourse.set(link.course_id, []);
+      certsByCourse.get(link.course_id)!.push(link.certification);
+    }
+
+    return Promise.all(enrollments.map(async (e) => {
+      const { items, grade_percentage } = await this.computeCourseGradeItems(userId, e.course_id);
+      const passingScore = e.course.passing_score ?? 70;
+      const passed = !!e.completed_at && (grade_percentage == null || grade_percentage >= passingScore);
+      return {
+        course_id: e.course.id,
+        title: e.course.title,
+        slug: e.course.slug,
+        module_count: moduleCountByCourse.get(e.course_id) ?? 0,
+        completed_at: e.completed_at,
+        grade_percentage,
+        passing_score: passingScore,
+        passed,
+        certifications: certsByCourse.get(e.course_id) ?? [],
+        graded_items: items,
+      };
+    }));
+  }
+
+  async getMyCourseCertificate(userId: string, courseId: string) {
+    const enrollment = await this.prisma.courseEnrollment.findFirst({
+      where: { user_id: userId, course_id: courseId },
+      include: { course: { select: { title: true, slug: true, passing_score: true } }, user: { include: { profile: true } } },
+    });
+    if (!enrollment) throw new NotFoundException("You are not enrolled in this course");
+
+    const { grade_percentage } = await this.computeCourseGradeItems(userId, courseId);
+    const passingScore = enrollment.course.passing_score ?? 70;
+    const passed = !!enrollment.completed_at && (grade_percentage == null || grade_percentage >= passingScore);
+    if (!passed) throw new ForbiddenException("You haven't earned a completion certificate for this course yet");
+
+    const certLinks = await this.prisma.courseCertRecommendation.findMany({
+      where: { course_id: courseId, is_required: true },
+      include: { certification: { select: { acronym: true, title: true } } },
+    });
+
+    const studentName = enrollment.user.profile
+      ? `${enrollment.user.profile.first_name ?? ""} ${enrollment.user.profile.last_name ?? ""}`.trim() || enrollment.user.email
+      : enrollment.user.email;
+
+    return {
+      student_name: studentName,
+      course_title: enrollment.course.title,
+      course_slug: enrollment.course.slug,
+      completed_at: enrollment.completed_at,
+      grade_percentage,
+      passing_score: passingScore,
+      certifications: certLinks.map((l) => l.certification),
+    };
+  }
+
   // ─── Students & Submissions (professor) ───────────────────────────────
 
   async getCourseStudents(courseId: string, userId: string, role: Role) {
@@ -444,17 +663,32 @@ export class PrepCoursesService {
     });
   }
 
+  // Default gradebook view — one row per student (their latest attempt).
+  // Full attempt history is available via getSubmissionAttempts().
   async getCourseSubmissions(courseId: string, userId: string, role: Role) {
     await this.assertTeacherAccess(courseId, userId, role);
     return this.prisma.assignmentSubmission.findMany({
       where: {
         lesson: { module: { course_id: courseId } },
+        is_latest: true,
       },
       include: {
         user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, display_name: true } } } },
         lesson: { select: { id: true, title: true, max_score: true, due_date: true } },
+        files: true,
       },
       orderBy: { submitted_at: "desc" },
+    });
+  }
+
+  async getSubmissionAttempts(lessonId: string, studentUserId: string, requesterId: string, role: Role) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, include: { module: true } });
+    if (!lesson || !lesson.module.course_id) throw new NotFoundException("Lesson not found");
+    await this.assertTeacherAccess(lesson.module.course_id, requesterId, role);
+    return this.prisma.assignmentSubmission.findMany({
+      where: { lesson_id: lessonId, user_id: studentUserId },
+      include: { files: true },
+      orderBy: { attempt_number: "asc" },
     });
   }
 
@@ -467,7 +701,7 @@ export class PrepCoursesService {
     if (!submission.lesson.module.course_id) throw new NotFoundException("Submission not found");
     await this.assertTeacherAccess(submission.lesson.module.course_id, graderId, role);
 
-    return this.prisma.assignmentSubmission.update({
+    const graded = await this.prisma.assignmentSubmission.update({
       where: { id: submissionId },
       data: {
         grade: dto.grade,
@@ -477,6 +711,16 @@ export class PrepCoursesService {
         status: "graded",
       },
     });
+
+    await this.notifications.create(
+      submission.user_id,
+      "assignment_graded",
+      "Assignment graded",
+      `Your submission for "${submission.lesson.title}" has been graded: ${dto.grade}/${submission.max_grade}`,
+      { lesson_id: submission.lesson_id, submission_id: submission.id },
+    );
+
+    return graded;
   }
 
   // ─── Recommendations (course ↔ cert, many-to-many) ───────────────────
@@ -885,17 +1129,21 @@ export class PrepCoursesService {
   }
 
   // Private/unlisted courses are only viewable by an admin, someone who
-  // teaches it, or a student who's been invited to it (any invitation
+  // teaches it, a student who's been invited to it (any invitation
   // status — a rejected invitation should still let them look back at what
-  // they turned down, they just can't accept it again from here).
+  // they turned down, they just can't accept it again from here), or a
+  // student enrolled in a Program that bundles it (covers capstone/
+  // internship courses, which are kept unlisted and scoped to that
+  // program's own students — see ProgramCourse.special_type).
   private async canViewPrivateCourse(courseId: string, userId?: string, role?: Role): Promise<boolean> {
     if (!userId) return false;
     if (role === Role.admin || role === Role.super_admin) return true;
-    const [teaches, invited] = await Promise.all([
+    const [teaches, invited, programEnrolled] = await Promise.all([
       this.prisma.courseTeacher.findFirst({ where: { course_id: courseId, user_id: userId }, select: { id: true } }),
       this.prisma.courseInvitation.findFirst({ where: { course_id: courseId, student_id: userId }, select: { id: true } }),
+      this.prisma.programEnrollment.findFirst({ where: { user_id: userId, program: { courses: { some: { course_id: courseId } } } }, select: { id: true } }),
     ]);
-    return !!teaches || !!invited;
+    return !!teaches || !!invited || !!programEnrolled;
   }
 
   // ─── Admin ───────────────────────────────────────────────────────────
@@ -1030,6 +1278,20 @@ export class PrepCoursesService {
     });
     course.prerequisite_course_ids = prereqs.filter((p) => p.type === "prerequisite").map((p) => p.prerequisite_course_id);
     course.corequisite_course_ids = prereqs.filter((p) => p.type === "corequisite").map((p) => p.prerequisite_course_id);
+
+    // Surfaces "this course belongs to Program X" in the Course Manager —
+    // otherwise an unlisted capstone/internship course looks orphaned to an
+    // admin browsing courses, with no indication of which program it's
+    // actually part of.
+    const programMemberships = await this.prisma.programCourse.findMany({
+      where: { course_id: id },
+      include: { program: { select: { id: true, title: true, slug: true, status: true } } },
+    });
+    course.programs = programMemberships.map((pc) => ({
+      id: pc.program.id, title: pc.program.title, slug: pc.program.slug, status: pc.program.status,
+      is_required: pc.is_required, special_type: pc.special_type,
+    }));
+
     return course;
   }
 
@@ -1110,6 +1372,7 @@ export class PrepCoursesService {
       'title', 'subtitle', 'description', 'price', 'status', 'thumbnail_url',
       'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
       'sort_order', 'slug', 'total_lessons', 'is_featured', 'ai_professor_enabled', 'content',
+      'passing_score',
     ];
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -1123,7 +1386,7 @@ export class PrepCoursesService {
         sets.push(`"${key}" = $${p}::lms."CourseLevel"`);
       } else if (['price', 'duration_hours', 'pdu_value'].includes(key)) {
         sets.push(`"${key}" = $${p}::numeric`);
-      } else if (['sort_order', 'total_lessons'].includes(key)) {
+      } else if (['sort_order', 'total_lessons', 'passing_score'].includes(key)) {
         sets.push(`"${key}" = $${p}::int`);
       } else if (key === 'is_featured' || key === 'ai_professor_enabled') {
         sets.push(`"${key}" = $${p}::boolean`);
@@ -1260,6 +1523,203 @@ export class PrepCoursesService {
     return this.adminDeleteDocument(courseId, documentId);
   }
 
+  // ─── Lesson resources (assignment instructor attachments, etc.) ───────
+  // LessonResource existed in the schema with zero backend code anywhere
+  // until now — mirrors the Course Documents CRUD above, just scoped to a
+  // lesson instead of a course.
+
+  async getLessonResources(lessonId: string) {
+    return this.prisma.lessonResource.findMany({
+      where: { lesson_id: lessonId },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }],
+    });
+  }
+
+  async createLessonResource(lessonId: string, dto: { title: string; url: string; file_name?: string; file_type?: string }) {
+    if (!dto.title?.trim()) throw new BadRequestException("Resource title is required");
+    if (!dto.url?.trim()) throw new BadRequestException("File is required");
+    const maxSort = await this.prisma.lessonResource.aggregate({ where: { lesson_id: lessonId }, _max: { sort_order: true } });
+    return this.prisma.lessonResource.create({
+      data: {
+        lesson_id: lessonId,
+        title: dto.title,
+        url: dto.url,
+        file_name: dto.file_name ?? null,
+        file_type: dto.file_type ?? null,
+        sort_order: (maxSort._max.sort_order ?? -1) + 1,
+      },
+    });
+  }
+
+  async updateLessonResource(lessonId: string, resourceId: string, dto: { title?: string; url?: string; file_name?: string }) {
+    const existing = await this.prisma.lessonResource.findFirst({ where: { id: resourceId, lesson_id: lessonId } });
+    if (!existing) throw new NotFoundException("Resource not found");
+    return this.prisma.lessonResource.update({
+      where: { id: resourceId },
+      data: { title: dto.title, url: dto.url, file_name: dto.file_name },
+    });
+  }
+
+  async deleteLessonResource(lessonId: string, resourceId: string) {
+    await this.prisma.lessonResource.deleteMany({ where: { id: resourceId, lesson_id: lessonId } });
+    return { message: "Resource deleted" };
+  }
+
+  async profGetLessonResources(lessonId: string, userId: string, role: Role) {
+    await this.assertLessonTeacherAccess(lessonId, userId, role);
+    return this.getLessonResources(lessonId);
+  }
+  async profCreateLessonResource(lessonId: string, dto: any, userId: string, role: Role) {
+    await this.assertLessonTeacherAccess(lessonId, userId, role);
+    return this.createLessonResource(lessonId, dto);
+  }
+  async profUpdateLessonResource(lessonId: string, resourceId: string, dto: any, userId: string, role: Role) {
+    await this.assertLessonTeacherAccess(lessonId, userId, role);
+    return this.updateLessonResource(lessonId, resourceId, dto);
+  }
+  async profDeleteLessonResource(lessonId: string, resourceId: string, userId: string, role: Role) {
+    await this.assertLessonTeacherAccess(lessonId, userId, role);
+    return this.deleteLessonResource(lessonId, resourceId);
+  }
+
+  private async assertLessonTeacherAccess(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, include: { module: true } });
+    if (!lesson || !lesson.module.course_id) throw new NotFoundException("Lesson not found");
+    await this.assertTeacherAccess(lesson.module.course_id, userId, role);
+    return lesson;
+  }
+
+  // ─── Duplicate a lesson (settings + structure, never submissions/progress) ─
+  // Mirrors ProgramsService.adminDuplicate()'s "copy config, skip
+  // user-generated data" shape.
+
+  async duplicateLesson(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.assertLessonTeacherAccess(lessonId, userId, role);
+    const [resources, questions, maxSort] = await Promise.all([
+      this.prisma.lessonResource.findMany({ where: { lesson_id: lessonId } }),
+      this.prisma.quizQuestion.findMany({ where: { lesson_id: lessonId } }),
+      this.prisma.lesson.aggregate({ where: { module_id: lesson.module_id }, _max: { sort_order: true } }),
+    ]);
+
+    const duplicate = await this.prisma.lesson.create({
+      data: {
+        module_id: lesson.module_id,
+        title: `${lesson.title} (Copy)`,
+        description: lesson.description,
+        type: lesson.type,
+        sort_order: (maxSort._max.sort_order ?? 0) + 1,
+        duration_minutes: lesson.duration_minutes,
+        is_published: false,
+        is_free_preview: false,
+        video_url: lesson.video_url,
+        content_body: lesson.content_body,
+        blocks_json: lesson.blocks_json ?? undefined,
+        download_url: lesson.download_url,
+        allow_download: lesson.allow_download,
+        external_url: lesson.external_url,
+        passing_score: lesson.passing_score,
+        max_attempts: lesson.max_attempts,
+        time_limit_minutes: lesson.time_limit_minutes,
+        due_date: lesson.due_date,
+        max_score: lesson.max_score,
+        allow_text_response: lesson.allow_text_response,
+        text_word_limit: lesson.text_word_limit,
+        available_from: lesson.available_from,
+        accept_submissions: lesson.accept_submissions,
+        allow_late_submissions: lesson.allow_late_submissions,
+        late_submission_deadline: lesson.late_submission_deadline,
+        late_penalty_type: lesson.late_penalty_type,
+        late_penalty_value: lesson.late_penalty_value,
+        allow_file_upload: lesson.allow_file_upload,
+        max_files: lesson.max_files,
+        accepted_file_types: lesson.accepted_file_types,
+        max_file_size_mb: lesson.max_file_size_mb,
+        rubric_json: lesson.rubric_json ?? undefined,
+      },
+    });
+
+    if (resources.length) {
+      await this.prisma.lessonResource.createMany({
+        data: resources.map((r) => ({ lesson_id: duplicate.id, title: r.title, url: r.url, file_name: r.file_name, file_type: r.file_type, sort_order: r.sort_order })),
+      });
+    }
+    if (questions.length) {
+      await this.prisma.quizQuestion.createMany({
+        data: questions.map((q) => ({ lesson_id: duplicate.id, question_text: q.question_text, question_type: q.question_type, options: q.options as any, correct_index: q.correct_index, explanation: q.explanation, points: q.points, sort_order: q.sort_order })),
+      });
+    }
+
+    return duplicate;
+  }
+
+  // ─── Gradebook export (zero-dependency CSV, same approach as
+  //     users.service.ts's exportCsv — no xlsx library exists anywhere in
+  //     this repo; a CSV opens fine in Excel). ─────────────────────────────
+
+  private toCsv(headers: string[], rows: (string | number | null)[][]): string {
+    return [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
+  }
+
+  async exportCourseSubmissions(courseId: string, userId: string, role: Role): Promise<string> {
+    await this.assertTeacherAccess(courseId, userId, role);
+    const submissions = await this.prisma.assignmentSubmission.findMany({
+      where: { lesson: { module: { course_id: courseId } }, is_latest: true },
+      include: {
+        user: { select: { email: true, profile: { select: { first_name: true, last_name: true } } } },
+        lesson: { select: { title: true, max_score: true } },
+      },
+      orderBy: [{ lesson: { title: "asc" } }, { submitted_at: "desc" }],
+    });
+    const rows = submissions.map((s) => [
+      `${s.user.profile?.first_name ?? ""} ${s.user.profile?.last_name ?? ""}`.trim() || s.user.email,
+      s.user.email,
+      s.lesson.title,
+      s.attempt_number,
+      s.submitted_at.toISOString(),
+      s.is_late ? "Yes" : "No",
+      s.grade ?? "",
+      s.max_grade,
+      s.status,
+    ]);
+    return this.toCsv(
+      ["Student", "Email", "Assignment", "Attempt", "Submitted At", "Late", "Grade", "Max Grade", "Status"],
+      rows,
+    );
+  }
+
+  // ─── Assignment statistics ──────────────────────────────────────────────
+
+  async getAssignmentStatistics(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.assertLessonTeacherAccess(lessonId, userId, role);
+    if (!lesson.module.course_id) throw new NotFoundException("Lesson not found");
+
+    const [enrolledCount, latestAttempts] = await Promise.all([
+      this.prisma.courseEnrollment.count({ where: { course_id: lesson.module.course_id } }),
+      this.prisma.assignmentSubmission.findMany({
+        where: { lesson_id: lessonId, is_latest: true },
+        select: { grade: true, max_grade: true, status: true, is_late: true },
+      }),
+    ]);
+
+    const submitted = latestAttempts.length;
+    const graded = latestAttempts.filter((a) => a.grade != null);
+    const percentages = graded.map((a) => (a.grade! / a.max_grade) * 100);
+
+    return {
+      enrolled: enrolledCount,
+      submitted,
+      not_submitted: Math.max(0, enrolledCount - submitted),
+      graded: graded.length,
+      awaiting_grading: submitted - graded.length,
+      average: percentages.length ? Math.round((percentages.reduce((a, b) => a + b, 0) / percentages.length) * 10) / 10 : null,
+      highest: percentages.length ? Math.round(Math.max(...percentages) * 10) / 10 : null,
+      lowest: percentages.length ? Math.round(Math.min(...percentages) * 10) / 10 : null,
+      late: latestAttempts.filter((a) => a.is_late).length,
+    };
+  }
+
   // ─── Admin — Module & Lesson management ──────────────────────────────
 
   async adminGetModules(courseId: string) {
@@ -1340,16 +1800,21 @@ export class PrepCoursesService {
   }
 
   async adminGetSubmissions(courseId: string) {
+    // is_latest = true — each assignment can now have multiple historical
+    // attempt rows; this overview shows each student's current attempt,
+    // matching getCourseSubmissions()'s default. Full history is available
+    // per-student via getSubmissionAttempts().
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT s.id, s.lesson_id, s.user_id, s.status::text, s.submitted_at,
              s.file_url, s.file_name, s.text_content, s.grade, s.max_grade, s.feedback,
+             s.attempt_number, s.is_late,
              l.title AS lesson_title, m.title AS module_title,
              p.first_name, p.last_name, p.avatar_url
       FROM lms.assignment_submissions s
       JOIN lms.lessons l ON l.id = s.lesson_id
       JOIN lms.modules m ON m.id = l.module_id
       JOIN lms.profiles p ON p.user_id = s.user_id
-      WHERE m.course_id = $1
+      WHERE m.course_id = $1 AND s.is_latest = true
       ORDER BY s.submitted_at DESC
     `, courseId);
     return rows;
@@ -1510,35 +1975,24 @@ export class PrepCoursesService {
       lessonId, moduleId,
     );
     if (!lessonRows.length) throw new NotFoundException("Lesson not found");
-    const { title, content_body, video_url, download_url, allow_download, external_url,
-            duration_minutes, type, is_published,
-            passing_score, max_attempts, max_score, due_date,
-            allow_text_response, text_word_limit } = dto;
-    const updated = await this.prisma.$queryRawUnsafe<any[]>(`
-      UPDATE lms.lessons SET
-        title = COALESCE($1, title),
-        content_body = COALESCE($2, content_body),
-        video_url = COALESCE($3, video_url),
-        download_url = COALESCE($4, download_url),
-        allow_download = COALESCE($5, allow_download),
-        external_url = COALESCE($6, external_url),
-        duration_minutes = COALESCE($7, duration_minutes),
-        type = COALESCE($8::lms."LessonType", type),
-        is_published = COALESCE($9, is_published),
-        passing_score = COALESCE($10, passing_score),
-        max_attempts = COALESCE($11, max_attempts),
-        max_score = COALESCE($12, max_score),
-        due_date = COALESCE($13, due_date),
-        allow_text_response = COALESCE($15, allow_text_response),
-        text_word_limit = $16,
-        updated_at = now()
-      WHERE id = $14 RETURNING *
-    `, title ?? null, content_body ?? null, video_url ?? null, download_url ?? null,
-       allow_download ?? null, external_url ?? null, duration_minutes ?? null, type ?? null,
-       is_published ?? null, passing_score ?? null, max_attempts ?? null, max_score ?? null,
-       due_date ?? null, lessonId,
-       allow_text_response ?? null, text_word_limit ?? null);
-    return updated[0];
+
+    // Prisma's update() only touches keys actually present in `data` — that
+    // gives the same "leave unchanged unless provided" semantics the old
+    // raw-SQL COALESCE version had, without a 30-parameter positional query.
+    const allowed = [
+      "title", "content_body", "video_url", "download_url", "allow_download", "external_url",
+      "duration_minutes", "type", "is_published",
+      "passing_score", "max_attempts", "max_score", "due_date",
+      "allow_text_response", "text_word_limit",
+      "available_from", "accept_submissions", "allow_late_submissions", "late_submission_deadline",
+      "late_penalty_type", "late_penalty_value", "allow_file_upload", "max_files",
+      "accepted_file_types", "max_file_size_mb", "rubric_json",
+    ] as const;
+    const data: Record<string, any> = {};
+    for (const key of allowed) {
+      if (key in dto) data[key] = dto[key];
+    }
+    return this.prisma.lesson.update({ where: { id: lessonId }, data });
   }
 
   private async assertAdminLessonInCourse(courseId: string, moduleId: string, lessonId: string) {
@@ -1833,28 +2287,16 @@ export class PrepCoursesService {
       'video_url', 'content_body', 'download_url', 'is_free_preview', 'type',
       'allow_download', 'external_url', 'passing_score', 'max_attempts',
       'max_score', 'due_date', 'allow_text_response', 'text_word_limit',
-    ];
-    const sets: string[] = [];
-    const vals: unknown[] = [];
-    let p = 1;
+      'available_from', 'accept_submissions', 'allow_late_submissions', 'late_submission_deadline',
+      'late_penalty_type', 'late_penalty_value', 'allow_file_upload', 'max_files',
+      'accepted_file_types', 'max_file_size_mb', 'rubric_json',
+    ] as const;
+    const data: Record<string, any> = {};
     for (const key of allowed) {
-      if (!(key in dto)) continue;
-      const cast = key === "type" ? `::lms."LessonType"` : "";
-      sets.push(`"${key}" = $${p}${cast}`);
-      vals.push(dto[key]);
-      p++;
+      if (key in dto) data[key] = dto[key];
     }
-    if (!sets.length) return;
-    sets.push(`updated_at = now()`);
-    vals.push(lessonId);
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE lms.lessons SET ${sets.join(', ')} WHERE id = $${p}`,
-      ...vals,
-    );
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM lms.lessons WHERE id = $1`, lessonId,
-    );
-    return rows[0];
+    if (!Object.keys(data).length) return this.prisma.lesson.findUnique({ where: { id: lessonId } });
+    return this.prisma.lesson.update({ where: { id: lessonId }, data });
   }
 
   // Renders a manually-built block list to HTML the same way Rise imports

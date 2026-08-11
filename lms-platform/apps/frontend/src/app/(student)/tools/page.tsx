@@ -6,7 +6,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Sparkles, Search, X, CheckCircle, ShoppingCart, Star,
-  Wrench, BookOpen, Award, RotateCcw, SlidersHorizontal, Check, ChevronDown,
+  Wrench, BookOpen, Award, RotateCcw, SlidersHorizontal, Check, ChevronDown, GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
@@ -50,7 +50,7 @@ function CardPattern({ type }: { type: string }) {
 
 // ── Normalized catalog item ─────────────────────────────────────────────────
 
-type CatalogType = "tool" | "course" | "certification";
+type CatalogType = "tool" | "course" | "certification" | "program";
 
 type CatalogItem = {
   id: string;
@@ -80,6 +80,7 @@ const TYPE_LABEL: Record<CatalogType, string> = {
   tool: "Online Tools",
   course: "eLearning",
   certification: "Certification",
+  program: "Program",
 };
 
 const CERT_LEVEL_LABEL: Record<string, string> = {
@@ -328,6 +329,11 @@ export default function OnlineToolsPage() {
   const { data: toolsRaw,   isLoading: loadingTools }   = useSWR("/online-tools", fetcher);
   const { data: coursesRaw, isLoading: loadingCourses } = useSWR("/prep-courses", fetcher);
   const { data: certsRaw,   isLoading: loadingCerts }   = useSWR("/courses/catalog", fetcher);
+  const { data: programsRaw, isLoading: loadingPrograms } = useSWR("/programs", fetcher);
+  const { data: myProgramEnrollmentsRaw } = useSWR(
+    token ? ["/programs/my", token] : null,
+    ([url, t]) => authFetcher(url, t)
+  );
   const { data: memberDiscountRaw } = useSWR(
     token ? ["/prep-courses/my/member-discount", token] : null,
     ([url, t]) => authFetcher(url, t)
@@ -348,10 +354,12 @@ export default function OnlineToolsPage() {
   const tools: any[]  = Array.isArray(toolsRaw)   ? toolsRaw   : (toolsRaw?.data   ?? []);
   const courses: any[] = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.data ?? []);
   const certs: any[]   = Array.isArray(certsRaw)   ? certsRaw   : (certsRaw?.data   ?? []);
+  const programs: any[] = Array.isArray(programsRaw) ? programsRaw : (programsRaw?.data ?? []);
+  const myProgramEnrollments: any[] = Array.isArray(myProgramEnrollmentsRaw) ? myProgramEnrollmentsRaw : [];
   const myPrepEnrollments: any[] = Array.isArray(myPrepEnrollmentsRaw) ? myPrepEnrollmentsRaw : [];
   const courseInvitations: any[] = Array.isArray(courseInvitationsRaw) ? courseInvitationsRaw : [];
   const certRecommendations: any[] = Array.isArray(certRecommendationsRaw) ? certRecommendationsRaw : [];
-  const isLoading = loadingTools || loadingCourses || loadingCerts;
+  const isLoading = loadingTools || loadingCourses || loadingCerts || loadingPrograms;
   const memberDiscountPct: number = memberDiscountRaw?.percentage ?? 0;
 
   const recommendedCourseIds = useMemo(
@@ -413,14 +421,30 @@ export default function OnlineToolsPage() {
       certAcronym: c.acronym, level: c.level, badgeIcon: c.badge_icon,
       purchasable: true, cartType: "certification", cartId: c.id,
     }));
-    return [...toolItems, ...courseItems, ...privateEnrolledItems, ...certItems];
-  }, [tools, courses, certs, memberDiscountPct, myPrepEnrollments, recommendedCourseIds, recommendedCertIds]);
+    // Programs aren't cart-based — checkout happens from the marketing
+    // landing page's own enroll flow (single-line-item Stripe session), so
+    // there's no "Add to Cart" action here, just Learn More / Continue.
+    const programItems: CatalogItem[] = programs.map((p) => {
+      const enrollment = myProgramEnrollments.find((e: any) => e.program.id === p.id);
+      return {
+        id: p.id, type: "program" as const, title: p.title, subtitle: p.short_description,
+        price: Number(p.price) || 0, slug: p.slug,
+        href: enrollment ? `/programs/${p.id}` : `${MARKETING}/programs/${p.slug}`,
+        external: !enrollment,
+        level: p.level, thumbnailUrl: p.thumbnail_url,
+        enrolled: !!enrollment, enrolledDone: !!enrollment?.completed_at,
+        purchasable: false,
+      };
+    });
+    return [...toolItems, ...courseItems, ...privateEnrolledItems, ...certItems, ...programItems];
+  }, [tools, courses, certs, programs, memberDiscountPct, myPrepEnrollments, myProgramEnrollments, recommendedCourseIds, recommendedCertIds]);
 
   const counts = useMemo(() => ({
     all: items.length,
     tool: items.filter(i => i.type === "tool").length,
     course: items.filter(i => i.type === "course").length,
     certification: items.filter(i => i.type === "certification").length,
+    program: items.filter(i => i.type === "program").length,
     free: items.filter(i => (i.finalPrice ?? i.price) === 0).length,
     paid: items.filter(i => (i.finalPrice ?? i.price) > 0).length,
     recommended: items.filter(i => i.recommended).length,
@@ -525,6 +549,7 @@ export default function OnlineToolsPage() {
                       <FilterOption checked={typeFilter.has("tool")} onClick={() => toggleType("tool")} icon={Wrench} label="Tools" count={counts.tool} />
                       <FilterOption checked={typeFilter.has("course")} onClick={() => toggleType("course")} icon={BookOpen} label="Courses" count={counts.course} />
                       <FilterOption checked={typeFilter.has("certification")} onClick={() => toggleType("certification")} icon={Award} label="Certifications" count={counts.certification} />
+                      <FilterOption checked={typeFilter.has("program")} onClick={() => toggleType("program")} icon={GraduationCap} label="Programs" count={counts.program} />
 
                       <div className="px-2 pt-3 pb-1 border-t border-slate-100 mt-2">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Price</p>
@@ -557,6 +582,7 @@ export default function OnlineToolsPage() {
                   {typeFilter.has("tool") && <ActiveFilterPill label="Tools" onRemove={() => toggleType("tool")} />}
                   {typeFilter.has("course") && <ActiveFilterPill label="Courses" onRemove={() => toggleType("course")} />}
                   {typeFilter.has("certification") && <ActiveFilterPill label="Certifications" onRemove={() => toggleType("certification")} />}
+                  {typeFilter.has("program") && <ActiveFilterPill label="Programs" onRemove={() => toggleType("program")} />}
                   {priceFilter.has("free") && <ActiveFilterPill label="Free" onRemove={() => togglePrice("free")} />}
                   {priceFilter.has("paid") && <ActiveFilterPill label="Paid" onRemove={() => togglePrice("paid")} />}
                   {recommendedOnly && <ActiveFilterPill label="Recommended" variant="gold" onRemove={() => setRecommendedOnly(false)} />}

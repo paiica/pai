@@ -22,43 +22,48 @@ export class OrganizationsService {
 
   // ── Org admin: dashboard / employees ───────────────────────────────────────
 
+  // A "seat" is a distinct employee with ANY org-scoped enrollment — whether
+  // a Certification Enrollment or a Program ProgramEnrollment. Both draw
+  // from the same shared org.seats_purchased pool (Programs don't get their
+  // own separate seat count).
+  private async getOrgMemberUserIds(organizationId: string): Promise<Set<string>> {
+    const [certMembers, programMembers] = await Promise.all([
+      this.prisma.enrollment.findMany({ where: { organization_id: organizationId }, distinct: ["user_id"], select: { user_id: true } }),
+      this.prisma.programEnrollment.findMany({ where: { organization_id: organizationId }, distinct: ["user_id"], select: { user_id: true } }),
+    ]);
+    return new Set([...certMembers.map((m) => m.user_id), ...programMembers.map((m) => m.user_id)]);
+  }
+
   async getDashboard(organizationId: string) {
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
 
-    const members = await this.prisma.enrollment.findMany({
-      where: { organization_id: organizationId },
-      distinct: ["user_id"],
-      select: { user_id: true },
-    });
+    const memberIds = await this.getOrgMemberUserIds(organizationId);
 
-    const statusCounts = await this.prisma.enrollment.groupBy({
-      by: ["status"],
-      where: { organization_id: organizationId },
-      _count: true,
-    });
+    const [certStatusCounts, programStatusCounts] = await Promise.all([
+      this.prisma.enrollment.groupBy({ by: ["status"], where: { organization_id: organizationId }, _count: true }),
+      this.prisma.programEnrollment.groupBy({ by: ["status"], where: { organization_id: organizationId }, _count: true }),
+    ]);
+    const statusCounts = new Map<string, number>();
+    for (const s of certStatusCounts) statusCounts.set(s.status, (statusCounts.get(s.status) ?? 0) + s._count);
+    for (const s of programStatusCounts) statusCounts.set(s.status, (statusCounts.get(s.status) ?? 0) + s._count);
 
     return {
       name: org.name,
       seats_purchased: org.seats_purchased,
-      seats_used: members.length,
-      seats_available: Math.max(0, org.seats_purchased - members.length),
-      status_counts: statusCounts.map((s) => ({ status: s.status, count: s._count })),
+      seats_used: memberIds.size,
+      seats_available: Math.max(0, org.seats_purchased - memberIds.size),
+      status_counts: Array.from(statusCounts.entries()).map(([status, count]) => ({ status, count })),
     };
   }
 
   async getBilling(organizationId: string) {
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
-
-    const members = await this.prisma.enrollment.findMany({
-      where: { organization_id: organizationId },
-      distinct: ["user_id"],
-      select: { user_id: true },
-    });
+    const memberIds = await this.getOrgMemberUserIds(organizationId);
 
     return {
       price_per_seat: org.price_per_seat,
       seats_purchased: org.seats_purchased,
-      seats_used: members.length,
+      seats_used: memberIds.size,
       renewal_period_months: org.renewal_period_months,
       subscription_expires_at: org.subscription_expires_at,
       is_expired: !!org.subscription_expires_at && org.subscription_expires_at < new Date(),
@@ -176,34 +181,58 @@ export class OrganizationsService {
   }
 
   async getEmployees(organizationId: string) {
-    return this.prisma.enrollment.findMany({
-      where: { organization_id: organizationId },
-      include: {
-        user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
-        certification: { select: { id: true, title: true, acronym: true } },
-      },
-      orderBy: { enrolled_at: "desc" },
-    });
+    const [certEnrollments, programEnrollments] = await Promise.all([
+      this.prisma.enrollment.findMany({
+        where: { organization_id: organizationId },
+        include: {
+          user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+          certification: { select: { id: true, title: true, acronym: true } },
+        },
+        orderBy: { enrolled_at: "desc" },
+      }),
+      this.prisma.programEnrollment.findMany({
+        where: { organization_id: organizationId },
+        include: {
+          user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
+          program: { select: { id: true, title: true } },
+        },
+        orderBy: { enrolled_at: "desc" },
+      }),
+    ]);
+    return [
+      ...certEnrollments.map((e) => ({ ...e, item_type: "certification" as const })),
+      ...programEnrollments.map((e) => ({ ...e, item_type: "program" as const })),
+    ].sort((a, b) => b.enrolled_at.getTime() - a.enrolled_at.getTime());
   }
 
-  // Emails/certs apply to the whole batch — a different combination is a
-  // separate invite action (see plan: avoids a per-employee-per-cert matrix
-  // UI in v1). Re-inviting an existing org member into an additional cert
-  // just adds the enrollment, doesn't consume a new seat.
-  async inviteEmployees(organizationId: string, dto: { emails: string[]; certification_ids: string[] }) {
+  // Emails/certs/programs apply to the whole batch — a different combination
+  // is a separate invite action (see plan: avoids a per-employee-per-item
+  // matrix UI in v1). Re-inviting an existing org member into an additional
+  // cert/program just adds the enrollment, doesn't consume a new seat.
+  // Certifications and Programs draw from the SAME shared seats_purchased
+  // pool (see getOrgMemberUserIds) — an org doesn't buy separate seat pools
+  // per product type.
+  async inviteEmployees(organizationId: string, dto: { emails: string[]; certification_ids?: string[]; program_ids?: string[] }) {
     const emails = [...new Set((dto.emails ?? []).map((e) => e.toLowerCase().trim()).filter(Boolean))];
     const certificationIds = dto.certification_ids ?? [];
+    const programIds = dto.program_ids ?? [];
     if (emails.length === 0) throw new BadRequestException("At least one email is required");
-    if (certificationIds.length === 0) throw new BadRequestException("At least one certification is required");
+    if (certificationIds.length === 0 && programIds.length === 0) {
+      throw new BadRequestException("At least one certification or program is required");
+    }
 
-    const certs = await this.prisma.certification.findMany({ where: { id: { in: certificationIds } } });
+    const [certs, programs] = await Promise.all([
+      certificationIds.length ? this.prisma.certification.findMany({ where: { id: { in: certificationIds } } }) : Promise.resolve([]),
+      programIds.length ? this.prisma.program.findMany({ where: { id: { in: programIds } }, include: { courses: { select: { course_id: true } } } }) : Promise.resolve([]),
+    ]);
     if (certs.length !== certificationIds.length) throw new BadRequestException("One or more certifications not found");
+    if (programs.length !== programIds.length) throw new BadRequestException("One or more programs not found");
 
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
     if (org.subscription_expires_at && org.subscription_expires_at < new Date()) {
       throw new BadRequestException("Your organization's subscription has expired. Renew to invite more employees.");
     }
-    const certTitles = certs.map((c) => c.title);
+    const itemTitles = [...certs.map((c) => c.title), ...programs.map((p) => p.title)];
 
     // Collected inside the transaction, emailed after it commits — email
     // dispatch is a network call and shouldn't run inside a DB transaction.
@@ -211,22 +240,29 @@ export class OrganizationsService {
     const results: { email: string; status: "invited" | "enrolled" }[] = [];
 
     await this.prisma.$transaction(async (tx) => {
-      const alreadyMembers = await tx.enrollment.findMany({
-        where: { organization_id: organizationId, user: { email: { in: emails } } },
-        select: { user: { select: { email: true } } },
-        distinct: ["user_id"],
-      });
-      const alreadyMemberEmails = new Set(alreadyMembers.map((m) => m.user.email));
-      const existingSeats = await tx.enrollment.findMany({
-        where: { organization_id: organizationId },
-        distinct: ["user_id"],
-        select: { user_id: true },
-      });
+      const [alreadyCertMembers, alreadyProgramMembers] = await Promise.all([
+        tx.enrollment.findMany({
+          where: { organization_id: organizationId, user: { email: { in: emails } } },
+          select: { user: { select: { email: true } } },
+          distinct: ["user_id"],
+        }),
+        tx.programEnrollment.findMany({
+          where: { organization_id: organizationId, user: { email: { in: emails } } },
+          select: { user: { select: { email: true } } },
+          distinct: ["user_id"],
+        }),
+      ]);
+      const alreadyMemberEmails = new Set([...alreadyCertMembers, ...alreadyProgramMembers].map((m) => m.user.email));
+      const [existingCertSeats, existingProgramSeats] = await Promise.all([
+        tx.enrollment.findMany({ where: { organization_id: organizationId }, distinct: ["user_id"], select: { user_id: true } }),
+        tx.programEnrollment.findMany({ where: { organization_id: organizationId }, distinct: ["user_id"], select: { user_id: true } }),
+      ]);
+      const existingSeatCount = new Set([...existingCertSeats.map((m) => m.user_id), ...existingProgramSeats.map((m) => m.user_id)]).size;
       const newSeatEmails = emails.filter((e) => !alreadyMemberEmails.has(e));
 
-      if (existingSeats.length + newSeatEmails.length > org.seats_purchased) {
+      if (existingSeatCount + newSeatEmails.length > org.seats_purchased) {
         throw new BadRequestException(
-          `This invite needs ${newSeatEmails.length} new seat(s), which would exceed the organization's ${org.seats_purchased}-seat limit (${existingSeats.length} already used).`,
+          `This invite needs ${newSeatEmails.length} new seat(s), which would exceed the organization's ${org.seats_purchased}-seat limit (${existingSeatCount} already used).`,
         );
       }
 
@@ -281,6 +317,37 @@ export class OrganizationsService {
           }
         }
 
+        for (const program of programs) {
+          const existingProgramEnrollment = await tx.programEnrollment.findUnique({
+            where: { user_id_program_id: { user_id: user.id, program_id: program.id } },
+          });
+          if (existingProgramEnrollment) {
+            await tx.programEnrollment.update({
+              where: { id: existingProgramEnrollment.id },
+              data: {
+                organization_id: organizationId,
+                ...(existingProgramEnrollment.status === "suspended" ? { status: "active" } : {}),
+              },
+            });
+          } else {
+            await tx.programEnrollment.create({
+              data: { user_id: user.id, program_id: program.id, organization_id: organizationId, status: "active" },
+            });
+          }
+          // Same ON CONFLICT DO NOTHING helper every course purchase goes
+          // through — an employee who already owns a bundled course (bought
+          // separately, or via another program) keeps their existing
+          // enrollment/progress untouched.
+          for (const pc of program.courses) {
+            await tx.$executeRawUnsafe(
+              `INSERT INTO lms.course_enrollments (id, user_id, course_id, progress_percentage, enrolled_at)
+               VALUES (gen_random_uuid(), $1, $2, 0, now())
+               ON CONFLICT (user_id, course_id) DO NOTHING`,
+              user.id, pc.course_id,
+            );
+          }
+        }
+
         results.push({ email, status: isNewUser ? "invited" : "enrolled" });
 
         if (isNewUser) {
@@ -296,7 +363,7 @@ export class OrganizationsService {
 
     for (const invite of pendingInvites) {
       this.mail
-        .sendEmployeeInvite({ to: invite.email, firstName: invite.firstName, orgName: org.name, certTitles, token: invite.token })
+        .sendEmployeeInvite({ to: invite.email, firstName: invite.firstName, orgName: org.name, certTitles: itemTitles, token: invite.token })
         .catch(() => {});
     }
 
@@ -310,10 +377,13 @@ export class OrganizationsService {
     });
     if (!user) throw new NotFoundException("Employee not found in this organization");
 
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: { organization_id: organizationId, user_id: userId },
-    });
-    if (enrollments.length === 0) throw new NotFoundException("Employee not found in this organization");
+    const [enrollments, programEnrollments] = await Promise.all([
+      this.prisma.enrollment.findMany({ where: { organization_id: organizationId, user_id: userId } }),
+      this.prisma.programEnrollment.findMany({ where: { organization_id: organizationId, user_id: userId } }),
+    ]);
+    if (enrollments.length === 0 && programEnrollments.length === 0) {
+      throw new NotFoundException("Employee not found in this organization");
+    }
 
     const fullName = `${user.profile?.first_name ?? ""} ${user.profile?.last_name ?? ""}`.trim() || null;
     const accountDeleted = !user.email_verified;
@@ -340,12 +410,25 @@ export class OrganizationsService {
     // the org has stopped paying for their seat — but nothing already done
     // or earned is destroyed. Re-inviting them later (inviteEmployees)
     // reactivates a suspended enrollment; a completed one is left alone.
+    // Bundled CourseEnrollments granted by the program are deliberately
+    // left untouched — same reasoning as everywhere else this session:
+    // access already granted isn't clawed back, only forward progress
+    // toward a *new* org-funded seat is gated.
     for (const e of enrollments) {
       await this.prisma.enrollment.update({
         where: { id: e.id },
         data: {
           organization_id: null,
           ...(e.status !== "completed" ? { status: "suspended" } : {}),
+        },
+      });
+    }
+    for (const pe of programEnrollments) {
+      await this.prisma.programEnrollment.update({
+        where: { id: pe.id },
+        data: {
+          organization_id: null,
+          ...(pe.status !== "completed" ? { status: "suspended" } : {}),
         },
       });
     }

@@ -139,6 +139,12 @@ export class AiController {
     return this.aiService.generateCertification(body);
   }
 
+  @Post("generate-program")
+  @HttpCode(HttpStatus.OK)
+  generateProgram(@Body() body: { prompt: string }) {
+    return this.aiService.generateProgram(body);
+  }
+
   @Post("improve-question")
   @HttpCode(HttpStatus.OK)
   improveQuestion(

@@ -12,7 +12,7 @@ import {
   ArrowLeft, ArrowRight, Sparkles, Upload, RotateCcw, Paperclip,
   PanelLeftClose, PanelLeft, Bold, Italic, List, ListOrdered,
   Type, Image as ImageIcon, Layers, Columns, Milestone, ListChecks,
-  Shuffle, Minus, LayoutGrid, GripVertical, Code2, Info,
+  Shuffle, Minus, LayoutGrid, GripVertical, Code2, Info, Copy,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -58,7 +58,30 @@ type Lesson = {
   max_score?: number; due_date?: string;
   quiz_questions?: QuizQuestion[];
   blocks_json?: any[] | null;
+  allow_text_response?: boolean;
+  text_word_limit?: number;
+  available_from?: string | null;
+  accept_submissions?: boolean;
+  allow_late_submissions?: boolean;
+  late_submission_deadline?: string | null;
+  late_penalty_type?: "none" | "percentage" | "points" | null;
+  late_penalty_value?: number | null;
+  allow_file_upload?: boolean;
+  max_files?: number;
+  accepted_file_types?: string[];
+  max_file_size_mb?: number;
+  rubric_json?: { criterion: string; description?: string; points: number }[] | null;
 };
+
+type LessonResource = { id: string; title: string; url: string; file_name?: string; file_type?: string };
+
+const ACCEPTED_FILE_TYPE_OPTIONS = [
+  { ext: ".pdf", label: "PDF" }, { ext: ".doc", label: "Word (.doc)" }, { ext: ".docx", label: "Word (.docx)" },
+  { ext: ".ppt", label: "PowerPoint (.ppt)" }, { ext: ".pptx", label: "PowerPoint (.pptx)" },
+  { ext: ".xls", label: "Excel (.xls)" }, { ext: ".xlsx", label: "Excel (.xlsx)" },
+  { ext: ".jpg", label: "Image (.jpg)" }, { ext: ".png", label: "Image (.png)" },
+  { ext: ".txt", label: "Text (.txt)" }, { ext: ".zip", label: "Zip Archive" },
+];
 
 type Module = { id: string; title: string; description?: string; is_published: boolean; sort_order: number; lessons: Lesson[] };
 
@@ -1307,17 +1330,95 @@ function HtmlEditor({ lesson, token, onSaved }: { lesson: Lesson; token: string;
 
 // ─── Assignment Editor ────────────────────────────────────────────────────────
 
+// Small labeled toggle switch, shared across the settings sections below.
+function ToggleRow({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-slate-700">{label}</p>
+        {hint && <p className="text-xs text-slate-500">{hint}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0", checked ? "bg-amber-500" : "bg-slate-300")}
+      >
+        <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform", checked ? "translate-x-6" : "translate-x-1")} />
+      </button>
+    </div>
+  );
+}
+
+function toLocalDatetimeInput(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function assignmentStatus(l: {
+  accept_submissions?: boolean; available_from?: string | null; due_date?: string | null;
+  allow_late_submissions?: boolean; late_submission_deadline?: string | null;
+}) {
+  const now = new Date();
+  if (l.accept_submissions === false) return { label: "Submissions Currently Disabled", color: "bg-red-50 text-red-700 border-red-200" };
+  if (l.available_from && now < new Date(l.available_from)) return { label: "Not Yet Open", color: "bg-slate-100 text-slate-600 border-slate-200" };
+  if (l.due_date && now > new Date(l.due_date)) {
+    if (l.allow_late_submissions && (!l.late_submission_deadline || now <= new Date(l.late_submission_deadline))) {
+      return { label: "Late Submission Period", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    }
+    return { label: "Submission Period Closed", color: "bg-slate-100 text-slate-600 border-slate-200" };
+  }
+  return { label: "Accepting Submissions", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+}
+
 function AssignmentEditor({ lesson, token, onSaved }: { lesson: Lesson; token: string; onSaved: () => void }) {
   const [desc, setDesc] = useState(lesson.content_body ?? "");
+  const [htmlMode, setHtmlMode] = useState(() => (lesson.content_body ?? "").trim().startsWith("<"));
   const [maxScore, setMaxScore] = useState(lesson.max_score ?? 100);
   const [dueDate, setDueDate] = useState(lesson.due_date ? lesson.due_date.split("T")[0] : "");
   const [saving, setSaving] = useState(false);
 
+  const [allowText, setAllowText] = useState(lesson.allow_text_response ?? true);
+  const [wordLimit, setWordLimit] = useState<number | "">(lesson.text_word_limit ?? "");
+
+  const [availableFrom, setAvailableFrom] = useState(toLocalDatetimeInput(lesson.available_from));
+  const [acceptSubmissions, setAcceptSubmissions] = useState(lesson.accept_submissions ?? true);
+  const [allowLate, setAllowLate] = useState(lesson.allow_late_submissions ?? false);
+  const [lateDeadline, setLateDeadline] = useState(toLocalDatetimeInput(lesson.late_submission_deadline));
+  const [latePenaltyType, setLatePenaltyType] = useState<"none" | "percentage" | "points">(lesson.late_penalty_type ?? "none");
+  const [latePenaltyValue, setLatePenaltyValue] = useState<number | "">(lesson.late_penalty_value ?? "");
+
+  const [allowFileUpload, setAllowFileUpload] = useState(lesson.allow_file_upload ?? true);
+  const [maxFiles, setMaxFiles] = useState(lesson.max_files ?? 1);
+  const [acceptedTypes, setAcceptedTypes] = useState<string[]>(lesson.accepted_file_types ?? []);
+  const [maxFileSizeMb, setMaxFileSizeMb] = useState(lesson.max_file_size_mb ?? 10);
+
+  const [maxAttempts, setMaxAttempts] = useState(lesson.max_attempts ?? 1);
+  const [rubric, setRubric] = useState<{ criterion: string; description?: string; points: number }[]>(lesson.rubric_json ?? []);
+
+  const [duplicating, setDuplicating] = useState(false);
+
   useEffect(() => {
     setDesc(lesson.content_body ?? "");
+    setHtmlMode((lesson.content_body ?? "").trim().startsWith("<"));
     setMaxScore(lesson.max_score ?? 100);
     setDueDate(lesson.due_date ? lesson.due_date.split("T")[0] : "");
-  }, [lesson.id, lesson.content_body]);
+    setAllowText(lesson.allow_text_response ?? true);
+    setWordLimit(lesson.text_word_limit ?? "");
+    setAvailableFrom(toLocalDatetimeInput(lesson.available_from));
+    setAcceptSubmissions(lesson.accept_submissions ?? true);
+    setAllowLate(lesson.allow_late_submissions ?? false);
+    setLateDeadline(toLocalDatetimeInput(lesson.late_submission_deadline));
+    setLatePenaltyType(lesson.late_penalty_type ?? "none");
+    setLatePenaltyValue(lesson.late_penalty_value ?? "");
+    setAllowFileUpload(lesson.allow_file_upload ?? true);
+    setMaxFiles(lesson.max_files ?? 1);
+    setAcceptedTypes(lesson.accepted_file_types ?? []);
+    setMaxFileSizeMb(lesson.max_file_size_mb ?? 10);
+    setMaxAttempts(lesson.max_attempts ?? 1);
+    setRubric(lesson.rubric_json ?? []);
+  }, [lesson.id]);
 
   async function save() {
     setSaving(true);
@@ -1326,39 +1427,339 @@ function AssignmentEditor({ lesson, token, onSaved }: { lesson: Lesson; token: s
         content_body: desc,
         max_score: maxScore,
         due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
+        allow_text_response: allowText,
+        text_word_limit: wordLimit !== "" ? Number(wordLimit) : undefined,
+        available_from: availableFrom ? new Date(availableFrom).toISOString() : undefined,
+        accept_submissions: acceptSubmissions,
+        allow_late_submissions: allowLate,
+        late_submission_deadline: allowLate && lateDeadline ? new Date(lateDeadline).toISOString() : undefined,
+        late_penalty_type: latePenaltyType === "none" ? undefined : latePenaltyType,
+        late_penalty_value: latePenaltyType !== "none" && latePenaltyValue !== "" ? Number(latePenaltyValue) : undefined,
+        allow_file_upload: allowFileUpload,
+        max_files: maxFiles,
+        accepted_file_types: acceptedTypes,
+        max_file_size_mb: maxFileSizeMb,
+        max_attempts: maxAttempts,
+        rubric_json: rubric.length ? rubric : undefined,
       }, token);
       toast.success("Saved"); onSaved();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
   }
 
+  async function duplicate() {
+    setDuplicating(true);
+    try {
+      await api.post(`/prof/lessons/${lesson.id}/duplicate`, {}, token);
+      toast.success("Assignment duplicated as a draft");
+      onSaved();
+    } catch { toast.error("Failed to duplicate"); }
+    finally { setDuplicating(false); }
+  }
+
+  const status = assignmentStatus({ accept_submissions: acceptSubmissions, available_from: availableFrom, due_date: dueDate, allow_late_submissions: allowLate, late_submission_deadline: lateDeadline });
+
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Assignment Instructions</label>
-        <textarea
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          className="w-full h-40 input-base resize-y text-sm leading-relaxed"
-          placeholder="Describe what students need to do…"
-        />
+    <div className="space-y-5">
+      <div className={cn("flex items-center justify-between gap-3 flex-wrap px-4 py-3 rounded-xl border text-xs", status.color)}>
+        <span className="font-semibold">{status.label}</span>
+        <div className="flex items-center gap-3 text-[11px] opacity-80">
+          {dueDate && <span>Due {new Date(dueDate).toLocaleDateString()}</span>}
+          {allowLate && lateDeadline && <span>Late until {new Date(lateDeadline).toLocaleDateString()}</span>}
+          <span>{maxAttempts} attempt{maxAttempts !== 1 ? "s" : ""}</span>
+          <span>Max {maxScore}</span>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Max Score</label>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Assignment Instructions</label>
+          <button
+            type="button"
+            onClick={() => setHtmlMode((v) => !v)}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+              htmlMode ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+            )}
+          >
+            <Code2 size={11} /> {htmlMode ? "HTML" : "Rich Text"}
+          </button>
+        </div>
+        {htmlMode ? (
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            className="w-full h-48 font-mono text-sm border border-slate-200 rounded-xl p-4 resize-none focus:outline-none focus:ring-2 focus:ring-amber-200 bg-slate-950 text-emerald-400"
+            placeholder={"<h2>Instructions</h2>\n<p>Describe what students need to do…</p>"}
+            spellCheck={false}
+          />
+        ) : (
+          <RichTextEditor value={desc} onChange={setDesc} placeholder="Describe what students need to do…" minHeight={200} />
+        )}
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Availability</p>
+        <div className="grid grid-cols-2 gap-4 mb-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Start Date</label>
+            <input type="datetime-local" value={availableFrom} onChange={e => setAvailableFrom(e.target.value)} className="input-base text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Due Date</label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="input-base text-sm" />
+          </div>
+        </div>
+        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+          <ToggleRow label="Accept Submissions" hint="Manual override — independent of the dates above" checked={acceptSubmissions} onChange={setAcceptSubmissions} />
+          <ToggleRow label="Allow Late Submissions" hint="Let students submit after the due date" checked={allowLate} onChange={setAllowLate} />
+          {allowLate && (
+            <div className="px-4 py-3 space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Late Submission Deadline</label>
+                <input type="datetime-local" value={lateDeadline} onChange={e => setLateDeadline(e.target.value)} className="input-base text-sm" />
+                <p className="text-[11px] text-slate-400 mt-1">Leave blank to allow late submissions indefinitely.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Late Penalty</label>
+                  <select value={latePenaltyType} onChange={e => setLatePenaltyType(e.target.value as any)} className="input-base text-sm">
+                    <option value="none">No penalty</option>
+                    <option value="percentage">Percentage per day</option>
+                    <option value="points">Points per day</option>
+                  </select>
+                </div>
+                {latePenaltyType !== "none" && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">
+                      {latePenaltyType === "percentage" ? "% per day" : "Points per day"}
+                    </label>
+                    <input type="number" min={0} value={latePenaltyValue} onChange={e => setLatePenaltyValue(e.target.value === "" ? "" : +e.target.value)} className="input-base text-sm" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Submission</p>
+        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+          <ToggleRow label="Written Response Box" hint="Show a text field for students to type their answer" checked={allowText} onChange={setAllowText} />
+          {allowText && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Word Limit</p>
+                <p className="text-xs text-slate-500">Leave blank for no limit</p>
+              </div>
+              <input
+                type="number" min={1} value={wordLimit}
+                onChange={e => setWordLimit(e.target.value === "" ? "" : +e.target.value)}
+                placeholder="e.g. 500" className="input-base text-sm w-28 text-right"
+              />
+            </div>
+          )}
+          <ToggleRow label="File Upload" hint="Students can attach one or more files" checked={allowFileUpload} onChange={setAllowFileUpload} />
+          {allowFileUpload && (
+            <div className="px-4 py-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Max Files</label>
+                  <input type="number" min={1} max={10} value={maxFiles} onChange={e => setMaxFiles(+e.target.value)} className="input-base text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Max File Size (MB)</label>
+                  <input type="number" min={1} value={maxFileSizeMb} onChange={e => setMaxFileSizeMb(+e.target.value)} className="input-base text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Accepted File Types</label>
+                <p className="text-[11px] text-slate-400 mb-2">Leave all unchecked to accept the platform's default document types.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ACCEPTED_FILE_TYPE_OPTIONS.map(({ ext, label }) => {
+                    const checked = acceptedTypes.includes(ext);
+                    return (
+                      <button
+                        key={ext} type="button"
+                        onClick={() => setAcceptedTypes((prev) => checked ? prev.filter((t) => t !== ext) : [...prev, ext])}
+                        className={cn(
+                          "text-[11px] font-medium px-2.5 py-1.5 rounded-lg border transition-colors",
+                          checked ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Attempts</p>
+        <div className="max-w-xs">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Attempts Allowed</label>
+          <select value={maxAttempts} onChange={e => setMaxAttempts(+e.target.value)} className="input-base text-sm">
+            {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+            <option value={999}>Unlimited</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Grading</p>
+        <div className="max-w-xs mb-3">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5 block">Max Score</label>
           <input type="number" min={1} value={maxScore} onChange={e => setMaxScore(+e.target.value)} className="input-base text-sm" />
         </div>
-        <div>
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Due Date</label>
-          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="input-base text-sm" />
-        </div>
+        <RubricEditor rubric={rubric} onChange={setRubric} />
       </div>
-      <p className="text-xs text-slate-400">
-        Students can submit a written response and/or attach a file from the learning portal.
-      </p>
-      <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
-        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
+
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
+        </button>
+        <button onClick={duplicate} disabled={duplicating} className="btn-outline !py-2 !px-4 !text-xs disabled:opacity-60">
+          {duplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />} Duplicate
+        </button>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Resources</p>
+        <LessonResourcesEditor lessonId={lesson.id} token={token} />
+      </div>
+    </div>
+  );
+}
+
+function RubricEditor({ rubric, onChange }: { rubric: { criterion: string; description?: string; points: number }[]; onChange: (r: { criterion: string; description?: string; points: number }[]) => void }) {
+  function update(i: number, patch: Partial<{ criterion: string; description?: string; points: number }>) {
+    onChange(rubric.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  }
+  const total = rubric.reduce((sum, r) => sum + (r.points || 0), 0);
+  return (
+    <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-600">Rubric <span className="text-slate-400 font-normal">(optional — shown as a reference while grading)</span></p>
+        {rubric.length > 0 && <span className="text-[11px] text-slate-400">{total} pts total</span>}
+      </div>
+      {rubric.map((r, i) => (
+        <div key={i} className="flex items-start gap-2 bg-slate-50 rounded-lg p-2">
+          <div className="flex-1 space-y-1">
+            <input
+              value={r.criterion} onChange={e => update(i, { criterion: e.target.value })}
+              placeholder="Criterion (e.g. Analysis)" className="input-base !py-1.5 text-sm w-full"
+            />
+            <input
+              value={r.description ?? ""} onChange={e => update(i, { description: e.target.value })}
+              placeholder="Description (optional)" className="input-base !py-1.5 text-xs w-full"
+            />
+          </div>
+          <input
+            type="number" min={0} value={r.points} onChange={e => update(i, { points: +e.target.value })}
+            className="input-base !py-1.5 text-sm w-20 text-right flex-shrink-0"
+          />
+          <button type="button" onClick={() => onChange(rubric.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 flex-shrink-0 mt-1.5">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...rubric, { criterion: "", description: "", points: 10 }])}
+        className="btn-outline !py-1.5 !px-3 !text-xs w-full"
+      >
+        <Plus size={12} /> Add Criterion
       </button>
+    </div>
+  );
+}
+
+function LessonResourcesEditor({ lessonId, token }: { lessonId: string; token: string }) {
+  const { data: resourcesRaw, mutate } = useSWR(
+    token && lessonId ? [`/prof/lessons/${lessonId}/resources`, token] as const : null,
+    ([url, t]) => api.get<any>(url, t)
+  );
+  const resources: LessonResource[] = (() => {
+    const d = (resourcesRaw as any)?.data ?? resourcesRaw;
+    return Array.isArray(d) ? d : [];
+  })();
+  const [uploading, setUploading] = useState(false);
+
+  async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${API_BASE}/uploads/local?purpose=lesson_attachment`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const data = await res.json();
+        const fileUrl: string = data?.url ?? data?.data?.url;
+        if (!fileUrl) throw new Error("No URL in response");
+        await api.post(`/prof/lessons/${lessonId}/resources`, {
+          title: file.name.replace(/\.[^/.]+$/, ""),
+          url: fileUrl,
+          file_name: file.name,
+        }, token);
+      }
+      toast.success(files.length > 1 ? `${files.length} resources added` : "Resource added");
+      mutate();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteResource(r: LessonResource) {
+    if (!confirm(`Delete "${r.title}"?`)) return;
+    await toast.promise(
+      api.delete(`/prof/lessons/${lessonId}/resources/${r.id}`, token).then(() => mutate()),
+      { loading: "Deleting…", success: "Deleted", error: "Failed" }
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-slate-400 -mt-1 mb-1">Files students can download before submitting — instructions, datasets, templates.</p>
+      {resources.length === 0 ? (
+        <p className="text-xs text-slate-400">No resources yet.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {resources.map((r) => (
+            <div key={r.id} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="w-7 h-7 rounded-lg bg-navy-100 flex items-center justify-center flex-shrink-0">
+                <Paperclip size={12} className="text-navy-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-800 truncate">{r.title}</p>
+              </div>
+              <a href={r.url} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-slate-200 text-slate-400 hover:text-navy-700" title="Download">
+                <Download size={13} />
+              </a>
+              <button onClick={() => deleteResource(r)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <label className={cn("btn-outline !py-1.5 !px-3 !text-xs w-fit cursor-pointer", uploading && "opacity-60 pointer-events-none")}>
+        {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Add Resource
+        <input type="file" multiple className="hidden" onChange={uploadFiles} disabled={uploading} />
+      </label>
     </div>
   );
 }

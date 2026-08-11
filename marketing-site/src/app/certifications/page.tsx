@@ -4,14 +4,30 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-export const metadata: Metadata = {
-  title: "AI Certification Programs | Professional Artificial Intelligence Institute",
-  description:
-    "Globally recognized AI certifications for every career stage — from core professional to domain specialist.",
-};
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/certifications`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title || "AI Certification Programs | Professional Artificial Intelligence Institute",
+    description: cms?.meta_description || "Globally recognized AI certifications for every career stage — from core professional to domain specialist.",
+  };
+}
 
 const CERT_THEMES = [
   { dark: false, bg: "bg-[#f5f0eb]", shapeColor: "#134e4a", shapeType: "pentagon" },
@@ -90,11 +106,20 @@ function CertCard({ cert, idx }: { cert: any; idx: number }) {
       theme.dark ? "border-white/10" : "border-sand-300"
     )}>
       <div className="relative h-[165px] overflow-hidden">
-        <Shape type={theme.shapeType} color={theme.shapeColor} />
+        {cert.badge_image_url ? (
+          <>
+            <img src={cert.badge_image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            {/* Legibility gradient behind the badges — a photo's brightness
+                varies, unlike the fixed-contrast theme colors it replaces. */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-transparent" />
+          </>
+        ) : (
+          <Shape type={theme.shapeType} color={theme.shapeColor} />
+        )}
         <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
           <span className={cn(
             "text-[12px] font-semibold px-3 py-1.5 rounded-full border",
-            theme.dark ? "bg-white/10 text-white border-white/20" : "bg-white/70 text-ink-900 border-sand-200/60"
+            cert.badge_image_url || theme.dark ? "bg-white/10 text-white border-white/20" : "bg-white/70 text-ink-900 border-sand-200/60"
           )}>
             Certification
           </span>
@@ -146,6 +171,7 @@ function CertCard({ cert, idx }: { cert: any; idx: number }) {
 
 export default async function CertificationsListPage() {
   const { items: certs, failed } = await getCertifications();
+  const cms = await getCmsPage();
 
   // Assign a stable global theme index before grouping so colours vary across the whole page
   const certsWithIdx = certs.map((cert: any, i: number) => ({ ...cert, _themeIdx: i }));
@@ -163,32 +189,36 @@ export default async function CertificationsListPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="pb-20 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div
-            className="absolute inset-0 opacity-[0.05]"
-            style={{
-              backgroundImage: "radial-gradient(circle at 1px 1px, rgba(201,145,58,0.9) 1px, transparent 0)",
-              backgroundSize: "48px 48px",
-            }}
-          />
-          <div className="container-lg relative">
-            <div className="flex items-center gap-2 text-white/60 text-xs font-semibold mb-5">
-              <Link href="/" className="hover:text-white transition-colors">Home</Link>
-              <ChevronRight size={12} />
-              <span className="text-white">Certifications</span>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-20 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div
+              className="absolute inset-0 opacity-[0.05]"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(201,145,58,0.9) 1px, transparent 0)",
+                backgroundSize: "48px 48px",
+              }}
+            />
+            <div className="container-lg relative">
+              <div className="flex items-center gap-2 text-white/60 text-xs font-semibold mb-5">
+                <Link href="/" className="hover:text-white transition-colors">Home</Link>
+                <ChevronRight size={12} />
+                <span className="text-white">Certifications</span>
+              </div>
+              <span className="badge-dark mb-5">Certification Programs</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-tight">
+                Become a Certified
+                <br />
+                <span className="text-gradient">AI Professional.</span>
+              </h1>
+              <p className="text-lg text-white/80 max-w-2xl">
+                Globally recognized credentials for every career stage. From core practitioner to domain expert — your AI career starts here.
+              </p>
             </div>
-            <span className="badge-dark mb-5">Certification Programs</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-tight">
-              Become a Certified
-              <br />
-              <span className="text-gradient">AI Professional.</span>
-            </h1>
-            <p className="text-lg text-white/80 max-w-2xl">
-              Globally recognized credentials for every career stage. From core practitioner to domain expert — your AI career starts here.
-            </p>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Grouped sections */}
         <section className="section-padding bg-white">

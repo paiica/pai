@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -14,6 +14,8 @@ import {
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { uploadHeroImage, deleteOldUpload } from "@/components/HeroImageFrame";
+import CardImageUpload from "@/components/CardImageUpload";
 
 const LEVELS = ["beginner", "intermediate", "advanced"] as const;
 const STATUSES = ["draft", "active", "archived"] as const;
@@ -24,11 +26,13 @@ type Course = {
   title: string;
   subtitle?: string;
   description?: string;
+  thumbnail_url?: string;
   price: number;
   status: string;
   level: string;
   duration_hours: number;
   pdu_value: number;
+  passing_score?: number;
   certification_id?: string;
   cert_acronym?: string;
   cert_title?: string;
@@ -36,8 +40,10 @@ type Course = {
   enrollment_count: number;
   is_featured?: boolean;
   ai_professor_enabled?: boolean;
+  is_listed?: boolean;
   instructors?: { user_id: string; is_lead: boolean; first_name: string; last_name: string }[];
   content?: CourseContent;
+  programs?: { id: string; title: string; slug: string; status: string; is_required: boolean; special_type: "capstone" | "internship" | null }[];
 };
 
 type Tab = "overview" | "instructors" | "content" | "documents";
@@ -275,6 +281,7 @@ export default function CourseDetailPage() {
     title: "",
     subtitle: "",
     description: "",
+    thumbnail_url: "",
     price: "0",
     level: "beginner" as typeof LEVELS[number],
     status: "draft" as typeof STATUSES[number],
@@ -283,6 +290,7 @@ export default function CourseDetailPage() {
     certification_id: "",
     is_featured: false,
     ai_professor_enabled: false,
+    passing_score: "70",
   });
 
   const [contentForm, setContentForm] = useState<CourseContent>({
@@ -306,6 +314,10 @@ export default function CourseDetailPage() {
   const [prerequisiteCourseIds, setPrerequisiteCourseIds] = useState<string[]>([]);
   const [corequisiteCourseIds, setCorequisiteCourseIds] = useState<string[]>([]);
   const [savingPrereqs, setSavingPrereqs] = useState(false);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  // Tracks the last *persisted* thumbnail URL — cleanup only fires once a
+  // save actually replaces it, not the instant a new file is uploaded.
+  const lastSavedThumbnailUrlRef = useRef<string>("");
 
   useEffect(() => {
     if (course.id) {
@@ -313,6 +325,7 @@ export default function CourseDetailPage() {
         title: course.title || "",
         subtitle: course.subtitle || "",
         description: course.description || "",
+        thumbnail_url: course.thumbnail_url || "",
         price: String(course.price ?? 0),
         level: (course.level as typeof LEVELS[number]) || "beginner",
         status: (course.status as typeof STATUSES[number]) || "draft",
@@ -321,7 +334,9 @@ export default function CourseDetailPage() {
         certification_id: course.certification_id || "",
         is_featured: course.is_featured ?? false,
         ai_professor_enabled: course.ai_professor_enabled ?? false,
+        passing_score: String(course.passing_score ?? 70),
       });
+      lastSavedThumbnailUrlRef.current = course.thumbnail_url || "";
 
       setRecommendedCertIds((course as any).recommended_cert_ids ?? []);
       setRequiredCertIds((course as any).required_cert_ids ?? []);
@@ -349,6 +364,19 @@ export default function CourseDetailPage() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  async function uploadThumbnail(file: File) {
+    setUploadingThumbnail(true);
+    try {
+      const url = await uploadHeroImage(file, token, "course_thumbnail");
+      if (!url) { toast.error("Upload failed"); return; }
+      // Deliberately does not delete the previous image here — cleanup
+      // happens on save (see lastSavedThumbnailUrlRef).
+      setField("thumbnail_url", url);
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title.trim()) {
@@ -361,6 +389,7 @@ export default function CourseDetailPage() {
         title: form.title,
         subtitle: form.subtitle || undefined,
         description: form.description || undefined,
+        thumbnail_url: form.thumbnail_url || null,
         price: parseFloat(form.price) || 0,
         level: form.level,
         status: form.status,
@@ -369,7 +398,12 @@ export default function CourseDetailPage() {
         certification_id: form.certification_id || null,
         is_featured: form.is_featured,
         ai_professor_enabled: form.ai_professor_enabled,
+        passing_score: parseInt(form.passing_score, 10) || 70,
       }, token);
+      if (lastSavedThumbnailUrlRef.current && lastSavedThumbnailUrlRef.current !== form.thumbnail_url) {
+        deleteOldUpload(lastSavedThumbnailUrlRef.current, token);
+      }
+      lastSavedThumbnailUrlRef.current = form.thumbnail_url;
       toast.success("Course updated!");
       mutate();
     } catch (err: any) {
@@ -604,6 +638,30 @@ export default function CourseDetailPage() {
           </div>
           <h1 className="text-2xl font-display font-black text-navy-900">{course.title}</h1>
           <p className="text-slate-500 text-sm mt-1">/{course.slug}</p>
+          {(course.programs?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {course.programs!.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/programs/${p.id}/edit`}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border transition-colors",
+                    p.special_type === "capstone"
+                      ? "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100"
+                      : p.special_type === "internship"
+                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      : "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
+                  )}
+                >
+                  {p.special_type === "capstone" && "Capstone in "}
+                  {p.special_type === "internship" && "Internship in "}
+                  {!p.special_type && "Part of "}
+                  {p.title}
+                  {!p.is_required && " (elective)"}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
@@ -720,6 +778,18 @@ export default function CourseDetailPage() {
                 placeholder="Short tagline for the course card"
                 value={form.subtitle}
                 onChange={(e) => setField("subtitle", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Card Image <span className="text-slate-400 font-normal">(shown on the /courses catalog card — leave blank for the default white card)</span>
+              </label>
+              <CardImageUpload
+                imageUrl={form.thumbnail_url}
+                uploading={uploadingThumbnail}
+                onUpload={uploadThumbnail}
+                onRemove={() => setField("thumbnail_url", "")}
+                aspectClassName="aspect-[400/140]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1012,6 +1082,19 @@ export default function CourseDetailPage() {
                   <Layers size={13} />
                   <span className="text-sm font-medium">{course.module_count || 0}</span>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Passing Score (%)</label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="70"
+                  value={form.passing_score}
+                  onChange={(e) => setField("passing_score", e.target.value)}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Minimum average assignment grade to earn this course's completion certificate.</p>
               </div>
             </div>
           </div>

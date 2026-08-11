@@ -3,10 +3,11 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Building2, Users2, BarChart3, Award, CheckCircle2, ArrowRight, Mail, ClipboardList, MessageSquareText, UserPlus, LineChart } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -90,40 +91,46 @@ export default async function CorporatePage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 56px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">For Organizations</span>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-black text-white mb-5 leading-[1.08]">
-              AI-Ready Teams<br /><span className="text-gradient">Start Here</span>
-            </h1>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto mb-8">
-              Certify your entire organization with PAII&apos;s group programs. Volume pricing,
-              a dedicated account manager, and admin analytics included.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <a href="mailto:corporate@paii.ca" className="btn-primary !py-4 !px-8">
-                <Mail size={16} /> Get a Custom Quote
-              </a>
-              <Link href="#pricing" className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors">
-                View pricing tiers →
-              </Link>
-            </div>
+        {/* Hero — CMS-controlled if enabled (replaces the whole block below,
+            including the "what's included" glass box — the CMS hero is
+            deliberately simpler), otherwise the original hardcoded hero */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 56px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">For Organizations</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-black text-white mb-5 leading-[1.08]">
+                AI-Ready Teams<br /><span className="text-gradient">Start Here</span>
+              </h1>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto mb-8">
+                Certify your entire organization with PAII&apos;s group programs. Volume pricing,
+                a dedicated account manager, and admin analytics included.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+                <a href="mailto:corporate@paii.ca" className="btn-primary !py-4 !px-8">
+                  <Mail size={16} /> Get a Custom Quote
+                </a>
+                <Link href="#pricing" className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors">
+                  View pricing tiers →
+                </Link>
+              </div>
 
-            {/* What's included — reuses the homepage hero's glass-stat-box
-                container, filled with concrete inclusions rather than
-                invented usage numbers. A buyer scanning this page wants to
-                know what they get, not an unverifiable stat. */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-white/10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden max-w-4xl mx-auto text-left">
-              {INCLUDED.map((item) => (
-                <div key={item} className="flex items-center gap-2.5 py-5 px-5">
-                  <CheckCircle2 size={16} className="text-teal-400 flex-shrink-0" />
-                  <span className="text-sm text-white/90 font-medium">{item}</span>
-                </div>
-              ))}
+              {/* What's included — reuses the homepage hero's glass-stat-box
+                  container, filled with concrete inclusions rather than
+                  invented usage numbers. A buyer scanning this page wants to
+                  know what they get, not an unverifiable stat. */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-white/10 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden max-w-4xl mx-auto text-left">
+                {INCLUDED.map((item) => (
+                  <div key={item} className="flex items-center gap-2.5 py-5 px-5">
+                    <CheckCircle2 size={16} className="text-teal-400 flex-shrink-0" />
+                    <span className="text-sm text-white/90 font-medium">{item}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (

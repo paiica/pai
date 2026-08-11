@@ -79,4 +79,14 @@ export class ProfessorStudentsController {
   ) {
     return this.service.createCertificationRecommendations(professorId, certificationId, dto.student_ids);
   }
+
+  @Post("programs/:programId/recommendations")
+  @ApiOperation({ summary: "Recommend a program to one or more of my students" })
+  createProgramRecommendations(
+    @Param("programId") programId: string,
+    @Body() dto: CreateCourseInvitationsDto,
+    @CurrentUser("id") professorId: string,
+  ) {
+    return this.service.createProgramRecommendations(professorId, programId, dto.student_ids);
+  }
 }

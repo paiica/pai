@@ -942,6 +942,202 @@ Rules:
     }
   }
 
+  // Drafts an entire new Program from a free-text prompt — mirrors
+  // generateCertification, but deliberately excludes curriculum/course
+  // selection: a Program's curriculum is a set of real Course foreign-key
+  // references chosen by an admin, not content the AI can invent. Also
+  // excludes exam settings (Programs have no exam) and testimonials are
+  // included for parity with the certification draft, same as there.
+  async generateProgram(params: { prompt: string }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const { prompt } = params;
+
+    const userPrompt = `Design a professional multi-course training program based on this description:
+
+"${prompt}"
+
+Return ONLY a JSON object with this exact shape (fill in every field with realistic, specific content — never placeholders like "Lorem ipsum" or "TBD"):
+
+{
+  "title": "Full program name",
+  "code": "short internal code, e.g. AILP-2026",
+  "level": "beginner | intermediate | advanced",
+  "short_description": "1-2 sentence catalog summary",
+  "description": "2-4 sentence description",
+  "overview": "3-6 sentence longer-form overview for the program landing page",
+  "price": 999,
+  "duration_weeks": 12,
+  "estimated_hours": 40,
+  "learning_outcomes": ["5-8 specific outcomes"],
+  "target_audience": ["4-6 audience descriptions"],
+  "prerequisites": ["2-5 prerequisite items, or an empty array if none"],
+  "certificate_title": "e.g. Certificate of Completion — <Program Name>",
+  "certificate_description": "1-2 sentences describing what the completion certificate represents",
+  "faqs_json": [{ "question": "...", "answer": "..." }],
+  "testimonials": [{ "name": "Full Name", "role": "Job Title", "company": "Company", "quote": "...", "avatar_initials": "AB" }],
+  "marketing_meta": {
+    "reviews_rating": "4.9",
+    "reviews_count": "1,200+",
+    "social_proof": "Join 3,200+ program graduates",
+    "hero_badge_label": "Professional Program",
+    "enrollment_includes": ["4 items, e.g. Certificate of completion, Capstone project review"]
+  }
+}
+
+Rules:
+- Do NOT invent a curriculum or list of courses — the admin selects existing courses separately.
+- faqs_json: 4-6 realistic Q&As specific to this program
+- testimonials: exactly 3, varied names/roles/companies
+- Every string must be real, specific content — never generic filler`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [
+          { role: "system", content: "You are an expert curriculum designer and copywriter for a professional training organization. Output only valid JSON, no markdown fences, no commentary." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 3072,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return this.normalizeProgramDraft(parsed);
+    } catch {
+      this.logger.error("generateProgram raw response:", raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
+  private normalizeProgramDraft(raw: any) {
+    const s   = (v: any, d = "") => (typeof v === "string" ? v : d);
+    const n   = (v: any, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
+    const arr = (v: any) => (Array.isArray(v) ? v : []);
+    const obj = (v: any) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+    const strs = (v: any) => arr(v).filter((x: any) => typeof x === "string");
+
+    const mm = obj(raw.marketing_meta);
+
+    return {
+      title:                   s(raw.title),
+      code:                    s(raw.code),
+      level:                   ["beginner", "intermediate", "advanced"].includes(raw.level) ? raw.level : "beginner",
+      short_description:       s(raw.short_description),
+      description:             s(raw.description),
+      overview:                s(raw.overview),
+      price:                   n(raw.price, 999),
+      duration_weeks:          n(raw.duration_weeks, 12),
+      estimated_hours:         n(raw.estimated_hours, 40),
+      learning_outcomes:       strs(raw.learning_outcomes),
+      target_audience:         strs(raw.target_audience),
+      prerequisites:           strs(raw.prerequisites),
+      certificate_title:       s(raw.certificate_title),
+      certificate_description: s(raw.certificate_description),
+      faqs_json: arr(raw.faqs_json).map((f: any) => ({ question: s(f?.question), answer: s(f?.answer) })),
+      testimonials: arr(raw.testimonials).map((t: any) => ({
+        name: s(t?.name), role: s(t?.role), company: s(t?.company), quote: s(t?.quote), avatar_initials: s(t?.avatar_initials),
+      })),
+      marketing_meta: {
+        reviews_rating:      s(mm.reviews_rating, "4.9"),
+        reviews_count:       s(mm.reviews_count, "1,200+"),
+        social_proof:        s(mm.social_proof),
+        hero_badge_label:    s(mm.hero_badge_label, "Professional Program"),
+        enrollment_includes: strs(mm.enrollment_includes),
+        certificate_template_html: "",
+      },
+    };
+  }
+
+  // Same "ground it in the real build" approach as
+  // generateCertificationOverviewFromBuild, adapted to a Program: since a
+  // Program bundles existing Course rows rather than owning modules/lessons
+  // directly, this grounds itself in each bundled course's own title/
+  // description/level plus the capstone, instead of raw lesson excerpts.
+  async generateProgramOverviewFromBuild(params: {
+    title: string;
+    level: string;
+    courses: { title: string; description?: string; is_required: boolean }[];
+    capstone?: { title: string; description?: string } | null;
+  }) {
+    const { client, model, provider } = await this.getClientAndModel();
+    const { title, level, courses, capstone } = params;
+
+    const curriculumText = courses
+      .map((c, i) => `${i + 1}. [${c.is_required ? "required" : "elective"}] ${c.title}${c.description ? `: ${c.description}` : ""}`)
+      .join("\n");
+    const capstoneText = capstone ? `\n\nCapstone project: "${capstone.title}"${capstone.description ? ` — ${capstone.description}` : ""}` : "";
+
+    const userPrompt = `Write catalog/marketing copy for this multi-course training program, based strictly on its ACTUAL bundled courses below — do not invent topics that aren't covered by the real courses.
+
+Program: "${title}", level: ${level}
+
+Actual bundled courses (in order):
+${curriculumText || "(no courses added yet)"}${capstoneText}
+
+Return ONLY a JSON object with this exact shape:
+{
+  "short_description": "1-2 sentence catalog summary of what this program actually covers",
+  "description": "2-4 sentence description, specific to the real courses above",
+  "overview": "3-6 sentence longer-form overview for the program landing page, specific to the real courses and capstone above",
+  "learning_outcomes": ["4-8 short 'By the end, you will be able to...' style bullets, each grounded in a specific course or the capstone above"],
+  "target_audience": ["3-6 short bullets describing who this program is actually suited for, based on its courses' difficulty and topics"]
+}
+
+Rules:
+- Every description, overview sentence, and outcome must be grounded in the actual courses/capstone given — never generic filler, never claim topics not present above.`;
+
+    let raw = "";
+    try {
+      const createParams: any = {
+        model,
+        messages: [
+          { role: "system", content: "You are an expert curriculum copywriter for a professional training organization. You only describe content that was actually given to you. Output only valid JSON, no markdown fences, no commentary." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 1536,
+      };
+      if (provider === "openai" || provider === "groq") {
+        createParams.response_format = { type: "json_object" };
+      }
+      const res = await client.chat.completions.create(createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const s = (v: any, d = "") => (typeof v === "string" ? v : d);
+      const arr = (v: any) => (Array.isArray(v) ? v : []);
+      const strs = (v: any) => arr(v).filter((x: any) => typeof x === "string" && x.trim());
+      return {
+        short_description: s(parsed.short_description),
+        description: s(parsed.description),
+        overview: s(parsed.overview),
+        learning_outcomes: strs(parsed.learning_outcomes),
+        target_audience: strs(parsed.target_audience),
+      };
+    } catch {
+      this.logger.error("generateProgramOverviewFromBuild raw response:", raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
   // The "AI Professor" corner chat a student can open while viewing a
   // lesson. Grounded in the actual lesson content (an excerpt, same
   // stripHtmlExcerpt helper the overview-from-build features use) so

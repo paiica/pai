@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
-  LayoutDashboard, BookOpen, Award,
+  LayoutDashboard, BookOpen, Award, GraduationCap,
   User, LogOut, FileText, BarChart2, ChevronLeft, ChevronRight, ExternalLink, Shield,
   Wrench, ChevronDown, Lock, Bell, CreditCard, Menu, X,
 } from "lucide-react";
@@ -19,7 +19,7 @@ const TOP_ITEMS = [
 ];
 
 const LEARNING_ITEMS = [
-  { href: "/tools",  label: "Online Tools", icon: Wrench },
+  { href: "/tools",    label: "Online Tools", icon: Wrench },
 ];
 
 const BOTTOM_ITEMS = [
@@ -30,50 +30,33 @@ function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => (r as any).data ?? r);
 }
 
-// Only shown once the student actually has an assignment to do — combines
-// the same three sources /student/assignments itself merges (lesson-based
-// assignments in certification-track courses, lesson-based assignments in
-// prep-courses, and standalone assignments), so this can't drift out of
-// sync with what the page actually renders.
-function AssignmentsNavItem({ collapsed, token }: { collapsed: boolean; token: string | null }) {
+// Only shown once the student is actually enrolled in at least one Program —
+// an unenrolled student has nothing to see there, so the tab stays hidden
+// until they join one.
+function ProgramsNavItem({ collapsed, token }: { collapsed: boolean; token: string | null }) {
   const pathname = usePathname();
 
-  const { data: lessonAssignments } = useSWR(
-    token ? ["/learn/assignments", token] : null,
-    ([url, t]) => fetcher(url, t),
-    { revalidateOnFocus: false },
-  );
-  const { data: courseAssignments } = useSWR(
-    token ? ["/prep-courses/my/assignments", token] : null,
-    ([url, t]) => fetcher(url, t),
-    { revalidateOnFocus: false },
-  );
-  const { data: standaloneAssignments } = useSWR(
-    token ? ["/assignments", token] : null,
+  const { data: myPrograms } = useSWR(
+    token ? ["/programs/my", token] : null,
     ([url, t]) => fetcher(url, t),
     { revalidateOnFocus: false },
   );
 
-  const hasAssignments =
-    (Array.isArray(lessonAssignments) && lessonAssignments.length > 0) ||
-    (Array.isArray(courseAssignments) && courseAssignments.length > 0) ||
-    (Array.isArray(standaloneAssignments) && standaloneAssignments.length > 0);
+  if (!Array.isArray(myPrograms) || myPrograms.length === 0) return null;
 
-  if (!hasAssignments) return null;
-
-  const href = "/student/assignments";
+  const href = "/programs";
   return (
     <Link
       href={href}
       className={cn(
         "sidebar-link",
-        pathname === href ? "sidebar-link-active" : "",
-        collapsed && "justify-center !px-2"
+        pathname === href || pathname.startsWith(href + "/") ? "sidebar-link-active" : "",
+        collapsed ? "justify-center !px-2" : "pl-5"
       )}
-      title={collapsed ? "Assignments" : undefined}
+      title={collapsed ? "Programs" : undefined}
     >
-      <FileText size={18} className="flex-shrink-0" />
-      {!collapsed && <span>Assignments</span>}
+      <GraduationCap size={18} className="flex-shrink-0" />
+      {!collapsed && <span>Programs</span>}
     </Link>
   );
 }
@@ -414,10 +397,10 @@ export default function StudentSidebar() {
             {!collapsed && <span>{label}</span>}
           </Link>
         ))}
+        {(collapsed || learningOpen) && <ProgramsNavItem collapsed={collapsed} token={token} />}
 
         {/* Other items */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
-        <AssignmentsNavItem collapsed={collapsed} token={token} />
         {BOTTOM_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}

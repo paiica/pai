@@ -9,7 +9,6 @@ import { type AdminTabKey } from "@/components/layout/AdminSidebar";
 // Map each admin route prefix → tab key
 const ROUTE_TAB_MAP: Array<{ prefix: string; tab: AdminTabKey }> = [
   { prefix: "/applications",  tab: "applications"   },
-  { prefix: "/assignments",   tab: "assignments"    },
   { prefix: "/exam-sessions", tab: "exam_sessions"  },
   { prefix: "/users",         tab: "users"          },
   { prefix: "/blog",          tab: "blog"           },

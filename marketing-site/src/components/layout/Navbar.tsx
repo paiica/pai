@@ -5,9 +5,10 @@ type NavItem  = { id: string; label: string; href: string; open_new_tab: boolean
 
 const FALLBACK_NAV: NavItem[] = [
   { id: "1", label: "Certifications",    href: "/certifications", open_new_tab: false, children: [] },
-  { id: "2", label: "Learning",          href: "/blog",      open_new_tab: false, children: [] },
-  { id: "3", label: "Resources",         href: "/faq",       open_new_tab: false, children: [] },
-  { id: "4", label: "For Organizations", href: "/corporate", open_new_tab: false, children: [] },
+  { id: "2", label: "Programs",          href: "/programs",  open_new_tab: false, children: [] },
+  { id: "3", label: "Learning",          href: "/blog",      open_new_tab: false, children: [] },
+  { id: "4", label: "Resources",         href: "/faq",       open_new_tab: false, children: [] },
+  { id: "5", label: "For Organizations", href: "/corporate", open_new_tab: false, children: [] },
   { id: "6", label: "About PAII",        href: "/about",     open_new_tab: false, children: [] },
 ];
 

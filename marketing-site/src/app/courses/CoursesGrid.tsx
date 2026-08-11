@@ -7,7 +7,7 @@ import { Clock, Search, X, ArrowRight } from "lucide-react";
 type CourseListItem = {
   id: string; slug: string; title: string; subtitle?: string | null;
   price: string | number; level?: string | null; cert_acronym?: string | null;
-  module_count?: number; duration_hours?: number;
+  module_count?: number; duration_hours?: number; thumbnail_url?: string | null;
 };
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -102,7 +102,11 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
                 key={course.id}
                 className="relative bg-white rounded-2xl border border-sand-300 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
               >
-                {modules > 0 && (
+                {course.thumbnail_url ? (
+                  <div className="relative h-[140px] overflow-hidden flex-shrink-0">
+                    <img src={course.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  </div>
+                ) : modules > 0 && (
                   <div
                     className="absolute -top-6 -right-3 font-display font-black leading-none text-sand-100 select-none pointer-events-none"
                     style={{ fontSize: "160px" }}

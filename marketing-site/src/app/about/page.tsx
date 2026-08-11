@@ -3,10 +3,11 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Shield, Globe2, Users2, Award, CheckCircle2, ArrowRight } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -50,19 +51,23 @@ export default async function AboutPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
-        <section className="pb-24 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">About PAII</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
-              The AI Credential Standard
-            </h1>
-            <p className="text-lg text-white max-w-2xl mx-auto">
-              Founded to close the credibility gap in AI professional development.
-              We build rigorous, globally recognized certifications for the AI era.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-24 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">About PAII</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
+                The AI Credential Standard
+              </h1>
+              <p className="text-lg text-white max-w-2xl mx-auto">
+                Founded to close the credibility gap in AI professional development.
+                We build rigorous, globally recognized certifications for the AI era.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (

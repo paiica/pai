@@ -23,6 +23,12 @@ export class LearningController {
     return this.learningService.getMyAssignments(userId);
   }
 
+  @Get("my/certification-content")
+  @ApiOperation({ summary: "Native quiz/assignment content + exam attempts for every certification I'm enrolled in (courses are handled separately, see prep-courses' my/course-grades)" })
+  getMyCertificationContent(@CurrentUser("id") userId: string) {
+    return this.learningService.getMyCertificationContent(userId);
+  }
+
   @Get(":enrollmentId")
   @ApiOperation({ summary: "Get course outline with my progress" })
   getCourseOutline(
@@ -100,15 +106,6 @@ export class LearningController {
     @Body() dto: SubmitAssignmentDto,
   ) {
     return this.learningService.submitAssignment(enrollmentId, lessonId, userId, dto);
-  }
-
-  @Get(":enrollmentId/grades")
-  @ApiOperation({ summary: "Get my quiz and assignment grades for an enrollment" })
-  getGrades(
-    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
-    @CurrentUser("id") userId: string,
-  ) {
-    return this.learningService.getMyGrades(enrollmentId, userId);
   }
 
   @Get(":enrollmentId/lesson/:lessonId/note")

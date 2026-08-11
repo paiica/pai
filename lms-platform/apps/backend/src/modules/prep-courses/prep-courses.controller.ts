@@ -63,6 +63,22 @@ export class PrepCoursesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get("my/course-grades")
+  @ApiOperation({ summary: "Grade/completion breakdown for every course I'm enrolled in, certification-linked or standalone" })
+  async getMyCourseGrades(@CurrentUser("id") userId: string) {
+    return this.service.getMyCourseGrades(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get("my/course-grades/:courseId/certificate")
+  @ApiOperation({ summary: "My completion certificate for one of my enrolled courses (only if passed)" })
+  async getMyCourseCertificate(@Param("courseId", ParseUUIDPipe) courseId: string, @CurrentUser("id") userId: string) {
+    return this.service.getMyCourseCertificate(userId, courseId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get("learn/:enrollmentId")
   @ApiOperation({ summary: "Get course learn view (modules + lessons) for enrolled student" })
   getCourseLearnView(

@@ -46,7 +46,9 @@ export type EnrollmentStatus = "active" | "completed" | "suspended" | "expired" 
 export interface Employee {
   id: string;
   user_id: string;
-  certification_id: string;
+  certification_id?: string;
+  program_id?: string;
+  item_type: "certification" | "program";
   status: EnrollmentStatus;
   progress_percentage: number;
   enrolled_at: string;
@@ -56,13 +58,20 @@ export interface Employee {
     email: string;
     profile: { first_name: string | null; last_name: string | null } | null;
   };
-  certification: { id: string; title: string; acronym: string };
+  certification?: { id: string; title: string; acronym: string };
+  program?: { id: string; title: string };
 }
 
 export interface Certification {
   id: string;
   title: string;
   acronym: string;
+}
+
+export interface Program {
+  id: string;
+  title: string;
+  slug: string;
 }
 
 // ── API Response ──────────────────────────────────────────────────────────────

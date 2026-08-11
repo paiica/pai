@@ -15,6 +15,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CertIcon, CertIconPicker } from "@/lib/cert-icons";
+import { uploadHeroImage, deleteOldUpload } from "@/components/HeroImageFrame";
+import CardImageUpload from "@/components/CardImageUpload";
 
 type CurriculumItem  = { title: string; description: string; lessons: number };
 type FaqItem         = { question: string; answer: string };
@@ -58,7 +60,7 @@ const DEFAULT_TESTIMONIAL: Testimonial = { name: "", role: "", company: "", quot
 
 type Cert = {
   id: string; slug: string; acronym: string; title: string;
-  level: string; status: string; badge_icon: string;
+  level: string; status: string; badge_icon: string; badge_image_url?: string;
   price: number; member_discount_percentage: number; description: string; long_description: string;
   learning_outcomes: string[]; target_audience: string[];
   curriculum_overview: CurriculumItem[];
@@ -816,6 +818,11 @@ export default function CertEditorPage() {
   const [level,              setLevel]              = useState("foundation");
   const [status,             setStatus]             = useState("coming_soon");
   const [badgeIcon,          setBadgeIcon]          = useState("graduation-cap");
+  const [badgeImageUrl,      setBadgeImageUrl]      = useState("");
+  const [uploadingBadgeImage, setUploadingBadgeImage] = useState(false);
+  // Tracks the last *persisted* badge image URL — cleanup only fires once a
+  // save actually replaces it, not the instant a new file is uploaded.
+  const lastSavedBadgeImageUrlRef = useRef<string>("");
   const [description,        setDescription]        = useState("");
   const [longDesc,           setLongDesc]           = useState("");
   const [outcomes,           setOutcomes]           = useState<string[]>([]);
@@ -908,6 +915,8 @@ export default function CertEditorPage() {
     setLevel(cert.level ?? "foundation");
     setStatus(cert.status ?? "coming_soon");
     setBadgeIcon(cert.badge_icon ?? "graduation-cap");
+    setBadgeImageUrl(cert.badge_image_url ?? "");
+    lastSavedBadgeImageUrlRef.current = cert.badge_image_url ?? "";
     setDescription(cert.description ?? "");
     setLongDesc(cert.long_description ?? "");
     setOutcomes(safeArray<string>(cert.learning_outcomes));
@@ -972,6 +981,19 @@ export default function CertEditorPage() {
     }
   }, [cert]);
 
+  async function uploadBadgeImage(file: File) {
+    setUploadingBadgeImage(true);
+    try {
+      const url = await uploadHeroImage(file, accessToken!, "cert_badge");
+      if (!url) { toast.error("Upload failed"); return; }
+      // Deliberately does not delete the previous image here — cleanup
+      // happens on save (see lastSavedBadgeImageUrlRef).
+      setBadgeImageUrl(url);
+    } finally {
+      setUploadingBadgeImage(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -980,6 +1002,7 @@ export default function CertEditorPage() {
         ai_professor_enabled: aiProfessorEnabled,
         acronym, title, slug, level, status,
         badge_icon:              badgeIcon,
+        badge_image_url:         badgeImageUrl,
         description,
         long_description:        longDesc,
         learning_outcomes:       outcomes,
@@ -1045,6 +1068,10 @@ export default function CertEditorPage() {
         renewal_grace_period_days: parseInt(renewalGracePeriodDays) || 180,
         renewal_fee:               parseFloat(renewalFee) || 99,
       }, accessToken!);
+      if (lastSavedBadgeImageUrlRef.current && lastSavedBadgeImageUrlRef.current !== badgeImageUrl) {
+        deleteOldUpload(lastSavedBadgeImageUrlRef.current, accessToken!);
+      }
+      lastSavedBadgeImageUrlRef.current = badgeImageUrl;
       toast.success("Saved!");
       mutate();
     } catch (err: any) {
@@ -1363,6 +1390,14 @@ export default function CertEditorPage() {
           <Field label="Acronym"><input className="input-base max-w-xs" value={acronym} onChange={(e) => setAcronym(e.target.value.toUpperCase())} maxLength={10} /></Field>
           <Field label="Badge Icon">
             <CertIconPicker value={badgeIcon} onChange={setBadgeIcon} />
+          </Field>
+          <Field label="Card Image" hint="Shown on the /certifications catalog card — leave blank for the default colored pattern">
+            <CardImageUpload
+              imageUrl={badgeImageUrl}
+              uploading={uploadingBadgeImage}
+              onUpload={uploadBadgeImage}
+              onRemove={() => setBadgeImageUrl("")}
+            />
           </Field>
           <Field label="Full Title"><input className="input-base" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Slug" hint={`paii.ca/certifications/${slug || "..."}`}>

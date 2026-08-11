@@ -6,9 +6,11 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type, AlignLeft, AlignCenter, AlignRight, Image as ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { HeroImageFrame, deleteOldUpload, uploadHeroImage } from "@/components/HeroImageFrame";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MonacoEditor = dynamic(
@@ -26,6 +28,17 @@ type Page = {
   meta_description: string;
   is_published: boolean;
   updated_at: string;
+  hero_enabled: boolean;
+  hero_badge: string;
+  hero_headline: string;
+  hero_subheadline: string;
+  hero_align: string;
+  hero_image_url: string;
+  hero_image_position: string;
+  hero_image_zoom: number;
+  hero_overlay: boolean;
+  hero_cta_label: string;
+  hero_cta_href: string;
 };
 
 function previewDoc(content: string) {
@@ -83,6 +96,26 @@ export default function PageEditorPage() {
   const [activeTab,       setActiveTab]       = useState<"editor" | "edit" | "preview">("editor");
   const editableRef = useRef<HTMLDivElement>(null);
 
+  // ── Hero ──────────────────────────────────────────────
+  const [heroEnabled,     setHeroEnabled]     = useState(false);
+  const [heroBadge,       setHeroBadge]       = useState("");
+  const [heroHeadline,    setHeroHeadline]    = useState("");
+  const [heroSubheadline, setHeroSubheadline] = useState("");
+  const [heroAlign,       setHeroAlign]       = useState<"left" | "center" | "right">("center");
+  const [heroImageUrl,    setHeroImageUrl]    = useState("");
+  const [heroImagePos,    setHeroImagePos]    = useState("50% 50%");
+  const [heroImageZoom,   setHeroImageZoom]   = useState(100);
+  const [heroOverlay,     setHeroOverlay]     = useState(true);
+  const [heroCtaLabel,    setHeroCtaLabel]    = useState("");
+  const [heroCtaHref,     setHeroCtaHref]     = useState("");
+  const [heroUploading,   setHeroUploading]   = useState(false);
+  const [savingHero,      setSavingHero]      = useState(false);
+  // Tracks the last *persisted* hero image URL (not the in-progress edit) —
+  // cleanup only fires once a save actually replaces it, mirroring the
+  // homepage hero editor's save-time diff. A ref, not state, since it must
+  // survive multiple uploads between saves without triggering re-renders.
+  const lastSavedImageUrlRef = useRef<string>("");
+
   // Sync the live `content` string into the editable surface only when switching
   // into this tab — never while it's mounted and being typed in, or every
   // keystroke's setContent() would re-render dangerouslySetInnerHTML underneath
@@ -105,25 +138,103 @@ export default function PageEditorPage() {
       setMetaDescription(page.meta_description ?? "");
       setContent(page.content ?? "");
       setIsPublished(page.is_published);
+      setHeroEnabled(page.hero_enabled ?? false);
+      setHeroBadge(page.hero_badge ?? "");
+      setHeroHeadline(page.hero_headline ?? "");
+      setHeroSubheadline(page.hero_subheadline ?? "");
+      setHeroAlign((page.hero_align as "left" | "center" | "right") ?? "center");
+      setHeroImageUrl(page.hero_image_url ?? "");
+      setHeroImagePos(page.hero_image_position ?? "50% 50%");
+      setHeroImageZoom(page.hero_image_zoom ?? 100);
+      setHeroOverlay(page.hero_overlay ?? true);
+      setHeroCtaLabel(page.hero_cta_label ?? "");
+      setHeroCtaHref(page.hero_cta_href ?? "");
+      lastSavedImageUrlRef.current = page.hero_image_url ?? "";
       setInitialized(true);
     }
   }, [page, initialized]);
+
+  function heroPayload() {
+    return {
+      hero_enabled: heroEnabled,
+      hero_badge: heroBadge,
+      hero_headline: heroHeadline,
+      hero_subheadline: heroSubheadline,
+      hero_align: heroAlign,
+      hero_image_url: heroImageUrl,
+      hero_image_position: heroImagePos,
+      hero_image_zoom: heroImageZoom,
+      hero_overlay: heroOverlay,
+      hero_cta_label: heroCtaLabel,
+      hero_cta_href: heroCtaHref,
+    };
+  }
+
+  async function uploadHero(file: File) {
+    setHeroUploading(true);
+    try {
+      const url = await uploadHeroImage(file, accessToken!, "page_hero");
+      if (!url) { toast.error("Upload failed"); return; }
+      // Deliberately does NOT delete the previous image here — this is just an
+      // in-progress edit that might never be saved. Cleanup of the actually-
+      // replaced file happens in saveHero()/save() once the new state is
+      // confirmed persisted (see lastSavedImageUrlRef).
+      setHeroImageUrl(url);
+      setHeroImagePos("50% 50%");
+      setHeroImageZoom(100);
+    } finally {
+      setHeroUploading(false);
+    }
+  }
+
+  function cleanUpReplacedHeroImage(token: string) {
+    if (lastSavedImageUrlRef.current && lastSavedImageUrlRef.current !== heroImageUrl) {
+      deleteOldUpload(lastSavedImageUrlRef.current, token);
+    }
+    lastSavedImageUrlRef.current = heroImageUrl;
+  }
+
+  async function saveHero() {
+    setSavingHero(true);
+    try {
+      let token = accessToken!;
+      const payload = heroPayload();
+      try {
+        await api.patch(`/pages/${id}`, payload, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          await api.patch(`/pages/${id}`, payload, token);
+        } else throw err;
+      }
+      cleanUpReplacedHeroImage(token);
+      toast.success("Hero saved");
+    } catch {
+      toast.error("Failed to save hero");
+    } finally {
+      setSavingHero(false);
+    }
+  }
 
   async function save() {
     if (!title.trim() || !slug.trim()) return;
     setSaving(true);
     try {
       let token = accessToken!;
+      const payload = { title, slug, meta_description: metaDescription, content, is_published: isPublished, ...heroPayload() };
       try {
-        await api.patch(`/pages/${id}`, { title, slug, meta_description: metaDescription, content, is_published: isPublished }, token);
+        await api.patch(`/pages/${id}`, payload, token);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           const ok = await refreshTokens();
           if (!ok) throw err;
           token = useAuthStore.getState().accessToken!;
-          await api.patch(`/pages/${id}`, { title, slug, meta_description: metaDescription, content, is_published: isPublished }, token);
+          await api.patch(`/pages/${id}`, payload, token);
         } else throw err;
       }
+      cleanUpReplacedHeroImage(token);
       toast.success("Page saved");
     } catch {
       toast.error("Failed to save page");
@@ -237,6 +348,159 @@ export default function PageEditorPage() {
               <p className="text-[10px] text-slate-400 mt-1">{metaDescription.length}/200</p>
             </div>
           </div>
+        </div>
+
+        {/* Hero */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Hero Banner</p>
+            <button
+              onClick={() => setHeroEnabled((v) => !v)}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                heroEnabled
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                  : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+              }`}
+            >
+              {heroEnabled ? <Eye size={11} /> : <EyeOff size={11} />}
+              {heroEnabled ? "Enabled" : "Disabled"}
+            </button>
+          </div>
+
+          {!heroEnabled ? (
+            <p className="text-xs text-slate-400">
+              No hero banner shows above this page's content. Enable it to add a headline, background image, and alignment.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Badge <span className="text-slate-400 font-normal">(small eyebrow label, optional)</span>
+                  </label>
+                  <input className="input-base" value={heroBadge} onChange={(e) => setHeroBadge(e.target.value)} placeholder="e.g. About PAII" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Text Alignment</label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg w-fit">
+                    {([
+                      ["left", AlignLeft],
+                      ["center", AlignCenter],
+                      ["right", AlignRight],
+                    ] as const).map(([val, Icon]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setHeroAlign(val)}
+                        title={`Align ${val}`}
+                        className={cn(
+                          "px-3 py-1.5 rounded-md transition-colors",
+                          heroAlign === val ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                        )}
+                      >
+                        <Icon size={14} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Headline</label>
+                  <input className="input-base" value={heroHeadline} onChange={(e) => setHeroHeadline(e.target.value)} placeholder="Big headline shown in the hero" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subheadline</label>
+                  <textarea
+                    className="input-base h-20 resize-none"
+                    value={heroSubheadline}
+                    onChange={(e) => setHeroSubheadline(e.target.value)}
+                    placeholder="A sentence or two under the headline"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Button Label <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input className="input-base" value={heroCtaLabel} onChange={(e) => setHeroCtaLabel(e.target.value)} placeholder="e.g. Explore Certifications" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Button Link <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input className="input-base" value={heroCtaHref} onChange={(e) => setHeroCtaHref(e.target.value)} placeholder="/certifications" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <ImageIcon size={12} /> Background Image <span className="text-slate-400 font-normal">(optional — leave blank for the default dark gradient)</span>
+                  </label>
+                  {heroImageUrl && (
+                    <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 cursor-pointer">
+                      <input type="checkbox" checked={heroOverlay} onChange={(e) => setHeroOverlay(e.target.checked)} className="rounded border-slate-300" />
+                      Dark overlay
+                    </label>
+                  )}
+                </div>
+                <HeroImageFrame
+                  imageUrl={heroImageUrl}
+                  position={heroImagePos}
+                  zoom={heroImageZoom}
+                  uploading={heroUploading}
+                  onUpload={uploadHero}
+                  onPositionChange={setHeroImagePos}
+                  onZoomChange={setHeroImageZoom}
+                  aspectClassName="aspect-[1920/620]"
+                />
+                {heroImageUrl && (
+                  <button type="button" onClick={() => setHeroImageUrl("")} className="text-[11px] font-semibold text-red-500 hover:text-red-700 mt-1.5">
+                    Remove image (use gradient instead)
+                  </button>
+                )}
+              </div>
+
+              {/* Live preview */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Preview</p>
+                <div
+                  className={cn("relative overflow-hidden rounded-xl py-14 px-6", !heroImageUrl && "bg-gradient-to-br from-[#171527] via-[#1f1d38] to-[#2d1b69]")}
+                >
+                  {heroImageUrl && (
+                    <>
+                      <div
+                        className="absolute inset-0 bg-cover bg-no-repeat"
+                        style={{
+                          backgroundImage: `url("${heroImageUrl}")`,
+                          backgroundPosition: heroImagePos,
+                          transform: `scale(${heroImageZoom / 100})`,
+                          transformOrigin: heroImagePos,
+                        }}
+                      />
+                      {heroOverlay && <div className="absolute inset-0 bg-black/60" />}
+                    </>
+                  )}
+                  <div className={cn("relative max-w-lg", heroAlign === "left" ? "text-left mr-auto" : heroAlign === "right" ? "text-right ml-auto" : "text-center mx-auto")}>
+                    {heroBadge.trim() && (
+                      <span className="inline-flex items-center gap-2 text-[10px] font-mono font-semibold text-white uppercase tracking-[0.15em] pl-2.5 border-l-2 border-teal-400 mb-3">
+                        {heroBadge}
+                      </span>
+                    )}
+                    <h2 className="text-2xl font-display font-black text-white mb-2">{heroHeadline || "Headline"}</h2>
+                    {heroSubheadline.trim() && <p className="text-sm text-white/90">{heroSubheadline}</p>}
+                    {heroCtaLabel.trim() && (
+                      <span className="inline-flex mt-4 bg-teal-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">{heroCtaLabel}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button onClick={saveHero} disabled={savingHero} className="btn-primary !py-2 !px-4 !text-xs">
+                  {savingHero ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Hero
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content Editor */}

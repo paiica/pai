@@ -3,10 +3,11 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ArrowRight } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -79,16 +80,20 @@ export default async function FAQPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
-        <section className="pb-20 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">FAQ</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">Frequently Asked Questions</h1>
-            <p className="text-lg text-white max-w-xl mx-auto">
-              Everything you need to know about PAII certifications, exams, and credentials.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-20 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">FAQ</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">Frequently Asked Questions</h1>
+              <p className="text-lg text-white max-w-xl mx-auto">
+                Everything you need to know about PAII certifications, exams, and credentials.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Content — CMS if available, otherwise hardcoded */}
         {cms?.content ? (

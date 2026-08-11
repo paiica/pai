@@ -80,7 +80,7 @@ export default function EmployeesPage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Employee</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Certifications</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Enrollments</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Enrolled</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -99,7 +99,12 @@ export default function EmployeesPage() {
                     <div className="flex flex-wrap gap-1.5">
                       {userEnrollments.map((e) => (
                         <div key={e.id} className="inline-flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-slate-600">{e.certification.acronym}</span>
+                          {e.item_type === "program" && (
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">Program</span>
+                          )}
+                          <span className="text-xs font-semibold text-slate-600">
+                            {e.item_type === "program" ? e.program?.title : e.certification?.acronym}
+                          </span>
                           <EnrollmentBadge status={e.status} />
                           <span className="text-xs text-slate-400">{e.progress_percentage}%</span>
                         </div>

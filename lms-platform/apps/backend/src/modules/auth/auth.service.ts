@@ -822,34 +822,34 @@ export class AuthService {
       pending_referral_code, affiliate_profile, organization_admin, ...safe
     } = user;
 
-    // Flatten affiliate_profile fields for any user who has one (sales_rep or multi-role)
-    if (affiliate_profile) {
-      return {
+    // A user can hold both an affiliate_profile (sales rep) and an
+    // organization_admin link at once — these used to be mutually exclusive
+    // early-returns, so a dual-role account's organization_id silently
+    // vanished from the response whenever affiliate_profile was checked
+    // first, tripping org-portal's "not linked to an organization" guard
+    // even though the account genuinely was linked. Merge both instead.
+    if (affiliate_profile || organization_admin) {
+      const flattened: any = {
         ...safe,
         first_name: user.profile?.first_name ?? null,
         last_name: user.profile?.last_name ?? null,
         phone: user.profile?.phone ?? null,
         avatar_url: user.profile?.avatar_url ?? null,
-        status: affiliate_profile.status,
-        referral_code: affiliate_profile.referral_code,
-        commission_rate: Number(affiliate_profile.commission_rate),
-        payout_method: affiliate_profile.payout_method ?? null,
-        payout_details: affiliate_profile.payout_details ?? null,
       };
-    }
-
-    // Flatten organization_admin fields for corporate/group account admins
-    // (org-portal's AuthGuard gates on organization_id being present here).
-    if (organization_admin) {
-      return {
-        ...safe,
-        first_name: user.profile?.first_name ?? null,
-        last_name: user.profile?.last_name ?? null,
-        phone: user.profile?.phone ?? null,
-        avatar_url: user.profile?.avatar_url ?? null,
-        organization_id: organization_admin.organization_id,
-        organization_name: organization_admin.organization?.name ?? null,
-      };
+      if (affiliate_profile) {
+        flattened.status = affiliate_profile.status;
+        flattened.referral_code = affiliate_profile.referral_code;
+        flattened.commission_rate = Number(affiliate_profile.commission_rate);
+        flattened.payout_method = affiliate_profile.payout_method ?? null;
+        flattened.payout_details = affiliate_profile.payout_details ?? null;
+      }
+      // Flatten organization_admin fields for corporate/group account admins
+      // (org-portal's AuthGuard gates on organization_id being present here).
+      if (organization_admin) {
+        flattened.organization_id = organization_admin.organization_id;
+        flattened.organization_name = organization_admin.organization?.name ?? null;
+      }
+      return flattened;
     }
 
     return safe;

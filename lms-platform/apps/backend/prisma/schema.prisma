@@ -176,6 +176,7 @@ enum PaymentType {
   renewal_fee
   corporate_bundle
   event_registration
+  program
 
   @@schema("lms")
 }
@@ -248,6 +249,7 @@ enum NotificationType {
   course_approved
   course_rejected
   certification_recommendation_received
+  program_recommendation_received
 
   @@schema("lms")
 }
@@ -356,8 +358,6 @@ model User {
   uploaded_files      UploadedFile[]
   submissions              AssignmentSubmission[] @relation("student_submissions")
   graded_submissions       AssignmentSubmission[] @relation("graded_submissions")
-  assignment_entries        AssignmentEntry[] @relation("student_assignment_entries")
-  graded_assignment_entries AssignmentEntry[] @relation("graded_assignment_entries")
   application_documents    ApplicationDocument[]
   exam_bookings            ExamBooking[]
   affiliate_profile        AffiliateProfile?
@@ -378,6 +378,15 @@ model User {
   courses_reviewed         Course[] @relation("CourseReviewedBy")
   cert_recommendations_sent     CertificationRecommendation[] @relation("ProfessorCertRecommendationsSent")
   cert_recommendations_received CertificationRecommendation[] @relation("StudentCertRecommendationsReceived")
+  programs_created         Program[] @relation("ProgramCreatedBy")
+  programs_directed        Program[] @relation("ProgramDirector")
+  program_enrollments      ProgramEnrollment[]
+  program_certificates     ProgramCertificate[]
+  transcripts              Transcript[]
+  program_instructor_assignments ProgramInstructor[] @relation("ProgramInstructor")
+  program_course_waivers_granted ProgramCourseWaiver[] @relation("ProgramCourseWaiverGrantedBy")
+  program_recommendations_sent     ProgramRecommendation[] @relation("ProgramRecommendationsSent")
+  program_recommendations_received ProgramRecommendation[] @relation("ProgramRecommendationsReceived")
 
   @@index([email])
   @@map("users")
@@ -556,7 +565,6 @@ model Certification {
   prep_courses         Course[]
   structured_exams     StructuredExam[]
   course_recommendations CourseCertRecommendation[]
-  assignments            Assignment[]
   affiliate_assignments  AffiliateProductAssignment[]
   affiliate_leads        AffiliateLead[]
   affiliate_commissions  AffiliateCommission[]
@@ -624,6 +632,24 @@ model Lesson {
   max_score            Int?     @default(100)
   allow_text_response  Boolean  @default(true)
   text_word_limit      Int?
+  // Assignment availability/submission-policy settings — additive, only
+  // meaningful when type = "assignment". max_attempts (above, shared with
+  // quizzes) is reused as the assignment's attempt cap rather than adding a
+  // separate field.
+  available_from           DateTime?
+  accept_submissions       Boolean  @default(true)
+  allow_late_submissions   Boolean  @default(false)
+  late_submission_deadline DateTime?
+  late_penalty_type        String?  // "none" | "percentage" | "points" — plain string, not an enum, so new types don't need a migration
+  late_penalty_value       Float?
+  allow_file_upload        Boolean  @default(true)
+  max_files                Int?     @default(1)
+  accepted_file_types      String[] @default([])
+  max_file_size_mb         Int?     @default(10)
+  // [{ criterion, description, points }] — reference table shown while
+  // grading, never auto-summed into the grade (no grade-calculation
+  // pipeline exists anywhere in this platform).
+  rubric_json              Json?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -640,14 +666,23 @@ model Lesson {
   @@schema("lms")
 }
 
+// Instructor-attached downloadable resources for a lesson (e.g. an
+// assignment's instructions PDF, dataset, template). Existed in the schema
+// with zero backend/frontend code anywhere until this — same dead-field
+// pattern as a few other fields discovered this session. Mirrors
+// CourseDocument's CRUD shape exactly (sort_order, file_name, updated_at
+// added here to match).
 model LessonResource {
-  id        String  @id @default(uuid())
-  lesson_id String
-  lesson    Lesson  @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
-  title     String
-  url       String
-  file_type String?
+  id         String   @id @default(uuid())
+  lesson_id  String
+  lesson     Lesson   @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  title      String
+  url        String
+  file_type  String?
+  file_name  String?
+  sort_order Int      @default(0)
   created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("lesson_resources")
   @@schema("lms")
@@ -737,6 +772,11 @@ model Course {
   duration_hours       Decimal      @db.Decimal(5, 1) @default(0)
   pdu_value            Decimal      @db.Decimal(5, 1) @default(0)
   total_lessons        Int          @default(0)
+  // Gates the on-demand course completion certificate (see LearningService.
+  // getCourseCertificate) — a student must average at least this % across
+  // the course's graded assignments (courses with no graded items pass on
+  // completion alone).
+  passing_score        Int?         @default(70)
 
   // Marketing content shown on the public course detail page (overview,
   // learning outcomes, how-it-works steps, exam prep, related courses)
@@ -789,6 +829,8 @@ model Course {
   required_for     CoursePrerequisite[] @relation("CourseIsPrereqFor")
 
   enrollment_waivers EnrollmentCourseWaiver[]
+  program_courses    ProgramCourse[]
+  program_course_waivers ProgramCourseWaiver[]
 
   @@index([slug])
   @@index([status])
@@ -1268,6 +1310,21 @@ model AssignmentSubmission {
   file_size     Int?
   text_content  String?          @db.Text
   attempt_count Int              @default(1)
+  // Explicit, stable attempt number — replaces relying on attempt_count on a
+  // mutated row. Every submit now creates a NEW row instead of overwriting
+  // the previous one, so attempt history is preserved (never deleted).
+  attempt_number Int             @default(1)
+  // Denormalized "is this the current attempt" flag — set true on create,
+  // false on all prior rows for the same (lesson_id, user_id) in the same
+  // transaction. Lets every "current attempt" query (gradebook, course
+  // completion, transcript grade calc) stay a cheap indexed lookup instead
+  // of a window function.
+  is_latest      Boolean         @default(true)
+  // Computed once at submit time from the lesson's due_date/late window and
+  // stored — not recomputed later, so editing a due date after the fact
+  // doesn't retroactively relabel history.
+  is_late        Boolean         @default(false)
+  files          AssignmentSubmissionFile[]
 
   status        SubmissionStatus @default(submitted)
   submitted_at  DateTime         @default(now())
@@ -1280,11 +1337,27 @@ model AssignmentSubmission {
   grader        User?            @relation("graded_submissions", fields: [graded_by], references: [id], onDelete: SetNull)
   graded_at     DateTime?
 
-  @@unique([lesson_id, user_id])
+  @@index([lesson_id, user_id, is_latest])
   @@index([enrollment_id])
   @@index([course_enrollment_id])
   @@index([lesson_id])
   @@map("assignment_submissions")
+  @@schema("lms")
+}
+
+// Additional files beyond the first for a multi-file assignment submission —
+// the first file stays on AssignmentSubmission.file_url/file_name/file_size
+// for backward compatibility, this table holds any files beyond that one.
+model AssignmentSubmissionFile {
+  id            String               @id @default(uuid())
+  submission_id String
+  submission    AssignmentSubmission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+  file_url      String
+  file_name     String
+  file_size     Int?
+  created_at    DateTime             @default(now())
+
+  @@map("assignment_submission_files")
   @@schema("lms")
 }
 
@@ -1774,6 +1847,22 @@ model Page {
   content          String   @default("")
   meta_description String   @default("")
   is_published     Boolean  @default(false)
+
+  // Per-page hero banner — single image (no carousel/video/stats, those stay
+  // homepage-only via PageBlock). Off by default so adding these columns
+  // never changes an existing live page until an admin opts in.
+  hero_enabled        Boolean @default(false)
+  hero_badge          String  @default("")
+  hero_headline       String  @default("")
+  hero_subheadline    String  @default("")
+  hero_align          String  @default("center")
+  hero_image_url      String  @default("")
+  hero_image_position String  @default("50% 50%")
+  hero_image_zoom     Int     @default(100)
+  hero_overlay        Boolean @default(true)
+  hero_cta_label      String  @default("")
+  hero_cta_href       String  @default("")
+
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -1961,60 +2050,6 @@ model PromoCode {
   @@schema("lms")
 }
 
-// ─────────────────────────────────────────────
-// STANDALONE ASSIGNMENTS
-// ─────────────────────────────────────────────
-
-model Assignment {
-  id               String    @id @default(uuid())
-  certification_id String
-  certification    Certification @relation(fields: [certification_id], references: [id], onDelete: Cascade)
-  title            String
-  type             String    @default("assignment")
-  description      String?   @db.Text
-  instructions     String?   @db.Text
-  sections         Json      @default("[]")
-  due_date         DateTime?
-  max_score        Int       @default(100)
-  grades_released  Boolean   @default(false)
-  status           String    @default("draft")
-  sort_order       Int       @default(0)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-
-  entries          AssignmentEntry[]
-
-  @@index([certification_id])
-  @@map("assignments")
-  @@schema("lms")
-}
-
-model AssignmentEntry {
-  id                String     @id @default(uuid())
-  assignment_id     String
-  assignment        Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
-  user_id           String
-  user              User       @relation("student_assignment_entries", fields: [user_id], references: [id], onDelete: Cascade)
-  section_responses Json       @default("[]")
-  text_content      String?    @db.Text
-  file_url          String?
-  file_name         String?
-  status            String     @default("submitted")
-  grade             Float?
-  feedback          String?    @db.Text
-  graded_by         String?
-  grader            User?      @relation("graded_assignment_entries", fields: [graded_by], references: [id], onDelete: SetNull)
-  graded_at         DateTime?
-  submitted_at      DateTime   @default(now())
-  updated_at        DateTime   @updatedAt
-
-  @@unique([assignment_id, user_id])
-  @@index([assignment_id])
-  @@index([user_id])
-  @@map("assignment_entries")
-  @@schema("lms")
-}
-
 model PromoRedemption {
   id           String    @id @default(uuid())
   promo_id     String
@@ -2060,6 +2095,7 @@ model Organization {
 
   admins      OrganizationAdmin[]
   enrollments Enrollment[]
+  program_enrollments ProgramEnrollment[]
   payments    Payment[]
   users_last_here User[] @relation("UserLastOrganization")
   removal_logs OrganizationRemovalLog[]
@@ -2249,5 +2285,308 @@ model AffiliateInvite {
 
   @@index([affiliate_id])
   @@map("affiliate_invites")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// PROGRAMS — admin-curated bundles of existing Courses + a Capstone,
+// sold at their own price. Deliberately independent of the
+// Certification/Application/Exam/Certificate pipeline: a Program's
+// completion credential (ProgramCertificate) is a simpler, separate
+// credential, auto-issued (no admin review) once every required course
+// is completed and the capstone is passed. References existing Course
+// rows via ProgramCourse rather than duplicating any course content.
+// ─────────────────────────────────────────────
+
+enum ProgramStatus {
+  draft
+  published
+  archived
+
+  @@schema("lms")
+}
+
+enum ProgramEnrollmentStatus {
+  active
+  completed
+  suspended
+
+  @@schema("lms")
+}
+
+model Program {
+  id                String        @id @default(uuid())
+  slug              String        @unique
+  title             String
+  code              String?
+  short_description String?
+  description       String?       @db.Text
+  overview          String?       @db.Text
+
+  learning_outcomes String[] @default([])
+  target_audience   String[] @default([])
+  prerequisites     String[] @default([])
+  related_slugs     String[] @default([])   // cross-sell — other Program slugs, mirrors Certification.related_slugs
+
+  duration_weeks    Int?
+  estimated_hours   Decimal?     @db.Decimal(5, 1)
+  level             CourseLevel  @default(beginner)
+  thumbnail_url     String?
+
+  status            ProgramStatus @default(draft)
+  price             Decimal       @db.Decimal(10, 2) @default(0)
+  currency          String        @default("USD")
+  is_featured       Boolean       @default(false)
+  faqs_json         Json          @default("[]")   // [{question, answer}]
+  testimonials      Json          @default("[]")   // [{quote, name, role, company, avatar_initials}]
+  marketing_meta    Json          @default("{}")   // {reviews_rating, reviews_count, social_proof, hero_badge_label, enrollment_includes[], certificate_template_html}
+
+  enrollment_type       String?    // e.g. "open", "cohort" — free text, kept flexible
+  enrollment_start_date DateTime?
+  enrollment_end_date   DateTime?
+  max_learners          Int?
+  access_duration_days  Int?       // null = lifetime access
+  allow_individual_course_purchase Boolean @default(true)
+
+  director_user_id String?
+  director          User?    @relation("ProgramDirector", fields: [director_user_id], references: [id], onDelete: SetNull)
+
+  // This Program's own completion credential — intentionally NOT a link to
+  // the existing Certification model (see header comment above).
+  certificate_title       String?
+  certificate_description String?
+
+  created_by String?
+  creator    User?    @relation("ProgramCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  courses     ProgramCourse[]
+  enrollments ProgramEnrollment[]
+  certificates ProgramCertificate[]
+  instructors ProgramInstructor[]
+  recommendations ProgramRecommendation[]
+  transcripts Transcript[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("programs")
+  @@schema("lms")
+}
+
+// Instructor assignment to a Program — mirrors CourseInstructor (used by
+// Certification) so the "Your Instructors" section on the Program landing
+// page follows the same pattern.
+model ProgramInstructor {
+  id         String   @id @default(uuid())
+  program_id String
+  program    Program  @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User     @relation("ProgramInstructor", fields: [user_id], references: [id], onDelete: Cascade)
+  is_lead    Boolean  @default(false)
+  assigned_at DateTime @default(now())
+
+  @@unique([program_id, user_id])
+  @@map("program_instructors")
+  @@schema("lms")
+}
+
+// A bundled course can double as the program's capstone (is_capstone) —
+// deliberately just a regular Course (built/graded/submitted-to via the
+// exact same module/lesson/assignment infrastructure every other course
+// uses, kept out of the public catalog via Course.is_listed = false) rather
+// than a bespoke capstone entity. The capstone_* fields below are optional
+// descriptive metadata (rubric, deliverables, etc.) shown alongside that
+// course — they don't gate anything; program completion is driven purely by
+// "all required ProgramCourse rows (including the capstone course) have a
+// completed CourseEnrollment", same as any other required course.
+model ProgramCourse {
+  id          String   @id @default(uuid())
+  program_id  String
+  program     Program  @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  course_id   String
+  course      Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  sort_order  Int      @default(0)
+  is_required Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  // A bundled course can be flagged as the program's capstone or internship
+  // placement — still a real Course underneath (module/lesson/assignment
+  // infrastructure, its own submission + grading UI), just kept out of the
+  // public catalog and gated to this program's enrolled students (see
+  // canViewPrivateCourse in prep-courses.service.ts). special_metadata's
+  // shape depends on special_type:
+  //   capstone:   { rubric_json, deliverables[], learning_objectives[], submission_requirements, passing_score }
+  //   internship: { host_organization, supervisor_name, supervisor_email, hours_required, evaluation_criteria[], report_requirements, passing_score }
+  special_type     ProgramCourseSpecialType?
+  special_metadata Json                      @default("{}")
+
+  @@unique([program_id, course_id])
+  @@index([program_id, sort_order])
+  @@map("program_courses")
+  @@schema("lms")
+}
+
+enum ProgramCourseSpecialType {
+  capstone
+  internship
+
+  @@schema("lms")
+}
+
+model ProgramEnrollment {
+  id         String  @id @default(uuid())
+  program_id String
+  program    Program @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  status              ProgramEnrollmentStatus @default(active)
+  progress_percentage Int                     @default(0)
+
+  enrolled_at       DateTime  @default(now())
+  completed_at      DateTime?
+  access_expires_at DateTime?
+
+  stripe_payment_intent_id String?
+  amount_paid              Decimal? @db.Decimal(10, 2)
+
+  // Set when this enrollment came from an org's bulk employee invite
+  // (mirrors Enrollment.organization_id for Certifications) — draws from
+  // the same org-wide seat pool.
+  organization_id String?
+  organization    Organization? @relation(fields: [organization_id], references: [id], onDelete: SetNull)
+
+  certificate ProgramCertificate?
+  course_waivers ProgramCourseWaiver[]
+  transcripts Transcript[]
+
+  @@unique([user_id, program_id])
+  @@index([program_id, status])
+  @@map("program_enrollments")
+  @@schema("lms")
+}
+
+// Exempts a student from an individual required course in a program's
+// sequence — mirrors EnrollmentCourseWaiver (used for Certifications).
+// Waived courses count as "satisfied" for both the sequential-unlock gate
+// and the overall completion check, without requiring an actual
+// CourseEnrollment.completed_at.
+model ProgramCourseWaiver {
+  id                     String            @id @default(uuid())
+  program_enrollment_id  String
+  program_enrollment     ProgramEnrollment @relation(fields: [program_enrollment_id], references: [id], onDelete: Cascade)
+  course_id              String
+  course                 Course            @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  reason                 String?           @db.Text
+  waived_by              String
+  waived_by_user         User              @relation("ProgramCourseWaiverGrantedBy", fields: [waived_by], references: [id])
+  waived_at              DateTime          @default(now())
+
+  @@unique([program_enrollment_id, course_id])
+  @@map("program_course_waivers")
+  @@schema("lms")
+}
+
+// A professor recommending a Program to a student — purely informational
+// (no accept/reject state), mirrors CertificationRecommendation.
+model ProgramRecommendation {
+  id           String   @id @default(uuid())
+  professor_id String
+  professor    User     @relation("ProgramRecommendationsSent", fields: [professor_id], references: [id], onDelete: Cascade)
+  student_id   String
+  student      User     @relation("ProgramRecommendationsReceived", fields: [student_id], references: [id], onDelete: Cascade)
+  program_id   String
+  program      Program  @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@unique([professor_id, student_id, program_id])
+  @@map("program_recommendations")
+  @@schema("lms")
+}
+
+enum ProgramCertificateStatus {
+  active
+  revoked
+
+  @@schema("lms")
+}
+
+// A Program's own completion credential — deliberately separate from the
+// accredited Certificate model (see section header comment above).
+model ProgramCertificate {
+  id                    String            @id @default(uuid())
+  program_id            String
+  program               Program           @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  program_enrollment_id String            @unique
+  program_enrollment    ProgramEnrollment @relation(fields: [program_enrollment_id], references: [id], onDelete: Cascade)
+  user_id               String
+  user                  User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  certificate_number String   @unique
+  title              String   // snapshot of Program.certificate_title at issuance time
+  issued_at          DateTime @default(now())
+  verification_url   String?  // public /verify?id=<certificate_number> link, same pattern as Certificate
+
+  status             ProgramCertificateStatus @default(active)
+  revoked_at         DateTime?
+  revocation_reason  String?
+
+  @@map("program_certificates")
+  @@schema("lms")
+}
+
+// A stable *identity* for a student's academic record in a program — NOT a
+// snapshot of grades. All academic content (course grades, hours, GPA,
+// standing) is computed live from CourseEnrollment/AssignmentSubmission/
+// ProgramEnrollment every time the transcript is viewed, so an admin's grade
+// correction after issuance is reflected immediately without any sync logic.
+// Lazily created on first request for a given (user, program) pair.
+model Transcript {
+  id                    String            @id @default(uuid())
+  transcript_number     String            @unique
+  user_id               String
+  user                  User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  program_id            String
+  program               Program           @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  program_enrollment_id String
+  program_enrollment    ProgramEnrollment @relation(fields: [program_enrollment_id], references: [id], onDelete: Cascade)
+  issued_at             DateTime          @default(now())
+  created_at            DateTime          @default(now())
+  updated_at            DateTime          @updatedAt
+
+  shares TranscriptShare[]
+
+  @@unique([user_id, program_id])
+  @@map("transcripts")
+  @@schema("lms")
+}
+
+enum TranscriptShareStatus {
+  active
+  revoked
+
+  @@schema("lms")
+}
+
+// One row per share link — supports multiple concurrent/historical shares
+// per transcript (the student's "Manage Sharing" list), each independently
+// revocable. expires_at is nullable/unused today (every share defaults to
+// never-expiring) but present so link expiration can be added later without
+// another migration.
+model TranscriptShare {
+  id                String                @id @default(uuid())
+  transcript_id     String
+  transcript        Transcript            @relation(fields: [transcript_id], references: [id], onDelete: Cascade)
+  token             String                @unique
+  status            TranscriptShareStatus @default(active)
+  created_at        DateTime              @default(now())
+  expires_at        DateTime?
+  revoked_at        DateTime?
+  revocation_reason String?
+
+  @@map("transcript_shares")
   @@schema("lms")
 }

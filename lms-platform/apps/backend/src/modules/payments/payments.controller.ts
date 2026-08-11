@@ -13,7 +13,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
-import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RetakeCheckoutDto, ReactivationCheckoutDto, RefundDto } from "./dto/checkout.dto";
+import { CreateCheckoutDto, CourseCheckoutDto, CertificationCheckoutDto, ProgramCheckoutDto, EventCheckoutDto, RenewalCheckoutDto, RetakeCheckoutDto, ReactivationCheckoutDto, RefundDto } from "./dto/checkout.dto";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -51,6 +51,17 @@ export class PaymentsController {
     @Body() dto: CertificationCheckoutDto,
   ) {
     return this.paymentsService.createCertificationCheckoutSession(userId, dto.certification_slug, dto.promo_code);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("program-checkout")
+  @ApiOperation({ summary: "Buy a program (grants access to all its bundled courses)" })
+  programCheckout(
+    @CurrentUser("id") userId: string,
+    @Body() dto: ProgramCheckoutDto,
+  ) {
+    return this.paymentsService.createProgramCheckoutSession(userId, dto.program_id, dto.promo_code);
   }
 
   @ApiBearerAuth()

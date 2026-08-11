@@ -15,7 +15,12 @@ export class PagesService {
     return page;
   }
 
-  create(dto: { slug: string; title: string; content?: string; meta_description?: string; is_published?: boolean }) {
+  create(dto: {
+    slug: string; title: string; content?: string; meta_description?: string; is_published?: boolean;
+    hero_enabled?: boolean; hero_badge?: string; hero_headline?: string; hero_subheadline?: string;
+    hero_align?: string; hero_image_url?: string; hero_image_position?: string; hero_image_zoom?: number;
+    hero_overlay?: boolean; hero_cta_label?: string; hero_cta_href?: string;
+  }) {
     return this.prisma.page.create({ data: { ...dto } });
   }
 

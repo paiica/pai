@@ -22,8 +22,14 @@ interface SitePageDef {
   title: string;
   description: string;
   defaultMeta: string;
-  defaultHtml: string;
+  defaultHtml?: string;
   catchAll?: boolean; // served by /[slug] catch-all (no dedicated page file)
+  defaultHero?: {
+    hero_enabled: boolean;
+    hero_badge?: string;
+    hero_headline: string;
+    hero_subheadline?: string;
+  };
 }
 
 const SITE_PAGES: SitePageDef[] = [
@@ -32,6 +38,12 @@ const SITE_PAGES: SitePageDef[] = [
     title: "About",
     description: "Mission, values, advisory board, accreditation",
     defaultMeta: "Learn about the Professional Artificial Intelligence Institute — our mission, values, advisory board, and commitment to rigorous AI certification.",
+    defaultHero: {
+      hero_enabled: true,
+      hero_badge: "About PAII",
+      hero_headline: "The AI Credential Standard",
+      hero_subheadline: "Founded to close the credibility gap in AI professional development. We build rigorous, globally recognized certifications for the AI era.",
+    },
     defaultHtml: `<section style="padding:64px 0;background:#fff">
   <div style="max-width:768px;margin:0 auto;padding:0 24px">
     <p style="display:inline-block;background:#ccfbf1;color:#0f766e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:99px;margin-bottom:16px">Our Mission</p>
@@ -347,6 +359,79 @@ const SITE_PAGES: SitePageDef[] = [
 <h2 style="font-size:1.125rem;font-weight:700;color:#171527;margin:32px 0 12px">NCCA Best Practices</h2>
 <p style="color:#171527;font-size:14px;line-height:1.7;margin:0">Our exam development follows best practices from the National Commission for Certifying Agencies (NCCA).</p>`,
   },
+  // Pages below have a bespoke React body (not CMS HTML) — the Page row here
+  // only holds SEO meta + the hero banner. "Set Up" creates it with no body
+  // content, matching how these pages already render today.
+  {
+    slug: "certifications",
+    title: "Certifications",
+    description: "Certification catalog hero + meta",
+    defaultMeta: "Globally recognized AI certification programs from PAII — from core practitioner to domain expert.",
+    defaultHero: { hero_enabled: false, hero_badge: "Certification Programs", hero_headline: "Become a Certified AI Professional.", hero_subheadline: "Globally recognized credentials for every career stage. From core practitioner to domain expert — your AI career starts here." },
+  },
+  {
+    slug: "courses",
+    title: "Courses",
+    description: "Prep course catalog hero + meta",
+    defaultMeta: "Self-paced courses built to develop practical AI skills and prepare you for PAII certification exams.",
+    defaultHero: { hero_enabled: false, hero_badge: "Prep Courses", hero_headline: "Learn at Your Own Pace. Pass with Confidence.", hero_subheadline: "Self-paced courses built to develop practical AI skills and prepare you for certification exams." },
+  },
+  {
+    slug: "programs",
+    title: "Programs",
+    description: "Program catalog hero + meta",
+    defaultMeta: "Multi-course training programs that bundle real curriculum with a capstone project.",
+    defaultHero: { hero_enabled: false, hero_badge: "Training Programs", hero_headline: "Structured Paths to AI Mastery.", hero_subheadline: "Multi-course programs that bundle real curriculum with a capstone project — built to take you from foundations to a portfolio-ready outcome." },
+  },
+  {
+    slug: "employers",
+    title: "Employers",
+    description: "Employers & job seekers hero + meta",
+    defaultMeta: "The credential that connects talent and employers — how PAII certification works for hiring.",
+    defaultHero: { hero_enabled: false, hero_badge: "Employers & Job Seekers", hero_headline: "The Credential That Connects Talent and Employers", hero_subheadline: "For job seekers, a PAII certification is proof of real AI skill. For employers, it's a faster, more reliable way to find people who actually have it." },
+  },
+  {
+    slug: "educator",
+    title: "Educator Program",
+    description: "Educator referral partner program hero + meta",
+    defaultMeta: "Join the PAII Educator Partner Program. Share globally recognized AI certifications with your students and earn commission.",
+    defaultHero: { hero_enabled: false, hero_badge: "For Educators", hero_headline: "Refer Your Students. Earn While They Grow.", hero_subheadline: "Join the PAII Educator Partner Program. Share globally recognized AI certifications with your students and earn a commission on every enrollment — with full tracking and no caps." },
+  },
+  {
+    slug: "presentations",
+    title: "Presentations",
+    description: "Presentation library hero + meta",
+    defaultMeta: "Walk through what PAII offers — for prospective students, educators, or affiliate partners.",
+    defaultHero: { hero_enabled: false, hero_badge: "Presentations", hero_headline: "PAII Presentation Library", hero_subheadline: "Walk through what PAII offers — whether you're a prospective student, an educator, or an affiliate partner." },
+  },
+  {
+    slug: "events",
+    title: "Events",
+    description: "Events & training catalog hero + meta",
+    defaultMeta: "Trainings, workshops, seminars, and conferences from PAII — online or in person, free or paid.",
+    defaultHero: { hero_enabled: false, hero_badge: "Events", hero_headline: "Events & Training", hero_subheadline: "Trainings, workshops, seminars, and conferences — online or in person, free or paid." },
+  },
+  {
+    slug: "blog",
+    title: "Blog",
+    description: "Blog index hero + meta",
+    defaultMeta: "Career advice, industry analysis, certification guides, and practical AI insights from PAII.",
+    defaultHero: { hero_enabled: false, hero_badge: "Blog & Insights", hero_headline: "AI Knowledge Hub", hero_subheadline: "Career advice, industry analysis, certification guides, and practical AI insights." },
+  },
+  {
+    slug: "support",
+    title: "Support",
+    description: "Support/contact form hero + meta",
+    defaultMeta: "Questions about certifications, exams, or your account? Get in touch with PAII support.",
+    defaultHero: { hero_enabled: false, hero_badge: "Support", hero_headline: "We're here to help", hero_subheadline: "Questions about certifications, exams, or your account? Send us a message and our support team will respond within 24 hours." },
+  },
+  {
+    slug: "verify",
+    title: "Verify Credential",
+    description: "Certificate verification page hero + meta",
+    defaultMeta: "Verify the authenticity of a PAII certificate or credential.",
+    defaultHero: { hero_enabled: false, hero_badge: "Certificate Verification", hero_headline: "Verify a PAII Credential", hero_subheadline: "Enter a certificate ID to verify its authenticity and check its validity status." },
+  },
 ];
 
 export default function PagesListPage() {
@@ -418,27 +503,23 @@ export default function PagesListPage() {
     setSettingUp(sp.slug);
     try {
       let token = accessToken!;
+      const payload = {
+        title: sp.title,
+        slug: sp.slug,
+        content: sp.defaultHtml ?? "",
+        meta_description: sp.defaultMeta,
+        is_published: false,
+        ...(sp.defaultHero ?? {}),
+      };
       let res: any;
       try {
-        res = await api.post<any>("/pages", {
-          title: sp.title,
-          slug: sp.slug,
-          content: sp.defaultHtml,
-          meta_description: sp.defaultMeta,
-          is_published: false,
-        }, token);
+        res = await api.post<any>("/pages", payload, token);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           const ok = await refreshTokens();
           if (!ok) throw err;
           token = useAuthStore.getState().accessToken!;
-          res = await api.post<any>("/pages", {
-            title: sp.title,
-            slug: sp.slug,
-            content: sp.defaultHtml,
-            meta_description: sp.defaultMeta,
-            is_published: false,
-          }, token);
+          res = await api.post<any>("/pages", payload, token);
         } else throw err;
       }
       const id = res?.data?.id ?? res?.id;

@@ -6,7 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import {
   BookOpen, LayoutDashboard, FileText, Award, Users2, Compass, Bell,
-  ChevronLeft, ChevronRight, LogOut, Shield, User,
+  ChevronLeft, ChevronRight, LogOut, Shield, User, GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -16,6 +16,7 @@ const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/students", icon: Users2, label: "My Students" },
   { href: "/courses", icon: BookOpen, label: "My Courses" },
+  { href: "/programs", icon: GraduationCap, label: "My Programs" },
   { href: "/browse", icon: Compass, label: "Online Tools" },
   { href: "/certifications", icon: Award, label: "Certifications" },
   { href: "/grades", icon: FileText, label: "Submissions" },

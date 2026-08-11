@@ -84,7 +84,7 @@ export class MailService {
   // support team can just hit reply.
   async sendSupportRequest(opts: { name: string; email: string; subject: string; message: string }) {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const html = this.wrapper(`
+    const html = await this.wrapper(`
       <p style="margin:0 0 20px;font-size:22px;font-weight:900;color:#0f172a">New Support Request</p>
       <table cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;color:#334155;margin-bottom:20px">
         <tr><td style="padding:4px 0;width:80px;color:#94a3b8">From</td><td style="padding:4px 0">${esc(opts.name)} &lt;${esc(opts.email)}&gt;</td></tr>
@@ -106,7 +106,7 @@ export class MailService {
     const link = `${baseUrl ?? this.frontendUrl}/verify-email?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
-      : this.wrapper(this.verificationBody(firstName, link));
+      : await this.wrapper(this.verificationBody(firstName, link));
     return this.send({ to, subject: subject ?? "Verify your PAII email address", html });
   }
 
@@ -116,7 +116,7 @@ export class MailService {
     const link = `${baseUrl ?? this.frontendUrl}/reset-password?token=${token}`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, link })
-      : this.wrapper(this.resetBody(firstName, link));
+      : await this.wrapper(this.resetBody(firstName, link));
     return this.send({ to, subject: subject ?? "Reset your PAII password", html });
   }
 
@@ -133,7 +133,7 @@ export class MailService {
     const link = `${opts.baseUrl ?? this.professorUrl}/login`;
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, link })
-      : this.wrapper(this.professorGrantedBody(opts.firstName, link));
+      : await this.wrapper(this.professorGrantedBody(opts.firstName, link));
     return this.send({ to: opts.to, subject: subject ?? "You've been granted Professor access on PAII", html });
   }
 
@@ -144,7 +144,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "Your course was approved: {courseTitle}").replace("{courseTitle}", opts.courseTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, courseTitle: opts.courseTitle, link })
-      : this.wrapper(this.courseApprovedBody(opts.firstName, opts.courseTitle, link));
+      : await this.wrapper(this.courseApprovedBody(opts.firstName, opts.courseTitle, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -155,7 +155,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "Your course needs changes: {courseTitle}").replace("{courseTitle}", opts.courseTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, courseTitle: opts.courseTitle, reason: opts.reason, link })
-      : this.wrapper(this.courseRejectedBody(opts.firstName, opts.courseTitle, opts.reason, link));
+      : await this.wrapper(this.courseRejectedBody(opts.firstName, opts.courseTitle, opts.reason, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -172,7 +172,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "You've been invited to PAII by {orgName}").replace("{orgName}", opts.orgName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, orgName: opts.orgName, certTitles: opts.certTitles.join(", "), link })
-      : this.wrapper(this.employeeInviteBody(opts.firstName, opts.orgName, opts.certTitles, link));
+      : await this.wrapper(this.employeeInviteBody(opts.firstName, opts.orgName, opts.certTitles, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -188,7 +188,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "{professorName} invited you to PAII").replace("{professorName}", opts.professorName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, link })
-      : this.wrapper(this.studentInviteBody(opts.firstName, opts.professorName, link));
+      : await this.wrapper(this.studentInviteBody(opts.firstName, opts.professorName, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -203,7 +203,7 @@ export class MailService {
     const resolvedSubject = (subject ?? (opts.isRecommendation ? "Course recommendation: {courseTitle}" : "New course invitation: {courseTitle}")).replace("{courseTitle}", opts.courseTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, courseTitle: opts.courseTitle, link })
-      : this.wrapper(this.courseInvitationBody(opts.firstName, opts.professorName, opts.courseTitle, opts.isPaid, !!opts.isRecommendation, link));
+      : await this.wrapper(this.courseInvitationBody(opts.firstName, opts.professorName, opts.courseTitle, opts.isPaid, !!opts.isRecommendation, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -221,7 +221,23 @@ export class MailService {
     const resolvedSubject = (subject ?? "Certification recommendation: {certTitle}").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, certTitle: opts.certTitle, link })
-      : this.wrapper(this.certificationRecommendationBody(opts.firstName, opts.professorName, opts.certTitle, link));
+      : await this.wrapper(this.certificationRecommendationBody(opts.firstName, opts.professorName, opts.certTitle, link));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
+  // Same reasoning as sendCertificationRecommendation: a Program
+  // recommendation is purely informational (no accept/reject), so this just
+  // points the student at their own My Programs list to browse and enroll.
+  async sendProgramRecommendation(opts: {
+    to: string; firstName: string; professorName: string; programTitle: string; baseUrl?: string;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("program_recommendation");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const link = `${opts.baseUrl ?? this.frontendUrl}/programs`;
+    const resolvedSubject = (subject ?? "Program recommendation: {programTitle}").replace("{programTitle}", opts.programTitle);
+    const html = customHtml
+      ? this.applyVars(customHtml, { firstName: opts.firstName, professorName: opts.professorName, programTitle: opts.programTitle, link })
+      : await this.wrapper(this.programRecommendationBody(opts.firstName, opts.professorName, opts.programTitle, link));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -235,7 +251,7 @@ export class MailService {
     const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency.toUpperCase() }).format(opts.amount);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName, amount: formatted, receiptLink: opts.receiptUrl ?? "#" })
-      : this.wrapper(this.purchaseBody(opts));
+      : await this.wrapper(this.purchaseBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -252,7 +268,7 @@ export class MailService {
     const resolvedSubject = (subject ?? defaultSubject).replace("{item}", opts.itemName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName })
-      : this.wrapper(this.freeEnrollmentBody(opts));
+      : await this.wrapper(this.freeEnrollmentBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -269,7 +285,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
           certNumber: opts.certNumber, expiresAt: expiresAtStr, verificationUrl: opts.verificationUrl,
         })
-      : this.wrapper(this.certificateBody(opts));
+      : await this.wrapper(this.certificateBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -285,7 +301,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, sessionTitle: opts.sessionTitle,
           examDate: opts.examDate, meetingLink: opts.meetingLink ?? "See your portal for details",
         })
-      : this.wrapper(this.examBookedBody(opts));
+      : await this.wrapper(this.examBookedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -301,7 +317,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, sessionTitle: opts.sessionTitle,
           examDate: opts.examDate, meetingLink: opts.meetingLink ?? "See your portal for details",
         })
-      : this.wrapper(this.examReminderBody(opts));
+      : await this.wrapper(this.examReminderBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -313,7 +329,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "You passed your {certTitle} exam!").replace("{certTitle}", opts.certTitle);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, certTitle: opts.certTitle, score: `${opts.score}%` })
-      : this.wrapper(this.examPassedBody(opts));
+      : await this.wrapper(this.examPassedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -328,7 +344,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle,
           score: `${opts.score}%`, attemptsLeft: `${opts.attemptsLeft}`,
         })
-      : this.wrapper(this.examFailedBody(opts));
+      : await this.wrapper(this.examFailedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -340,7 +356,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "Payment failed — {item}").replace("{item}", opts.itemName);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, itemName: opts.itemName })
-      : this.wrapper(this.paymentFailedBody(opts));
+      : await this.wrapper(this.paymentFailedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -355,7 +371,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle,
           certAcronym: opts.certAcronym, certNumber: opts.certNumber,
         })
-      : this.wrapper(this.certificateRevokedBody(opts));
+      : await this.wrapper(this.certificateRevokedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -372,7 +388,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
           certNumber: opts.certNumber, newExpiresAt: newExpiresAtStr, verificationUrl: opts.verificationUrl,
         })
-      : this.wrapper(this.certificateRenewedBody({ ...opts, newExpiresAt: opts.newExpiresAt }));
+      : await this.wrapper(this.certificateRenewedBody({ ...opts, newExpiresAt: opts.newExpiresAt }));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -393,7 +409,7 @@ export class MailService {
           pduEarned: String(opts.pduEarned), pduRequired: String(opts.pduRequired),
           renewalFee: opts.renewalFee.toFixed(2), renewLink: opts.renewLink,
         })
-      : this.wrapper(this.certificateExpiringBody(opts));
+      : await this.wrapper(this.certificateExpiringBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -410,7 +426,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
           expiredAt: expiredAtStr, contactUrl: opts.contactUrl,
         })
-      : this.wrapper(this.certificateLapsedBody(opts));
+      : await this.wrapper(this.certificateLapsedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -427,7 +443,7 @@ export class MailService {
           enrolledAt: opts.enrolledAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }),
           registerUrl,
         })
-      : this.wrapper(this.registrationExpiredBody({ ...opts, registerUrl }));
+      : await this.wrapper(this.registrationExpiredBody({ ...opts, registerUrl }));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -444,7 +460,7 @@ export class MailService {
           failedAt: opts.failedAt.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }),
           registerUrl,
         })
-      : this.wrapper(this.retakeExpiredBody({ ...opts, registerUrl }));
+      : await this.wrapper(this.retakeExpiredBody({ ...opts, registerUrl }));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -456,7 +472,7 @@ export class MailService {
     const resolvedSubject = (subject ?? "Your {acronym} application has been approved!").replace("{acronym}", opts.certAcronym);
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym })
-      : this.wrapper(this.applicationApprovedBody(opts));
+      : await this.wrapper(this.applicationApprovedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -468,7 +484,7 @@ export class MailService {
         from: client.from,
         to,
         subject: "PAII — Test Email",
-        html: this.wrapper(`
+        html: await this.wrapper(`
           <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Test Email</p>
           <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your Resend integration is working correctly. Emails will be delivered from <strong>${client.from}</strong>.</p>
           <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px">
@@ -493,7 +509,7 @@ export class MailService {
     const firstName = opts.recipientName || "there";
     const html = customHtml
       ? this.applyVars(customHtml, { firstName, senderName: opts.senderName, inviteLink: opts.inviteLink })
-      : this.wrapper(this.affiliateInviteBody(opts.senderName, firstName, opts.inviteLink));
+      : await this.wrapper(this.affiliateInviteBody(opts.senderName, firstName, opts.inviteLink));
     return this.send({ to: opts.to, subject: subject ?? `${opts.senderName} invited you to join PAII`, html });
   }
 
@@ -503,7 +519,7 @@ export class MailService {
     const dashboardLink = this.config.get<string>("AFFILIATE_URL", "https://sales.paii.ca");
     const html = customHtml
       ? this.applyVars(customHtml, { firstName: opts.firstName, referralCode: opts.referralCode, dashboardLink })
-      : this.wrapper(this.affiliateApprovedBody(opts.firstName, opts.referralCode, dashboardLink));
+      : await this.wrapper(this.affiliateApprovedBody(opts.firstName, opts.referralCode, dashboardLink));
     return this.send({ to: opts.to, subject: subject ?? "You're approved as a PAII Sales Rep", html });
   }
 
@@ -518,7 +534,7 @@ export class MailService {
           firstName: opts.firstName, certTitle: opts.certTitle, certAcronym: opts.certAcronym,
           reason: opts.reason ?? "No reason provided.",
         })
-      : this.wrapper(this.applicationRejectedBody(opts));
+      : await this.wrapper(this.applicationRejectedBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -538,7 +554,7 @@ export class MailService {
           location: opts.location, meetingLink: opts.meetingLink ?? "",
           amountPaid: formattedAmount, receiptLink: opts.receiptUrl ?? "#",
         })
-      : this.wrapper(this.eventRegisteredBody(opts));
+      : await this.wrapper(this.eventRegisteredBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -553,7 +569,7 @@ export class MailService {
           firstName: opts.firstName, eventTitle: opts.eventTitle, eventDate: opts.eventDate,
           eventSummary: opts.eventSummary, registerUrl: opts.registerUrl,
         })
-      : this.wrapper(this.eventAnnouncementBody(opts));
+      : await this.wrapper(this.eventAnnouncementBody(opts));
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
@@ -854,6 +870,21 @@ export class MailService {
       <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Sign in to your PAII portal to learn more and start your application.</p>
       <div style="text-align:center;margin:32px 0">
         <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View Certifications</a>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8">If you weren't expecting this, you can safely ignore this email.</p>
+    `;
+  }
+
+  private programRecommendationBody(firstName: string, professorName: string, programTitle: string, link: string): string {
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6"><strong>${professorName}</strong> recommends a program for you:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:0 0 24px">
+        <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a">${programTitle}</p>
+      </div>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Sign in to your PAII portal to learn more and enroll.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;letter-spacing:0.2px">View Programs</a>
       </div>
       <p style="margin:0;font-size:13px;color:#94a3b8">If you weren't expecting this, you can safely ignore this email.</p>
     `;
@@ -1225,7 +1256,15 @@ export class MailService {
 
   // ─── Shell wrapper ────────────────────────────────────────────────────────────
 
-  private wrapper(body: string): string {
+  // Shared chrome for every default (non-admin-customized) transactional
+  // email. Falls back to the marketing site's white logo asset when no
+  // custom site_logo_url is configured — a bare relative path (the
+  // frontend's own fallback) can't resolve inside an email client, so this
+  // always needs an absolute URL.
+  private async wrapper(body: string): Promise<string> {
+    const all = await this.settings.getAll();
+    const configuredLogo = all["site_logo_url"];
+    const logoUrl = configuredLogo?.startsWith("http") ? configuredLogo : "https://www.paii.ca/paii.logo.white.png";
     return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -1233,9 +1272,9 @@ export class MailService {
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px">
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden">
-        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:36px 40px;text-align:center">
-          <p style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">Professional Artificial Intelligence Institute</p>
-          <p style="margin:6px 0 0;color:rgba(255,255,255,0.5);font-size:13px">paii.ca</p>
+        <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:32px 40px;text-align:center">
+          <img src="${logoUrl}" alt="Professional Artificial Intelligence Institute" height="32" style="height:32px;width:auto;display:inline-block;border:0" />
+          <p style="margin:8px 0 0;color:rgba(255,255,255,0.5);font-size:13px">paii.ca</p>
         </td></tr>
         <tr><td style="padding:40px">${body}</td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f1f5f9;text-align:center">

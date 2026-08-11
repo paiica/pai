@@ -34,10 +34,10 @@ export class OrganizationsController {
 
   @Post("org/employees/invite")
   @UseGuards(OrganizationAdminGuard)
-  @ApiOperation({ summary: "Org admin: bulk-invite employees into one or more certifications" })
+  @ApiOperation({ summary: "Org admin: bulk-invite employees into one or more certifications and/or programs" })
   inviteEmployees(
     @CurrentUser("organization_id") organizationId: string,
-    @Body() dto: { emails: string[]; certification_ids: string[] },
+    @Body() dto: { emails: string[]; certification_ids?: string[]; program_ids?: string[] },
   ) {
     return this.service.inviteEmployees(organizationId, dto);
   }

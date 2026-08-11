@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowRight, Play, ChevronRight,
-  Clock, CheckCircle2, GraduationCap, LayoutDashboard, FileText, Mail,
+  Clock, CheckCircle2, GraduationCap, LayoutDashboard, Mail,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -407,7 +407,6 @@ export default function StudentDashboard() {
             <h2 className="font-display font-black text-navy-900 text-lg mb-4">Quick Access</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { href: "/student/assignments", label: "Assignments", icon: FileText, desc: "Submit & track work" },
                 { href: "/student/grades", label: "Grades", icon: CheckCircle2, desc: "Quiz & assignment scores" },
                 { href: "/certificates", label: "Certificates", icon: LayoutDashboard, desc: "Your earned credentials" },
                 { href: "/profile", label: "My Profile", icon: GraduationCap, desc: "Account settings" },

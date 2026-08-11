@@ -14,6 +14,7 @@ import { LearningService } from "../learning/learning.service";
 import { ContentImportService } from "../content-import/content-import.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 
 @Injectable()
@@ -24,6 +25,7 @@ export class CoursesService {
     private contentImport: ContentImportService,
     private uploads: UploadsService,
     private aiService: AiService,
+    private notificationsService: NotificationsService,
   ) {}
 
   // ─── Public ──────────────────────────────────────────────────────────
@@ -440,7 +442,7 @@ export class CoursesService {
         user: {
           select: { id: true, email: true, last_login_at: true, profile: { select: { first_name: true, last_name: true, avatar_url: true, display_name: true, phone: true, country: true } } },
         },
-        _count: { select: { lesson_progress: { where: { completed: true } }, assignment_submissions: true } },
+        _count: { select: { lesson_progress: { where: { completed: true } }, assignment_submissions: { where: { is_latest: true } } } },
       },
       orderBy: { enrolled_at: "desc" },
     });
@@ -451,12 +453,25 @@ export class CoursesService {
     return this.prisma.assignmentSubmission.findMany({
       where: {
         lesson: { module: { certification_id: certId } },
+        is_latest: true,
       },
       include: {
         user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true, display_name: true } } } },
         lesson: { select: { id: true, title: true, max_score: true, due_date: true } },
+        files: true,
       },
       orderBy: { submitted_at: "desc" },
+    });
+  }
+
+  async getSubmissionAttempts(lessonId: string, studentUserId: string, requesterId: string, role: Role) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, include: { module: true } });
+    if (!lesson || !lesson.module.certification_id) throw new NotFoundException("Lesson not found");
+    await this.assertProfessorAccess(lesson.module.certification_id, requesterId, role);
+    return this.prisma.assignmentSubmission.findMany({
+      where: { lesson_id: lessonId, user_id: studentUserId },
+      include: { files: true },
+      orderBy: { attempt_number: "asc" },
     });
   }
 
@@ -481,6 +496,14 @@ export class CoursesService {
 
     await this.learningService.completeGradedAssignment(
       submission.enrollment_id!, submission.lesson_id, submission.user_id
+    );
+
+    await this.notificationsService.create(
+      submission.user_id,
+      "assignment_graded",
+      "Assignment graded",
+      `Your submission for "${submission.lesson.title}" has been graded.`,
+      { lesson_id: submission.lesson_id, submission_id: submission.id }
     );
 
     return graded;
@@ -511,7 +534,7 @@ export class CoursesService {
       include: {
         user: { select: { id: true, email: true, profile: { select: { first_name: true, last_name: true } } } },
         lesson_progress: { where: { quiz_passed: { not: null } } },
-        assignment_submissions: { where: { grade: { not: null } } },
+        assignment_submissions: { where: { grade: { not: null }, is_latest: true } },
       },
     });
 
@@ -535,6 +558,184 @@ export class CoursesService {
         }, {}),
       })),
     };
+  }
+
+  // ─── Assignment statistics ──────────────────────────────────────────────
+
+  private async assertLessonProfessorAccess(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, include: { module: true } });
+    if (!lesson || !lesson.module.certification_id) throw new NotFoundException("Lesson not found");
+    await this.assertProfessorAccess(lesson.module.certification_id, userId, role);
+    return lesson;
+  }
+
+  async getAssignmentStatistics(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.assertLessonProfessorAccess(lessonId, userId, role);
+    if (!lesson.module.certification_id) throw new NotFoundException("Lesson not found");
+
+    const [enrolledCount, latestAttempts] = await Promise.all([
+      this.prisma.enrollment.count({ where: { certification_id: lesson.module.certification_id, status: "active" } }),
+      this.prisma.assignmentSubmission.findMany({
+        where: { lesson_id: lessonId, is_latest: true },
+        select: { grade: true, max_grade: true, status: true, is_late: true },
+      }),
+    ]);
+
+    const submitted = latestAttempts.length;
+    const graded = latestAttempts.filter((a) => a.grade != null);
+    const percentages = graded.map((a) => (a.grade! / a.max_grade) * 100);
+
+    return {
+      enrolled: enrolledCount,
+      submitted,
+      not_submitted: Math.max(0, enrolledCount - submitted),
+      graded: graded.length,
+      awaiting_grading: submitted - graded.length,
+      average: percentages.length ? Math.round((percentages.reduce((a, b) => a + b, 0) / percentages.length) * 10) / 10 : null,
+      highest: percentages.length ? Math.round(Math.max(...percentages) * 10) / 10 : null,
+      lowest: percentages.length ? Math.round(Math.min(...percentages) * 10) / 10 : null,
+      late: latestAttempts.filter((a) => a.is_late).length,
+    };
+  }
+
+  // ─── Duplicate a lesson (settings + structure, never submissions/progress) ─
+  // Mirrors PrepCoursesService.duplicateLesson() for the Course Builder.
+
+  async duplicateLesson(lessonId: string, userId: string, role: Role) {
+    const lesson = await this.assertLessonProfessorAccess(lessonId, userId, role);
+    const [resources, questions, maxSort] = await Promise.all([
+      this.prisma.lessonResource.findMany({ where: { lesson_id: lessonId } }),
+      this.prisma.quizQuestion.findMany({ where: { lesson_id: lessonId } }),
+      this.prisma.lesson.aggregate({ where: { module_id: lesson.module_id }, _max: { sort_order: true } }),
+    ]);
+
+    const duplicate = await this.prisma.lesson.create({
+      data: {
+        module_id: lesson.module_id,
+        title: `${lesson.title} (Copy)`,
+        description: lesson.description,
+        type: lesson.type,
+        sort_order: (maxSort._max.sort_order ?? 0) + 1,
+        duration_minutes: lesson.duration_minutes,
+        is_published: false,
+        is_free_preview: false,
+        video_url: lesson.video_url,
+        content_body: lesson.content_body,
+        blocks_json: lesson.blocks_json ?? undefined,
+        download_url: lesson.download_url,
+        allow_download: lesson.allow_download,
+        external_url: lesson.external_url,
+        passing_score: lesson.passing_score,
+        max_attempts: lesson.max_attempts,
+        time_limit_minutes: lesson.time_limit_minutes,
+        due_date: lesson.due_date,
+        max_score: lesson.max_score,
+        allow_text_response: lesson.allow_text_response,
+        text_word_limit: lesson.text_word_limit,
+        available_from: lesson.available_from,
+        accept_submissions: lesson.accept_submissions,
+        allow_late_submissions: lesson.allow_late_submissions,
+        late_submission_deadline: lesson.late_submission_deadline,
+        late_penalty_type: lesson.late_penalty_type,
+        late_penalty_value: lesson.late_penalty_value,
+        allow_file_upload: lesson.allow_file_upload,
+        max_files: lesson.max_files,
+        accepted_file_types: lesson.accepted_file_types,
+        max_file_size_mb: lesson.max_file_size_mb,
+        rubric_json: lesson.rubric_json ?? undefined,
+      },
+    });
+
+    if (resources.length) {
+      await this.prisma.lessonResource.createMany({
+        data: resources.map((r) => ({
+          lesson_id: duplicate.id, title: r.title, url: r.url, file_type: r.file_type,
+          file_name: r.file_name, sort_order: r.sort_order,
+        })),
+      });
+    }
+    if (questions.length) {
+      await this.prisma.quizQuestion.createMany({
+        data: questions.map((q) => ({
+          lesson_id: duplicate.id, question_text: q.question_text, question_type: q.question_type,
+          options: q.options as any, correct_index: q.correct_index, explanation: q.explanation,
+          points: q.points, sort_order: q.sort_order,
+        })),
+      });
+    }
+
+    return duplicate;
+  }
+
+  // ─── Lesson resources (assignment instructions, datasets, templates) ────
+
+  async getLessonResources(lessonId: string, userId: string, role: Role) {
+    await this.assertLessonProfessorAccess(lessonId, userId, role);
+    return this.prisma.lessonResource.findMany({ where: { lesson_id: lessonId }, orderBy: { sort_order: "asc" } });
+  }
+
+  async createLessonResource(lessonId: string, dto: { title: string; url: string; file_name?: string; file_type?: string }, userId: string, role: Role) {
+    await this.assertLessonProfessorAccess(lessonId, userId, role);
+    const maxSort = await this.prisma.lessonResource.aggregate({ where: { lesson_id: lessonId }, _max: { sort_order: true } });
+    return this.prisma.lessonResource.create({
+      data: {
+        lesson_id: lessonId, title: dto.title, url: dto.url,
+        file_name: dto.file_name, file_type: dto.file_type,
+        sort_order: (maxSort._max.sort_order ?? -1) + 1,
+      },
+    });
+  }
+
+  async updateLessonResource(lessonId: string, resourceId: string, dto: { title?: string; url?: string }, userId: string, role: Role) {
+    await this.assertLessonProfessorAccess(lessonId, userId, role);
+    const resource = await this.prisma.lessonResource.findUnique({ where: { id: resourceId } });
+    if (!resource || resource.lesson_id !== lessonId) throw new NotFoundException("Resource not found");
+    return this.prisma.lessonResource.update({ where: { id: resourceId }, data: dto });
+  }
+
+  async deleteLessonResource(lessonId: string, resourceId: string, userId: string, role: Role) {
+    await this.assertLessonProfessorAccess(lessonId, userId, role);
+    const resource = await this.prisma.lessonResource.findUnique({ where: { id: resourceId } });
+    if (!resource || resource.lesson_id !== lessonId) throw new NotFoundException("Resource not found");
+    await this.prisma.lessonResource.delete({ where: { id: resourceId } });
+    return { message: "Resource deleted" };
+  }
+
+  // ─── CSV export ───────────────────────────────────────────────────────
+
+  private toCsv(headers: string[], rows: (string | number)[][]): string {
+    const escape = (v: string | number) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    return [headers, ...rows].map((row) => row.map(escape).join(",")).join("\n");
+  }
+
+  async exportCertificationSubmissions(certId: string, userId: string, role: Role): Promise<string> {
+    await this.assertProfessorAccess(certId, userId, role);
+    const submissions = await this.prisma.assignmentSubmission.findMany({
+      where: { lesson: { module: { certification_id: certId } }, is_latest: true },
+      include: {
+        user: { select: { email: true, profile: { select: { first_name: true, last_name: true } } } },
+        lesson: { select: { title: true, max_score: true } },
+      },
+      orderBy: [{ lesson: { title: "asc" } }, { submitted_at: "desc" }],
+    });
+    const rows = submissions.map((s) => [
+      `${s.user.profile?.first_name ?? ""} ${s.user.profile?.last_name ?? ""}`.trim() || s.user.email,
+      s.user.email,
+      s.lesson.title,
+      s.attempt_number,
+      s.submitted_at.toISOString(),
+      s.is_late ? "Yes" : "No",
+      s.grade ?? "",
+      s.max_grade,
+      s.status,
+    ]);
+    return this.toCsv(
+      ["Student", "Email", "Assignment", "Attempt", "Submitted At", "Late", "Grade", "Max Grade", "Status"],
+      rows,
+    );
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────

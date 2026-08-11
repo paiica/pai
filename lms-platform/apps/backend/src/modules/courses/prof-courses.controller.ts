@@ -1,7 +1,8 @@
 import {
-  BadRequestException, Controller, Get, Post, Put, Delete, Body, Param, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe,
+  BadRequestException, Controller, Get, Post, Put, Delete, Body, Param, Res, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { CoursesService } from "./courses.service";
@@ -269,5 +270,94 @@ export class ProfCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.coursesService.getGradebook(certId, userId, role);
+  }
+
+  @Get("certifications/:certId/submissions/export")
+  @ApiOperation({ summary: "Export this certification's gradebook as CSV" })
+  async exportSubmissions(
+    @Param("certId", ParseUUIDPipe) certId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+    @Res() res: Response,
+  ) {
+    const csv = await this.coursesService.exportCertificationSubmissions(certId, userId, role);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="gradebook-${new Date().toISOString().split("T")[0]}.csv"`);
+    res.send(csv);
+  }
+
+  @Get("lessons/:lessonId/submissions/:studentUserId/attempts")
+  @ApiOperation({ summary: "Full attempt history for one student's assignment submissions" })
+  getSubmissionAttempts(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("studentUserId", ParseUUIDPipe) studentUserId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.getSubmissionAttempts(lessonId, studentUserId, userId, role);
+  }
+
+  @Get("lessons/:lessonId/statistics")
+  @ApiOperation({ summary: "Submission/grading statistics for one assignment lesson" })
+  getAssignmentStatistics(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.getAssignmentStatistics(lessonId, userId, role);
+  }
+
+  @Post("lessons/:lessonId/duplicate")
+  @ApiOperation({ summary: "Duplicate a lesson (settings + resources/questions, never submissions or progress)" })
+  duplicateLesson(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.duplicateLesson(lessonId, userId, role);
+  }
+
+  @Get("lessons/:lessonId/resources")
+  @ApiOperation({ summary: "List a lesson's downloadable resources" })
+  getLessonResources(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.getLessonResources(lessonId, userId, role);
+  }
+
+  @Post("lessons/:lessonId/resources")
+  @ApiOperation({ summary: "Attach a downloadable resource to a lesson" })
+  createLessonResource(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body() dto: { title: string; url: string; file_name?: string; file_type?: string },
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.createLessonResource(lessonId, dto, userId, role);
+  }
+
+  @Put("lessons/:lessonId/resources/:resourceId")
+  @ApiOperation({ summary: "Rename or replace a lesson resource" })
+  updateLessonResource(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("resourceId", ParseUUIDPipe) resourceId: string,
+    @Body() dto: { title?: string; url?: string },
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.updateLessonResource(lessonId, resourceId, dto, userId, role);
+  }
+
+  @Delete("lessons/:lessonId/resources/:resourceId")
+  @ApiOperation({ summary: "Delete a lesson resource" })
+  deleteLessonResource(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("resourceId", ParseUUIDPipe) resourceId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.deleteLessonResource(lessonId, resourceId, userId, role);
   }
 }

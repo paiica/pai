@@ -290,50 +290,103 @@ function QuizLesson({ lesson }: { lesson: any }) {
   );
 }
 
+// Mirrors the same client-side computation used in the professor/admin
+// Course Builder's AssignmentEditor status strip, so what the student sees
+// always matches what the instructor configured.
+function assignmentAvailability(lesson: any) {
+  const now = new Date();
+  if (lesson.accept_submissions === false) {
+    return { state: "disabled", label: "Submissions Disabled", detail: "Your instructor has manually turned off submissions for this assignment." };
+  }
+  if (lesson.available_from && now < new Date(lesson.available_from)) {
+    return { state: "not_open", label: "Not Yet Open", detail: `Opens ${new Date(lesson.available_from).toLocaleString("en-CA", { dateStyle: "long", timeStyle: "short" })}.` };
+  }
+  if (lesson.due_date && now > new Date(lesson.due_date)) {
+    if (lesson.allow_late_submissions && (!lesson.late_submission_deadline || now <= new Date(lesson.late_submission_deadline))) {
+      return { state: "late", label: "Late Submission Period", detail: lesson.late_submission_deadline ? `Late submissions accepted until ${new Date(lesson.late_submission_deadline).toLocaleString("en-CA", { dateStyle: "long", timeStyle: "short" })}.` : "Late submissions are accepted with no further deadline." };
+    }
+    return { state: "closed", label: "Submission Period Closed", detail: "The due date has passed and late submissions are not allowed." };
+  }
+  return { state: "open", label: "Accepting Submissions", detail: null };
+}
+
 function AssignmentLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
   const submission = lesson.submission;
+  const attempts: any[] = lesson.submission_attempts ?? (submission ? [submission] : []);
+  const resources: any[] = lesson.resources ?? [];
   const [textContent, setTextContent] = useState(submission?.text_content ?? "");
-  const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; size: number } | null>(
-    submission?.file_url ? { url: submission.file_url, name: submission.file_name ?? "file", size: 0 } : null
-  );
+  type PendingFile = { url: string; name: string; size: number };
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>(() => {
+    if (submission?.files?.length) return submission.files.map((f: any) => ({ url: f.file_url, name: f.file_name, size: f.file_size ?? 0 }));
+    if (submission?.file_url) return [{ url: submission.file_url, name: submission.file_name ?? "file", size: submission.file_size ?? 0 }];
+    return [];
+  });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     setTextContent(submission?.text_content ?? "");
-    setUploadedFile(submission?.file_url ? { url: submission.file_url, name: submission.file_name ?? "file", size: 0 } : null);
-  }, [submission?.updated_at]);
+    if (submission?.files?.length) setPendingFiles(submission.files.map((f: any) => ({ url: f.file_url, name: f.file_name, size: f.file_size ?? 0 })));
+    else if (submission?.file_url) setPendingFiles([{ url: submission.file_url, name: submission.file_name ?? "file", size: submission.file_size ?? 0 }]);
+    else setPendingFiles([]);
+  }, [submission?.id]);
 
   const allowText = lesson.allow_text_response !== false;
+  const allowFileUpload = lesson.allow_file_upload !== false;
+  const maxFiles = lesson.max_files ?? 1;
+  const acceptedTypes: string[] = lesson.accepted_file_types ?? [];
+  const maxFileSizeMb = lesson.max_file_size_mb ?? 10;
   const wordLimit = lesson.text_word_limit as number | undefined;
   const wordCount = textContent.trim() ? textContent.trim().split(/\s+/).length : 0;
   const overLimit = allowText && wordLimit != null && wordCount > wordLimit;
   const isGraded = submission?.grade !== null && submission?.grade !== undefined;
-  const MAX_ATTEMPTS = 2;
-  const attemptsUsed = submission?.attempt_count ?? 0;
-  const canResubmit = attemptsUsed < MAX_ATTEMPTS;
+  const maxAttempts = lesson.max_attempts ?? 1;
+  const attemptsUsed = attempts.length;
+  const canResubmit = attemptsUsed < maxAttempts;
+  const availability = assignmentAvailability(lesson);
+  const canSubmitNow = !isGraded && canResubmit && (availability.state === "open" || availability.state === "late");
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     e.target.value = "";
+    if (pendingFiles.length + files.length > maxFiles) {
+      toast.error(`You can attach at most ${maxFiles} file${maxFiles === 1 ? "" : "s"} for this assignment.`);
+      return;
+    }
+    for (const file of files) {
+      const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
+      if (acceptedTypes.length > 0 && !acceptedTypes.map((t) => t.toLowerCase()).includes(ext)) {
+        toast.error(`File type ${ext} is not accepted. Allowed: ${acceptedTypes.join(", ")}`);
+        return;
+      }
+      if (file.size > maxFileSizeMb * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds the ${maxFileSizeMb}MB limit.`);
+        return;
+      }
+    }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`${API_BASE}/uploads/local?purpose=assignment_submission`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      const data = await res.json();
-      const url: string = data?.url ?? data?.data?.url;
-      if (!url) throw new Error("No URL in upload response");
-      setUploadedFile({ url, name: file.name, size: file.size });
-      toast.success("File ready — click Submit to send your assignment");
+      const uploaded: PendingFile[] = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${API_BASE}/uploads/local?purpose=assignment_submission`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const data = await res.json();
+        const url: string = data?.url ?? data?.data?.url;
+        if (!url) throw new Error("No URL in upload response");
+        uploaded.push({ url, name: file.name, size: file.size });
+      }
+      setPendingFiles((prev) => [...prev, ...uploaded]);
+      toast.success(uploaded.length > 1 ? "Files ready — click Submit to send your assignment" : "File ready — click Submit to send your assignment");
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
     } finally {
@@ -342,7 +395,7 @@ function AssignmentLesson({
   }
 
   async function submit() {
-    if (!textContent.trim() && !uploadedFile) {
+    if (!textContent.trim() && pendingFiles.length === 0) {
       toast.error("Add a text response or upload a file before submitting.");
       return;
     }
@@ -356,9 +409,7 @@ function AssignmentLesson({
         `/prep-courses/learn/${enrollmentId}/lesson/${lesson.id}/assignment/submit`,
         {
           text_content: textContent || undefined,
-          file_url: uploadedFile?.url,
-          file_name: uploadedFile?.name,
-          file_size: uploadedFile?.size,
+          files: pendingFiles.map((f) => ({ file_url: f.url, file_name: f.name, file_size: f.size })),
         },
         token
       );
@@ -387,10 +438,37 @@ function AssignmentLesson({
         </div>
       )}
 
-      {lesson.due_date && (
-        <p className="text-sm text-amber-600 font-medium flex items-center gap-1.5">
-          <Clock size={13} /> Due: {new Date(lesson.due_date).toLocaleDateString("en-CA", { dateStyle: "long" })}
-        </p>
+      {resources.length > 0 && (
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <p className="font-semibold text-slate-700 text-sm mb-2">Resources</p>
+          <div className="space-y-1.5">
+            {resources.map((r: any) => (
+              <a key={r.id} href={r.url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 text-sm text-navy-700 hover:text-navy-900 hover:underline">
+                <Download size={13} /> {r.title}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full",
+          availability.state === "open" && "bg-emerald-50 text-emerald-700",
+          availability.state === "late" && "bg-amber-50 text-amber-700",
+          (availability.state === "closed" || availability.state === "not_open" || availability.state === "disabled") && "bg-slate-100 text-slate-600"
+        )}>
+          <Clock size={12} /> {availability.label}
+        </span>
+        {lesson.due_date && (
+          <span className="text-sm text-slate-500">
+            Due: {new Date(lesson.due_date).toLocaleDateString("en-CA", { dateStyle: "long" })}
+          </span>
+        )}
+      </div>
+      {availability.detail && (
+        <p className="text-xs text-slate-500 -mt-3">{availability.detail}</p>
       )}
 
       {isGraded ? (
@@ -398,6 +476,7 @@ function AssignmentLesson({
           <p className="font-semibold text-emerald-800 text-sm flex items-center gap-2">
             <CheckCircle size={15} /> Graded: {submission.grade} / {lesson.max_score ?? 100}
           </p>
+          {submission.is_late && <p className="text-xs text-amber-700">This attempt was submitted late.</p>}
           {submission.feedback && (
             <p className="text-sm text-slate-700 leading-relaxed border-t border-emerald-200 pt-2 mt-2">{submission.feedback}</p>
           )}
@@ -405,22 +484,44 @@ function AssignmentLesson({
         </div>
       ) : submission && !canResubmit ? (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 flex items-center gap-2">
-          <AlertCircle size={14} /> Maximum submissions reached ({attemptsUsed}/{MAX_ATTEMPTS}) — awaiting review by your instructor
+          <AlertCircle size={14} /> Maximum submissions reached ({attemptsUsed}/{maxAttempts}) — awaiting review by your instructor
         </div>
       ) : submission ? (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
-          <CheckCircle size={14} /> Submitted — awaiting review by your instructor
-          <span className="text-blue-500">· attempt {attemptsUsed}/{MAX_ATTEMPTS}</span>
+          <CheckCircle size={14} /> Submitted{submission.is_late ? " (late)" : ""} — awaiting review by your instructor
+          <span className="text-blue-500">· attempt {attemptsUsed}/{maxAttempts}</span>
         </div>
       ) : null}
 
-      {!isGraded && canResubmit && (
+      {attempts.length > 1 && (
+        <div>
+          <button onClick={() => setShowHistory((v) => !v)} className="text-xs font-semibold text-navy-700 hover:text-navy-900">
+            {showHistory ? "Hide" : "Show"} attempt history ({attempts.length})
+          </button>
+          {showHistory && (
+            <div className="mt-2 space-y-1.5">
+              {attempts.map((a) => (
+                <div key={a.id} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="font-medium text-slate-600">
+                    Attempt {a.attempt_number}{a.is_late ? " · late" : ""} — {new Date(a.submitted_at).toLocaleDateString("en-CA", { dateStyle: "medium" })}
+                  </span>
+                  <span className={cn("font-semibold", a.grade != null ? "text-emerald-600" : "text-slate-400")}>
+                    {a.grade != null ? `${a.grade} / ${lesson.max_score ?? 100}` : "Not graded"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {canSubmitNow && (
         <>
           {allowText && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-semibold text-slate-700">
-                  Written Response <span className="text-slate-400 font-normal">(optional if file attached)</span>
+                  Written Response <span className="text-slate-400 font-normal">{allowFileUpload ? "(optional if file attached)" : ""}</span>
                 </label>
                 {wordLimit != null && (
                   <span className={cn("text-xs font-medium tabular-nums", overLimit ? "text-red-600" : "text-slate-400")}>
@@ -442,35 +543,41 @@ function AssignmentLesson({
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-semibold text-slate-700 mb-2 block">
-              Attach File <span className="text-slate-400 font-normal">(optional if text provided)</span>
-            </label>
-            {uploadedFile ? (
-              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                <Download size={16} className="text-slate-500 flex-shrink-0" />
-                <span className="text-sm text-slate-700 flex-1 truncate">{uploadedFile.name}</span>
-                <button onClick={() => setUploadedFile(null)} className="text-xs text-red-500 hover:text-red-700 font-medium">
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <label className={cn(
-                "flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
-                uploading ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"
-              )}>
-                {uploading ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Upload size={20} className="text-slate-400" />}
-                <span className="text-sm text-slate-500">{uploading ? "Uploading…" : "Click to upload PDF, Word, or other file"}</span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  disabled={uploading}
-                />
+          {allowFileUpload && (
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                Attach File{maxFiles > 1 ? "s" : ""} <span className="text-slate-400 font-normal">{allowText ? "(optional if text provided)" : ""} — up to {maxFiles}, max {maxFileSizeMb}MB each</span>
               </label>
-            )}
-          </div>
+              <div className="space-y-2">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <Download size={16} className="text-slate-500 flex-shrink-0" />
+                    <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
+                    <button onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {pendingFiles.length < maxFiles && (
+                  <label className={cn(
+                    "flex flex-col items-center justify-center gap-2 h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
+                    uploading ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"
+                  )}>
+                    {uploading ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Upload size={20} className="text-slate-400" />}
+                    <span className="text-sm text-slate-500">{uploading ? "Uploading…" : `Click to upload ${acceptedTypes.length ? acceptedTypes.join(", ") : "a file"}`}</span>
+                    <input
+                      type="file"
+                      multiple={maxFiles > 1}
+                      className="hidden"
+                      accept={acceptedTypes.length ? acceptedTypes.join(",") : ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"}
+                      onChange={handleFileChange}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={submit}

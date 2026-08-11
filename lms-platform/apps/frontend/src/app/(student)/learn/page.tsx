@@ -73,7 +73,11 @@ function CertBannerCard({
     if (!certId) return;
     fetch(`${API_BASE}/prep-courses/recommended-by-cert/${certId}`)
       .then(r => r.json())
-      .then(r => setCertCourses(Array.isArray(r.data) ? r.data : []));
+      .then(r => setCertCourses(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {
+        // A transient network blip shouldn't crash the page — just leave
+        // the required/recommended course list empty for this render.
+      });
   }, [certId]);
   const requiredCourses = certCourses.filter((c) => c.is_required);
   const recommendedCourses = certCourses.filter((c) => !c.is_required);

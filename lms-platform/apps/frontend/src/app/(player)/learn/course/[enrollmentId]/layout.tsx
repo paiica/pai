@@ -263,9 +263,19 @@ export default function CoursePrepPlayerLayout({ children }: { children: React.R
           onReset={zoom.reset}
         />
         <div className="h-5 w-px bg-white/20 hidden sm:block" />
-        <Link href="/learn" className="hidden sm:flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap">
-          <ChevronLeft size={14} /> My Courses
-        </Link>
+        {data?.program ? (
+          <Link
+            href={`/programs/${data.program.id}`}
+            className="hidden sm:flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap"
+            title={data.program.title}
+          >
+            <ChevronLeft size={14} /> {data.program.title}
+          </Link>
+        ) : (
+          <Link href="/learn" className="hidden sm:flex items-center gap-1 text-white/60 hover:text-white text-xs font-medium transition-colors whitespace-nowrap">
+            <ChevronLeft size={14} /> My Courses
+          </Link>
+        )}
         <div className="h-5 w-px bg-white/20 hidden sm:block" />
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="w-6 h-6 rounded bg-teal-500/20 flex items-center justify-center flex-shrink-0">

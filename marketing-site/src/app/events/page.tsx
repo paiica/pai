@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import EventsGrid from "./EventsGrid";
-
-export const metadata: Metadata = {
-  title: "Events",
-  description: "Live training events, workshops, and seminars from the Professional Artificial Intelligence Institute.",
-};
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 type EventListItem = {
   id: string; slug: string; title: string; subtitle: string | null; summary: string | null;
@@ -22,6 +18,27 @@ type EventListItem = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/events`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title || "Events",
+    description: cms?.meta_description || "Live training events, workshops, and seminars from the Professional Artificial Intelligence Institute.",
+  };
+}
+
 async function getEvents(): Promise<EventListItem[]> {
   try {
     const res = await fetch(`${API}/events`, { next: { revalidate: 120 } });
@@ -35,20 +52,26 @@ async function getEvents(): Promise<EventListItem[]> {
 
 export default async function EventsPage() {
   const events = await getEvents();
+  const cms = await getCmsPage();
 
   return (
     <>
       <Navbar />
       <main>
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">Events</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">Events & Training</h1>
-            <p className="text-lg text-white max-w-xl mx-auto">
-              Trainings, workshops, seminars, and conferences — online or in person, free or paid.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">Events</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">Events & Training</h1>
+              <p className="text-lg text-white max-w-xl mx-auto">
+                Trainings, workshops, seminars, and conferences — online or in person, free or paid.
+              </p>
+            </div>
+          </section>
+        )}
 
         <section className="section-padding bg-white">
           <div className="container-lg">

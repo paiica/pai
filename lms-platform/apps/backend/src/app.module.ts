@@ -29,7 +29,6 @@ import { OnlineToolsModule } from "./modules/online-tools/online-tools.module";
 import { ExamSessionsModule } from "./modules/exam-sessions/exam-sessions.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { MailSchedulerModule } from "./modules/mail/mail-scheduler.module";
-import { AssignmentsModule } from "./modules/assignments/assignments.module";
 import { AffiliateModule } from "./modules/affiliate/affiliate.module";
 import { EventsModule } from "./modules/events/events.module";
 import { CartModule } from "./modules/cart/cart.module";
@@ -37,6 +36,8 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
 import { LeadsModule } from "./modules/leads/leads.module";
 import { SupportModule } from "./modules/support/support.module";
 import { ProfessorStudentsModule } from "./modules/professor-students/professor-students.module";
+import { ProgramsModule } from "./modules/programs/programs.module";
+import { TranscriptsModule } from "./modules/transcripts/transcripts.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -81,7 +82,6 @@ import { AppController } from "./app.controller";
     ExamSessionsModule,
     AiModule,
     MailSchedulerModule,
-    AssignmentsModule,
     AffiliateModule,
     EventsModule,
     CartModule,
@@ -89,6 +89,8 @@ import { AppController } from "./app.controller";
     LeadsModule,
     SupportModule,
     ProfessorStudentsModule,
+    ProgramsModule,
+    TranscriptsModule,
   ],
   controllers: [AppController],
   providers: [

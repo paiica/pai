@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { PRESENTATIONS } from "./data";
 import { GraduationCap, Users, TrendingUp, ArrowRight, PlayCircle } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const ICONS: Record<string, React.ComponentType<any>> = {
   "student-guide": GraduationCap,
@@ -11,28 +12,53 @@ const ICONS: Record<string, React.ComponentType<any>> = {
   "affiliate-portal-walkthrough": TrendingUp,
 };
 
-export const metadata: Metadata = {
-  title: "Presentations",
-  description: "Browse PAII's presentation decks for students, educators, and affiliates.",
-};
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-export default function PresentationsPage() {
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/presentations`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title || "Presentations",
+    description: cms?.meta_description || "Browse PAII's presentation decks for students, educators, and affiliates.",
+  };
+}
+
+export default async function PresentationsPage() {
+  const cms = await getCmsPage();
+
   return (
     <>
       <Navbar />
       <main>
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5 justify-center">Presentations</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
-              PAII Presentation Library
-            </h1>
-            <p className="text-lg text-white/80 max-w-xl mx-auto">
-              Walk through what PAII offers — whether you&apos;re a prospective student,
-              an educator, or an affiliate partner.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5 justify-center">Presentations</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
+                PAII Presentation Library
+              </h1>
+              <p className="text-lg text-white/80 max-w-xl mx-auto">
+                Walk through what PAII offers — whether you&apos;re a prospective student,
+                an educator, or an affiliate partner.
+              </p>
+            </div>
+          </section>
+        )}
 
         <section className="section-padding bg-white">
           <div className="container-md">

@@ -15,12 +15,30 @@ import {
   Globe2,
   BadgeCheck,
 } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
-export const metadata: Metadata = {
-  title: "Educator Partner Program",
-  description:
-    "Refer your students to globally recognized AI certifications and earn commission on every enrollment. Join the PAII Educator Partner Program.",
-};
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/educator`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title || "Educator Partner Program",
+    description: cms?.meta_description || "Refer your students to globally recognized AI certifications and earn commission on every enrollment. Join the PAII Educator Partner Program.",
+  };
+}
 
 const HOW_IT_WORKS = [
   {
@@ -111,41 +129,48 @@ const CERTS = [
   },
 ];
 
-export default function EducatorPage() {
+export default async function EducatorPage() {
+  const cms = await getCmsPage();
+
   return (
     <>
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="pb-24 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">For Educators</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
-              Refer Your Students.<br className="hidden sm:block" /> Earn While They Grow.
-            </h1>
-            <p className="text-lg text-white max-w-2xl mx-auto mb-8">
-              Join the PAII Educator Partner Program. Share globally recognized AI certifications
-              with your students and earn a commission on every enrollment — with full tracking
-              and no caps.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href="https://sales.paii.ca"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary !py-4 !px-8 !text-base"
-              >
-                Apply to Become a Partner <ArrowRight size={16} />
-              </a>
-              <Link
-                href="#how-it-works"
-                className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors"
-              >
-                See how it works →
-              </Link>
+        {/* Hero — CMS-controlled if enabled (replaces the CTA row too — the CMS
+            hero is deliberately simpler), otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-24 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">For Educators</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
+                Refer Your Students.<br className="hidden sm:block" /> Earn While They Grow.
+              </h1>
+              <p className="text-lg text-white max-w-2xl mx-auto mb-8">
+                Join the PAII Educator Partner Program. Share globally recognized AI certifications
+                with your students and earn a commission on every enrollment — with full tracking
+                and no caps.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a
+                  href="https://sales.paii.ca"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary !py-4 !px-8 !text-base"
+                >
+                  Apply to Become a Partner <ArrowRight size={16} />
+                </a>
+                <Link
+                  href="#how-it-works"
+                  className="inline-flex items-center gap-2 text-white hover:text-white font-semibold text-sm transition-colors"
+                >
+                  See how it works →
+                </Link>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* How it works */}
         <section id="how-it-works" className="section-padding bg-white">

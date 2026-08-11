@@ -27,6 +27,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const TYPE_LABELS: Record<string, string> = {
   enrollment:       "Enrollment",
+  program:          "Program",
   retake_fee:       "Retake Fee",
   renewal_fee:      "Renewal Fee",
   corporate_bundle: "Corporate Bundle",
@@ -125,6 +126,7 @@ export default function TransactionsPage() {
           className="input-base !py-2 !w-auto text-sm">
           <option value="">All Types</option>
           <option value="enrollment">Enrollment</option>
+          <option value="program">Program</option>
           <option value="retake_fee">Retake Fee</option>
           <option value="renewal_fee">Renewal Fee</option>
           <option value="corporate_bundle">Corporate Bundle</option>

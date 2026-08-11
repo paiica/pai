@@ -338,4 +338,55 @@ export class ProfessorStudentsService {
 
     return { results };
   }
+
+  // Mirrors createCertificationRecommendations exactly — purely
+  // informational (no accept/reject state), since a student can browse and
+  // enroll in a published Program directly, no admin-reviewed application
+  // step involved (unlike Certifications).
+  async createProgramRecommendations(professorId: string, programId: string, studentIds: string[]) {
+    const program = await this.prisma.program.findUniqueOrThrow({ where: { id: programId }, select: { title: true, status: true } });
+    if (program.status !== "published") {
+      throw new BadRequestException("This program isn't available to recommend yet");
+    }
+    await this.assertOwnStudents(professorId, studentIds);
+
+    const professor = await this.prisma.user.findUniqueOrThrow({
+      where: { id: professorId },
+      select: { email: true, profile: { select: { first_name: true, last_name: true } } },
+    });
+    const professorName = this.professorDisplayName(professor);
+
+    const students = await this.prisma.user.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, email: true, profile: { select: { first_name: true } } },
+    });
+
+    const results: { student_id: string; email: string; status: string }[] = [];
+
+    for (const student of students) {
+      await this.prisma.programRecommendation.upsert({
+        where: { professor_id_student_id_program_id: { professor_id: professorId, student_id: student.id, program_id: programId } },
+        create: { professor_id: professorId, student_id: student.id, program_id: programId },
+        update: { updated_at: new Date() },
+      });
+
+      this.notifications.create(
+        student.id,
+        "program_recommendation_received",
+        "Program recommendation",
+        `${professorName} recommends "${program.title}" for you.`,
+        { program_id: programId },
+      ).catch(() => {});
+      this.mail.sendProgramRecommendation({
+        to: student.email,
+        firstName: student.profile?.first_name || "there",
+        professorName,
+        programTitle: program.title,
+      }).catch(() => {});
+
+      results.push({ student_id: student.id, email: student.email, status: "recommended" });
+    }
+
+    return { results };
+  }
 }

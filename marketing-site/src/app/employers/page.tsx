@@ -6,10 +6,11 @@ import {
   ShieldCheck, Search, GraduationCap, Briefcase, QrCode, TrendingUp,
   Building2, Users2, ArrowRight, CheckCircle2, ClipboardList, Award,
 } from "lucide-react";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -58,19 +59,23 @@ export default async function EmployersPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5 justify-center">Employers & Job Seekers</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-[1.1]">
-              The Credential That Connects<br />Talent and Employers
-            </h1>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              For job seekers, a PAII certification is proof of real AI skill. For employers,
-              it's a faster, more reliable way to find people who actually have it.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5 justify-center">Employers & Job Seekers</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5 leading-[1.1]">
+                The Credential That Connects<br />Talent and Employers
+              </h1>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                For job seekers, a PAII certification is proof of real AI skill. For employers,
+                it's a faster, more reliable way to find people who actually have it.
+              </p>
+            </div>
+          </section>
+        )}
 
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />

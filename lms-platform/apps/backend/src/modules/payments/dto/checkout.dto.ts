@@ -31,6 +31,16 @@ export class CertificationCheckoutDto {
   promo_code?: string;
 }
 
+export class ProgramCheckoutDto {
+  @IsUUID()
+  program_id: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  promo_code?: string;
+}
+
 export class EventCheckoutDto {
   @IsUUID()
   event_id: string;

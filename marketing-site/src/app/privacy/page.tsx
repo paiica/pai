@@ -1,10 +1,11 @@
 ﻿import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -40,7 +41,8 @@ export default async function PrivacyPage() {
   return (
     <>
       <Navbar />
-      <main className="pb-20 bg-white" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+      {cms?.hero_enabled && <PageHero {...cms} />}
+      <main className="pb-20 bg-white" style={cms?.hero_enabled ? undefined : { paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
         <div className="container-md">
           {cms?.content ? (
             <div

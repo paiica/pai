@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 import { MultiSelectPicker } from "@/components/ui/MultiSelectPicker";
-import type { Certification, OrgInviteLink } from "@/types";
+import type { Certification, Program, OrgInviteLink } from "@/types";
 
 type InviteResult = { results: { email: string; status: "invited" | "enrolled" }[] };
 
@@ -78,12 +78,18 @@ export default function InviteEmployeesPage() {
   const { accessToken } = useAuthStore();
   const [emailsText, setEmailsText] = useState("");
   const [certIds, setCertIds] = useState<string[]>([]);
+  const [programIds, setProgramIds] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<InviteResult | null>(null);
 
   const { data: certs } = useSWR(
     "/courses/catalog",
     (url) => api.get<Certification[]>(url),
+  );
+
+  const { data: programs } = useSWR(
+    "/programs",
+    (url) => api.get<Program[]>(url),
   );
 
   function parseEmails(text: string): string[] {
@@ -95,15 +101,16 @@ export default function InviteEmployeesPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (emails.length === 0) { toast.error("Enter at least one email address"); return; }
-    if (certIds.length === 0) { toast.error("Select at least one certification"); return; }
+    if (certIds.length === 0 && programIds.length === 0) { toast.error("Select at least one certification or program"); return; }
     setSending(true);
     setResult(null);
     try {
-      const res = await api.post<InviteResult>("/org/employees/invite", { emails, certification_ids: certIds }, accessToken!);
+      const res = await api.post<InviteResult>("/org/employees/invite", { emails, certification_ids: certIds, program_ids: programIds }, accessToken!);
       setResult(res);
       toast.success("Invitations sent");
       setEmailsText("");
       setCertIds([]);
+      setProgramIds([]);
     } catch (err: unknown) {
       const msg = err instanceof ApiError ? err.message : "Failed to send invitations";
       toast.error(msg);
@@ -117,7 +124,7 @@ export default function InviteEmployeesPage() {
       <div>
         <h2 className="text-xl font-display font-black text-navy-900">Invite Employees</h2>
         <p className="text-sm text-slate-500 mt-0.5">
-          Enrolls each email into every certification you select below. Employees without a PAII account
+          Enrolls each email into every certification and program you select below. Employees without a PAII account
           yet will get an email to set their password.
         </p>
       </div>
@@ -145,6 +152,15 @@ export default function InviteEmployeesPage() {
           onChange={setCertIds}
           getId={(c) => c.id}
           getLabel={(c: Certification) => `${c.acronym} — ${c.title}`}
+        />
+
+        <MultiSelectPicker
+          label="Programs"
+          items={programs ?? []}
+          selected={programIds}
+          onChange={setProgramIds}
+          getId={(p) => p.id}
+          getLabel={(p: Program) => p.title}
         />
 
         <button type="submit" disabled={sending} className="btn-primary w-full !py-3">

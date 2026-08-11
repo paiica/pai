@@ -104,7 +104,9 @@ export class PaymentsService {
           price_data: {
             currency: "usd",
             unit_amount: Math.round(Number(cert.price) * 100),
-            product_data: { name: `${cert.title} (${cert.acronym}) — PAII Certification`, description: cert.description },
+            // Omit entirely rather than pass "" — Stripe rejects an
+            // explicit empty string for product_data.description.
+            product_data: { name: `${cert.title} (${cert.acronym}) — PAII Certification`, ...(cert.description ? { description: cert.description } : {}) },
           },
           quantity: 1,
         }],
@@ -205,7 +207,115 @@ export class PaymentsService {
             unit_amount: Math.round(price * 100),
             product_data: {
               name: course.title,
-              description: course.subtitle || course.description || "",
+              // Omit entirely rather than pass "" — Stripe rejects an
+              // explicit empty string for product_data.description.
+              ...((course.subtitle || course.description) ? { description: course.subtitle || course.description } : {}),
+            },
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      });
+      return { checkout_url: session.url, session_id: session.id };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  // A Program is sold at ONE admin-set price (never the sum of its bundled
+  // courses' individual prices), so this mirrors createCourseCheckoutSession's
+  // single-line-item shape exactly — fulfillment (granting each course) is
+  // deferred to the webhook, same as every other checkout method here.
+  async createProgramCheckoutSession(userId: string, programId: string, promoCode?: string) {
+    const program = await this.prisma.program.findUnique({
+      where: { id: programId },
+      include: { courses: { select: { course_id: true } }, _count: { select: { enrollments: true } } },
+    });
+    if (!program || program.status !== "published") throw new NotFoundException("Program not found");
+
+    const now = new Date();
+    if (program.enrollment_start_date && now < program.enrollment_start_date) {
+      throw new BadRequestException(`Enrollment for this program opens ${program.enrollment_start_date.toLocaleDateString()}.`);
+    }
+    if (program.enrollment_end_date && now > program.enrollment_end_date) {
+      throw new BadRequestException("Enrollment for this program has closed.");
+    }
+    if (program.max_learners != null && program._count.enrollments >= program.max_learners) {
+      throw new BadRequestException("This program has reached its enrollment capacity.");
+    }
+
+    const existing = await this.prisma.programEnrollment.findUnique({
+      where: { user_id_program_id: { user_id: userId, program_id: programId } },
+    });
+    if (existing) throw new BadRequestException("You are already enrolled in this program");
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const basePrice = Number(program.price);
+    let price = basePrice;
+    let promoId: string | undefined;
+
+    if (promoCode && price > 0) {
+      const result = await this.promoCodes.validate(promoCode, price, { userId });
+      if (!result.valid) throw new BadRequestException(result.message);
+      price = Math.max(0, price - result.discount_amount);
+      promoId = result.promo_id;
+    }
+
+    const frontendUrl = this.config.get("frontendUrl");
+    const successUrl = `${frontendUrl}/cart/success?session_id={CHECKOUT_SESSION_ID}`;
+    // Not `/programs/${program.slug}` — the student portal's program routes
+    // are keyed by id (`/programs/:id`), not slug, and require an active
+    // enrollment (which doesn't exist yet if checkout was cancelled). The
+    // "My Programs" list is always valid regardless of enrollment state.
+    const cancelUrl = `${frontendUrl}/programs`;
+
+    const accessExpiresAt = program.access_duration_days
+      ? new Date(Date.now() + program.access_duration_days * 24 * 60 * 60 * 1000)
+      : null;
+
+    // If price is 0 after discount, enroll directly without Stripe
+    if (price <= 0) {
+      await this.prisma.programEnrollment.create({
+        data: { user_id: userId, program_id: programId, status: "active", amount_paid: 0, access_expires_at: accessExpiresAt },
+      });
+      for (const pc of program.courses) {
+        await this.enrollInCourse(userId, pc.course_id, null, 0);
+      }
+      if (promoId) await this.promoCodes.incrementUsed(promoId, userId);
+      await this.mail.sendFreeEnrollmentConfirmation({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        itemName: program.title,
+        type: "course",
+      });
+      return { checkout_url: null, enrolled: true };
+    }
+
+    const programStripeClient = await this.resolveStripe();
+    if (!programStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const session = await this.startCheckout(programStripeClient.stripe, {
+        mode: "payment",
+        customer_email: user.email,
+        metadata: {
+          user_id: userId,
+          checkout_type: "program",
+          program_id: programId,
+          promo_id: promoId || "",
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(price * 100),
+            product_data: {
+              name: program.title,
+              // Omit entirely rather than pass "" — Stripe rejects an
+              // explicit empty string for product_data.description as an
+              // attempt to unset a field that can't be unset, which broke
+              // checkout outright for any program without a short
+              // description set.
+              ...(program.short_description ? { description: program.short_description } : {}),
             },
           },
           quantity: 1,
@@ -343,7 +453,9 @@ export class PaymentsService {
             unit_amount: Math.round(price * 100),
             product_data: {
               name: `${cert.title} (${cert.acronym}) — PAII Certification`,
-              description: cert.description,
+              // Omit entirely rather than pass "" — Stripe rejects an
+              // explicit empty string for product_data.description.
+              ...(cert.description ? { description: cert.description } : {}),
             },
           },
           quantity: 1,
@@ -673,7 +785,9 @@ export class PaymentsService {
           price_data: {
             currency: event.currency,
             unit_amount: Math.round(price * 100),
-            product_data: { name: event.title, description: event.summary || event.subtitle || "" },
+            // Omit entirely rather than pass "" — Stripe rejects an
+            // explicit empty string for product_data.description.
+            product_data: { name: event.title, ...((event.summary || event.subtitle) ? { description: (event.summary || event.subtitle) as string } : {}) },
           },
           quantity: 1,
         }],
@@ -901,7 +1015,7 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-    const { user_id, checkout_type, certification_id, course_id, certificate_id, application_id, enrollment_id, promo_id, promo_code, organization_id, invitation_id } = session.metadata || {};
+    const { user_id, checkout_type, certification_id, course_id, program_id, certificate_id, application_id, enrollment_id, promo_id, promo_code, organization_id, invitation_id } = session.metadata || {};
 
     // Guest event registration — no user_id, handled entirely separately from
     // the account-based flows below (no Payment record, no affiliate
@@ -1036,6 +1150,33 @@ export class PaymentsService {
       description = cert ? `${cert.acronym} — ${cert.title}` : "Certification Enrollment";
       await this.prisma.cartItem.deleteMany({ where: { user_id, certification_id } });
 
+    } else if (checkout_type === "program" && program_id) {
+      const program = await this.prisma.program.findUniqueOrThrow({
+        where: { id: program_id },
+        include: { courses: { select: { course_id: true } } },
+      });
+      const accessExpiresAt = program.access_duration_days
+        ? new Date(Date.now() + program.access_duration_days * 24 * 60 * 60 * 1000)
+        : null;
+
+      await this.prisma.programEnrollment.upsert({
+        where: { user_id_program_id: { user_id, program_id } },
+        create: { user_id, program_id, status: "active", stripe_payment_intent_id: paymentIntentId, amount_paid: amount, access_expires_at: accessExpiresAt },
+        update: { status: "active", stripe_payment_intent_id: paymentIntentId, amount_paid: amount, access_expires_at: accessExpiresAt },
+      });
+
+      // Reuses the same ON CONFLICT DO NOTHING helper every other course
+      // purchase goes through — a student who already owns one of these
+      // courses (bought separately, or via another program) just keeps
+      // their existing enrollment/progress untouched, no duplicate created.
+      for (const pc of program.courses) {
+        await this.enrollInCourse(user_id, pc.course_id, paymentIntentId ?? null, 0);
+      }
+
+      if (promo_id) await this.promoCodes.incrementUsed(promo_id, user_id);
+      description = `Program: ${program.title}`;
+      this.logger.log(`Program enrollment created: user=${user_id} program=${program_id}, ${program.courses.length} course(s) granted`);
+
     } else if (checkout_type === "renewal" && certificate_id) {
       const renewed = await this.certificatesService.renew(certificate_id, user_id, paymentIntentId!, amount);
       description = `Certificate Renewal: ${renewed.certification_acronym} — ${renewed.certification_title}`;
@@ -1105,6 +1246,7 @@ export class PaymentsService {
           user_id,
           type: checkout_type === "renewal" ? PaymentType.renewal_fee
             : checkout_type === "retake" ? PaymentType.retake_fee
+            : checkout_type === "program" ? PaymentType.program
             : checkout_type?.startsWith("org_") ? PaymentType.corporate_bundle
             : PaymentType.enrollment,
           status: PaymentStatus.succeeded,

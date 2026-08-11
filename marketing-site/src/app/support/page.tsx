@@ -4,10 +4,11 @@ import Footer from "@/components/layout/Footer";
 import SupportForm from "./SupportForm";
 import { Mail, Clock, HelpCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = { title: string; content: string; meta_description: string };
+type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
 
 async function getCmsPage(): Promise<CmsPage | null> {
   try {
@@ -35,19 +36,23 @@ export default async function SupportPage() {
     <>
       <Navbar />
       <main>
-        {/* Hero — always hardcoded */}
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5 justify-center">Support</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
-              We&apos;re here to help
-            </h1>
-            <p className="text-lg text-white/80 max-w-xl mx-auto">
-              Questions about certifications, exams, or your account? Send us a message
-              and our support team will respond within 24 hours.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5 justify-center">Support</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">
+                We&apos;re here to help
+              </h1>
+              <p className="text-lg text-white/80 max-w-xl mx-auto">
+                Questions about certifications, exams, or your account? Send us a message
+                and our support team will respond within 24 hours.
+              </p>
+            </div>
+          </section>
+        )}
 
         {cms?.content ? (
           <div dangerouslySetInnerHTML={{ __html: cms.content }} />

@@ -26,7 +26,7 @@ type MarketingMeta   = {
 
 type Cert = {
   id: string; slug: string; acronym: string; title: string;
-  level: string; status: string; badge_icon: string;
+  level: string; status: string; badge_icon: string; badge_image_url?: string;
   price: number; description: string; long_description: string;
   learning_outcomes: string[]; target_audience: string[];
   curriculum_overview: CurriculumItem[];
@@ -99,7 +99,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${cert.title} (${cert.acronym})`,
     description: cert.description,
-    openGraph: { title: `${cert.title} | Professional Artificial Intelligence Institute`, description: cert.description },
+    openGraph: {
+      title: `${cert.title} | Professional Artificial Intelligence Institute`,
+      description: cert.description,
+      images: cert.badge_image_url ? [cert.badge_image_url] : undefined,
+    },
   };
 }
 

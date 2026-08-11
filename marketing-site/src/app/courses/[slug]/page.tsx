@@ -103,6 +103,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     openGraph: {
       title: `${course.title} | Professional Artificial Intelligence Institute`,
       description: course.description,
+      images: course.thumbnail_url ? [course.thumbnail_url] : undefined,
     },
   };
 }

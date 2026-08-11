@@ -3,11 +3,7 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
-
-export const metadata: Metadata = {
-  title: "Blog & Insights",
-  description: "AI industry insights, certification guides, career advice, and thought leadership from the Professional Artificial Intelligence Institute.",
-};
+import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
 
 type Post = {
   id: string; slug: string; title: string; excerpt: string;
@@ -29,6 +25,27 @@ async function getPosts(): Promise<Post[]> {
   }
 }
 
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+
+async function getCmsPage(): Promise<CmsPage | null> {
+  try {
+    const res = await fetch(`${API}/pages/public/blog`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? json) as CmsPage;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cms = await getCmsPage();
+  return {
+    title: cms?.title || "Blog & Insights",
+    description: cms?.meta_description || "AI industry insights, certification guides, career advice, and thought leadership from the Professional Artificial Intelligence Institute.",
+  };
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   Career:         "bg-sand-200 text-ink-900",
   Learning:       "bg-sand-200 text-ink-900",
@@ -46,21 +63,27 @@ function formatDate(dateStr: string | null) {
 
 export default async function BlogPage() {
   const posts = await getPosts();
+  const cms = await getCmsPage();
   const [featured, ...rest] = posts;
 
   return (
     <>
       <Navbar />
       <main>
-        <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
-          <div className="container-lg relative text-center">
-            <span className="badge-dark mb-5">Blog & Insights</span>
-            <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">AI Knowledge Hub</h1>
-            <p className="text-lg text-white max-w-xl mx-auto">
-              Career advice, industry analysis, certification guides, and practical AI insights.
-            </p>
-          </div>
-        </section>
+        {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
+        {cms?.hero_enabled ? (
+          <PageHero {...cms} />
+        ) : (
+          <section className="pb-16 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+            <div className="container-lg relative text-center">
+              <span className="badge-dark mb-5">Blog & Insights</span>
+              <h1 className="text-4xl sm:text-5xl font-display font-black text-white mb-5">AI Knowledge Hub</h1>
+              <p className="text-lg text-white max-w-xl mx-auto">
+                Career advice, industry analysis, certification guides, and practical AI insights.
+              </p>
+            </div>
+          </section>
+        )}
 
         <section className="section-padding bg-white">
           <div className="container-lg">

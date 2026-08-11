@@ -13,8 +13,8 @@ import { useAuthStore } from "@/store/auth.store";
 
 // ── Tab keys ──────────────────────────────────────────────────────────────────
 export const ADMIN_TAB_KEYS = [
-  "dashboard", "applications", "assignments", "exam_sessions",
-  "users", "students", "professors", "blog", "pages", "online_tools", "events", "leads",
+  "dashboard", "applications", "exam_sessions",
+  "users", "students", "professors", "blog", "pages", "online_tools", "programs", "events", "leads",
   "sales", "payments", "prep_courses", "certificates", "design", "settings",
 ] as const;
 
@@ -23,7 +23,6 @@ export type AdminTabKey = typeof ADMIN_TAB_KEYS[number];
 export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: string }> = {
   dashboard:     { label: "Overview",         description: "Dashboard stats & metrics" },
   applications:  { label: "Applications",     description: "Certification applications" },
-  assignments:   { label: "Assignments",      description: "Assignment management" },
   exam_sessions: { label: "Exam Sessions",    description: "Schedule & manage exams" },
   users:         { label: "Users",            description: "User management" },
   students:      { label: "Students",         description: "Full student profiles — courses, certificates, renewals, payments" },
@@ -31,6 +30,7 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
   blog:          { label: "Blog",             description: "Blog posts" },
   pages:         { label: "Pages",            description: "Static pages" },
   online_tools:  { label: "Online Tools",     description: "Online tools catalog" },
+  programs:      { label: "Programs",         description: "Multi-course programs, curriculum, capstones & completion certificates" },
   events:        { label: "Events",           description: "Live training events, workshops & seminars" },
   leads:         { label: "Leads",            description: "Email leads captured from the blog subscribe popup" },
   sales:         { label: "Sales",            description: "Sales reps, commissions, promo codes, organizations" },
@@ -46,7 +46,6 @@ export const ADMIN_TAB_META: Record<AdminTabKey, { label: string; description: s
 const NAV = [
   { href: "/dashboard",    label: "Overview",      icon: LayoutDashboard, exact: true, tab: "dashboard"     },
   { href: "/applications", label: "Applications",  icon: ClipboardList,               tab: "applications"   },
-  { href: "/assignments",  label: "Assignments",   icon: ListChecks,                  tab: "assignments"    },
   { href: "/exam-sessions",label: "Exam Sessions", icon: CalendarDays,                tab: "exam_sessions"  },
   { href: "/users",        label: "Users",         icon: Users,                       tab: "users"          },
   { href: "/students",     label: "Students",      icon: GraduationCap,               tab: "students"       },
@@ -86,6 +85,12 @@ const CERT_NAV = [
   { href: "/certificates/external-pdus", label: "External PDU Requests", icon: ListChecks },
 ];
 
+const PROGRAMS_NAV = [
+  { href: "/programs",             label: "Manage Programs",    icon: BookOpen },
+  { href: "/programs/enrollments", label: "Program Enrollments",icon: Users    },
+  { href: "/transcripts",          label: "Transcripts",        icon: FileText },
+];
+
 const DESIGN_NAV = [
   { href: "/design/blocks",           label: "Page Blocks",     icon: LayoutTemplate },
   { href: "/design/navigation",       label: "Navigation",      icon: Navigation     },
@@ -119,6 +124,7 @@ export default function AdminSidebar() {
   const [designOpen,   setDesignOpen]   = useState(pathname.startsWith("/design"));
   const [courseOpen,   setCourseOpen]   = useState(pathname.startsWith("/courses"));
   const [certOpen,     setCertOpen]     = useState(pathname.startsWith("/certificates") || pathname.startsWith("/certifications"));
+  const [programsOpen, setProgramsOpen] = useState(pathname.startsWith("/programs"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
   const [paymentsOpen, setPaymentsOpen] = useState(pathname.startsWith("/payments"));
   const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations"));
@@ -137,6 +143,11 @@ export default function AdminSidebar() {
   function isActive(href: string, exact = false) {
     if (exact) return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
+  }
+
+  function isProgramsTabActive(href: string) {
+    if (href === "/programs/enrollments") return pathname.startsWith("/programs/enrollments");
+    return pathname === "/programs" || (pathname.startsWith("/programs/") && !pathname.startsWith("/programs/enrollments"));
   }
 
   function isCourseTabActive(href: string) {
@@ -312,6 +323,29 @@ export default function AdminSidebar() {
               <div className="ml-3 mt-1 space-y-0.5 pl-3 border-l border-navy-700/50">
                 {CERT_NAV.map(({ href, label, icon: Icon }) => (
                   <Link key={href} href={href} className={subLinkCls(isActive(href))}>
+                    <Icon size={14} />{label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Programs */}
+        {canAccess("programs") && (
+          <div>
+            <button
+              onClick={collapsed ? toggleCollapsed : () => setProgramsOpen(!programsOpen)}
+              title={collapsed ? "Programs" : undefined}
+              className={groupBtnCls(pathname.startsWith("/programs") || pathname.startsWith("/transcripts"))}
+            >
+              <GraduationCap size={17} className="flex-shrink-0" />
+              {!collapsed && <><span className="flex-1 text-left">Programs</span><ChevronDown size={14} className={cn("transition-transform", programsOpen && "rotate-180")} /></>}
+            </button>
+            {!collapsed && programsOpen && (
+              <div className="ml-3 mt-1 space-y-0.5 pl-3 border-l border-navy-700/50">
+                {PROGRAMS_NAV.map(({ href, label, icon: Icon }) => (
+                  <Link key={href} href={href} className={subLinkCls(isProgramsTabActive(href))}>
                     <Icon size={14} />{label}
                   </Link>
                 ))}

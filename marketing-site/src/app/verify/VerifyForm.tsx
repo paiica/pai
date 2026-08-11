@@ -10,7 +10,7 @@ export default function VerifyForm({ initialId }: { initialId: string }) {
     name: string;
     cert: string;
     issue_date: string;
-    expiry_date: string;
+    expiry_date: string | null;
     status: string;
   }>(null);
 
@@ -19,15 +19,26 @@ export default function VerifyForm({ initialId }: { initialId: string }) {
     setStatus("loading");
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://pai-sav1.onrender.com/api/v1";
-      const res = await fetch(`${apiUrl}/certificates/verify/${id.trim()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setResult(json.data ?? json);
-        setStatus("found");
-      } else {
-        setStatus("not_found");
-        setResult(null);
+      const trimmed = id.trim();
+      // Program completion certificates use a distinct PGM- number prefix
+      // and live in a separate table from accredited Certificates — try
+      // that endpoint first when the prefix matches, otherwise fall back
+      // to it if the primary lookup comes back empty.
+      const endpoints = trimmed.toUpperCase().startsWith("PGM-")
+        ? [`${apiUrl}/programs/verify/${trimmed}`, `${apiUrl}/certificates/verify/${trimmed}`]
+        : [`${apiUrl}/certificates/verify/${trimmed}`, `${apiUrl}/programs/verify/${trimmed}`];
+
+      for (const url of endpoints) {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          setResult(json.data ?? json);
+          setStatus("found");
+          return;
+        }
       }
+      setStatus("not_found");
+      setResult(null);
     } catch {
       setStatus("not_found");
     }
@@ -85,7 +96,7 @@ export default function VerifyForm({ initialId }: { initialId: string }) {
               { label: "Certificate Holder", value: result.name },
               { label: "Certification",      value: result.cert },
               { label: "Issue Date",         value: result.issue_date },
-              { label: "Valid Until",        value: result.expiry_date },
+              ...(result.expiry_date ? [{ label: "Valid Until", value: result.expiry_date }] : []),
               { label: "Status",             value: result.status },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm">
