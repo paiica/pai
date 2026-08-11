@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
 import TableOfContents from "@/components/TableOfContents";
+import LabPanel from "@/components/LabPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -145,17 +146,47 @@ function ReadingLesson({
     );
   }
 
-  return lesson.content_body ? (
-    isHTML(lesson.content_body)
-      ? (
-        <>
-          <TableOfContents containerRef={contentRef} contentKey={lesson.content_body} />
-          <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
-        </>
-      )
-      : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
-  ) : (
-    <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">Content not available.</div>
+  const resources: any[] = lesson.resources ?? [];
+  const hasLab = Array.isArray(lesson.blocks_json) && lesson.blocks_json.length > 0;
+
+  return (
+    <div className="space-y-6">
+      {lesson.content_body ? (
+        isHTML(lesson.content_body)
+          ? (
+            <>
+              <TableOfContents containerRef={contentRef} contentKey={lesson.content_body} />
+              <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+            </>
+          )
+          : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
+      ) : (
+        <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">Content not available.</div>
+      )}
+
+      {hasLab && enrollmentId && token && (
+        <LabPanel lesson={lesson} enrollmentId={enrollmentId} token={token} />
+      )}
+
+      {resources.length > 0 && (
+        <div className="rounded-xl border border-slate-100 p-4">
+          <p className="text-sm font-semibold text-navy-800 mb-3">Resources</p>
+          <div className="space-y-2">
+            {resources.map((r: any) => (
+              <a
+                key={r.id}
+                href={r.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 text-sm text-navy-600 hover:text-navy-800"
+              >
+                <Download size={13} /> {r.title}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, XCircle, Key, Database, ExternalLink, CreditCard, BarChart3, Bot, Zap } from "lucide-react";
+import { Save, Loader2, Mail, HardDrive, Eye, EyeOff, CheckCircle2, XCircle, Key, Database, ExternalLink, CreditCard, BarChart3, Bot, Zap, FlaskConical } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -175,7 +175,7 @@ function SectionHeader({
   );
 }
 
-type SectionId = "database" | "email" | "storage" | "payments" | "analytics" | "ai";
+type SectionId = "database" | "email" | "storage" | "payments" | "analytics" | "ai" | "labs";
 
 export default function ApiSettingsPage() {
   const { accessToken } = useAuthStore();
@@ -244,6 +244,12 @@ export default function ApiSettingsPage() {
   const [testingAi,  setTestingAi]  = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Labs — E2B (in-browser code execution sandboxes)
+  const [e2bKey,      setE2bKey]      = useState("");
+  const [e2bTemplate, setE2bTemplate] = useState("base");
+  const [showE2bKey,  setShowE2bKey]  = useState(false);
+  const [savingLabs,  setSavingLabs]  = useState(false);
+
   useEffect(() => {
     if (data) {
       setEmailFrom(data.email_from             ?? "");
@@ -256,6 +262,7 @@ export default function ApiSettingsPage() {
       setS3PublicUrlBase(data.s3_public_url_base ?? "");
       setStorageProvider(inferStorageProvider(data.s3_endpoint ?? ""));
       setGaId(data.google_analytics_id         ?? "");
+      setE2bTemplate(data.e2b_template         ?? "");
     }
   }, [data]);
 
@@ -325,13 +332,18 @@ export default function ApiSettingsPage() {
     : aiKeyIsSet ? "connected"
     : "disconnected";
 
+  const labsStatus: ConnStatus = !data ? "loading"
+    : data.e2b_key_set ? "connected"
+    : "disconnected";
+
   const STATUS_STRIP = [
-    { id: "database",  label: "Database",  icon: Database,   tile: "bg-navy-800",   status: dbStatus },
-    { id: "email",     label: "Email",     icon: Mail,       tile: "bg-gold-600",   status: emailStatus },
-    { id: "storage",   label: "Storage",   icon: HardDrive,  tile: "bg-sky-600",    status: storageStatus },
-    { id: "payments",  label: "Payments",  icon: CreditCard, tile: "bg-violet-600", status: paymentsStatus },
-    { id: "analytics", label: "Analytics", icon: BarChart3,  tile: "bg-teal-600",   status: gaStatus },
-    { id: "ai",        label: "AI",        icon: Bot,        tile: "bg-indigo-600", status: aiStatus },
+    { id: "database",  label: "Database",  icon: Database,      tile: "bg-navy-800",   status: dbStatus },
+    { id: "email",     label: "Email",     icon: Mail,          tile: "bg-gold-600",   status: emailStatus },
+    { id: "storage",   label: "Storage",   icon: HardDrive,     tile: "bg-sky-600",    status: storageStatus },
+    { id: "payments",  label: "Payments",  icon: CreditCard,    tile: "bg-violet-600", status: paymentsStatus },
+    { id: "analytics", label: "Analytics", icon: BarChart3,     tile: "bg-teal-600",   status: gaStatus },
+    { id: "ai",        label: "AI",        icon: Bot,           tile: "bg-indigo-600", status: aiStatus },
+    { id: "labs",      label: "Labs",      icon: FlaskConical,  tile: "bg-emerald-600", status: labsStatus },
   ] as const;
 
   const activeProviderDef = PROVIDERS.find((p) => p.value === aiProvider)!;
@@ -479,6 +491,23 @@ export default function ApiSettingsPage() {
       setAiTestResult({ ok: false, msg: err.message ?? "Connection failed" });
     } finally {
       setTestingAi(false);
+    }
+  }
+
+  async function saveLabs(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingLabs(true);
+    try {
+      const body: Record<string, string> = { e2b_template: e2bTemplate.trim() };
+      if (e2bKey.trim()) body.e2b_api_key = e2bKey.trim();
+      await api.patch("/site-settings", body, accessToken!);
+      await mutate();
+      setE2bKey("");
+      toast.success("Labs settings saved");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save");
+    } finally {
+      setSavingLabs(false);
     }
   }
 
@@ -961,6 +990,67 @@ export default function ApiSettingsPage() {
             Test
           </button>
         </div>
+      </form>
+      )}
+
+      {activeSection === "labs" && (
+      /* Labs — E2B (in-browser code execution sandboxes) */
+      <form onSubmit={saveLabs} className="space-y-4">
+        <div className="card p-6">
+          <SectionHeader
+            id="labs" icon={FlaskConical} tile="bg-emerald-600"
+            title="Labs — E2B" blurb="Runs student notebook code in an isolated sandbox, right inside a lesson page." status={labsStatus}
+          />
+          <div className="flex items-center justify-end -mt-3 mb-4">
+            <a href="https://e2b.dev/dashboard" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-navy-600 hover:text-navy-800 font-medium">
+              E2B Dashboard <ExternalLink size={11} />
+            </a>
+          </div>
+
+          <div className="mb-5 flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+            <p className="text-xs text-amber-800">
+              This is pay-as-you-go sandbox compute — set a spending cap/budget alert on your E2B account. Sandboxes are automatically killed after 15 minutes idle or 60 minutes total.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">API Key</label>
+                {data?.e2b_key_set && <SavedChip />}
+              </div>
+              <div className="relative">
+                <input
+                  type={showE2bKey ? "text" : "password"}
+                  value={e2bKey}
+                  onChange={(e) => setE2bKey(e.target.value)}
+                  placeholder={data?.e2b_key_set ? "Enter new key to replace…" : "e2b_..."}
+                  className="input-base pr-10"
+                />
+                <button type="button" onClick={() => setShowE2bKey(!showE2bKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                  {showE2bKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1.5">Get your key from <span className="font-mono">e2b.dev/dashboard</span></p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Sandbox Template <span className="text-slate-400 font-normal">(optional)</span></label>
+              <input type="text" value={e2bTemplate} onChange={(e) => setE2bTemplate(e.target.value)}
+                placeholder="Leave blank to use E2B's default Code Interpreter template" className="input-base font-mono text-xs" />
+              <p className="text-xs text-slate-400 mt-1.5">
+                Leave blank for E2B's default (has Python + numpy/pandas/sklearn preinstalled). Set this to a custom template ID once a template with PyTorch/TensorFlow-CPU/OpenCV/Gym preinstalled is built and published.
+              </p>
+            </div>
+          </div>
+        </div>
+        <button type="submit" disabled={savingLabs} className="btn-primary w-full justify-center disabled:opacity-60">
+          {savingLabs ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          Save Labs Settings
+        </button>
       </form>
       )}
 

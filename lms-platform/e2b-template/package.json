@@ -1,0 +1,15 @@
+{
+  "name": "paii-ai-foundations-e2b-template",
+  "private": true,
+  "description": "Build script for the custom E2B sandbox template used by PAII's in-browser AI Foundations labs — extends E2B's code-interpreter-v1 with torch/tensorflow-cpu/opencv/gym preinstalled. Not part of the npm workspaces; run manually (see build.ts).",
+  "scripts": {
+    "build": "tsx build.ts"
+  },
+  "dependencies": {
+    "e2b": "^2.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

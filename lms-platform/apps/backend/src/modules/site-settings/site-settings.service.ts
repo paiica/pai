@@ -47,6 +47,7 @@ export class SiteSettingsService {
       "s3_endpoint", "s3_region", "s3_bucket_name", "s3_access_key_id", "s3_secret_access_key", "s3_public_url_base",
       "supabase_project_url", "supabase_anon_key",
       "google_analytics_id",
+      "e2b_api_key", "e2b_template",
     ];
     const rows = await this.prisma.siteSetting.findMany({ where: { key: { in: keys } } });
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -63,6 +64,8 @@ export class SiteSettingsService {
       supabase_project_url:     map.supabase_project_url     ?? "",
       supabase_anon_key:        map.supabase_anon_key        ?? "",
       google_analytics_id:      map.google_analytics_id      ?? "",
+      e2b_key_set:              !!map.e2b_api_key,
+      e2b_template:             map.e2b_template             ?? "",
     };
   }
 

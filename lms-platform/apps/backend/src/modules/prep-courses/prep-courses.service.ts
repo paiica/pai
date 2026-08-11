@@ -113,7 +113,7 @@ export class PrepCoursesService {
 
     const lessonRows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT l.id, l.title, l.description, l.type::text AS type, l.content_body, l.video_url,
-             l.download_url, l.allow_download, l.external_url,
+             l.download_url, l.allow_download, l.external_url, l.blocks_json,
              l.duration_minutes::int, l.passing_score::int, l.max_attempts::int,
              l.max_score::int, l.due_date, l.allow_text_response, l.text_word_limit::int,
              l.available_from, l.accept_submissions, l.allow_late_submissions,
@@ -127,6 +127,15 @@ export class PrepCoursesService {
     `, lessonId, enrollRows[0].course_id);
     if (!lessonRows.length) throw new NotFoundException('Lesson not found');
     const lesson = lessonRows[0];
+
+    // Every lesson type can carry supplementary resources (e.g. the
+    // hands-on-notebook links added alongside reading lessons), not just
+    // assignments — previously scoped to assignment-only, which silently
+    // hid them everywhere else.
+    lesson.resources = await this.prisma.lessonResource.findMany({
+      where: { lesson_id: lessonId },
+      orderBy: { sort_order: "asc" },
+    });
 
     if (lesson.type === 'quiz') {
       lesson.questions = await this.prisma.$queryRawUnsafe<any[]>(`
@@ -146,10 +155,6 @@ export class PrepCoursesService {
       });
       lesson.submission = attempts.find((a) => a.is_latest) ?? null;
       lesson.submission_attempts = attempts;
-      lesson.resources = await this.prisma.lessonResource.findMany({
-        where: { lesson_id: lessonId },
-        orderBy: { sort_order: "asc" },
-      });
     }
 
     return lesson;

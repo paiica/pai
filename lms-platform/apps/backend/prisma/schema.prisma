@@ -23,6 +23,16 @@ enum Role {
   @@schema("lms")
 }
 
+enum LabSessionStatus {
+  starting
+  running
+  idle
+  expired
+  terminated
+
+  @@schema("lms")
+}
+
 enum AffiliateStatus {
   pending
   approved
@@ -387,6 +397,7 @@ model User {
   program_course_waivers_granted ProgramCourseWaiver[] @relation("ProgramCourseWaiverGrantedBy")
   program_recommendations_sent     ProgramRecommendation[] @relation("ProgramRecommendationsSent")
   program_recommendations_received ProgramRecommendation[] @relation("ProgramRecommendationsReceived")
+  lab_sessions             LabSession[]
 
   @@index([email])
   @@map("users")
@@ -660,6 +671,7 @@ model Lesson {
   assignment_submissions  AssignmentSubmission[]
   uploaded_files          UploadedFile[]
   notes                   LessonNote[]
+  lab_sessions            LabSession[]
 
   @@index([module_id, sort_order])
   @@map("lessons")
@@ -704,6 +716,32 @@ model QuizQuestion {
 
   @@index([lesson_id])
   @@map("quiz_questions")
+  @@schema("lms")
+}
+
+// Tracks one E2B sandbox per active in-browser lab session. Lesson.blocks_json
+// holds the runnable notebook cells; this table is purely session/cost-control
+// bookkeeping (idle cleanup job keys off last_active_at / expires_at) — never
+// holds code or output, which live only inside the ephemeral sandbox itself.
+model LabSession {
+  id                 String            @id @default(uuid())
+  user_id            String
+  user               User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  lesson_id          String
+  lesson             Lesson            @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+
+  provider           String            @default("e2b")
+  external_sandbox_id String?
+  status             LabSessionStatus  @default(starting)
+
+  started_at         DateTime          @default(now())
+  last_active_at      DateTime          @default(now())
+  expires_at          DateTime?
+  ended_at            DateTime?
+
+  @@index([user_id, status])
+  @@index([status, last_active_at])
+  @@map("lab_sessions")
   @@schema("lms")
 }
 

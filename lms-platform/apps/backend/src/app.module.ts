@@ -38,6 +38,7 @@ import { SupportModule } from "./modules/support/support.module";
 import { ProfessorStudentsModule } from "./modules/professor-students/professor-students.module";
 import { ProgramsModule } from "./modules/programs/programs.module";
 import { TranscriptsModule } from "./modules/transcripts/transcripts.module";
+import { LabsModule } from "./modules/labs/labs.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -91,6 +92,7 @@ import { AppController } from "./app.controller";
     ProfessorStudentsModule,
     ProgramsModule,
     TranscriptsModule,
+    LabsModule,
   ],
   controllers: [AppController],
   providers: [

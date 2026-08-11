@@ -52,4 +52,15 @@ export default () => ({
   openai: {
     apiKey: process.env.OPENAI_API_KEY || "",
   },
+
+  e2b: {
+    apiKey: process.env.E2B_API_KEY || "",
+    // Empty = let the @e2b/code-interpreter SDK use its own built-in default
+    // template (has the Jupyter/code-interpreter server + numpy/pandas/sklearn
+    // preinstalled). Passing "base" here is WRONG — E2B's plain "base" template
+    // is bare Ubuntu with no code-interpreter server, and runCode() fails against
+    // it. Only set this once the custom template (torch/tensorflow-cpu/opencv/gym
+    // preinstalled, see the labs rollout plan) is built and published.
+    template: process.env.E2B_TEMPLATE || "",
+  },
 });
