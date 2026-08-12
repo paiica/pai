@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -9,13 +9,16 @@ import UnderlineExt from "@tiptap/extension-underline";
 import Color from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
 import LinkExt from "@tiptap/extension-link";
+import ImageExt from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import toast from "react-hot-toast";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered,
-  Quote, Link as LinkIcon, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight,
-  Palette, Minus,
+  Quote, Link as LinkIcon, Image as ImageIcon, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight,
+  Palette, Minus, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
 
 // TipTap's core doesn't ship a font-size mark out of the box — extend
 // TextStyle with one (the pattern TipTap's own docs recommend), rendered as
@@ -92,7 +95,10 @@ function ToolbarButton({ onClick, active, disabled, title, children }: {
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, token }: { editor: Editor; token?: string }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const setLink = useCallback(() => {
     const previousUrl = editor.getAttributes("link").href;
     const url = window.prompt("URL", previousUrl || "https://");
@@ -103,6 +109,49 @@ function Toolbar({ editor }: { editor: Editor }) {
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
+
+  // With a token, upload the file (same /uploads/content-image endpoint the
+  // block-based lesson builder's Image block already uses) and insert the
+  // resulting URL. Without one — e.g. editors nested where a token isn't
+  // threaded through yet — fall back to pasting a URL directly, mirroring
+  // the Link button above rather than silently having no image support.
+  const insertImage = useCallback(async () => {
+    if (!token) {
+      const url = window.prompt("Image URL", "https://");
+      if (url) editor.chain().focus().setImage({ src: url }).run();
+      return;
+    }
+    fileInputRef.current?.click();
+  }, [editor, token]);
+
+  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !token) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1"}/uploads/content-image`;
+      let activeToken = token;
+      let res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${activeToken}` }, body: formData });
+      if (res.status === 401) {
+        const refreshed = await useAuthStore.getState().refreshTokens();
+        if (!refreshed) throw new Error("Session expired");
+        activeToken = useAuthStore.getState().accessToken!;
+        res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${activeToken}` }, body: formData });
+      }
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.message ?? "Upload failed");
+      const url = json?.data?.url ?? json?.url;
+      if (!url) throw new Error("No URL in upload response");
+      editor.chain().focus().setImage({ src: url }).run();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Image upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [editor, token]);
 
   return (
     <div className="flex items-center gap-1 flex-wrap p-1.5 border border-slate-200 border-b-0 rounded-t-xl bg-slate-50">
@@ -197,6 +246,12 @@ function Toolbar({ editor }: { editor: Editor }) {
       <ToolbarButton title="Link" active={editor.isActive("link")} onClick={setLink}>
         <LinkIcon size={14} />
       </ToolbarButton>
+      <ToolbarButton title={token ? "Insert image" : "Insert image (by URL)"} disabled={uploadingImage} onClick={insertImage}>
+        {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+      </ToolbarButton>
+      {token && (
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      )}
 
       <div className="w-px h-5 bg-slate-200 mx-0.5" />
 
@@ -227,12 +282,16 @@ function Toolbar({ editor }: { editor: Editor }) {
 // `setContent` state without touching the surrounding save logic. Output is
 // always HTML (even a single unformatted paragraph becomes `<p>...</p>`),
 // matching what content_body already expects downstream.
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, maxHeight = 500 }: {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, maxHeight = 500, token }: {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
   maxHeight?: number;
+  // Enables the image toolbar button to actually upload a file (via the same
+  // /uploads/content-image endpoint the block-based lesson builder uses)
+  // instead of falling back to a plain "paste a URL" prompt.
+  token?: string;
 }) {
   const editor = useEditor({
     extensions: [
@@ -244,6 +303,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       Color,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       LinkExt.configure({ openOnClick: false, autolink: true }),
+      ImageExt.configure({ HTMLAttributes: { class: "rounded-lg max-w-full" } }),
       Placeholder.configure({ placeholder: placeholder ?? "Write your lesson content here…" }),
     ],
     content: value,
@@ -269,7 +329,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
   return (
     <div className="rounded-xl">
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} token={token} />
       {/* Grows with content between minHeight and maxHeight (a long
           paragraph shouldn't be stuck showing two lines) — past maxHeight
           it switches to an internal scrollbar instead of growing forever

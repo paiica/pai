@@ -357,7 +357,7 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
           </div>
         )}
 
-        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." />
+        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." token={token} />
       </div>
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
@@ -1494,7 +1494,7 @@ function AssignmentEditor({ lesson, token, onSaved }: { lesson: Lesson; token: s
             spellCheck={false}
           />
         ) : (
-          <RichTextEditor value={desc} onChange={setDesc} placeholder="Describe what students need to do…" minHeight={200} />
+          <RichTextEditor value={desc} onChange={setDesc} placeholder="Describe what students need to do…" minHeight={200} token={token} />
         )}
       </div>
 

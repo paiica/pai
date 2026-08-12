@@ -246,7 +246,7 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson:
     <div className="space-y-4">
       <div>
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Content</label>
-        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." />
+        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." token={token} />
       </div>
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
@@ -1487,7 +1487,7 @@ function AssignmentEditor({ lesson, courseId, moduleId, token, onSaved }: { less
             </div>
           )
         ) : (
-          <RichTextEditor value={desc} onChange={setDesc} placeholder="Describe what students need to do…" minHeight={200} />
+          <RichTextEditor value={desc} onChange={setDesc} placeholder="Describe what students need to do…" minHeight={200} token={token} />
         )}
         <p className="text-[11px] text-slate-400 mt-1">
           {htmlMode
