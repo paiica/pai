@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, addTargetBlankToLinks, handleInternalLessonClick } from "@/lib/utils";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
 import TableOfContents from "@/components/TableOfContents";
 
@@ -23,6 +23,7 @@ function fetcher(url: string, token: string) {
 function VideoLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [completed, setCompleted] = useState(false);
 
@@ -60,7 +61,11 @@ function VideoLesson({
         </div>
         {lesson.content_body && (
           isHTML ? (
-            <div className="prose prose-slate prose-sm max-w-none pt-2" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+            <div
+              className="prose prose-slate prose-sm max-w-none pt-2"
+              onClick={(e) => handleInternalLessonClick(e, (lessonId) => router.push(`/learn/${enrollmentId}/lesson/${lessonId}`))}
+              dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
+            />
           ) : (
             <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap pt-2">{lesson.content_body}</p>
           )
@@ -93,7 +98,8 @@ function VideoLesson({
         isHTML ? (
           <div
             className="prose prose-slate prose-sm max-w-none pt-2"
-            dangerouslySetInnerHTML={{ __html: lesson.content_body }}
+            onClick={(e) => handleInternalLessonClick(e, (lessonId) => router.push(`/learn/${enrollmentId}/lesson/${lessonId}`))}
+            dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
           />
         ) : (
           <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap pt-2">
@@ -115,6 +121,7 @@ function VideoLesson({
 function ReadingLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!contentRef.current) return;
@@ -136,7 +143,8 @@ function ReadingLesson({
           <div
             ref={contentRef}
             className="prose prose-slate prose-lg max-w-none"
-            dangerouslySetInnerHTML={{ __html: lesson.content_body }}
+            onClick={(e) => handleInternalLessonClick(e, (lessonId) => router.push(`/learn/${enrollmentId}/lesson/${lessonId}`))}
+            dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
           />
         </>
       ) : (
@@ -167,7 +175,7 @@ function DownloadLesson({
     <div className="space-y-5">
       {lesson.content_body && (
         isHTML ? (
-          <div className="p-5 bg-slate-50 rounded-xl prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+          <div className="p-5 bg-slate-50 rounded-xl prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }} />
         ) : (
           <div className="p-5 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
             {lesson.content_body}
@@ -477,6 +485,7 @@ function assignmentAvailability(lesson: any) {
 function AssignmentLesson({
   lesson, enrollmentId, token, submission, submissionAttempts, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; submission: any; submissionAttempts: any[]; onComplete: () => void }) {
+  const router = useRouter();
   const attempts: any[] = submissionAttempts?.length ? submissionAttempts : (submission ? [submission] : []);
   type PendingFile = { url: string; name: string; size: number };
   const [textContent, setTextContent] = useState(submission?.text_content ?? "");
@@ -595,7 +604,8 @@ function AssignmentLesson({
             return body.trim().startsWith("<") ? (
               <div
                 className="text-sm text-slate-700 leading-relaxed [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-1 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:font-semibold"
-                dangerouslySetInnerHTML={{ __html: body }}
+                onClick={(e) => handleInternalLessonClick(e, (lessonId) => router.push(`/learn/${enrollmentId}/lesson/${lessonId}`))}
+                dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(body) }}
               />
             ) : (
               <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{body}</div>

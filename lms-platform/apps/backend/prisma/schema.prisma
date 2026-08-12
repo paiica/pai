@@ -629,6 +629,11 @@ model Lesson {
   video_duration_sec Int?
   content_body       String?  @db.Text
   blocks_json        Json?
+  // Runnable in-browser lab cells ({type:"markdown"|"code", content,
+  // runnable?, skip_reason?}[]) — kept separate from blocks_json, which the
+  // visual content-block editor (BlocksEditor) already owns for a different
+  // cell shape. LabsService/LabPanel read this field exclusively.
+  lab_cells_json     Json?
   download_url       String?
   allow_download     Boolean  @default(true)
   external_url       String?

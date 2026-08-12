@@ -57,7 +57,7 @@ export class LabsService {
       throw new NotFoundException("Lesson not found");
     }
 
-    const cells = (lesson.blocks_json as unknown as LabCell[] | null) ?? null;
+    const cells = (lesson.lab_cells_json as unknown as LabCell[] | null) ?? null;
     if (!cells || !cells.length) {
       throw new BadRequestException("This lesson doesn't have an interactive lab yet");
     }

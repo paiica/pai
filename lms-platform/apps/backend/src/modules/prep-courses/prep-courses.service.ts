@@ -113,7 +113,7 @@ export class PrepCoursesService {
 
     const lessonRows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT l.id, l.title, l.description, l.type::text AS type, l.content_body, l.video_url,
-             l.download_url, l.allow_download, l.external_url, l.blocks_json,
+             l.download_url, l.allow_download, l.external_url, l.blocks_json, l.lab_cells_json,
              l.duration_minutes::int, l.passing_score::int, l.max_attempts::int,
              l.max_score::int, l.due_date, l.allow_text_response, l.text_word_limit::int,
              l.available_from, l.accept_submissions, l.allow_late_submissions,
@@ -1619,6 +1619,7 @@ export class PrepCoursesService {
         video_url: lesson.video_url,
         content_body: lesson.content_body,
         blocks_json: lesson.blocks_json ?? undefined,
+        lab_cells_json: lesson.lab_cells_json ?? undefined,
         download_url: lesson.download_url,
         allow_download: lesson.allow_download,
         external_url: lesson.external_url,
@@ -1750,7 +1751,9 @@ export class PrepCoursesService {
           'max_score', l.max_score::int,
           'due_date', l.due_date,
           'allow_text_response', l.allow_text_response::bool,
-          'text_word_limit', l.text_word_limit::int
+          'text_word_limit', l.text_word_limit::int,
+          'blocks_json', l.blocks_json,
+          'lab_cells_json', l.lab_cells_json
         ) ORDER BY l.sort_order ASC)
         FROM lms.lessons l WHERE l.module_id = m.id), '[]'::json) AS lessons
       FROM lms.modules m
@@ -1991,7 +1994,7 @@ export class PrepCoursesService {
       "allow_text_response", "text_word_limit",
       "available_from", "accept_submissions", "allow_late_submissions", "late_submission_deadline",
       "late_penalty_type", "late_penalty_value", "allow_file_upload", "max_files",
-      "accepted_file_types", "max_file_size_mb", "rubric_json",
+      "accepted_file_types", "max_file_size_mb", "rubric_json", "lab_cells_json",
     ] as const;
     const data: Record<string, any> = {};
     for (const key of allowed) {
@@ -2294,7 +2297,7 @@ export class PrepCoursesService {
       'max_score', 'due_date', 'allow_text_response', 'text_word_limit',
       'available_from', 'accept_submissions', 'allow_late_submissions', 'late_submission_deadline',
       'late_penalty_type', 'late_penalty_value', 'allow_file_upload', 'max_files',
-      'accepted_file_types', 'max_file_size_mb', 'rubric_json',
+      'accepted_file_types', 'max_file_size_mb', 'rubric_json', 'lab_cells_json',
     ] as const;
     const data: Record<string, any> = {};
     for (const key of allowed) {

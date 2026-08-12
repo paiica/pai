@@ -130,4 +130,7 @@ export class UpdateLessonDto {
 
   @IsOptional()
   rubric_json?: { criterion: string; description?: string; points: number }[];
+
+  @IsOptional()
+  lab_cells_json?: { type: "markdown" | "code"; content: string; runnable?: boolean; skip_reason?: string }[];
 }

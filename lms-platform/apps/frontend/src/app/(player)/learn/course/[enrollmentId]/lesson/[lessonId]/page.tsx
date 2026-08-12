@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { useState, useEffect, useRef } from "react";
@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { CheckCircle, Download, ExternalLink, Loader2, XCircle, RotateCcw, Award, Upload, AlertCircle, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, addTargetBlankToLinks, handleInternalLessonClick } from "@/lib/utils";
 import { enhanceSortingExercises } from "@/lib/interactive-content";
 import TableOfContents from "@/components/TableOfContents";
 import LabPanel from "@/components/LabPanel";
@@ -40,7 +40,7 @@ function VideoLesson({ lesson }: { lesson: any }) {
         </div>
         {lesson.content_body && (
           isHTML(lesson.content_body)
-            ? <div className="prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+            ? <div className="prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }} />
             : <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
         )}
       </div>
@@ -59,7 +59,7 @@ function VideoLesson({ lesson }: { lesson: any }) {
       )}
       {lesson.content_body && (
         isHTML(lesson.content_body)
-          ? <div className="prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+          ? <div className="prose prose-slate prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }} />
           : <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
       )}
     </div>
@@ -69,6 +69,7 @@ function VideoLesson({ lesson }: { lesson: any }) {
 function ReadingLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId?: string; token?: string; onComplete?: () => void }) {
+  const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
@@ -147,7 +148,7 @@ function ReadingLesson({
   }
 
   const resources: any[] = lesson.resources ?? [];
-  const hasLab = Array.isArray(lesson.blocks_json) && lesson.blocks_json.length > 0;
+  const hasLab = Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0;
 
   return (
     <div className="space-y-6">
@@ -156,7 +157,12 @@ function ReadingLesson({
           ? (
             <>
               <TableOfContents containerRef={contentRef} contentKey={lesson.content_body} />
-              <div ref={contentRef} className="prose prose-slate prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+              <div
+                ref={contentRef}
+                className="prose prose-slate prose-lg max-w-none"
+                onClick={(e) => enrollmentId && handleInternalLessonClick(e, (lessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${lessonId}`))}
+                dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
+              />
             </>
           )
           : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
@@ -344,6 +350,7 @@ function assignmentAvailability(lesson: any) {
 function AssignmentLesson({
   lesson, enrollmentId, token, onComplete,
 }: { lesson: any; enrollmentId: string; token: string; onComplete: () => void }) {
+  const router = useRouter();
   const submission = lesson.submission;
   const attempts: any[] = lesson.submission_attempts ?? (submission ? [submission] : []);
   const resources: any[] = lesson.resources ?? [];
@@ -461,7 +468,11 @@ function AssignmentLesson({
           {(() => {
             const body: string = lesson.content_body || lesson.description || "";
             return isHTML(body) ? (
-              <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: body }} />
+              <div
+                className="text-sm text-slate-700 leading-relaxed"
+                onClick={(e) => handleInternalLessonClick(e, (lessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${lessonId}`))}
+                dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(body) }}
+              />
             ) : (
               <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{body}</div>
             );
@@ -630,7 +641,7 @@ function DownloadLesson({ lesson }: { lesson: any }) {
       {lesson.content_body && (
         <div className="p-5 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed">
           {isHTML(lesson.content_body)
-            ? <div dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+            ? <div dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }} />
             : lesson.content_body}
         </div>
       )}
@@ -654,6 +665,7 @@ function DownloadLesson({ lesson }: { lesson: any }) {
 
 export default function CoursePrepLessonPage() {
   const { enrollmentId, lessonId } = useParams<{ enrollmentId: string; lessonId: string }>();
+  const router = useRouter();
   const token = useAuthStore((s) => s.accessToken)!;
 
   const { data: lesson, isLoading, mutate } = useSWR(
@@ -717,7 +729,13 @@ export default function CoursePrepLessonPage() {
         {!["video", "reading", "html", "download", "assignment", "quiz"].includes(lesson.type) && (
           lesson.content_body ? (
             isHTML(lesson.content_body)
-              ? <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content_body }} />
+              ? (
+                <div
+                  className="prose prose-slate max-w-none"
+                  onClick={(e) => handleInternalLessonClick(e, (targetLessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${targetLessonId}`))}
+                  dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
+                />
+              )
               : <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{lesson.content_body}</p>
           ) : (
             <div className="p-8 bg-slate-50 rounded-xl text-slate-500 text-sm text-center">No content available for this lesson.</div>

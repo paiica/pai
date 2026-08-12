@@ -29,3 +29,33 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+// Rewrites every <a> in a lesson-content HTML string to open in a new tab.
+// Skips anchors carrying `data-internal-lesson` — those are same-course
+// cross-lesson links meant to navigate in-app (see the lesson player's
+// internal-link click handler), not launch a new tab.
+export function addTargetBlankToLinks(html: string): string {
+  if (typeof window === "undefined" || !html) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("a").forEach((link) => {
+    if (link.hasAttribute("data-internal-lesson")) return;
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noopener noreferrer");
+  });
+  return doc.body.innerHTML;
+}
+
+// Delegated click handler for content rendered from `addTargetBlankToLinks`-
+// processed HTML: anchors authored as `<a data-internal-lesson="{lessonId}"
+// href="#lesson:{lessonId}">` should navigate within the app (same
+// enrollment, different lesson) instead of following the placeholder href.
+export function handleInternalLessonClick(
+  e: import("react").MouseEvent<HTMLElement>,
+  navigate: (lessonId: string) => void
+) {
+  const target = (e.target as HTMLElement).closest?.("[data-internal-lesson]");
+  const lessonId = target?.getAttribute("data-internal-lesson");
+  if (!lessonId) return;
+  e.preventDefault();
+  navigate(lessonId);
+}

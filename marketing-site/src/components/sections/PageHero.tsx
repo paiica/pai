@@ -31,7 +31,7 @@ export default function PageHero({
   hero_image_url, hero_image_position, hero_image_zoom, hero_overlay,
   hero_cta_label, hero_cta_href,
 }: PageHeroProps) {
-  if (!hero_headline?.trim()) return null;
+  if (!hero_headline?.trim() && !hero_image_url?.trim()) return null;
 
   const alignClass = ALIGN_CLASSES[hero_align] ?? ALIGN_CLASSES.center;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
@@ -57,6 +57,7 @@ type Lesson = {
   passing_score?: number; max_attempts?: number; max_score?: number; due_date?: string;
   allow_text_response?: boolean; text_word_limit?: number;
   blocks_json?: any[] | null;
+  lab_cells_json?: LabCell[] | null;
   // Assignment availability/submission settings
   available_from?: string | null;
   accept_submissions?: boolean;
@@ -70,6 +71,8 @@ type Lesson = {
   max_file_size_mb?: number;
   rubric_json?: { criterion: string; description?: string; points: number }[] | null;
 };
+
+type LabCell = { type: "markdown" | "code"; content: string; runnable?: boolean; skip_reason?: string };
 
 type LessonResource = { id: string; title: string; url: string; file_name?: string; file_type?: string };
 
@@ -765,8 +768,115 @@ function CourseSidebar({
 
 // ─── Reading Editor ───────────────────────────────────────────────────────────
 
+// Same detection LabPanel.tsx uses (lms-platform/apps/frontend/src/lib/lab-runtime.ts)
+// to decide whether a lab runs for free in the student's browser (Pyodide)
+// or needs the paid E2B cloud sandbox — duplicated here since admin/professors
+// are separate Next.js apps with no shared package between them.
+const HEAVY_LAB_PACKAGE_PATTERNS = [
+  /\btorch\b/, /\btorchvision\b/, /\btorchtext\b/,
+  /\btensorflow\b/, /\bkeras\b/,
+  /\bcv2\b/, /\bopencv\b/,
+  /\bgym\b/, /\bgymnasium\b/,
+  /\btransformers\b/, /\bhuggingface\b/,
+  /\bnltk\b/,
+];
+function detectLabRuntime(cells: LabCell[]): "pyodide" | "e2b" {
+  const allCode = cells.filter((c) => c.type === "code").map((c) => c.content).join("\n");
+  return HEAVY_LAB_PACKAGE_PATTERNS.some((re) => re.test(allCode)) ? "e2b" : "pyodide";
+}
+
+// Notebook-style editor for a lesson's runnable in-browser lab cells
+// (Lesson.lab_cells_json — kept separate from blocks_json, which the visual
+// content-block editor below owns for a different cell shape). No Monaco
+// dependency here (unlike the admin app) — a plain textarea is enough for
+// hand-authored code cells; the shape saved is identical either way, so
+// LabPanel (the student-facing runner) renders both interchangeably.
+function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cells: LabCell[]) => void }) {
+  const runtime = useMemo(() => detectLabRuntime(cells), [cells]);
+  function updateCell(i: number, patch: Partial<LabCell>) {
+    onChange(cells.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  }
+  function addCell(type: "markdown" | "code") {
+    onChange([...cells, { type, content: "", ...(type === "code" ? { runnable: true } : {}) }]);
+  }
+  function removeCell(i: number) {
+    onChange(cells.filter((_, idx) => idx !== i));
+  }
+  function moveCell(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= cells.length) return;
+    const next = [...cells];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className={cn(
+        "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg w-fit",
+        runtime === "pyodide" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+      )}>
+        {runtime === "pyodide"
+          ? "This lab will run in the student's browser — free, no cloud sandbox"
+          : "This lab needs the cloud sandbox (imports a heavy framework like PyTorch/TensorFlow/OpenCV)"}
+      </div>
+      {cells.map((cell, i) => (
+        <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
+          <div className="flex items-center justify-between">
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+              <button onClick={() => updateCell(i, { type: "markdown" })} className={cn("px-3 py-1 transition-colors", cell.type === "markdown" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}>Markdown</button>
+              <button onClick={() => updateCell(i, { type: "code" })} className={cn("px-3 py-1 border-l border-slate-200 transition-colors", cell.type === "code" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}>Code</button>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => moveCell(i, -1)} disabled={i === 0} className="p-1 text-slate-400 hover:text-navy-700 disabled:opacity-30" title="Move up"><ChevronUp size={14} /></button>
+              <button onClick={() => moveCell(i, 1)} disabled={i === cells.length - 1} className="p-1 text-slate-400 hover:text-navy-700 disabled:opacity-30" title="Move down"><ChevronDown size={14} /></button>
+              <button onClick={() => removeCell(i)} className="p-1 text-red-400 hover:text-red-600" title="Delete cell"><Trash2 size={14} /></button>
+            </div>
+          </div>
+          <textarea
+            value={cell.content}
+            onChange={(e) => updateCell(i, { content: e.target.value })}
+            className={cn(
+              "w-full h-32 text-sm rounded-lg p-2 resize-y border border-slate-200",
+              cell.type === "code" ? "font-mono bg-slate-950 text-emerald-400" : "font-mono bg-white"
+            )}
+            spellCheck={cell.type !== "code"}
+            placeholder={cell.type === "code" ? "# Python code for this cell…" : "Markdown notes for this cell…"}
+          />
+          {cell.type === "code" && (
+            <div className="flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-1.5 text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={cell.runnable !== false}
+                  onChange={(e) => updateCell(i, { runnable: e.target.checked, skip_reason: e.target.checked ? undefined : cell.skip_reason })}
+                />
+                Runnable
+              </label>
+              {cell.runnable === false && (
+                <input
+                  value={cell.skip_reason ?? ""}
+                  onChange={(e) => updateCell(i, { skip_reason: e.target.value })}
+                  placeholder="Why can't students run this? (shown to students)"
+                  className="flex-1 input-base !py-1 !text-xs"
+                />
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <button onClick={() => addCell("markdown")} className="btn-outline !py-1.5 !px-3 !text-xs">+ Markdown Cell</button>
+        <button onClick={() => addCell("code")} className="btn-outline !py-1.5 !px-3 !text-xs">+ Code Cell</button>
+      </div>
+    </div>
+  );
+}
+
 function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: string; onSaved: () => void }) {
   const [content, setContent] = useState(lesson.content ?? "");
+  const [labEnabled, setLabEnabled] = useState(Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0);
+  const [cells, setCells] = useState<LabCell[]>(lesson.lab_cells_json ?? []);
   const [saving, setSaving] = useState(false);
 
   const [showAi, setShowAi] = useState(false);
@@ -779,12 +889,19 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-  useEffect(() => { setContent(lesson.content ?? ""); }, [lesson.id, lesson.content]);
+  useEffect(() => {
+    setContent(lesson.content ?? "");
+    setLabEnabled(Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0);
+    setCells(lesson.lab_cells_json ?? []);
+  }, [lesson.id, lesson.content, lesson.lab_cells_json]);
 
   async function save() {
     setSaving(true);
     try {
-      await api.put(`/prof/courses/lessons/${lesson.id}`, { content_body: content }, token);
+      await api.put(`/prof/courses/lessons/${lesson.id}`, {
+        content_body: content,
+        lab_cells_json: labEnabled ? cells : null,
+      }, token);
       toast.success("Saved"); onSaved();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
@@ -886,6 +1003,26 @@ function ReadingEditor({ lesson, token, onSaved }: { lesson: Lesson; token: stri
 
         <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." />
       </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={labEnabled}
+            onChange={(e) => {
+              setLabEnabled(e.target.checked);
+              if (e.target.checked && cells.length === 0) setCells([{ type: "markdown", content: "" }]);
+            }}
+          />
+          This lesson includes an interactive lab
+        </label>
+        {labEnabled && (
+          <div className="mt-3">
+            <LabCellsEditor cells={cells} onChange={setCells} />
+          </div>
+        )}
+      </div>
+
       <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
       </button>

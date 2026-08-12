@@ -49,22 +49,36 @@ export function FocalFrame({ imageUrl, position, zoom = 100, onChange, className
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [px, py] = (position || "50% 50%").split(" ");
-
-  function updateFromPointer(e: { clientX: number; clientY: number }) {
-    const rect = frameRef.current!.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
-    onChange(`${x}% ${y}%`);
-  }
+  const [dragging, setDragging] = useState(false);
+  // Anchored to where the drag started, not read fresh on every move — CSS
+  // background-position is an anchor-point definition ("this % of the image
+  // lines up with this % of the frame"), so mapping cursor position directly
+  // to it makes the image pan opposite to the hand (drag right → more of the
+  // image's right side comes into view, i.e. the photo appears to slide
+  // left). Tracking the pointer's movement *delta* from drag-start and
+  // subtracting it instead makes the image follow the hand like actually
+  // grabbing and dragging a photo.
+  const dragStart = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
-    updateFromPointer(e);
+    setDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: parseFloat(px), posY: parseFloat(py) };
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.buttons !== 1) return; // only while dragging (primary button/touch held)
-    updateFromPointer(e);
+    if (e.buttons !== 1 || !dragStart.current) return; // only while dragging (primary button/touch held)
+    const rect = frameRef.current!.getBoundingClientRect();
+    const dxPercent = ((e.clientX - dragStart.current.x) / rect.width) * 100;
+    const dyPercent = ((e.clientY - dragStart.current.y) / rect.height) * 100;
+    const x = Math.max(0, Math.min(100, Math.round(dragStart.current.posX - dxPercent)));
+    const y = Math.max(0, Math.min(100, Math.round(dragStart.current.posY - dyPercent)));
+    onChange(`${x}% ${y}%`);
+  }
+
+  function handlePointerUp() {
+    setDragging(false);
+    dragStart.current = null;
   }
 
   return (
@@ -72,7 +86,12 @@ export function FocalFrame({ imageUrl, position, zoom = 100, onChange, className
       ref={frameRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      className={cn("relative w-full overflow-hidden border border-slate-200 cursor-crosshair bg-slate-100 touch-none select-none", className)}
+      onPointerUp={handlePointerUp}
+      className={cn(
+        "relative w-full overflow-hidden border border-slate-200 bg-slate-100 touch-none select-none",
+        dragging ? "cursor-grabbing" : "cursor-grab",
+        className
+      )}
     >
       {/* The frame itself (drag hit-area) never transforms — only this inner
           layer scales, so pointer math above (based on the frame's own,
@@ -210,7 +229,7 @@ export function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, 
       </div>
       {zoomSlider}
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-slate-400">Drag to the part of the image you want centered — this frame matches the real hero shape.</p>
+        <p className="text-[11px] text-slate-400">Click and drag the photo like you're moving it by hand — this frame matches the real hero shape.</p>
         {!isDefault && (
           <button type="button" onClick={reset} className="text-[11px] font-semibold text-navy-600 hover:text-navy-800 flex-shrink-0 ml-2">
             Reset
@@ -222,7 +241,7 @@ export function HeroImageFrame({ imageUrl, position, zoom, uploading, onUpload, 
         <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-6 sm:p-12" onClick={() => setExpanded(false)}>
           <div className={cn("w-full space-y-3", expandedMaxWidth)} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-white/70">Drag to set the focal point</p>
+              <p className="text-xs font-semibold text-white/70">Click and drag the photo to reposition it</p>
               <div className="flex items-center gap-2">
                 {!isDefault && (
                   <button type="button" onClick={reset} className="text-xs font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
