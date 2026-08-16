@@ -13,14 +13,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v
 // background (bg-sand-100) that no card can wash into it. The four hues
 // span the spectrum on purpose (blue / teal / violet / amber) so adjacent
 // cards never read as "the same color."
-const CERT_THEMES = [
+export const CERT_THEMES = [
   { dark: true, bg: "bg-gradient-to-br from-[#0a1628] via-[#122242] to-[#1e3a6e]", shapeColor: "#38bdf8", shapeType: "circle"   },
   { dark: true, bg: "bg-gradient-to-br from-[#042f2a] via-[#0a4a41] to-[#0d9488]", shapeColor: "#5eead4", shapeType: "pentagon" },
   { dark: true, bg: "bg-gradient-to-br from-[#180f3d] via-[#2d1b69] to-[#4c1d95]", shapeColor: "#c4b5fd", shapeType: "triangle" },
   { dark: true, bg: "bg-gradient-to-br from-[#241207] via-[#5a2e0d] to-[#92400e]", shapeColor: "#fbbf24", shapeType: "pentagon" },
 ];
 
-const LEVEL_LABEL: Record<string, string> = {
+export const LEVEL_LABEL: Record<string, string> = {
   pre_certificate: "Pre-Certification",
   foundation: "Foundation",
   advanced: "Advanced",
@@ -29,7 +29,7 @@ const LEVEL_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-type CertCard = {
+export type CertCard = {
   acronym: string;
   title: string;
   slug: string;
@@ -43,7 +43,7 @@ type CertCard = {
 // Each mark is a small layered composition (a solid base + a rotated/offset
 // outline echo, at different opacities) rather than one flat shape — reads
 // as a more deliberate, modern badge/seal instead of a plain geometric fill.
-function Shape({ type, color }: { type: string; color: string }) {
+export function Shape({ type, color }: { type: string; color: string }) {
   const wrap = "absolute top-0 right-0 w-40 h-40 transition-transform duration-300 ease-out group-hover:scale-110";
 
   if (type === "circle") {
@@ -84,10 +84,13 @@ function Shape({ type, color }: { type: string; color: string }) {
   );
 }
 
-function CertCardItem({ cert, idx }: { cert: CertCard; idx: number }) {
+// widthClassName defaults to the homepage carousel's fixed card width — the
+// /certifications grid page passes "w-full" instead so the same card fills
+// its grid cell, without touching any of the internal visual treatment.
+export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85vw] max-w-[312px]" }: { cert: CertCard; idx: number; widthClassName?: string }) {
   const theme = CERT_THEMES[idx % CERT_THEMES.length];
   return (
-    <div className="group relative flex-shrink-0 w-[85vw] max-w-[312px] h-[480px] rounded-2xl cursor-pointer">
+    <div className={cn("group relative h-[480px] rounded-2xl cursor-pointer", widthClassName)}>
       <div className={cn(
         "relative w-full h-full rounded-2xl overflow-hidden flex flex-col border",
         theme.bg,

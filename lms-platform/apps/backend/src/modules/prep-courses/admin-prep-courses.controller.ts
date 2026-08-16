@@ -261,6 +261,28 @@ export class AdminPrepCoursesController {
     return this.service.adminDeleteLesson(id, moduleId, lessonId);
   }
 
+  @Post(":id/modules/:moduleId/lessons/:lessonId/sublessons")
+  @ApiOperation({ summary: "Add a sublesson under a lesson" })
+  createSublesson(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("title") title: string,
+  ) {
+    return this.service.adminCreateSublesson(id, moduleId, lessonId, title);
+  }
+
+  @Post(":id/modules/:moduleId/lessons/:lessonId/sublessons/reorder")
+  @ApiOperation({ summary: "Reorder the sublessons under a lesson" })
+  reorderSublessons(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("ordered_ids") orderedIds: string[],
+  ) {
+    return this.service.adminReorderSublessons(id, moduleId, lessonId, orderedIds ?? []);
+  }
+
   @Get(":id/modules/:moduleId/lessons/:lessonId/questions")
   getQuestions(
     @Param("id", ParseUUIDPipe) id: string,

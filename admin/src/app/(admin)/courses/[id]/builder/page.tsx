@@ -14,6 +14,7 @@ import {
   ArrowLeft, ArrowRight, CheckCircle, FileQuestion, Paperclip,
   Sparkles, Code2, PanelLeftClose, PanelLeft, Bold, Italic, List, ListOrdered,
   Type, Image as ImageIcon, Layers, Columns, Milestone, ListChecks, Shuffle, Minus, LayoutGrid, Info, Copy,
+  FlaskConical,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -71,6 +72,22 @@ type Lesson = {
   accepted_file_types?: string[];
   max_file_size_mb?: number;
   rubric_json?: { criterion: string; description?: string; points: number }[] | null;
+  // Sublesson fields — only meaningful when parent_lesson_id is set. See
+  // schema.prisma's Lesson model comment for the full rationale.
+  parent_lesson_id?: string | null;
+  sublesson_kind?: SublessonKind | null;
+  visible_in_structure?: boolean;
+  available_via_link?: boolean;
+  sublesson_required?: boolean;
+  track_views?: boolean;
+  open_behavior?: "same_page" | "modal" | "dedicated";
+};
+
+type SublessonKind = "explanation" | "instructions" | "example" | "tip" | "case_study" | "how_to" | "resource" | "other";
+
+const SUBLESSON_KIND_LABEL: Record<SublessonKind, string> = {
+  explanation: "Explanation", instructions: "Instructions", example: "Example", tip: "Tip",
+  case_study: "Case Study", how_to: "How-To", resource: "Resource", other: "Other",
 };
 
 type LabCell = { type: "markdown" | "code"; content: string; runnable?: boolean; skip_reason?: string };
@@ -90,30 +107,49 @@ type Module = { id: string; title: string; description?: string; is_published: b
 const LESSON_ICONS: Record<string, React.ElementType> = {
   video: Video, reading: FileText, quiz: HelpCircle,
   assignment: File, download: Download, live_session: Link2, html: FileQuestion,
+  lab: FlaskConical,
 };
 const LESSON_COLORS: Record<string, string> = {
   video: "text-blue-600 bg-blue-50", reading: "text-emerald-600 bg-emerald-50",
   quiz: "text-purple-600 bg-purple-50", assignment: "text-amber-600 bg-amber-50",
   download: "text-slate-600 bg-slate-100", live_session: "text-rose-600 bg-rose-50",
-  html: "text-orange-600 bg-orange-50",
+  html: "text-orange-600 bg-orange-50", lab: "text-teal-600 bg-teal-50",
 };
 const LESSON_TYPE_LABEL: Record<string, string> = {
   video: "Video", reading: "Reading", quiz: "Quiz",
   assignment: "Assignment", download: "Download / PDF", live_session: "Live Session", html: "HTML Page",
+  lab: "Lab",
 };
+
+// "Lab" isn't a real Lesson.type — lab_cells_json attaches to any lesson
+// independent of type (see the field's own schema comment), and a Reading
+// lesson with lab cells IS what the ReadingEditor's "This lesson includes
+// an interactive lab" checkbox already produces. This just gives that
+// combination a distinct icon/color/label everywhere lesson type is shown,
+// so creating one through "New Lesson" -> Lab feels like a first-class type
+// even though under the hood it's still `type: "reading"`.
+function effectiveLessonType(lesson: Pick<Lesson, "type" | "lab_cells_json">): string {
+  if (lesson.type === "reading" && Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0) return "lab";
+  return lesson.type;
+}
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 function CourseSidebar({
   modules, selectedLessonId, onSelectLesson, onAddModule, onDeleteModule,
-  onAddLesson, onDeleteLesson, courseId, courseTitle, token, onRefresh, studentView,
+  onAddLesson, onDeleteLesson, onAddSublesson, courseId, courseTitle, token, onRefresh, studentView,
 }: {
   modules: Module[]; selectedLessonId: string | null; onSelectLesson: (l: Lesson, m: Module) => void;
   onAddModule: () => void; onDeleteModule: (m: Module) => void;
   onAddLesson: (m: Module) => void; onDeleteLesson: (l: Lesson, m: Module) => void;
+  onAddSublesson: (l: Lesson, m: Module) => void;
   courseId: string; courseTitle: string; token: string; onRefresh: () => void; studentView: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Sublesson nesting under a lesson defaults collapsed — a lesson with
+  // several sublessons shouldn't visually dominate the sidebar unless the
+  // admin is actively working with them.
+  const [sublessonsExpanded, setSublessonsExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -161,32 +197,92 @@ function CourseSidebar({
               )}
             </div>
 
-            {/* Lesson rows */}
-            {expanded[mod.id] && mod.lessons.map(lesson => {
-              const Icon = LESSON_ICONS[lesson.type] ?? FileText;
+            {/* Lesson rows — sublessons (parent_lesson_id set) are grouped
+                under their parent instead of rendered as siblings; they're
+                a secondary/contextual layer, never a peer of top-level
+                lessons in this list (see schema.prisma's Lesson comment). */}
+            {expanded[mod.id] && mod.lessons.filter(l => !l.parent_lesson_id).map(lesson => {
+              const Icon = LESSON_ICONS[effectiveLessonType(lesson)] ?? FileText;
               const isSelected = lesson.id === selectedLessonId;
+              const sublessons = mod.lessons.filter(l => l.parent_lesson_id === lesson.id);
+              const subsOpen = !!sublessonsExpanded[lesson.id];
               return (
-                <div
-                  key={lesson.id}
-                  onClick={() => onSelectLesson(lesson, mod)}
-                  className={cn(
-                    "flex items-center gap-2.5 pl-8 pr-2.5 py-2.5 cursor-pointer group transition-colors",
-                    isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700"
-                  )}
-                >
-                  <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
-                  <span className={cn("flex-1 text-sm truncate", isSelected ? "text-white font-medium" : "text-slate-700")}>
-                    {lesson.title}
-                  </span>
-                  {!lesson.is_published && !isSelected && (
-                    <span className="text-xs text-slate-400">draft</span>
-                  )}
-                  {!studentView && (
-                    <button
-                      onClick={e => { e.stopPropagation(); onDeleteLesson(lesson, mod); }}
-                      className={cn("opacity-0 group-hover:opacity-100 p-1 rounded", isSelected ? "hover:bg-blue-700 text-blue-200" : "hover:bg-red-50 text-slate-400 hover:text-red-600")}
-                    ><Trash2 size={13} /></button>
-                  )}
+                <div key={lesson.id}>
+                  <div
+                    onClick={() => onSelectLesson(lesson, mod)}
+                    className={cn(
+                      "flex items-center gap-2.5 pl-8 pr-2.5 py-2.5 cursor-pointer group transition-colors",
+                      isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    {sublessons.length > 0 ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); setSublessonsExpanded(p => ({ ...p, [lesson.id]: !subsOpen })); }}
+                        className={cn("p-0.5 -ml-1", isSelected ? "text-blue-200" : "text-slate-400")}
+                        title={subsOpen ? "Collapse sublessons" : "Expand sublessons"}
+                      >
+                        {subsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                      </button>
+                    ) : <span className="w-[13px]" />}
+                    <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                    <span className={cn("flex-1 text-sm truncate", isSelected ? "text-white font-medium" : "text-slate-700")}>
+                      {lesson.title}
+                    </span>
+                    {sublessons.length > 0 && (
+                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", isSelected ? "bg-blue-500 text-blue-100" : "bg-slate-100 text-slate-400")}>
+                        {sublessons.length}
+                      </span>
+                    )}
+                    {!lesson.is_published && !isSelected && (
+                      <span className="text-xs text-slate-400">draft</span>
+                    )}
+                    {!studentView && (
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                        <button
+                          onClick={e => { e.stopPropagation(); onAddSublesson(lesson, mod); setSublessonsExpanded(p => ({ ...p, [lesson.id]: true })); }}
+                          className={cn("p-1 rounded", isSelected ? "hover:bg-blue-700 text-blue-200" : "hover:bg-navy-100 text-slate-400 hover:text-navy-700")}
+                          title="Add sublesson"
+                        ><Plus size={13} /></button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onDeleteLesson(lesson, mod); }}
+                          className={cn("p-1 rounded", isSelected ? "hover:bg-blue-700 text-blue-200" : "hover:bg-red-50 text-slate-400 hover:text-red-600")}
+                        ><Trash2 size={13} /></button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sublesson rows — deeper indent, subtly distinct
+                      treatment (smaller, muted, "↳" prefix) so they read as
+                      children of the lesson above, not peers of it. */}
+                  {subsOpen && sublessons.map(sub => {
+                    const isSubSelected = sub.id === selectedLessonId;
+                    return (
+                      <div
+                        key={sub.id}
+                        onClick={() => onSelectLesson(sub, mod)}
+                        className={cn(
+                          "flex items-center gap-2 pl-16 pr-2.5 py-2 cursor-pointer group/sub transition-colors border-l-2 ml-8",
+                          isSubSelected ? "bg-teal-600 text-white border-teal-700" : "hover:bg-teal-50/60 text-slate-500 border-teal-100"
+                        )}
+                      >
+                        <span className={cn("text-xs", isSubSelected ? "text-teal-200" : "text-teal-400")}>↳</span>
+                        <span className={cn("flex-1 text-[13px] truncate", isSubSelected ? "text-white font-medium" : "text-slate-600")}>
+                          {sub.title}
+                        </span>
+                        {sub.sublesson_kind && (
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap", isSubSelected ? "bg-teal-500 text-teal-100" : "bg-teal-50 text-teal-600")}>
+                            {SUBLESSON_KIND_LABEL[sub.sublesson_kind]}
+                          </span>
+                        )}
+                        {!studentView && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onDeleteLesson(sub, mod); }}
+                            className={cn("opacity-0 group-hover/sub:opacity-100 p-1 rounded", isSubSelected ? "hover:bg-teal-700 text-teal-200" : "hover:bg-red-50 text-slate-400 hover:text-red-600")}
+                          ><Trash2 size={12} /></button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -344,16 +440,43 @@ function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cell
   );
 }
 
-function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson: Lesson; courseId: string; moduleId: string; token: string; onSaved: () => void }) {
+function ReadingEditor({ lesson, courseId, moduleId, token, onSaved, sublessons }: { lesson: Lesson; courseId: string; moduleId: string; token: string; onSaved: () => void; sublessons?: Lesson[] }) {
   const [content, setContent] = useState(lesson.content ?? "");
   const [labEnabled, setLabEnabled] = useState(Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0);
   const [cells, setCells] = useState<LabCell[]>(lesson.lab_cells_json ?? []);
   const [saving, setSaving] = useState(false);
+  // "View Code" — same htmlMode/preview pattern as AssignmentEditor below,
+  // so an admin can drop into the raw HTML and hand-edit it (e.g. to tweak
+  // something a course import produced) without losing the rich-text
+  // editor for everyday use.
+  const [htmlMode, setHtmlMode] = useState(() => (lesson.content ?? "").trim().startsWith("<"));
+  const [preview, setPreview] = useState(false);
+
+  // Sublesson settings — only meaningful (and only shown) when this lesson
+  // IS a sublesson, i.e. lesson.parent_lesson_id is set. Defaults here
+  // mirror the ones the backend already applies on creation.
+  const isSublesson = !!lesson.parent_lesson_id;
+  const [sublessonKind, setSublessonKind] = useState<SublessonKind | "">(lesson.sublesson_kind ?? "");
+  const [visibleInStructure, setVisibleInStructure] = useState(lesson.visible_in_structure ?? false);
+  const [availableViaLink, setAvailableViaLink] = useState(lesson.available_via_link ?? true);
+  const [sublessonRequired, setSublessonRequired] = useState(lesson.sublesson_required ?? false);
+  const [trackViews, setTrackViews] = useState(lesson.track_views ?? true);
+  const [openBehavior, setOpenBehavior] = useState(lesson.open_behavior ?? "modal");
+  const [duplicating, setDuplicating] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     setContent(lesson.content ?? "");
     setLabEnabled(Array.isArray(lesson.lab_cells_json) && lesson.lab_cells_json.length > 0);
     setCells(lesson.lab_cells_json ?? []);
+    setHtmlMode((lesson.content ?? "").trim().startsWith("<"));
+    setPreview(false);
+    setSublessonKind(lesson.sublesson_kind ?? "");
+    setVisibleInStructure(lesson.visible_in_structure ?? false);
+    setAvailableViaLink(lesson.available_via_link ?? true);
+    setSublessonRequired(lesson.sublesson_required ?? false);
+    setTrackViews(lesson.track_views ?? true);
+    setOpenBehavior(lesson.open_behavior ?? "modal");
   }, [lesson.id, lesson.content, lesson.lab_cells_json]);
 
   async function save() {
@@ -362,17 +485,116 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson:
       await api.patch(`/admin/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`, {
         content_body: content,
         lab_cells_json: labEnabled ? cells : null,
+        ...(isSublesson ? {
+          sublesson_kind: sublessonKind || null,
+          visible_in_structure: visibleInStructure,
+          available_via_link: availableViaLink,
+          sublesson_required: sublessonRequired,
+          track_views: trackViews,
+          open_behavior: openBehavior,
+        } : {}),
       }, token);
       toast.success("Saved"); onSaved();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
   }
 
+  async function duplicateSublesson() {
+    setDuplicating(true);
+    try {
+      await api.post(`/admin/courses/lessons/${lesson.id}/duplicate`, {}, token);
+      toast.success("Sublesson duplicated as a draft");
+      onSaved();
+    } catch { toast.error("Failed to duplicate"); }
+    finally { setDuplicating(false); }
+  }
+
+  // Points back into the builder with this sublesson pre-selected — a
+  // stable reference an admin/instructor can share with a colleague
+  // ("check this sublesson"), not a public student-facing URL (a sublesson
+  // has no standalone page; students only ever reach one through the
+  // contextual link inside its parent lesson, per the whole point of this
+  // feature).
+  function copySublessonLink() {
+    const url = `${window.location.origin}/courses/${courseId}/builder?lesson=${lesson.id}`;
+    navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 block">Content</label>
-        <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." token={token} />
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Content</label>
+          <div className="flex items-center gap-1">
+            {htmlMode && (
+              <button
+                type="button"
+                onClick={() => setPreview((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                  preview ? "bg-navy-100 text-navy-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                )}
+              >
+                <Eye size={11} /> {preview ? "Editor" : "Preview"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setHtmlMode((v) => !v); setPreview(false); }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors",
+                htmlMode ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              )}
+            >
+              <Code2 size={11} /> {htmlMode ? "HTML" : "Rich Text"}
+            </button>
+          </div>
+        </div>
+        {htmlMode ? (
+          preview ? (
+            <div
+              className="min-h-[280px] rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 leading-relaxed
+                [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-2
+                [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-4
+                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-3
+                [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1
+                [&_strong]:font-semibold [&_a]:text-navy-600 [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          ) : (
+            <div className="rounded-xl overflow-hidden border border-slate-200">
+              <MonacoEditor
+                height={400}
+                language="html"
+                value={content}
+                onChange={(v) => setContent(v ?? "")}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  lineNumbers: "off",
+                  wordWrap: "on",
+                  scrollBeyondLastLine: false,
+                  padding: { top: 10, bottom: 10 },
+                  folding: false,
+                  glyphMargin: false,
+                  lineDecorationsWidth: 8,
+                  renderLineHighlight: "none",
+                  overviewRulerLanes: 0,
+                }}
+              />
+            </div>
+          )
+        ) : (
+          <RichTextEditor value={content} onChange={setContent} placeholder="Write your lesson content here..." token={token} sublessons={sublessons} />
+        )}
+        <p className="text-[11px] text-slate-400 mt-1">
+          {htmlMode
+            ? "HTML mode — hand-edit the lesson's raw markup directly."
+            : "Rich text — headings, bold/italic, lists, links, images, video. Switch to HTML for full control."}
+        </p>
       </div>
 
       <div className="border-t border-slate-100 pt-4">
@@ -394,9 +616,69 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved }: { lesson:
         )}
       </div>
 
-      <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
-        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
-      </button>
+      {/* Sublesson Settings — only shown for a lesson that IS a sublesson
+          (parent_lesson_id set). "Hidden from structure" doesn't mean
+          hidden from students — it stays fully reachable through a
+          contextual link as long as Available through contextual links
+          is on; these two toggles are deliberately independent. */}
+      {isSublesson && (
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-3">Sublesson Settings</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Type</label>
+              <select value={sublessonKind} onChange={e => setSublessonKind(e.target.value as SublessonKind | "")} className="input-base text-sm">
+                <option value="">— Select —</option>
+                {(Object.keys(SUBLESSON_KIND_LABEL) as SublessonKind[]).map(k => (
+                  <option key={k} value={k}>{SUBLESSON_KIND_LABEL[k]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Open Behavior</label>
+              <select value={openBehavior} onChange={e => setOpenBehavior(e.target.value as typeof openBehavior)} className="input-base text-sm">
+                <option value="modal">Modal (overlay on the lesson)</option>
+                <option value="dedicated">Dedicated content view</option>
+                <option value="same_page">Same page (inline expand)</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={visibleInStructure} onChange={e => setVisibleInStructure(e.target.checked)} />
+              Visible in course structure
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={availableViaLink} onChange={e => setAvailableViaLink(e.target.checked)} />
+              Available through contextual links
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={sublessonRequired} onChange={e => setSublessonRequired(e.target.checked)} />
+              Required to complete parent lesson
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={trackViews} onChange={e => setTrackViews(e.target.checked)} />
+              Track student views
+            </label>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Changes
+        </button>
+        {isSublesson && (
+          <>
+            <button onClick={duplicateSublesson} disabled={duplicating} className="btn-outline !py-2 !px-4 !text-xs disabled:opacity-60">
+              {duplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />} Duplicate
+            </button>
+            <button onClick={copySublessonLink} className="btn-outline !py-2 !px-4 !text-xs">
+              {linkCopied ? <Check size={12} className="text-emerald-600" /> : <Link2 size={12} />} {linkCopied ? "Copied!" : "Copy Link"}
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -2034,7 +2316,7 @@ function StudentCourseView({ modules, course, onExit }: { modules: Module[]; cou
                   <span className="text-sm font-semibold text-navy-800 flex-1">{mod.title}</span>
                 </button>
                 {expanded[mod.id] && mod.lessons.map(l => {
-                  const Icon = LESSON_ICONS[l.type] ?? FileText;
+                  const Icon = LESSON_ICONS[effectiveLessonType(l)] ?? FileText;
                   const isSelected = l.id === selectedId;
                   return (
                     <button key={l.id} onClick={() => setSelectedId(l.id)} className={cn("flex items-center gap-2.5 w-full pl-8 pr-3 py-2.5 text-left transition-colors", isSelected ? "bg-blue-600 text-white" : "hover:bg-slate-50 text-slate-700")}>
@@ -2627,7 +2909,7 @@ function AiAssistantPanel({
                 <>
                   <div className="p-3 bg-violet-50 rounded-xl border border-violet-100">
                     <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">
-                      {LESSON_TYPE_LABEL[selectedLesson.lesson.type] ?? selectedLesson.lesson.type}
+                      {LESSON_TYPE_LABEL[effectiveLessonType(selectedLesson.lesson)] ?? selectedLesson.lesson.type}
                     </p>
                     <p className="text-sm font-semibold text-violet-900 mt-0.5">{selectedLesson.lesson.title}</p>
                     <p className="text-xs text-violet-500 mt-0.5">{selectedLesson.module.title}</p>
@@ -2876,6 +3158,12 @@ export default function CourseBuilderPage() {
   const [newLessonTitle, setNewLessonTitle] = useState("");
   const [newLessonType, setNewLessonType] = useState("reading");
 
+  // Add sublesson — a lightweight modal (title only; kind/visibility/etc.
+  // are set afterward in the Sublesson Settings panel of its editor, same
+  // "create bare, configure after" flow as adding a lesson).
+  const [addingSublessonTo, setAddingSublessonTo] = useState<{ lesson: Lesson; module: Module } | null>(null);
+  const [newSublessonTitle, setNewSublessonTitle] = useState("");
+
   const { data: courseRaw } = useSWR(
     token && courseId ? [`/admin/courses/${courseId}`, token] : null,
     ([url, t]) => api.get<any>(url, t)
@@ -2930,10 +3218,44 @@ export default function CourseBuilderPage() {
   async function submitAddLesson() {
     if (!addingLessonToModule || !newLessonTitle.trim()) return;
     const mod = addingLessonToModule;
+    // "Lab" isn't a real Lesson.type (see effectiveLessonType's docblock) —
+    // create it as a reading lesson, then immediately attach an empty lab
+    // cell, the same default the ReadingEditor's lab checkbox uses. The
+    // lesson opens straight into the lab editor instead of a blank Reading
+    // page the admin would then have to know to check a box on.
+    const isLab = newLessonType === "lab";
     await toast.promise(
-      api.post(`/admin/courses/${courseId}/modules/${mod.id}/lessons`, { title: newLessonTitle, type: newLessonType, order_index: mod.lessons.length }, token)
-        .then(() => { setAddingLessonToModule(null); mutate(); }),
+      (async () => {
+        const res = await api.post<any>(`/admin/courses/${courseId}/modules/${mod.id}/lessons`, {
+          title: newLessonTitle, type: isLab ? "reading" : newLessonType, order_index: mod.lessons.length,
+        }, token) as any;
+        if (isLab) {
+          const lessonId = (res?.data ?? res)?.id;
+          if (lessonId) {
+            await api.patch(`/admin/courses/${courseId}/modules/${mod.id}/lessons/${lessonId}`, {
+              lab_cells_json: [{ type: "markdown", content: "" }],
+            }, token);
+          }
+        }
+        setAddingLessonToModule(null); mutate();
+      })(),
       { loading: "Creating…", success: "Lesson created", error: "Failed" }
+    );
+  }
+
+  function handleAddSublesson(lesson: Lesson, mod: Module) {
+    setAddingSublessonTo({ lesson, module: mod });
+    setNewSublessonTitle("");
+  }
+
+  async function submitAddSublesson() {
+    if (!addingSublessonTo || !newSublessonTitle.trim()) return;
+    const { lesson, module: mod } = addingSublessonTo;
+    await toast.promise(
+      api.post(`/admin/courses/${courseId}/modules/${mod.id}/lessons/${lesson.id}/sublessons`, {
+        title: newSublessonTitle,
+      }, token).then(() => { setAddingSublessonTo(null); mutate(); }),
+      { loading: "Creating…", success: "Sublesson created", error: "Failed" }
     );
   }
 
@@ -3016,6 +3338,7 @@ export default function CourseBuilderPage() {
               onDeleteModule={handleDeleteModule}
               onAddLesson={handleAddLesson}
               onDeleteLesson={handleDeleteLesson}
+              onAddSublesson={handleAddSublesson}
               courseId={courseId}
               courseTitle={course.title}
               token={token}
@@ -3030,8 +3353,8 @@ export default function CourseBuilderPage() {
               <div className="max-w-3xl mx-auto px-8 py-8">
                 {/* Lesson header */}
                 <div className="flex items-center gap-2 mb-1">
-                  {(() => { const Icon = LESSON_ICONS[selectedLesson.lesson.type] ?? FileText; const col = LESSON_COLORS[selectedLesson.lesson.type] ?? "text-slate-600 bg-slate-100"; return <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", col)}><Icon size={14} /></div>; })()}
-                  <p className="text-xs text-slate-400">{LESSON_TYPE_LABEL[selectedLesson.lesson.type] ?? selectedLesson.lesson.type} · {selectedLesson.module.title}</p>
+                  {(() => { const effType = effectiveLessonType(selectedLesson.lesson); const Icon = LESSON_ICONS[effType] ?? FileText; const col = LESSON_COLORS[effType] ?? "text-slate-600 bg-slate-100"; return <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", col)}><Icon size={14} /></div>; })()}
+                  <p className="text-xs text-slate-400">{LESSON_TYPE_LABEL[effectiveLessonType(selectedLesson.lesson)] ?? selectedLesson.lesson.type} · {selectedLesson.module.title}</p>
                 </div>
                 <h1 className="text-2xl font-bold text-navy-900 mb-6">{selectedLesson.lesson.title}</h1>
 
@@ -3046,13 +3369,13 @@ export default function CourseBuilderPage() {
 
                 {activeTab === "content" && (
                   <>
-                    {selectedLesson.lesson.type === "reading" && <ReadingEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
+                    {selectedLesson.lesson.type === "reading" && <ReadingEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} sublessons={modules.find(m => m.id === selectedLesson.module.id)?.lessons.filter(l => l.parent_lesson_id === selectedLesson.lesson.id) ?? []} />}
                     {selectedLesson.lesson.type === "video" && <VideoEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
                     {selectedLesson.lesson.type === "html" && <HtmlEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
                     {selectedLesson.lesson.type === "download" && <DownloadEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
                     {selectedLesson.lesson.type === "quiz" && <QuizEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
                     {selectedLesson.lesson.type === "assignment" && <AssignmentEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
-                    {selectedLesson.lesson.type === "live_session" && <ReadingEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} />}
+                    {selectedLesson.lesson.type === "live_session" && <ReadingEditor lesson={selectedLesson.lesson} courseId={courseId} moduleId={selectedLesson.module.id} token={token} onSaved={mutate} sublessons={modules.find(m => m.id === selectedLesson.module.id)?.lessons.filter(l => l.parent_lesson_id === selectedLesson.lesson.id) ?? []} />}
                   </>
                 )}
 
@@ -3096,6 +3419,7 @@ export default function CourseBuilderPage() {
               <option value="reading">Reading</option>
               <option value="video">Video</option>
               <option value="html">HTML Page</option>
+              <option value="lab">Lab</option>
               <option value="download">Download / PDF</option>
               <option value="quiz">Quiz</option>
               <option value="assignment">Assignment</option>
@@ -3104,6 +3428,32 @@ export default function CourseBuilderPage() {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setAddingLessonToModule(null)} className="btn-outline !py-2 !px-4 !text-sm">Cancel</button>
               <button onClick={submitAddLesson} className="btn-primary !py-2 !px-4 !text-sm">Create Lesson</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add sublesson modal — kind/visibility/etc. are configured
+          afterward in the created sublesson's own Settings panel, not here. */}
+      {addingSublessonTo && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <p className="font-bold text-navy-900 mb-1">New Sublesson</p>
+            <p className="text-xs text-slate-500 mb-4">under &ldquo;{addingSublessonTo.lesson.title}&rdquo;</p>
+            <input
+              value={newSublessonTitle}
+              onChange={e => setNewSublessonTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") submitAddSublesson(); if (e.key === "Escape") setAddingSublessonTo(null); }}
+              className="input-base mb-4"
+              placeholder="Sublesson title"
+              autoFocus
+            />
+            <p className="text-[11px] text-slate-400 mb-4">
+              Hidden from the main course structure by default — students reach it through a link you place inside &ldquo;{addingSublessonTo.lesson.title}&rdquo;.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setAddingSublessonTo(null)} className="btn-outline !py-2 !px-4 !text-sm">Cancel</button>
+              <button onClick={submitAddSublesson} className="btn-primary !py-2 !px-4 !text-sm">Create Sublesson</button>
             </div>
           </div>
         </div>

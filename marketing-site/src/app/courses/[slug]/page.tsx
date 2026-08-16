@@ -36,7 +36,7 @@ type CourseContent = {
 };
 type Course = {
   id: string; slug: string; title: string; subtitle?: string;
-  description?: string; price: number; level?: string; status: string;
+  description?: string; price: number; compare_at_price?: number | null; level?: string; status: string;
   duration_hours: number; thumbnail_url?: string;
   cert_acronym?: string; cert_title?: string; cert_slug?: string;
   modules?: Module[]; instructors?: Instructor[];
@@ -116,6 +116,8 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
   const lmsEnrollUrl = `${LMS}/tools/course/${course.slug}`;
   const grad = getGradient(course.slug);
   const price = Number(course.price);
+  const compareAtPrice = course.compare_at_price != null ? Number(course.compare_at_price) : null;
+  const isLaunchPricing = compareAtPrice != null && compareAtPrice > price;
   const modules = safeArray<Module>(course.modules);
   const instructors = safeArray<Instructor>(course.instructors);
   const documents = safeArray<CourseDocument>(course.documents);
@@ -207,8 +209,21 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
 
               {/* Right — enrollment card */}
               <div className="bg-white rounded-2xl p-7 shadow-xl border border-sand-200">
-                <div className="text-4xl font-display font-black text-ink-900 mb-0.5">
-                  {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+                {isLaunchPricing && (
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+                      Launch Pricing
+                    </span>
+                    <span className="text-[11px] text-ink-900/60">Available for a limited time</span>
+                  </div>
+                )}
+                <div className="flex items-baseline gap-2.5 mb-0.5">
+                  {isLaunchPricing && (
+                    <span className="text-lg font-mono text-ink-900/40 line-through">${compareAtPrice!.toLocaleString()}</span>
+                  )}
+                  <span className="text-4xl font-display font-black text-ink-900">
+                    {price === 0 ? "Free" : `$${price.toLocaleString()}`}
+                  </span>
                 </div>
                 <div className="text-ink-900 text-sm mb-5">
                   {price > 0 ? "One-time fee · Lifetime access" : "No credit card required"}

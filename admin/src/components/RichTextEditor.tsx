@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent, type Editor, Extension } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor, Extension, Node, mergeAttributes } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered,
   Quote, Link as LinkIcon, Image as ImageIcon, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight,
-  Palette, Minus, Loader2,
+  Palette, Minus, Loader2, Video as VideoIcon, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -65,6 +65,111 @@ const FontSize = Extension.create({
   },
 });
 
+// Turns a YouTube/Vimeo watch URL into its embeddable form — same
+// transform VideoEditor already applies for the standalone "Video" lesson
+// type (admin/.../courses/[id]/builder/page.tsx), duplicated here in
+// miniature since this runs inside TipTap's node renderer, not that
+// component. Idempotent: an already-embeddable URL passes through
+// unchanged, which matters because parseHTML reads the *rendered* iframe's
+// src back as the node's `src` attribute (see VideoEmbed.parseHTML below),
+// so a round-tripped video keeps working without re-transforming into
+// something wrong.
+function toEmbedUrl(src: string): string {
+  if (/youtube\.com|youtu\.be/.test(src)) {
+    return src.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/");
+  }
+  if (/vimeo\.com/.test(src) && !/player\.vimeo\.com/.test(src)) {
+    return `https://player.vimeo.com/video/${src.split("/").pop()}`;
+  }
+  return src;
+}
+function isEmbeddableUrl(src: string): boolean {
+  return /youtube\.com|youtu\.be|vimeo\.com/.test(src);
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    videoEmbed: {
+      setVideo: (attrs: { src: string }) => ReturnType;
+    };
+  }
+}
+
+// TipTap ships no video node out of the box (unlike ImageExt) — this mints
+// one. An atomic block: either a YouTube/Vimeo <iframe> or a plain
+// <video controls> for a direct file URL, tagged with data-video-embed so
+// parseHTML can recognize and round-trip it back into an editable node the
+// next time a lesson's saved content_body is loaded into the editor.
+const VideoEmbed = Node.create({
+  name: "videoEmbed",
+  group: "block",
+  atom: true,
+  draggable: true,
+
+  addAttributes() {
+    return { src: { default: null } };
+  },
+
+  parseHTML() {
+    return [
+      { tag: 'iframe[data-video-embed="true"]', getAttrs: (el) => ({ src: (el as HTMLElement).getAttribute("src") }) },
+      { tag: 'video[data-video-embed="true"]', getAttrs: (el) => ({ src: (el as HTMLElement).getAttribute("src") }) },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const src = (HTMLAttributes.src as string) || "";
+    if (isEmbeddableUrl(src)) {
+      return ["iframe", { src: toEmbedUrl(src), "data-video-embed": "true", frameborder: "0", allowfullscreen: "true", class: "pv-video-embed" }];
+    }
+    return ["video", { src, "data-video-embed": "true", controls: "true", class: "pv-video-embed" }];
+  },
+
+  addCommands() {
+    return {
+      setVideo: (attrs: { src: string }) => ({ commands }) => commands.insertContent({ type: this.name, attrs }),
+    };
+  },
+});
+
+// TipTap's stock Link mark only round-trips href/target/rel — extend it so
+// a `data-sublesson-link` attribute survives being saved and reloaded.
+// This is what marks an anchor as a contextual Sublesson link rather than a
+// plain link, both for the student-side click handler (which checks for
+// this exact attribute — see handleSublessonClick in utils.ts) and for the
+// `.pv-sublesson-link` styling that makes it visually distinct.
+const SublessonLinkExt = LinkExt.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      "data-sublesson-link": {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-sublesson-link"),
+        renderHTML: (attributes: { "data-sublesson-link"?: string | null }) => {
+          const id = attributes["data-sublesson-link"];
+          if (!id) return {};
+          return { "data-sublesson-link": id, class: "pv-sublesson-link" };
+        },
+      },
+    };
+  },
+  // LinkExt's own renderHTML merges in this.options.HTMLAttributes, whose
+  // default is `{ target: "_blank", rel: "noopener noreferrer nofollow" }`
+  // — correct for a normal external link, but a sublesson link is meant to
+  // trigger the in-page overlay (handleSublessonClick, utils.ts), not open
+  // a new tab. Confirmed real bug: students clicking a sublesson link got
+  // a new tab instead of the modal. Strip target/rel only when this mark
+  // carries data-sublesson-link; regular links keep the new-tab default.
+  renderHTML({ HTMLAttributes }) {
+    const merged = mergeAttributes(this.options.HTMLAttributes, HTMLAttributes);
+    if (merged["data-sublesson-link"]) {
+      delete merged.target;
+      delete merged.rel;
+    }
+    return ["a", merged, 0];
+  },
+});
+
 const FONT_SIZES = ["12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"];
 const FONT_FAMILIES = [
   { label: "Default", value: "" },
@@ -95,9 +200,22 @@ function ToolbarButton({ onClick, active, disabled, title, children }: {
   );
 }
 
-function Toolbar({ editor, token }: { editor: Editor; token?: string }) {
+function Toolbar({ editor, token, sublessons }: { editor: Editor; token?: string; sublessons?: { id: string; title: string }[] }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [sublessonPickerOpen, setSublessonPickerOpen] = useState(false);
+
+  const insertSublessonLink = useCallback((sub: { id: string; title: string }) => {
+    // A plain `.insertContent(html)` call round-trips through the schema —
+    // SublessonLinkExt's parseHTML rule picks the data-sublesson-link
+    // attribute back up from this exact markup, so the mark applied here
+    // survives being saved and reloaded, not just the current session.
+    const safeTitle = sub.title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    editor.chain().focus().insertContent(
+      `<a href="#sublesson:${sub.id}" data-sublesson-link="${sub.id}">Learn: ${safeTitle}</a>&nbsp;`
+    ).run();
+    setSublessonPickerOpen(false);
+  }, [editor]);
 
   const setLink = useCallback(() => {
     const previousUrl = editor.getAttributes("link").href;
@@ -123,6 +241,11 @@ function Toolbar({ editor, token }: { editor: Editor; token?: string }) {
     }
     fileInputRef.current?.click();
   }, [editor, token]);
+
+  const insertVideo = useCallback(() => {
+    const url = window.prompt("Video URL (YouTube, Vimeo, or a direct video file)", "https://");
+    if (url) editor.chain().focus().setVideo({ src: url }).run();
+  }, [editor]);
 
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,6 +375,32 @@ function Toolbar({ editor, token }: { editor: Editor; token?: string }) {
       {token && (
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       )}
+      <ToolbarButton title="Insert video (URL)" onClick={insertVideo}>
+        <VideoIcon size={14} />
+      </ToolbarButton>
+
+      {sublessons && sublessons.length > 0 && (
+        <div className="relative">
+          <ToolbarButton title="Insert sublesson link" onClick={() => setSublessonPickerOpen((v) => !v)} active={sublessonPickerOpen}>
+            <BookOpen size={14} />
+          </ToolbarButton>
+          {sublessonPickerOpen && (
+            <div className="absolute top-full left-0 mt-1 w-64 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
+              <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Link to a sublesson</p>
+              {sublessons.map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => insertSublessonLink(sub)}
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-teal-50 truncate"
+                >
+                  {sub.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="w-px h-5 bg-slate-200 mx-0.5" />
 
@@ -282,7 +431,7 @@ function Toolbar({ editor, token }: { editor: Editor; token?: string }) {
 // `setContent` state without touching the surrounding save logic. Output is
 // always HTML (even a single unformatted paragraph becomes `<p>...</p>`),
 // matching what content_body already expects downstream.
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, maxHeight = 500, token }: {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, maxHeight = 500, token, sublessons }: {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
@@ -292,6 +441,10 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   // /uploads/content-image endpoint the block-based lesson builder uses)
   // instead of falling back to a plain "paste a URL" prompt.
   token?: string;
+  // The current lesson's own sublessons — populates the "Insert Sublesson
+  // Link" picker. Only a lesson that HAS sublessons gets that toolbar
+  // button at all (nothing to link to otherwise).
+  sublessons?: { id: string; title: string }[];
 }) {
   const editor = useEditor({
     extensions: [
@@ -302,8 +455,9 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       UnderlineExt,
       Color,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      LinkExt.configure({ openOnClick: false, autolink: true }),
+      SublessonLinkExt.configure({ openOnClick: false, autolink: true }),
       ImageExt.configure({ HTMLAttributes: { class: "rounded-lg max-w-full" } }),
+      VideoEmbed,
       Placeholder.configure({ placeholder: placeholder ?? "Write your lesson content here…" }),
     ],
     content: value,
@@ -329,7 +483,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
   return (
     <div className="rounded-xl">
-      <Toolbar editor={editor} token={token} />
+      <Toolbar editor={editor} token={token} sublessons={sublessons} />
       {/* Grows with content between minHeight and maxHeight (a long
           paragraph shouldn't be stuck showing two lines) — past maxHeight
           it switches to an internal scrollbar instead of growing forever

@@ -51,8 +51,11 @@ export class LearningService {
               where: { is_published: true },
               orderBy: { sort_order: "asc" },
               include: {
+                // visible_in_structure excludes Sublessons — a secondary
+                // content layer reached only through a contextual link
+                // inside a Lesson, never listed in the main navigation.
                 lessons: {
-                  where: { is_published: true },
+                  where: { is_published: true, visible_in_structure: true },
                   orderBy: { sort_order: "asc" },
                   select: {
                     id: true, title: true, type: true,
@@ -106,7 +109,7 @@ export class LearningService {
             orderBy: { sort_order: "asc" },
             include: {
               lessons: {
-                where: { is_published: true },
+                where: { is_published: true, visible_in_structure: true },
                 orderBy: { sort_order: "asc" },
                 select: {
                   id: true, title: true, type: true,
@@ -254,19 +257,31 @@ export class LearningService {
       submission = submissionAttempts.find((a) => a.is_latest) ?? null;
     }
 
-    // Determine next/prev lessons in the module
+    // Determine next/prev lessons in the module — sublessons are excluded
+    // (visible_in_structure) since they're never part of the primary
+    // lesson-to-lesson flow.
     const siblings = await this.prisma.lesson.findMany({
-      where: { module_id: lesson.module_id, is_published: true },
+      where: { module_id: lesson.module_id, is_published: true, visible_in_structure: true },
       orderBy: { sort_order: "asc" },
       select: { id: true, title: true, sort_order: true, type: true },
     });
     const currentIdx = siblings.findIndex((s) => s.id === lessonId);
+
+    // The parent lesson's own sublessons — sent along so the reader can
+    // resolve a `data-sublesson-link` click without a second round trip,
+    // and so "Insert Sublesson Link" pickers elsewhere have a source list.
+    const sublessons = await this.prisma.lesson.findMany({
+      where: { parent_lesson_id: lessonId },
+      orderBy: { sort_order: "asc" },
+      select: { id: true, title: true, sublesson_kind: true, available_via_link: true, open_behavior: true },
+    });
 
     return {
       lesson,
       progress: progress ?? null,
       submission,
       submission_attempts: submissionAttempts,
+      sublessons,
       navigation: {
         prev: siblings[currentIdx - 1] ?? null,
         next: siblings[currentIdx + 1] ?? null,
@@ -274,6 +289,39 @@ export class LearningService {
         total: siblings.length,
       },
     };
+  }
+
+  // A Sublesson isn't independently enrolled in — access is inherited
+  // entirely from its PARENT lesson (same certification/free-linked-course
+  // check as getLessonContent above). Records a view (LessonProgress row,
+  // completed: false unless already completed) when the sublesson has
+  // track_views on — this is what satisfies a sublesson_required gate on
+  // the parent, and is intentionally NOT a completion.
+  async getSublessonContent(enrollmentId: string, parentLessonId: string, sublessonId: string, userId: string) {
+    // Reuses all of getLessonContent's access-check logic by calling it for
+    // the parent first — if the student can't see the parent, they can't
+    // see any of its sublessons either.
+    await this.getLessonContent(enrollmentId, parentLessonId, userId);
+
+    const sublesson = await this.prisma.lesson.findFirst({
+      where: { id: sublessonId, parent_lesson_id: parentLessonId },
+      include: { resources: true },
+    });
+    if (!sublesson) throw new NotFoundException("Sublesson not found");
+    if (!sublesson.available_via_link) throw new ForbiddenException("This sublesson isn't available");
+
+    if (sublesson.track_views) {
+      const existing = await this.prisma.lessonProgress.findUnique({
+        where: { user_id_lesson_id: { user_id: userId, lesson_id: sublessonId } },
+      });
+      if (!existing) {
+        await this.prisma.lessonProgress.create({
+          data: { user_id: userId, enrollment_id: enrollmentId, lesson_id: sublessonId, completed: false },
+        });
+      }
+    }
+
+    return { sublesson, parent_lesson_id: parentLessonId };
   }
 
   // ─── Notes ────────────────────────────────────────────────────────────
@@ -391,6 +439,7 @@ export class LearningService {
 
   async completeLesson(enrollmentId: string, lessonId: string, userId: string, dto: CompleteLessonDto) {
     await this.assertEnrollment(enrollmentId, userId);
+    await this.assertRequiredSublessonsViewed(lessonId, userId);
 
     const progress = await this.prisma.lessonProgress.upsert({
       where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
@@ -414,6 +463,32 @@ export class LearningService {
 
     await this.recalculateProgress(enrollmentId, userId);
     return progress;
+  }
+
+  // Sublesson completion is optional by default (spec: "Sublesson
+  // completion should not be required unless explicitly configured") —
+  // this only blocks completing the PARENT lesson when it has sublessons
+  // explicitly marked sublesson_required, and only until the student has
+  // opened each one (any LessonProgress row, not necessarily completed —
+  // opening the contextual link is what "required" gates, not finishing
+  // it, since it's supporting/contextual content, not a primary lesson).
+  private async assertRequiredSublessonsViewed(lessonId: string, userId: string) {
+    const required = await this.prisma.lesson.findMany({
+      where: { parent_lesson_id: lessonId, sublesson_required: true },
+      select: { id: true, title: true },
+    });
+    if (!required.length) return;
+    const viewed = await this.prisma.lessonProgress.findMany({
+      where: { user_id: userId, lesson_id: { in: required.map((s) => s.id) } },
+      select: { lesson_id: true },
+    });
+    const viewedIds = new Set(viewed.map((v) => v.lesson_id));
+    const missing = required.filter((s) => !viewedIds.has(s.id));
+    if (missing.length) {
+      throw new BadRequestException(
+        `View ${missing.map((s) => `"${s.title}"`).join(", ")} before completing this lesson.`,
+      );
+    }
   }
 
   async updateScormProgress(

@@ -13,6 +13,7 @@ type CourseCard = {
   level: string;
   description: string;
   price: string;
+  compare_at_price: string | null;
   duration_hours: number;
   module_count: number;
   featured: string;
@@ -24,6 +25,9 @@ type CourseCard = {
 function CourseCardItem({ course }: { course: CourseCard }) {
   const modules = Math.max(0, Math.round(course.module_count || 0));
   const railSegments = Math.min(Math.max(modules, 1), 8);
+  const coursePrice = Number(course.price);
+  const compareAtPrice = course.compare_at_price != null ? Number(course.compare_at_price) : null;
+  const isLaunchPricing = compareAtPrice != null && compareAtPrice > coursePrice;
 
   return (
     <div className="relative flex-shrink-0 w-[85vw] max-w-[330px] h-[460px] rounded-2xl overflow-hidden flex flex-col bg-white border border-sand-300 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300">
@@ -70,14 +74,31 @@ function CourseCardItem({ course }: { course: CourseCard }) {
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-sand-200">
-          <span className="text-xl font-mono font-bold text-ink-900">${course.price}</span>
-          <Link
-            href={`/courses/${course.slug}`}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
-          >
-            View Course <ArrowRight size={14} />
-          </Link>
+        <div className="pt-4 border-t border-sand-200">
+          {isLaunchPricing && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+                Launch Pricing
+              </span>
+              <span className="text-[11px] text-sand-500">Available for a limited time</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="flex items-baseline gap-2">
+              {isLaunchPricing && (
+                <span className="text-sm font-mono text-sand-400 line-through">${compareAtPrice!.toLocaleString()}</span>
+              )}
+              <span className="text-xl font-mono font-bold text-ink-900">
+                {coursePrice === 0 ? "Free" : `$${coursePrice.toLocaleString()}`}
+              </span>
+            </span>
+            <Link
+              href={`/courses/${course.slug}`}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
+            >
+              View Course <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -99,6 +120,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : "All Levels",
           description: c.subtitle || c.description || "",
           price: c.price != null ? String(Math.round(Number(c.price))) : "0",
+          compare_at_price: c.compare_at_price != null ? String(Math.round(Number(c.compare_at_price))) : null,
           duration_hours: Number(c.duration_hours) || 0,
           module_count: Number(c.module_count) || 0,
           featured: "true",

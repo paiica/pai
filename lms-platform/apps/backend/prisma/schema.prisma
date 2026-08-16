@@ -101,6 +101,34 @@ enum LessonType {
   @@schema("lms")
 }
 
+// Sublesson classification (Lesson.sublesson_kind) — separate from the
+// technical LessonType above, which stays "reading" for every sublesson
+// since they go through the same rich-text/blocks content system. This is
+// the author-facing "what kind of supporting content is this" label shown
+// in the course builder and as a badge when a student opens one.
+enum SublessonKind {
+  explanation
+  instructions
+  example
+  tip
+  case_study
+  how_to
+  resource
+  other
+
+  @@schema("lms")
+}
+
+// How a Sublesson's contextual link opens for a student — see
+// Lesson.open_behavior.
+enum SublessonOpenBehavior {
+  same_page
+  modal
+  dedicated
+
+  @@schema("lms")
+}
+
 enum QuestionType {
   multiple_choice
   true_false
@@ -667,6 +695,26 @@ model Lesson {
   // pipeline exists anywhere in this platform).
   rubric_json              Json?
 
+  // Sublessons — a secondary/contextual content layer attached to a Lesson
+  // (Module -> Lesson -> Sublesson), NOT a new item in the primary student
+  // navigation. A Sublesson is a Lesson row like any other (same content
+  // system, type stays "reading") with parent_lesson_id set and
+  // visible_in_structure false, reached only via a contextual link the
+  // instructor places inside the parent Lesson's content. onDelete: Cascade
+  // so deleting a Lesson deletes its Sublessons rather than orphaning them.
+  parent_lesson_id String?
+  parent_lesson    Lesson?  @relation("LessonSublessons", fields: [parent_lesson_id], references: [id], onDelete: Cascade)
+  sublessons       Lesson[] @relation("LessonSublessons")
+
+  // Only meaningful when parent_lesson_id is set (i.e. this row is itself a
+  // Sublesson) — defaults below match the product spec's stated defaults.
+  sublesson_kind       SublessonKind?
+  visible_in_structure Boolean                @default(true) // regular lessons stay true; the "Add Sublesson" flow sets this false on creation
+  available_via_link   Boolean                @default(true)
+  sublesson_required   Boolean                @default(false)
+  track_views          Boolean                @default(true)
+  open_behavior        SublessonOpenBehavior  @default(modal)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -679,6 +727,7 @@ model Lesson {
   lab_sessions            LabSession[]
 
   @@index([module_id, sort_order])
+  @@index([parent_lesson_id])
   @@map("lessons")
   @@schema("lms")
 }
@@ -808,6 +857,9 @@ model Course {
   subtitle             String?
   description          String?
   price                Decimal      @db.Decimal(10, 2) @default(0)
+  // Crossed-out "was" price shown next to `price` for a promo (e.g. Launch
+  // Pricing) — null means no promo, the card just shows `price` plain.
+  compare_at_price     Decimal?     @db.Decimal(10, 2)
   status               CourseStatus @default(draft)
   thumbnail_url        String?
   preview_video_url    String?

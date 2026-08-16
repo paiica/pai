@@ -613,11 +613,11 @@ export class CertificatesService {
         let completed: boolean;
         if (r.is_free) {
           const [total, done] = await Promise.all([
-            this.prisma.lesson.count({ where: { module: { course_id: r.course_id }, is_published: true } }),
+            this.prisma.lesson.count({ where: { module: { course_id: r.course_id }, is_published: true, visible_in_structure: true } }),
             this.prisma.lessonProgress.count({
               where: {
                 enrollment_id: enrollmentId, user_id: enrollment.user_id, completed: true,
-                lesson: { module: { course_id: r.course_id } },
+                lesson: { module: { course_id: r.course_id }, visible_in_structure: true },
               },
             }),
           ]);

@@ -102,6 +102,19 @@ export class PrepCoursesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get("learn/:enrollmentId/lesson/:lessonId/sublessons/:sublessonId")
+  @ApiOperation({ summary: "Get sublesson content (opened contextually from within its parent lesson)" })
+  getCourseSublessonContent(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("sublessonId", ParseUUIDPipe) sublessonId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.service.getCourseSublessonContent(enrollmentId, lessonId, sublessonId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Patch("learn/:enrollmentId/lesson/:lessonId/progress")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update video position / watch time (heartbeat)" })

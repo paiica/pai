@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { useState, useEffect, useRef } from "react";
@@ -8,10 +8,11 @@ import toast from "react-hot-toast";
 import { CheckCircle, Download, ExternalLink, Loader2, XCircle, RotateCcw, Award, Upload, AlertCircle, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
-import { cn, addTargetBlankToLinks, handleInternalLessonClick } from "@/lib/utils";
-import { enhanceSortingExercises } from "@/lib/interactive-content";
+import { cn, addTargetBlankToLinks, handleInternalLessonClick, handleSublessonClick } from "@/lib/utils";
+import { enhanceSortingExercises, enableImageLightbox } from "@/lib/interactive-content";
 import TableOfContents from "@/components/TableOfContents";
 import LabPanel from "@/components/LabPanel";
+import SublessonOverlay from "@/components/SublessonOverlay";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -67,14 +68,16 @@ function VideoLesson({ lesson }: { lesson: any }) {
 }
 
 function ReadingLesson({
-  lesson, enrollmentId, token, onComplete,
-}: { lesson: any; enrollmentId?: string; token?: string; onComplete?: () => void }) {
+  lesson, enrollmentId, token, onComplete, onOpenSublesson,
+}: { lesson: any; enrollmentId?: string; token?: string; onComplete?: () => void; onOpenSublesson?: (id: string) => void }) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
     if (!contentRef.current) return;
-    return enhanceSortingExercises(contentRef.current);
+    const cleanupSorting = enhanceSortingExercises(contentRef.current);
+    const cleanupLightbox = enableImageLightbox(contentRef.current);
+    return () => { cleanupSorting(); cleanupLightbox(); };
   }, [lesson.content_body]);
 
   // SCORM packages carry a bridge script (injected at import time) that
@@ -160,7 +163,10 @@ function ReadingLesson({
               <div
                 ref={contentRef}
                 className="prose prose-slate prose-lg max-w-none"
-                onClick={(e) => enrollmentId && handleInternalLessonClick(e, (lessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${lessonId}`))}
+                onClick={(e) => {
+                  handleSublessonClick(e, (id) => onOpenSublesson?.(id));
+                  if (enrollmentId) handleInternalLessonClick(e, (lessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${lessonId}`));
+                }}
                 dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
               />
             </>
@@ -666,6 +672,7 @@ function DownloadLesson({ lesson }: { lesson: any }) {
 export default function CoursePrepLessonPage() {
   const { enrollmentId, lessonId } = useParams<{ enrollmentId: string; lessonId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const token = useAuthStore((s) => s.accessToken)!;
 
   const { data: lesson, isLoading, mutate } = useSWR(
@@ -674,6 +681,40 @@ export default function CoursePrepLessonPage() {
       : null,
     ([url, t]) => fetcher(url, t)
   );
+
+  // Sublesson overlay — "Copy Sublesson link" in the admin builder produces
+  // a ?sublesson=<id> deep link; this auto-opens it on load. savedScrollY
+  // is what makes "Back to Lesson" return the student to exactly where they
+  // were instead of the top of the page.
+  const [openSublessonId, setOpenSublessonId] = useState<string | null>(null);
+  const savedScrollY = useRef(0);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("sublesson");
+    if (fromUrl) setOpenSublessonId(fromUrl);
+    // Only ever auto-open once per page load — not on every searchParams
+    // identity change, or closing the overlay would immediately reopen it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const { data: sublessonResp, isLoading: sublessonLoading, error: sublessonError } = useSWR(
+    token && enrollmentId && lessonId && openSublessonId
+      ? [`/prep-courses/learn/${enrollmentId}/lesson/${lessonId}/sublessons/${openSublessonId}`, token]
+      : null,
+    ([url, t]) => fetcher(url, t)
+  );
+
+  function openSublesson(id: string) {
+    savedScrollY.current = window.scrollY;
+    setOpenSublessonId(id);
+  }
+  function closeSublesson() {
+    setOpenSublessonId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("sublesson");
+    window.history.replaceState({}, "", url.toString());
+    requestAnimationFrame(() => window.scrollTo({ top: savedScrollY.current }));
+  }
 
   if (isLoading) {
     return (
@@ -719,7 +760,7 @@ export default function CoursePrepLessonPage() {
       <div className={cn("mb-8", !isFullBleed && "max-w-3xl mx-auto")}>
         {lesson.type === "video" && <VideoLesson lesson={lesson} />}
         {(lesson.type === "reading" || lesson.type === "html") && (
-          <ReadingLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} />
+          <ReadingLesson lesson={lesson} enrollmentId={enrollmentId} token={token} onComplete={() => mutate()} onOpenSublesson={openSublesson} />
         )}
         {lesson.type === "download" && <DownloadLesson lesson={lesson} />}
         {lesson.type === "assignment" && (
@@ -732,7 +773,10 @@ export default function CoursePrepLessonPage() {
               ? (
                 <div
                   className="prose prose-slate max-w-none"
-                  onClick={(e) => handleInternalLessonClick(e, (targetLessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${targetLessonId}`))}
+                  onClick={(e) => {
+                    handleSublessonClick(e, (id) => openSublesson(id));
+                    handleInternalLessonClick(e, (targetLessonId) => router.push(`/learn/course/${enrollmentId}/lesson/${targetLessonId}`));
+                  }}
                   dangerouslySetInnerHTML={{ __html: addTargetBlankToLinks(lesson.content_body) }}
                 />
               )
@@ -748,6 +792,15 @@ export default function CoursePrepLessonPage() {
         <CheckCircle size={16} />
         You're viewing this lesson
       </div>
+
+      <SublessonOverlay
+        open={!!openSublessonId}
+        sublesson={openSublessonId ? sublessonResp?.sublesson ?? null : null}
+        loading={!!openSublessonId && sublessonLoading}
+        error={openSublessonId ? sublessonError : null}
+        parentTitle={lesson.title}
+        onClose={closeSublesson}
+      />
     </div>
   );
 }

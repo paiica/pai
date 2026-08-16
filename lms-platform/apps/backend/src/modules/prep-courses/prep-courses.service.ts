@@ -85,7 +85,7 @@ export class PrepCoursesService {
             'is_free_preview', l.is_free_preview::bool,
             'sort_order', l.sort_order::int
           ) ORDER BY l.sort_order)
-          FROM lms.lessons l WHERE l.module_id = m.id AND l.is_published = true
+          FROM lms.lessons l WHERE l.module_id = m.id AND l.is_published = true AND l.visible_in_structure = true
         ), '[]'::json) AS lessons
       FROM lms.modules m
       WHERE m.course_id = $1 AND m.is_published = true
@@ -157,7 +157,43 @@ export class PrepCoursesService {
       lesson.submission_attempts = attempts;
     }
 
+    // Sent along so the reader can resolve a `data-sublesson-link` click
+    // without a second round trip — see getCourseSublessonContent below.
+    lesson.sublessons = await this.prisma.lesson.findMany({
+      where: { parent_lesson_id: lessonId },
+      orderBy: { sort_order: "asc" },
+      select: { id: true, title: true, sublesson_kind: true, available_via_link: true, open_behavior: true },
+    });
+
     return lesson;
+  }
+
+  // A Sublesson isn't independently enrolled in — access is inherited
+  // entirely from its PARENT lesson. Records a view (LessonProgress row,
+  // not a completion) when track_views is on — see the identical method in
+  // learning.service.ts (certification track) for the full rationale.
+  async getCourseSublessonContent(enrollmentId: string, parentLessonId: string, sublessonId: string, userId: string) {
+    await this.getCourseLessonContent(enrollmentId, parentLessonId, userId);
+
+    const sublesson = await this.prisma.lesson.findFirst({
+      where: { id: sublessonId, parent_lesson_id: parentLessonId },
+      include: { resources: true },
+    });
+    if (!sublesson) throw new NotFoundException("Sublesson not found");
+    if (!sublesson.available_via_link) throw new ForbiddenException("This sublesson isn't available");
+
+    if (sublesson.track_views) {
+      const existing = await this.prisma.lessonProgress.findUnique({
+        where: { user_id_lesson_id: { user_id: userId, lesson_id: sublessonId } },
+      });
+      if (!existing) {
+        await this.prisma.lessonProgress.create({
+          data: { user_id: userId, course_enrollment_id: enrollmentId, lesson_id: sublessonId, completed: false },
+        });
+      }
+    }
+
+    return { sublesson, parent_lesson_id: parentLessonId };
   }
 
   // ─── Progress (student) ───────────────────────────────────────────────
@@ -189,8 +225,34 @@ export class PrepCoursesService {
     });
   }
 
+  // Sublesson completion is optional by default — this only blocks
+  // completing the PARENT lesson when it has sublessons explicitly marked
+  // sublesson_required, until the student has opened each one (any
+  // LessonProgress row, not necessarily completed). See the identical
+  // helper in learning.service.ts (certification track) for the full
+  // rationale.
+  private async assertRequiredSublessonsViewed(lessonId: string, userId: string) {
+    const required = await this.prisma.lesson.findMany({
+      where: { parent_lesson_id: lessonId, sublesson_required: true },
+      select: { id: true, title: true },
+    });
+    if (!required.length) return;
+    const viewed = await this.prisma.lessonProgress.findMany({
+      where: { user_id: userId, lesson_id: { in: required.map((s) => s.id) } },
+      select: { lesson_id: true },
+    });
+    const viewedIds = new Set(viewed.map((v) => v.lesson_id));
+    const missing = required.filter((s) => !viewedIds.has(s.id));
+    if (missing.length) {
+      throw new BadRequestException(
+        `View ${missing.map((s) => `"${s.title}"`).join(", ")} before completing this lesson.`,
+      );
+    }
+  }
+
   async completeCourseLesson(enrollmentId: string, lessonId: string, userId: string, dto: CompleteLessonDto) {
     await this.assertCourseEnrollment(enrollmentId, userId);
+    await this.assertRequiredSublessonsViewed(lessonId, userId);
 
     const progress = await this.prisma.lessonProgress.upsert({
       where: { user_id_lesson_id: { user_id: userId, lesson_id: lessonId } },
@@ -1068,7 +1130,7 @@ export class PrepCoursesService {
 
   async findFeatured() {
     return this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.level,
+      SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.compare_at_price, c.level,
              c.duration_hours, c.thumbnail_url, c.is_featured,
              (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
              cert.acronym AS cert_acronym, cert.title AS cert_title
@@ -1095,7 +1157,7 @@ export class PrepCoursesService {
                 'duration_minutes', l.duration_minutes, 'is_free_preview', l.is_free_preview,
                 'is_published', l.is_published
               ) ORDER BY l.sort_order)
-              FROM lms.lessons l WHERE l.module_id = m.id AND l.is_published = true
+              FROM lms.lessons l WHERE l.module_id = m.id AND l.is_published = true AND l.visible_in_structure = true
             )
           ) ORDER BY m.sort_order)
           FROM lms.modules m WHERE m.course_id = c.id AND m.is_published = true
@@ -1247,7 +1309,7 @@ export class PrepCoursesService {
               SELECT json_agg(json_build_object(
                 'id', l.id, 'title', l.title, 'type', l.type,
                 'duration_minutes', l.duration_minutes, 'is_published', l.is_published,
-                'sort_order', l.sort_order
+                'sort_order', l.sort_order, 'parent_lesson_id', l.parent_lesson_id
               ) ORDER BY l.sort_order)
               FROM lms.lessons l WHERE l.module_id = m.id
             )
@@ -1374,9 +1436,9 @@ export class PrepCoursesService {
 
   async adminUpdate(id: string, dto: Record<string, any>) {
     const allowed = [
-      'title', 'subtitle', 'description', 'price', 'status', 'thumbnail_url',
+      'title', 'subtitle', 'description', 'price', 'compare_at_price', 'status', 'thumbnail_url',
       'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
-      'sort_order', 'slug', 'total_lessons', 'is_featured', 'ai_professor_enabled', 'content',
+      'sort_order', 'slug', 'total_lessons', 'is_featured', 'is_listed', 'ai_professor_enabled', 'content',
       'passing_score',
     ];
     const sets: string[] = [];
@@ -1389,11 +1451,11 @@ export class PrepCoursesService {
         sets.push(`"${key}" = $${p}::lms."CourseStatus"`);
       } else if (key === 'level') {
         sets.push(`"${key}" = $${p}::lms."CourseLevel"`);
-      } else if (['price', 'duration_hours', 'pdu_value'].includes(key)) {
+      } else if (['price', 'compare_at_price', 'duration_hours', 'pdu_value'].includes(key)) {
         sets.push(`"${key}" = $${p}::numeric`);
       } else if (['sort_order', 'total_lessons', 'passing_score'].includes(key)) {
         sets.push(`"${key}" = $${p}::int`);
-      } else if (key === 'is_featured' || key === 'ai_professor_enabled') {
+      } else if (key === 'is_featured' || key === 'is_listed' || key === 'ai_professor_enabled') {
         sets.push(`"${key}" = $${p}::boolean`);
       } else if (key === 'content') {
         sets.push(`"${key}" = $${p}::jsonb`);
@@ -1600,15 +1662,22 @@ export class PrepCoursesService {
 
   async duplicateLesson(lessonId: string, userId: string, role: Role) {
     const lesson = await this.assertLessonTeacherAccess(lessonId, userId, role);
+    // A sublesson's duplicate stays under the same parent, ordered among its
+    // siblings — not appended to the whole module's lesson list.
+    const isSublesson = !!lesson.parent_lesson_id;
     const [resources, questions, maxSort] = await Promise.all([
       this.prisma.lessonResource.findMany({ where: { lesson_id: lessonId } }),
       this.prisma.quizQuestion.findMany({ where: { lesson_id: lessonId } }),
-      this.prisma.lesson.aggregate({ where: { module_id: lesson.module_id }, _max: { sort_order: true } }),
+      this.prisma.lesson.aggregate({
+        where: isSublesson ? { parent_lesson_id: lesson.parent_lesson_id } : { module_id: lesson.module_id },
+        _max: { sort_order: true },
+      }),
     ]);
 
     const duplicate = await this.prisma.lesson.create({
       data: {
         module_id: lesson.module_id,
+        parent_lesson_id: lesson.parent_lesson_id,
         title: `${lesson.title} (Copy)`,
         description: lesson.description,
         type: lesson.type,
@@ -1641,6 +1710,12 @@ export class PrepCoursesService {
         accepted_file_types: lesson.accepted_file_types,
         max_file_size_mb: lesson.max_file_size_mb,
         rubric_json: lesson.rubric_json ?? undefined,
+        sublesson_kind: lesson.sublesson_kind,
+        visible_in_structure: lesson.visible_in_structure,
+        available_via_link: lesson.available_via_link,
+        sublesson_required: lesson.sublesson_required,
+        track_views: lesson.track_views,
+        open_behavior: lesson.open_behavior,
       },
     });
 
@@ -1753,7 +1828,14 @@ export class PrepCoursesService {
           'allow_text_response', l.allow_text_response::bool,
           'text_word_limit', l.text_word_limit::int,
           'blocks_json', l.blocks_json,
-          'lab_cells_json', l.lab_cells_json
+          'lab_cells_json', l.lab_cells_json,
+          'parent_lesson_id', l.parent_lesson_id,
+          'sublesson_kind', l.sublesson_kind::text,
+          'visible_in_structure', l.visible_in_structure::bool,
+          'available_via_link', l.available_via_link::bool,
+          'sublesson_required', l.sublesson_required::bool,
+          'track_views', l.track_views::bool,
+          'open_behavior', l.open_behavior::text
         ) ORDER BY l.sort_order ASC)
         FROM lms.lessons l WHERE l.module_id = m.id), '[]'::json) AS lessons
       FROM lms.modules m
@@ -1972,6 +2054,41 @@ export class PrepCoursesService {
     return rows[0];
   }
 
+  // A Sublesson is a Lesson row like any other with parent_lesson_id set —
+  // see schema.prisma's Lesson model comment. Uses the typed Prisma client
+  // (not the raw-SQL INSERT adminCreateLesson above uses) since it needs
+  // the new sublesson-specific columns that raw statement doesn't list.
+  // sort_order is scoped to siblings under this parent, not the module.
+  async adminCreateSublesson(courseId: string, moduleId: string, parentLessonId: string, title: string) {
+    if (!title?.trim()) throw new BadRequestException("Sublesson title is required");
+    await this.assertAdminLessonInCourse(courseId, moduleId, parentLessonId);
+    const maxSort = await this.prisma.lesson.aggregate({
+      where: { parent_lesson_id: parentLessonId },
+      _max: { sort_order: true },
+    });
+    return this.prisma.lesson.create({
+      data: {
+        module_id: moduleId,
+        parent_lesson_id: parentLessonId,
+        title,
+        type: "reading",
+        sort_order: (maxSort._max.sort_order ?? -1) + 1,
+        is_published: false,
+        visible_in_structure: false,
+      },
+    });
+  }
+
+  async adminReorderSublessons(courseId: string, moduleId: string, parentLessonId: string, orderedIds: string[]) {
+    await this.assertAdminLessonInCourse(courseId, moduleId, parentLessonId);
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.lesson.update({ where: { id, parent_lesson_id: parentLessonId }, data: { sort_order: index } })
+      )
+    );
+    return { message: "Sublessons reordered" };
+  }
+
   async adminUpdateLesson(courseId: string, moduleId: string, lessonId: string, dto: Record<string, any>) {
     const moduleRows = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT id FROM lms.modules WHERE id = $1 AND course_id = $2`,
@@ -1995,6 +2112,8 @@ export class PrepCoursesService {
       "available_from", "accept_submissions", "allow_late_submissions", "late_submission_deadline",
       "late_penalty_type", "late_penalty_value", "allow_file_upload", "max_files",
       "accepted_file_types", "max_file_size_mb", "rubric_json", "lab_cells_json",
+      "sublesson_kind", "visible_in_structure", "available_via_link", "sublesson_required",
+      "track_views", "open_behavior",
     ] as const;
     const data: Record<string, any> = {};
     for (const key of allowed) {

@@ -177,3 +177,58 @@ export function enhanceSortingExercises(container: HTMLElement): () => void {
 
   return () => cleanups.forEach((fn) => fn());
 }
+
+// Click-to-enlarge for images in lesson content (Rise-imported and manually
+// authored lessons both just emit plain `<img>` tags — see rise-html-blocks.ts
+// — so this is a delegated listener on the rendered container, same
+// progressive-enhancement shape as enhanceSortingExercises above. Images
+// already wrapped in a link keep their existing click-to-follow-link
+// behavior instead (an image inside `<a>` is deliberately not enlarged, so
+// this never fights with an author's intentional linked image).
+export function enableImageLightbox(container: HTMLElement): () => void {
+  let overlay: HTMLDivElement | null = null;
+
+  const close = () => {
+    if (!overlay) return;
+    overlay.remove();
+    overlay = null;
+    document.removeEventListener("keydown", onKeydown);
+  };
+
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") close();
+  };
+
+  const open = (src: string, alt: string) => {
+    overlay = document.createElement("div");
+    overlay.className = "pv-lightbox-overlay";
+    overlay.addEventListener("click", close);
+
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = alt;
+    img.className = "pv-lightbox-image";
+    // Enlarging the image is the whole point — a click on the image itself
+    // shouldn't also count as a backdrop click and immediately close it.
+    img.addEventListener("click", (e) => e.stopPropagation());
+
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", onKeydown);
+  };
+
+  const onClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const img = target.closest<HTMLImageElement>("img");
+    if (!img || !container.contains(img)) return;
+    if (img.closest("a")) return;
+    open(img.currentSrc || img.src, img.alt || "");
+  };
+
+  container.addEventListener("click", onClick);
+
+  return () => {
+    container.removeEventListener("click", onClick);
+    close();
+  };
+}

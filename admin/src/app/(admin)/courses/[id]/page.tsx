@@ -28,6 +28,7 @@ type Course = {
   description?: string;
   thumbnail_url?: string;
   price: number;
+  compare_at_price?: number | null;
   status: string;
   level: string;
   duration_hours: number;
@@ -283,12 +284,14 @@ export default function CourseDetailPage() {
     description: "",
     thumbnail_url: "",
     price: "0",
+    compare_at_price: "",
     level: "beginner" as typeof LEVELS[number],
     status: "draft" as typeof STATUSES[number],
     duration_hours: "0",
     pdu_value: "0",
     certification_id: "",
     is_featured: false,
+    is_listed: false,
     ai_professor_enabled: false,
     passing_score: "70",
   });
@@ -327,12 +330,14 @@ export default function CourseDetailPage() {
         description: course.description || "",
         thumbnail_url: course.thumbnail_url || "",
         price: String(course.price ?? 0),
+        compare_at_price: course.compare_at_price != null ? String(course.compare_at_price) : "",
         level: (course.level as typeof LEVELS[number]) || "beginner",
         status: (course.status as typeof STATUSES[number]) || "draft",
         duration_hours: String(course.duration_hours ?? 0),
         pdu_value: String(course.pdu_value ?? 0),
         certification_id: course.certification_id || "",
         is_featured: course.is_featured ?? false,
+        is_listed: course.is_listed ?? false,
         ai_professor_enabled: course.ai_professor_enabled ?? false,
         passing_score: String(course.passing_score ?? 70),
       });
@@ -391,12 +396,14 @@ export default function CourseDetailPage() {
         description: form.description || undefined,
         thumbnail_url: form.thumbnail_url || null,
         price: parseFloat(form.price) || 0,
+        compare_at_price: form.compare_at_price.trim() ? parseFloat(form.compare_at_price) : null,
         level: form.level,
         status: form.status,
         duration_hours: parseFloat(form.duration_hours) || 0,
         pdu_value: parseFloat(form.pdu_value) || 0,
         certification_id: form.certification_id || null,
         is_featured: form.is_featured,
+        is_listed: form.is_listed,
         ai_professor_enabled: form.ai_professor_enabled,
         passing_score: parseInt(form.passing_score, 10) || 70,
       }, token);
@@ -808,6 +815,25 @@ export default function CourseDetailPage() {
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
               <div>
+                <p className="text-xs font-semibold text-slate-700">Listed in catalog</p>
+                <p className="text-[11px] text-slate-400">Show this course on the courses page and make it reachable by its public URL. Status must also be Active.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, is_listed: !f.is_listed }))}
+                className={cn(
+                  "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none",
+                  form.is_listed ? "bg-navy-700" : "bg-slate-300"
+                )}
+              >
+                <span className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+                  form.is_listed ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div>
                 <p className="text-xs font-semibold text-slate-700">Featured on homepage</p>
                 <p className="text-[11px] text-slate-400">Show this course in the Courses section of the marketing site</p>
               </div>
@@ -1051,6 +1077,19 @@ export default function CourseDetailPage() {
                   value={form.price}
                   onChange={(e) => setField("price", e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Original Price (USD) <span className="text-slate-400 font-normal">(optional)</span></label>
+                <input
+                  className="input-base"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 199.00"
+                  value={form.compare_at_price}
+                  onChange={(e) => setField("compare_at_price", e.target.value)}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Shown crossed out next to the price on course cards (e.g. a Launch Pricing promo). Leave blank for no promo.</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Duration (hours)</label>

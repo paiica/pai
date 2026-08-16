@@ -1,7 +1,7 @@
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, IsEnum, IsDateString, IsArray, IsIn, Min, Max, MaxLength,
 } from "class-validator";
-import { LessonType } from "@prisma/client";
+import { LessonType, SublessonKind, SublessonOpenBehavior } from "@prisma/client";
 
 export class UpdateLessonDto {
   @IsOptional()
@@ -133,4 +133,32 @@ export class UpdateLessonDto {
 
   @IsOptional()
   lab_cells_json?: { type: "markdown" | "code"; content: string; runnable?: boolean; skip_reason?: string }[];
+
+  // Sublesson settings — only meaningful on a lesson row that has
+  // parent_lesson_id set (see schema.prisma's Lesson model comment). Sent
+  // through the same generic lesson-update endpoint since a Sublesson is
+  // edited with the same ReadingEditor as any other lesson.
+  @IsOptional()
+  @IsEnum(SublessonKind)
+  sublesson_kind?: SublessonKind;
+
+  @IsOptional()
+  @IsBoolean()
+  visible_in_structure?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  available_via_link?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  sublesson_required?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  track_views?: boolean;
+
+  @IsOptional()
+  @IsEnum(SublessonOpenBehavior)
+  open_behavior?: SublessonOpenBehavior;
 }

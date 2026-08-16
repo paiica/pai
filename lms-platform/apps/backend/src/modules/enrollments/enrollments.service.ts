@@ -24,7 +24,7 @@ export class EnrollmentsService {
           include: {
             modules: {
               orderBy: { sort_order: "asc" },
-              include: { lessons: { where: { is_published: true }, orderBy: { sort_order: "asc" } } },
+              include: { lessons: { where: { is_published: true, visible_in_structure: true }, orderBy: { sort_order: "asc" } } },
             },
           },
         },
@@ -72,7 +72,7 @@ export class EnrollmentsService {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
       include: {
-        certification: { include: { modules: { include: { lessons: { where: { is_published: true } } } } } },
+        certification: { include: { modules: { include: { lessons: { where: { is_published: true, visible_in_structure: true } } } } } },
         lesson_progress: { where: { completed: true } },
       },
     });

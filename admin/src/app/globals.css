@@ -45,3 +45,41 @@
   pointer-events: none;
   height: 0;
 }
+
+/* Video embeds inserted via RichTextEditor's VideoEmbed node — same class
+   on both the <iframe> (YouTube/Vimeo) and <video> (direct file) shapes it
+   can render, see RichTextEditor.tsx. */
+.pv-video-embed {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  margin: 12px 0;
+  border: none;
+}
+
+/* Sublesson contextual links inserted via RichTextEditor's "Insert
+   Sublesson Link" toolbar button — visually distinct from a plain link so
+   students recognize it as additional learning content, not an external
+   reference. Matched by the student-facing stylesheet in
+   rise-html-blocks.ts's LESSON_STYLE_BLOCK. */
+.pv-sublesson-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: theme(colors.teal.50);
+  border: 1px solid theme(colors.teal.100);
+  color: theme(colors.teal.700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.pv-sublesson-link::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: theme(colors.teal.500);
+  flex-shrink: 0;
+}

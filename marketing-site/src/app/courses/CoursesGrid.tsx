@@ -6,7 +6,8 @@ import { Clock, Search, X, ArrowRight } from "lucide-react";
 
 type CourseListItem = {
   id: string; slug: string; title: string; subtitle?: string | null;
-  price: string | number; level?: string | null; cert_acronym?: string | null;
+  price: string | number; compare_at_price?: string | number | null;
+  level?: string | null; cert_acronym?: string | null;
   module_count?: number; duration_hours?: number; thumbnail_url?: string | null;
 };
 
@@ -95,6 +96,8 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((course) => {
             const coursePrice = Number(course.price);
+            const compareAtPrice = course.compare_at_price != null ? Number(course.compare_at_price) : null;
+            const isLaunchPricing = compareAtPrice != null && compareAtPrice > coursePrice;
             const modules = Math.max(0, Math.round(Number(course.module_count) || 0));
             const railSegments = Math.min(Math.max(modules, 1), 8);
             return (
@@ -156,16 +159,33 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-sand-200">
-                    <span className="text-xl font-mono font-bold text-ink-900">
-                      {coursePrice === 0 ? "Free" : `$${coursePrice.toLocaleString()}`}
-                    </span>
-                    <Link
-                      href={`/courses/${course.slug}`}
-                      className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
-                    >
-                      View Course <ArrowRight size={14} />
-                    </Link>
+                  <div className="mt-auto pt-4 border-t border-sand-200">
+                    {isLaunchPricing && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
+                          Launch Pricing
+                        </span>
+                        <span className="text-[11px] text-sand-500">Available for a limited time</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-baseline gap-2">
+                        {isLaunchPricing && (
+                          <span className="text-sm font-mono text-sand-400 line-through">
+                            ${compareAtPrice!.toLocaleString()}
+                          </span>
+                        )}
+                        <span className="text-xl font-mono font-bold text-ink-900">
+                          {coursePrice === 0 ? "Free" : `$${coursePrice.toLocaleString()}`}
+                        </span>
+                      </span>
+                      <Link
+                        href={`/courses/${course.slug}`}
+                        className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
+                      >
+                        View Course <ArrowRight size={14} />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

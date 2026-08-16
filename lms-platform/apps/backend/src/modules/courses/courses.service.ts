@@ -49,7 +49,9 @@ export class CoursesService {
         modules: {
           orderBy: { sort_order: "asc" },
           include: {
-            lessons: { where: { is_published: true }, orderBy: { sort_order: "asc" } },
+            // visible_in_structure excludes Sublessons from the public/main
+            // navigation — see schema.prisma's Lesson model comment.
+            lessons: { where: { is_published: true, visible_in_structure: true }, orderBy: { sort_order: "asc" } },
           },
         },
         instructors: {
@@ -85,7 +87,7 @@ export class CoursesService {
           orderBy: { sort_order: "asc" },
           include: {
             lessons: {
-              where: { is_published: true },
+              where: { is_published: true, visible_in_structure: true },
               orderBy: { sort_order: "asc" },
               include: { resources: true },
             },
@@ -319,6 +321,31 @@ export class CoursesService {
     });
   }
 
+  // A Sublesson is a Lesson row like any other (same content system, same
+  // editor) with parent_lesson_id set — see schema.prisma's Lesson model
+  // comment. sort_order is scoped to siblings under THIS parent, not the
+  // whole module's lesson list, since sublessons never appear in that list
+  // (visible_in_structure: false) and reordering them shouldn't touch
+  // regular lesson ordering at all.
+  async createSublesson(parentLessonId: string, title: string, userId: string, role: Role) {
+    const parent = await this.assertLessonProfessorAccess(parentLessonId, userId, role);
+    const maxSort = await this.prisma.lesson.aggregate({
+      where: { parent_lesson_id: parentLessonId },
+      _max: { sort_order: true },
+    });
+    return this.prisma.lesson.create({
+      data: {
+        module_id: parent.module_id,
+        parent_lesson_id: parentLessonId,
+        title,
+        type: "reading",
+        sort_order: (maxSort._max.sort_order ?? -1) + 1,
+        is_published: false,
+        visible_in_structure: false,
+      },
+    });
+  }
+
   async updateLesson(lessonId: string, dto: UpdateLessonDto, userId: string, role: Role) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -384,6 +411,16 @@ export class CoursesService {
       )
     );
     return { message: "Lessons reordered" };
+  }
+
+  async reorderSublessons(parentLessonId: string, dto: ReorderItemsDto, userId: string, role: Role) {
+    await this.assertLessonProfessorAccess(parentLessonId, userId, role);
+    await this.prisma.$transaction(
+      dto.ordered_ids.map((id, index) =>
+        this.prisma.lesson.update({ where: { id, parent_lesson_id: parentLessonId }, data: { sort_order: index } })
+      )
+    );
+    return { message: "Sublessons reordered" };
   }
 
   // ─── Quiz Questions ───────────────────────────────────────────────────
@@ -603,15 +640,23 @@ export class CoursesService {
 
   async duplicateLesson(lessonId: string, userId: string, role: Role) {
     const lesson = await this.assertLessonProfessorAccess(lessonId, userId, role);
+    // A sublesson's duplicate stays under the same parent, ordered among its
+    // siblings — not appended to the whole module's lesson list, which is a
+    // different, unrelated ordering (see createSublesson above).
+    const isSublesson = !!lesson.parent_lesson_id;
     const [resources, questions, maxSort] = await Promise.all([
       this.prisma.lessonResource.findMany({ where: { lesson_id: lessonId } }),
       this.prisma.quizQuestion.findMany({ where: { lesson_id: lessonId } }),
-      this.prisma.lesson.aggregate({ where: { module_id: lesson.module_id }, _max: { sort_order: true } }),
+      this.prisma.lesson.aggregate({
+        where: isSublesson ? { parent_lesson_id: lesson.parent_lesson_id } : { module_id: lesson.module_id },
+        _max: { sort_order: true },
+      }),
     ]);
 
     const duplicate = await this.prisma.lesson.create({
       data: {
         module_id: lesson.module_id,
+        parent_lesson_id: lesson.parent_lesson_id,
         title: `${lesson.title} (Copy)`,
         description: lesson.description,
         type: lesson.type,
@@ -643,6 +688,13 @@ export class CoursesService {
         accepted_file_types: lesson.accepted_file_types,
         max_file_size_mb: lesson.max_file_size_mb,
         rubric_json: lesson.rubric_json ?? undefined,
+        lab_cells_json: lesson.lab_cells_json ?? undefined,
+        sublesson_kind: lesson.sublesson_kind,
+        visible_in_structure: lesson.visible_in_structure,
+        available_via_link: lesson.available_via_link,
+        sublesson_required: lesson.sublesson_required,
+        track_views: lesson.track_views,
+        open_behavior: lesson.open_behavior,
       },
     });
 

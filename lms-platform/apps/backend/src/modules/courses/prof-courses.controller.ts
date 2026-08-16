@@ -195,6 +195,35 @@ export class ProfCoursesController {
     return this.coursesService.reorderLessons(moduleId, dto, userId, role);
   }
 
+  // ─── Sublessons ──────────────────────────────────────────────────────
+  // A secondary/contextual content layer attached to a Lesson — see
+  // schema.prisma's Lesson model comment. Created, edited, and deleted
+  // through the same generic lesson endpoints above (a Sublesson IS a
+  // Lesson row); this section is only the sublesson-specific create and
+  // reorder routes that don't fit the generic module-scoped ones.
+
+  @Post("lessons/:lessonId/sublessons")
+  @ApiOperation({ summary: "Add a sublesson under a lesson" })
+  createSublesson(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body("title") title: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.createSublesson(lessonId, title, userId, role);
+  }
+
+  @Post("lessons/:lessonId/sublessons/reorder")
+  @ApiOperation({ summary: "Reorder the sublessons under a lesson" })
+  reorderSublessons(
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Body() dto: ReorderItemsDto,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.coursesService.reorderSublessons(lessonId, dto, userId, role);
+  }
+
   // ─── Quiz Questions ───────────────────────────────────────────────────
 
   @Post("lessons/:lessonId/questions")

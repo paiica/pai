@@ -48,6 +48,17 @@ export class LearningController {
     return this.learningService.getLessonContent(enrollmentId, lessonId, userId);
   }
 
+  @Get(":enrollmentId/lesson/:lessonId/sublessons/:sublessonId")
+  @ApiOperation({ summary: "Get sublesson content (opened contextually from within its parent lesson)" })
+  getSublessonContent(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @Param("lessonId", ParseUUIDPipe) lessonId: string,
+    @Param("sublessonId", ParseUUIDPipe) sublessonId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.learningService.getSublessonContent(enrollmentId, lessonId, sublessonId, userId);
+  }
+
   @Patch(":enrollmentId/lesson/:lessonId/progress")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update video position / watch time (heartbeat)" })

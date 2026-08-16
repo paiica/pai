@@ -229,7 +229,20 @@ const LESSON_STYLE_BLOCK = `
   .pv-lesson { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #403d57; line-height: 1.7; font-size: 17px; }
   .pv-lesson > * { max-width: 760px; margin-left: auto; margin-right: auto; }
   .pv-lesson > *:first-child { margin-top: 0; }
-  .pv-lesson img { max-width: 900px; width: 100%; border-radius: 12px; display: block; margin: 32px auto; }
+  .pv-lesson img { max-width: 900px; width: 100%; border-radius: 12px; display: block; margin: 32px auto; cursor: zoom-in; }
+  .pv-lesson a img { cursor: pointer; } /* linked images keep their normal pointer — clicking follows the link, not the lightbox */
+  .pv-lightbox-overlay { position: fixed; inset: 0; background: rgba(15, 13, 30, 0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; animation: pv-lightbox-fade-in .15s ease; }
+  .pv-lightbox-image { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); cursor: default; }
+  @keyframes pv-lightbox-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  /* Videos inserted via the Reading editor's Video URL toolbar button (a
+     YouTube/Vimeo iframe or a direct <video>) — same .pv-video-embed class
+     as the admin editor uses, see RichTextEditor.tsx's VideoEmbed node. */
+  .pv-video-embed { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; margin: 32px auto; border: none; }
+  /* Sublesson contextual links — see admin/src/app/globals.css's matching
+     rule and RichTextEditor.tsx's "Insert Sublesson Link" button. Intercepted
+     by handleSublessonClick (utils.ts) before it can navigate as a real link. */
+  .pv-sublesson-link { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .pv-sublesson-link::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: #14b8a6; flex-shrink: 0; }
   .pv-lesson h1, .pv-lesson h2 { font-family: 'Fraunces', Georgia, serif; color: #171527; font-weight: 700; line-height: 1.25; margin: 44px auto 16px; font-size: 28px; }
   .pv-lesson h3 { font-family: 'Fraunces', Georgia, serif; color: #171527; font-weight: 600; line-height: 1.3; margin: 32px auto 12px; font-size: 20px; }
   .pv-lesson p { margin: 0 auto 18px; }
