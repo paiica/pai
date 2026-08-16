@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import {
   BookOpen, Plus, PlusCircle, Loader2, AlertCircle, RefreshCw,
   Users, Layers, Edit3, Archive, Globe, Trash2, DollarSign, Clock, ExternalLink, Search, X,
-  CheckCircle2, XCircle, ShieldAlert,
+  CheckCircle2, XCircle, ShieldAlert, Calendar,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -48,7 +48,7 @@ type Course = {
   description?: string; price: number; status: string; level: string;
   duration_hours: number; module_count: number; enrollment_count: number;
   certification_id?: string; cert_acronym?: string; cert_title?: string;
-  is_featured: boolean;
+  is_featured: boolean; created_at?: string;
   created_by?: string | null;
   approval_status?: string;
   is_listed?: boolean;
@@ -670,6 +670,12 @@ function CourseCard({
             )}
             <span className="flex items-center gap-1"><Layers size={10} />{course.module_count} modules</span>
             <span className="flex items-center gap-1"><Users size={10} />{course.enrollment_count} enrolled</span>
+            {course.created_at && (
+              <span className="flex items-center gap-1" title="Date created">
+                <Calendar size={10} />
+                {new Date(course.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              </span>
+            )}
             {course.created_by && (
               <span>Submitted by {creator ? `${creator.first_name} ${creator.last_name}` : "a professor"}</span>
             )}
