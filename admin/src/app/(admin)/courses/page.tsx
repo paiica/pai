@@ -106,16 +106,20 @@ export default function AdminCoursesPage() {
   const [levelFilter, setLevelFilter] = useState("");
   const [certFilter, setCertFilter] = useState("");
   const [pendingOnly, setPendingOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const pendingCount = courses.filter((c) => c.approval_status === "pending").length;
 
-  const filtersActive = !!(search || statusFilter || levelFilter || certFilter || pendingOnly);
+  const filtersActive = !!(search || statusFilter || levelFilter || certFilter || pendingOnly || dateFrom || dateTo);
 
   const filteredCourses = courses.filter((course) => {
     if (statusFilter && course.status !== statusFilter) return false;
     if (levelFilter && course.level !== levelFilter) return false;
     if (certFilter && course.certification_id !== certFilter) return false;
     if (pendingOnly && course.approval_status !== "pending") return false;
+    if (dateFrom && (!course.created_at || course.created_at.slice(0, 10) < dateFrom)) return false;
+    if (dateTo && (!course.created_at || course.created_at.slice(0, 10) > dateTo)) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const haystack = [course.title, course.slug, course.subtitle, course.cert_acronym]
@@ -130,6 +134,8 @@ export default function AdminCoursesPage() {
   function clearFilters() {
     setSearch("");
     setStatusFilter("");
+    setDateFrom("");
+    setDateTo("");
     setLevelFilter("");
     setCertFilter("");
     setPendingOnly(false);
@@ -428,6 +434,27 @@ export default function AdminCoursesPage() {
               ))}
             </select>
           )}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              className="input-base !text-sm sm:w-36"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              title="Created on or after"
+              aria-label="Created on or after"
+            />
+            <span className="text-slate-400 text-xs">to</span>
+            <input
+              type="date"
+              className="input-base !text-sm sm:w-36"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              title="Created on or before"
+              aria-label="Created on or before"
+            />
+          </div>
           {pendingCount > 0 && (
             <button
               onClick={() => setPendingOnly((v) => !v)}
