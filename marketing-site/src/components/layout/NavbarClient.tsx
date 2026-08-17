@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
 import { ChevronDown, Menu, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TopBar from "@/components/layout/TopBar";
@@ -17,6 +17,7 @@ export default function NavbarClient({
   logoUrl: string | null;
   logoHeight: number;
 }) {
+  const t = useTranslations("Common");
   const [navItems]   = useState<NavItem[]>(initialNavItems);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [openId,     setOpenId]     = useState<string | null>(null);
@@ -38,14 +39,14 @@ export default function NavbarClient({
 
   return (
     <header className={cn(
-      "fixed top-0 left-0 right-0 z-50 bg-white border-b border-sand-300 transition-shadow duration-200",
+      "fixed top-0 start-0 end-0 z-50 bg-white border-b border-sand-300 transition-shadow duration-200",
       scrolled && "shadow-sm"
     )}>
       <TopBar logoUrl={logoUrl} logoHeight={logoHeight} />
       <div className="h-14 flex items-center">
 
         {/* Desktop nav — flush against the viewport edge, mirroring the TopBar logo above it */}
-        <nav className="hidden lg:flex items-center gap-0 flex-shrink-0 pl-4 sm:pl-6">
+        <nav className="hidden lg:flex items-center gap-0 flex-shrink-0 ps-4 sm:ps-6">
             {navItems.map((item) =>
               item.children.length > 0 ? (
                 <div key={item.id} className="relative" onMouseEnter={() => openDropdown(item.id)} onMouseLeave={closeDropdown}>
@@ -58,7 +59,7 @@ export default function NavbarClient({
                   </button>
                   {openId === item.id && (
                     <div
-                      className="absolute top-full left-0 mt-0 w-72 bg-white rounded-xl shadow-card-hover border border-sand-300 py-2"
+                      className="absolute top-full start-0 mt-0 w-72 bg-white rounded-xl shadow-card-hover border border-sand-300 py-2"
                       onMouseEnter={() => openDropdown(item.id)}
                       onMouseLeave={closeDropdown}
                     >
@@ -78,7 +79,7 @@ export default function NavbarClient({
                       ))}
                       <div className="mx-3 mt-1 pt-2 border-t border-sand-200">
                         <Link href={item.href} className="block text-xs font-semibold text-ink-900 py-2 hover:text-ink-900 transition-colors">
-                          View all →
+                          {t("viewAll")} →
                         </Link>
                       </div>
                     </div>
@@ -111,30 +112,30 @@ export default function NavbarClient({
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Search…"
-                    className="w-44 pl-3 pr-2 py-1.5 text-sm text-ink-900 focus:outline-none"
+                    placeholder={t("search")}
+                    className="w-44 ps-3 pe-2 py-1.5 text-sm text-ink-900 focus:outline-none"
                     onBlur={() => setSearchOpen(false)}
                   />
-                  <button aria-label="Close search" className="px-2 text-ink-900 hover:text-ink-900" onClick={() => setSearchOpen(false)}>
+                  <button aria-label={t("closeSearch")} className="px-2 text-ink-900 hover:text-ink-900" onClick={() => setSearchOpen(false)}>
                     <X size={14} />
                   </button>
                 </div>
               ) : (
-                <button aria-label="Open search" onClick={() => setSearchOpen(true)}
+                <button aria-label={t("openSearch")} onClick={() => setSearchOpen(true)}
                   className="p-2 text-ink-900 hover:text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
                   <Search size={17} />
                 </button>
               )}
               <Link
                 href="/certifications/caip"
-                className="ml-1 px-5 py-2 bg-ink-900 hover:bg-ink-800 text-white text-[13px] font-semibold rounded-lg transition-colors"
+                className="ms-1 px-5 py-2 bg-ink-900 hover:bg-ink-800 text-white text-[13px] font-semibold rounded-lg transition-colors"
               >
-                Get Certified
+                {t("getCertified")}
               </Link>
             </div>
 
             {/* Mobile hamburger */}
-            <button aria-label={mobileOpen ? "Close menu" : "Open menu"} onClick={() => setMobileOpen(!mobileOpen)}
+            <button aria-label={mobileOpen ? t("closeMenu") : t("openMenu")} onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden p-2 text-ink-900 hover:text-ink-900 hover:bg-teal-100 rounded-lg">
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -175,7 +176,7 @@ export default function NavbarClient({
             <div className="border-t border-sand-200 mt-2 pt-3">
               <Link href="/certifications/caip"
                 className="block text-center py-3 bg-ink-900 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors">
-                Get Certified
+                {t("getCertified")}
               </Link>
             </div>
           </div>

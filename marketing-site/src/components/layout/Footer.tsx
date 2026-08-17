@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { getTranslations, getLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { Linkedin, Instagram, Mail, MapPin, Shield } from "lucide-react";
 
 function XIcon({ size = 15 }: { size?: number }) {
@@ -11,64 +12,66 @@ function XIcon({ size = 15 }: { size?: number }) {
 
 type FooterLink = { label: string; href: string };
 type FooterColumn = { title: string; links: FooterLink[] };
+type TFunc = (key: string) => string;
 
-const DEFAULT_TAGLINE = "The credential standard for AI professionals worldwide.";
 const DEFAULT_SOCIAL_LINKEDIN  = "https://linkedin.com/company/professional-ai-institute";
 const DEFAULT_SOCIAL_TWITTER   = "https://x.com/paii_ca";
 const DEFAULT_SOCIAL_INSTAGRAM = "";
 const DEFAULT_SOCIAL_EMAIL = "info@paii.ca";
 const DEFAULT_CONTACT_EMAIL = "info@paii.ca";
-const DEFAULT_CONTACT_LOCATION = "Toronto, ON · Canada";
-const DEFAULT_COPYRIGHT = "Professional Artificial Intelligence Institute. All rights reserved.";
 
-const DEFAULT_COLUMNS: FooterColumn[] = [
-  {
-    title: "Certifications",
-    links: [
-      { label: "View All Certifications", href: "/certifications" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About PAII", href: "/about" },
-      { label: "Our Mission", href: "/about#mission" },
-      { label: "Advisory Board", href: "/about#board" },
-      { label: "Accreditation", href: "/about#accreditation" },
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      { label: "Blog & Insights", href: "/blog" },
-      { label: "Verify Certificate", href: "/verify" },
-      { label: "FAQs", href: "/faq" },
-      { label: "Support", href: "/support" },
-    ],
-  },
-  {
-    title: "Organizations",
-    links: [
-      { label: "Corporate Training", href: "/corporate" },
-      { label: "Volume Pricing", href: "/corporate#pricing" },
-      { label: "Educator Partner Program", href: "/educator" },
-      { label: "Become an Affiliate", href: "https://sales.paii.ca" },
-    ],
-  },
-];
+function getDefaultColumns(t: TFunc): FooterColumn[] {
+  return [
+    {
+      title: t("colCertifications"),
+      links: [
+        { label: t("linkViewAllCertifications"), href: "/certifications" },
+      ],
+    },
+    {
+      title: t("colCompany"),
+      links: [
+        { label: t("linkAboutPaii"), href: "/about" },
+        { label: t("linkOurMission"), href: "/about#mission" },
+        { label: t("linkAdvisoryBoard"), href: "/about#board" },
+        { label: t("linkAccreditation"), href: "/about#accreditation" },
+      ],
+    },
+    {
+      title: t("colResources"),
+      links: [
+        { label: t("linkBlogInsights"), href: "/blog" },
+        { label: t("linkVerifyCertificate"), href: "/verify" },
+        { label: t("linkFaqs"), href: "/faq" },
+        { label: t("linkSupport"), href: "/support" },
+      ],
+    },
+    {
+      title: t("colOrganizations"),
+      links: [
+        { label: t("linkCorporateTraining"), href: "/corporate" },
+        { label: t("linkVolumePricing"), href: "/corporate#pricing" },
+        { label: t("linkEducatorProgram"), href: "/educator" },
+        { label: t("linkBecomeAffiliate"), href: "https://sales.paii.ca" },
+      ],
+    },
+  ];
+}
 
 const DEFAULT_TRUST_ITEMS: string[] = [];
 
-const DEFAULT_BOTTOM_LINKS: FooterLink[] = [
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
-];
+function getDefaultBottomLinks(t: TFunc): FooterLink[] {
+  return [
+    { label: t("linkPrivacyPolicy"), href: "/privacy" },
+    { label: t("linkTermsOfService"), href: "/terms" },
+  ];
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-async function getFooterContent() {
+async function getFooterContent(locale: string) {
   try {
-    const res = await fetch(`${API}/page-blocks/public`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API}/page-blocks/public?lang=${locale}`, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
     const json = await res.json();
     const blocks: any[] = json?.data ?? json ?? [];
@@ -90,23 +93,24 @@ async function getSiteSettings() {
 }
 
 export default async function Footer() {
-  const [content, siteSettings] = await Promise.all([getFooterContent(), getSiteSettings()]);
+  const locale = await getLocale();
+  const [content, siteSettings, t] = await Promise.all([getFooterContent(locale), getSiteSettings(), getTranslations("Footer")]);
 
   const logoUrl    = siteSettings?.site_logo_url ?? null;
   const logoHeight = parseInt(siteSettings?.logo_height ?? "48") || 48;
 
-  const tagline = content?.tagline ?? DEFAULT_TAGLINE;
+  const tagline = content?.tagline ?? t("defaultTagline");
   const socialLinkedin  = content?.social_linkedin  ?? DEFAULT_SOCIAL_LINKEDIN;
   const socialTwitter   = content?.social_twitter   ?? DEFAULT_SOCIAL_TWITTER;
   const socialInstagram = content?.social_instagram ?? DEFAULT_SOCIAL_INSTAGRAM;
   const rawEmail = content?.social_email ?? DEFAULT_SOCIAL_EMAIL;
   const socialEmail = rawEmail.startsWith("mailto:") ? rawEmail : `mailto:${rawEmail}`;
   const contactEmail = content?.contact_email ?? DEFAULT_CONTACT_EMAIL;
-  const contactLocation = content?.contact_location ?? DEFAULT_CONTACT_LOCATION;
-  const columns: FooterColumn[] = Array.isArray(content?.columns) ? content.columns : DEFAULT_COLUMNS;
+  const contactLocation = content?.contact_location ?? t("defaultContactLocation");
+  const columns: FooterColumn[] = Array.isArray(content?.columns) ? content.columns : getDefaultColumns(t);
   const trustItems: string[] = Array.isArray(content?.trust_items) ? content.trust_items : DEFAULT_TRUST_ITEMS;
-  const copyright = content?.copyright ?? DEFAULT_COPYRIGHT;
-  const bottomLinks: FooterLink[] = Array.isArray(content?.bottom_links) ? content.bottom_links : DEFAULT_BOTTOM_LINKS;
+  const copyright = content?.copyright ?? t("defaultCopyright");
+  const bottomLinks: FooterLink[] = Array.isArray(content?.bottom_links) ? content.bottom_links : getDefaultBottomLinks(t);
 
   const lastColumn = columns[columns.length - 1];
   const mainColumns = columns.slice(0, columns.length - 1);
@@ -187,7 +191,7 @@ export default async function Footer() {
                   </li>
                 ))}
               </ul>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-3">Contact</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-3">{t("contact")}</h4>
               <div className="space-y-2">
                 <a href={`mailto:${contactEmail}`} className="flex items-center gap-2 text-sm text-white hover:text-white transition-colors">
                   <Mail size={13} /> {contactEmail}

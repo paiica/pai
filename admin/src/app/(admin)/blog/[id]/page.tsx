@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Share2, Copy, Check, ExternalLink, Star } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Share2, Copy, Check, ExternalLink, Star, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,10 @@ type Post = {
   cover_image_url: string; category: string; tags: string[];
   author_name: string; author_avatar: string; reading_time: string;
   is_published: boolean; published_at: string | null;
+  translations: Record<string, Record<string, any>>;
 };
+
+type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
 
 const CATEGORIES = ["Career", "Learning", "Management", "Industry", "Tools", "Certifications", "Compliance", "Other"];
 
@@ -41,6 +44,81 @@ export default function BlogEditorPage() {
   );
 
   const post: Post | null = data?.data ?? data ?? null;
+
+  const { data: languagesData } = useSWR<Language[]>(
+    accessToken ? ["/languages", accessToken] : null,
+    ([url, token]: [string, string]) => api.get<any>(url, token).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
+
+  const [activeLocale, setActiveLocale] = useState("en");
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [translationsInitialized, setTranslationsInitialized] = useState(false);
+  const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
+  const [retranslating, setRetranslating] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (post && !translationsInitialized) {
+      setTranslationDrafts(post.translations ?? {});
+      setTranslationsInitialized(true);
+    }
+  }, [post, translationsInitialized]);
+
+  function getTranslatedField(locale: string, field: string): string {
+    return translationDrafts[locale]?.[field] ?? "";
+  }
+
+  function setTranslatedField(locale: string, field: string, value: string) {
+    setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [field]: value } }));
+  }
+
+  async function saveTranslation(locale: string) {
+    setSavingTranslation(locale);
+    try {
+      let token = accessToken!;
+      const fields = translationDrafts[locale] ?? {};
+      try {
+        await api.patch(`/translations/blog_post/${id}?locale=${locale}`, { fields }, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/blog_post/${id}?locale=${locale}`, { fields }, token);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+    } catch {
+      toast.error("Failed to save translation");
+    } finally {
+      setSavingTranslation(null);
+    }
+  }
+
+  async function retranslate(locale: string) {
+    setRetranslating(locale);
+    try {
+      let token = accessToken!;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/blog_post/${id}?locale=${locale}`, {}, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/blog_post/${id}?locale=${locale}`, {}, token);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: updated?.translations?.[locale] ?? {} }));
+      toast.success("Translated with AI — review and save");
+    } catch {
+      toast.error("Translation failed");
+    } finally {
+      setRetranslating(null);
+    }
+  }
 
   const [title,         setTitle]         = useState("");
   const [slug,          setSlug]          = useState("");
@@ -211,6 +289,70 @@ export default function BlogEditorPage() {
         </div>
       </div>
 
+      {/* Language tabs */}
+      {languages.length > 1 && (
+        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+          {languages.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => setActiveLocale(lang.code)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {lang.code === "en" ? "English" : lang.native_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeLocale !== "en" && (() => {
+        const lang = languages.find((l) => l.code === activeLocale);
+        return (
+          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+              <button
+                onClick={() => retranslate(activeLocale)}
+                disabled={retranslating === activeLocale}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+              >
+                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                Re-translate from English
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Auto-translated by AI when this post is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Title</label>
+              <input className="input-base" value={getTranslatedField(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Excerpt</label>
+              <textarea className="input-base resize-none h-20 text-sm" value={getTranslatedField(activeLocale, "excerpt")} onChange={(e) => setTranslatedField(activeLocale, "excerpt", e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Content (HTML)</label>
+              <textarea
+                className="input-base font-mono text-xs leading-relaxed resize-none"
+                rows={20}
+                value={getTranslatedField(activeLocale, "content")}
+                onChange={(e) => setTranslatedField(activeLocale, "content", e.target.value)}
+                dir="ltr"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {activeLocale === "en" && (
+      <>
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b border-slate-200">
         {(["content", "meta", "author"] as const).map((tab) => (
@@ -333,6 +475,8 @@ export default function BlogEditorPage() {
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

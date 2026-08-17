@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bell, CheckCircle2, XCircle, Mail, Award, ClipboardList } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -37,6 +38,7 @@ function fmtDateTime(iso: string) {
 export default function NotificationsPage() {
   const { accessToken } = useAuthStore();
   const router = useRouter();
+  const t = useTranslations("Notifications");
   const { data: notifications, isLoading, mutate } = useSWR(
     accessToken ? ["/notifications", accessToken] : null,
     ([url, t]) => fetcher(url, t)
@@ -67,7 +69,7 @@ export default function NotificationsPage() {
   }
 
   async function handleClearAll() {
-    if (!confirm("Clear all notifications? This can't be undone.")) return;
+    if (!confirm(t("confirmClearAll"))) return;
     try {
       await api.delete("/notifications", accessToken!);
       mutate();
@@ -83,21 +85,21 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-[#f7f8fa] px-6 py-10">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-1 gap-3">
-          <h1 className="font-display font-black text-navy-900 text-2xl">Notifications</h1>
+          <h1 className="font-display font-black text-navy-900 text-2xl">{t("heading")}</h1>
           <div className="flex items-center gap-4">
             {hasUnread && (
               <button onClick={handleMarkAllRead} className="text-xs font-semibold text-navy-600 hover:underline">
-                Mark all read
+                {t("markAllRead")}
               </button>
             )}
             {list.length > 0 && (
               <button onClick={handleClearAll} className="text-xs font-semibold text-slate-400 hover:text-red-600 hover:underline">
-                Clear all
+                {t("clearAll")}
               </button>
             )}
           </div>
         </div>
-        <p className="text-slate-500 text-sm mb-8">Everything PAII and your professors have sent you.</p>
+        <p className="text-slate-500 text-sm mb-8">{t("subheading")}</p>
 
         {isLoading ? (
           <div className="space-y-3">
@@ -106,8 +108,8 @@ export default function NotificationsPage() {
         ) : list.length === 0 ? (
           <div className="card p-12 text-center">
             <Bell size={36} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-semibold text-navy-800">No notifications yet</p>
-            <p className="text-sm text-slate-400 mt-1">You'll see updates from PAII and your professors here.</p>
+            <p className="font-semibold text-navy-800">{t("emptyHeading")}</p>
+            <p className="text-sm text-slate-400 mt-1">{t("emptyBody")}</p>
           </div>
         ) : (
           <div className="space-y-2">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   ShoppingCart, Tag, CheckCircle, ArrowRight, X, Loader2,
   Shield, Lock, Zap, GraduationCap,
@@ -59,6 +60,7 @@ function AcronymBadge({ acronym }: { acronym: string }) {
 export default function CartPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { items, removeItem, clearCart, updateItemPrice, fetchCart } = useCartStore();
+  const t = useTranslations("Cart");
 
   // Sync prices from API on mount so stale localStorage prices are corrected
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function CartPage() {
       setPromoResult(result);
       if (result.valid) toast.success(result.message);
     } catch {
-      toast.error("Failed to validate promo code");
+      toast.error(t("toastPromoFailed"));
     } finally {
       setValidatingPromo(false);
     }
@@ -147,32 +149,32 @@ export default function CartPage() {
     await fetchCart();
     toast.success(
       item.type === "certification"
-        ? `Application submitted for "${item.title}" — pending admin review.`
-        : `Enrolled in "${item.title}"!`
+        ? t("toastApplicationSubmitted", { title: item.title })
+        : t("toastEnrolled", { title: item.title })
     );
     return data.enrolled ? "enrolled" : "submitted";
   }
 
   async function handleCheckout() {
-    if (!token) { toast.error("Please log in to checkout"); return; }
+    if (!token) { toast.error(t("toastLoginRequired")); return; }
     setCheckingOut(true);
     try {
       for (const item of freeItems) await doCheckoutItem(item);
       if (paidItems.length > 0)      await doCheckoutItem(paidItems[0]);
     } catch (e: any) {
-      toast.error(e.message ?? "Checkout failed");
+      toast.error(e.message ?? t("toastCheckoutFailedFallback"));
     } finally {
       setCheckingOut(false);
     }
   }
 
   async function handleCheckoutSingle(item: CartItem) {
-    if (!token) { toast.error("Please log in to checkout"); return; }
+    if (!token) { toast.error(t("toastLoginRequired")); return; }
     setCheckingOutId(item.id);
     try {
       await doCheckoutItem(item);
     } catch (e: any) {
-      toast.error(e.message ?? "Checkout failed");
+      toast.error(e.message ?? t("toastCheckoutFailedFallback"));
     } finally {
       setCheckingOutId(null);
     }
@@ -186,16 +188,16 @@ export default function CartPage() {
           <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-6">
             <ShoppingCart size={36} className="text-slate-300" />
           </div>
-          <h2 className="text-2xl font-display font-black text-navy-900 mb-2">Your cart is empty</h2>
+          <h2 className="text-2xl font-display font-black text-navy-900 mb-2">{t("emptyHeading")}</h2>
           <p className="text-slate-400 text-sm mb-8 leading-relaxed">
-            Browse certifications and courses to start building your AI career.
+            {t("emptyBody")}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/certificates" className="btn-primary w-full sm:w-auto justify-center">
-              <GraduationCap size={15} /> Browse Certifications
+              <GraduationCap size={15} /> {t("browseCertifications")}
             </Link>
             <Link href="/learn" className="btn-outline w-full sm:w-auto justify-center">
-              View Courses
+              {t("viewCourses")}
             </Link>
           </div>
         </div>
@@ -214,12 +216,12 @@ export default function CartPage() {
               <ShoppingCart size={16} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-display font-black text-navy-900 leading-none">Your Cart</h1>
-              <p className="text-xs text-slate-400 mt-0.5">{items.length} item{items.length !== 1 ? "s" : ""}</p>
+              <h1 className="text-xl font-display font-black text-navy-900 leading-none">{t("heading")}</h1>
+              <p className="text-xs text-slate-400 mt-0.5">{items.length} {items.length !== 1 ? t("itemPlural") : t("itemSingular")}</p>
             </div>
           </div>
           <Link href="/certificates" className="text-xs text-slate-400 hover:text-navy-700 transition-colors flex items-center gap-1">
-            Continue shopping
+            {t("continueShopping")}
           </Link>
         </div>
       </div>
@@ -261,7 +263,7 @@ export default function CartPage() {
                           "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide",
                           item.type === "course" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"
                         )}>
-                          {item.type === "course" ? "Course" : "Certification"}
+                          {item.type === "course" ? t("typeCourse") : t("typeCertification")}
                         </span>
                         {item.cert_acronym && (
                           <span className="text-[10px] font-semibold text-slate-400">{item.cert_acronym}</span>
@@ -273,14 +275,14 @@ export default function CartPage() {
                       )}
                       {!!item.member_discount_percentage && (
                         <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-                          <Tag size={9} /> Member price — {item.member_discount_percentage}% off ({item.member_discount_source})
+                          <Tag size={9} /> {t("memberPrice", { percentage: item.member_discount_percentage, source: item.member_discount_source ?? "" })}
                         </span>
                       )}
                     </div>
                     <button
                       onClick={() => removeItem(item.id)}
                       className="p-1.5 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                      title="Remove item"
+                      title={t("removeItemTitle")}
                     >
                       <X size={14} />
                     </button>
@@ -292,7 +294,7 @@ export default function CartPage() {
                         <span className="text-slate-400 font-semibold text-xs line-through">${item.price.toFixed(2)}</span>
                       )}
                       {effectivePrice(item) === 0
-                        ? <span className="text-emerald-600 font-bold text-sm">Free</span>
+                        ? <span className="text-emerald-600 font-bold text-sm">{t("free")}</span>
                         : `$${effectivePrice(item).toFixed(2)}`}
                     </span>
                     <button
@@ -306,7 +308,7 @@ export default function CartPage() {
                       )}
                     >
                       {checkingOutId === item.id && <Loader2 size={11} className="animate-spin" />}
-                      {effectivePrice(item) === 0 ? "Enroll Free" : "Buy Now"}
+                      {effectivePrice(item) === 0 ? t("enrollFree") : t("buyNow")}
                     </button>
                   </div>
                 </div>
@@ -318,7 +320,7 @@ export default function CartPage() {
                 onClick={clearCart}
                 className="text-xs text-slate-300 hover:text-red-400 transition-colors"
               >
-                Remove all items
+                {t("removeAllItems")}
               </button>
             </div>
           </div>
@@ -330,7 +332,7 @@ export default function CartPage() {
               {/* Promo code */}
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Tag size={12} /> Promo Code
+                  <Tag size={12} /> {t("promoCodeLabel")}
                 </p>
                 {promoResult?.valid ? (
                   <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
@@ -351,7 +353,7 @@ export default function CartPage() {
                         value={promoCode}
                         onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); if (promoResult && !promoResult.valid) setPromoResult(null); }}
                         onKeyDown={(e) => e.key === "Enter" && validatePromo()}
-                        placeholder="Enter promo code"
+                        placeholder={t("promoCodePlaceholder")}
                         className={cn("input-base text-sm flex-1 !py-2", promoResult && !promoResult.valid && "border-red-300 focus:border-red-400")}
                       />
                       <button
@@ -359,7 +361,7 @@ export default function CartPage() {
                         disabled={validatingPromo || !promoCode.trim()}
                         className="btn-outline !py-2 !px-4 !text-xs font-bold disabled:opacity-40 flex-shrink-0"
                       >
-                        {validatingPromo ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
+                        {validatingPromo ? <Loader2 size={12} className="animate-spin" /> : t("apply")}
                       </button>
                     </div>
                     {promoResult && !promoResult.valid && (
@@ -373,7 +375,7 @@ export default function CartPage() {
 
               {/* Order summary */}
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Order Summary</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">{t("orderSummary")}</p>
 
                 {/* Per-item breakdown */}
                 <div className="space-y-2 mb-4">
@@ -382,11 +384,11 @@ export default function CartPage() {
                       <span className="text-xs text-slate-500 truncate flex-1">
                         {item.title}
                         {!!item.member_discount_percentage && (
-                          <span className="text-emerald-600 font-semibold"> · member price</span>
+                          <span className="text-emerald-600 font-semibold"> · {t("memberPriceSuffix")}</span>
                         )}
                       </span>
                       <span className="text-xs font-semibold text-slate-700 flex-shrink-0">
-                        {effectivePrice(item) === 0 ? "Free" : `$${effectivePrice(item).toFixed(2)}`}
+                        {effectivePrice(item) === 0 ? t("free") : `$${effectivePrice(item).toFixed(2)}`}
                       </span>
                     </div>
                   ))}
@@ -395,17 +397,17 @@ export default function CartPage() {
                 {/* Totals */}
                 <div className="border-t border-slate-100 pt-3 space-y-2">
                   <div className="flex justify-between text-sm text-slate-500">
-                    <span>Subtotal</span>
+                    <span>{t("subtotal")}</span>
                     <span>${subtotal.toFixed(2)}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-emerald-600 font-semibold">
-                      <span>Promo discount</span>
+                      <span>{t("promoDiscount")}</span>
                       <span>−${discount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-black text-navy-900 text-xl pt-2 border-t border-slate-100">
-                    <span>Total</span>
+                    <span>{t("total")}</span>
                     <span>${total.toFixed(2)}</span>
                   </div>
                 </div>
@@ -417,15 +419,15 @@ export default function CartPage() {
                   className="mt-5 w-full flex items-center justify-center gap-2 py-4 bg-navy-900 hover:bg-navy-700 text-white rounded-2xl font-black text-sm transition-all disabled:opacity-60 shadow-sm"
                 >
                   {checkingOut ? (
-                    <><Loader2 size={15} className="animate-spin" /> Processing…</>
+                    <><Loader2 size={15} className="animate-spin" /> {t("processing")}</>
                   ) : (
-                    <>{total === 0 ? "Complete Enrollment" : "Proceed to Checkout"} <ArrowRight size={15} /></>
+                    <>{total === 0 ? t("completeEnrollment") : t("proceedToCheckout")} <ArrowRight size={15} /></>
                   )}
                 </button>
 
                 {paidItems.length > 1 && (
                   <p className="text-[11px] text-slate-400 text-center mt-3 leading-relaxed">
-                    Multiple paid items are processed one at a time. You'll complete a payment for each.
+                    {t("multipleItemsNote")}
                   </p>
                 )}
               </div>
@@ -433,9 +435,9 @@ export default function CartPage() {
               {/* Trust badges */}
               <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
                 {[
-                  { icon: Lock,   label: "Secure SSL checkout" },
-                  { icon: Shield, label: "Verified PAII credentials" },
-                  { icon: Zap,    label: "Instant access on enrollment" },
+                  { icon: Lock,   label: t("trustSsl") },
+                  { icon: Shield, label: t("trustVerified") },
+                  { icon: Zap,    label: t("trustInstant") },
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-center gap-2.5 text-xs text-slate-500">
                     <Icon size={13} className="text-emerald-500 flex-shrink-0" />

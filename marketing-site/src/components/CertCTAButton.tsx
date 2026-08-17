@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Award, ShoppingCart, Clock, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
@@ -24,6 +25,7 @@ export default function CertCTAButton({
   price: number;
   className?: string;
 }) {
+  const t = useTranslations("CertificationDetail");
   const { user, accessToken, hydrated, ssoLink } = useAuth();
   const { addItem, hasItem }            = useCart();
   const [showLogin, setShowLogin]       = useState(false);
@@ -64,7 +66,7 @@ export default function CertCTAButton({
   if (!hydrated) {
     return (
       <div className={`${base} opacity-50 pointer-events-none`}>
-        <Award size={18} /> Apply Now
+        <Award size={18} /> {t("applyNow")}
       </div>
     );
   }
@@ -73,7 +75,7 @@ export default function CertCTAButton({
     return (
       <>
         <button onClick={() => setShowLogin(true)} className={base}>
-          <Award size={18} /> Sign In to Apply
+          <Award size={18} /> {t("signInToApply")}
         </button>
         {showLogin && (
           <LoginModal onClose={() => setShowLogin(false)} />
@@ -85,7 +87,7 @@ export default function CertCTAButton({
   if (checking) {
     return (
       <div className={`${base} opacity-60 pointer-events-none`}>
-        <Loader2 size={18} className="animate-spin" /> Checking status…
+        <Loader2 size={18} className="animate-spin" /> {t("checkingStatus")}
       </div>
     );
   }
@@ -93,7 +95,7 @@ export default function CertCTAButton({
   if (appStatus === "pending_review") {
     return (
       <div className={`${base} !bg-amber-500 pointer-events-none`}>
-        <Clock size={18} /> Application Under Review
+        <Clock size={18} /> {t("applicationUnderReview")}
       </div>
     );
   }
@@ -102,13 +104,13 @@ export default function CertCTAButton({
     if (inCart) {
       return (
         <button onClick={() => { window.location.href = ssoLink("/cart"); }} className={base}>
-          <CheckCircle2 size={18} /> In Cart — View Cart
+          <CheckCircle2 size={18} /> {t("inCartViewCart")}
         </button>
       );
     }
     return (
       <button onClick={handleGetCertified} className={base}>
-        <ShoppingCart size={18} /> Get Certified
+        <ShoppingCart size={18} /> {t("getCertified")}
       </button>
     );
   }
@@ -116,7 +118,7 @@ export default function CertCTAButton({
   if (appStatus === "pending_payment") {
     return (
       <a href={applyUrl} className={base}>
-        <Award size={18} /> Complete Payment
+        <Award size={18} /> {t("completePayment")}
       </a>
     );
   }
@@ -124,7 +126,7 @@ export default function CertCTAButton({
   return (
     <a href={applyUrl} className={base}>
       <Award size={18} />
-      {appStatus === "rejected" || appStatus === "withdrawn" ? "Apply Again" : "Complete Application"}
+      {appStatus === "rejected" || appStatus === "withdrawn" ? t("applyAgain") : t("completeApplication")}
     </a>
   );
 }

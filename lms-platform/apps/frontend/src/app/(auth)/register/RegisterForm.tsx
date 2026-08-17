@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { ApiError } from "@/lib/api";
@@ -36,6 +37,7 @@ const COUNTRIES = [
 ];
 
 export default function RegisterForm({ initialRef }: { initialRef?: string }) {
+  const t = useTranslations("Register");
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [showPw, setShowPw] = useState(false);
@@ -64,7 +66,7 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
     setError("");
 
     if (form.password !== form.confirm_password) {
-      setError("Passwords do not match");
+      setError(t("passwordMismatch"));
       return;
     }
 
@@ -82,7 +84,7 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
-      else setError("Something went wrong. Please try again.");
+      else setError(t("genericError"));
     }
   }
 
@@ -92,13 +94,12 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#f0fdfa", border: "1px solid #ccfbf1" }}>
           <CheckCircle2 size={28} style={{ color: "#14b8a6" }} />
         </div>
-        <h2 className="text-xl font-display font-black mb-2" style={{ color: "#171527" }}>Account Created!</h2>
+        <h2 className="text-xl font-display font-black mb-2" style={{ color: "#171527" }}>{t("accountCreatedHeading")}</h2>
         <p className="text-sm mb-5" style={{ color: "#948e84" }}>
-          We&apos;ve sent a verification email to <strong style={{ color: "#171527" }}>{form.email}</strong>.
-          Please verify your email to access your learning portal.
+          {t.rich("accountCreatedBody", { email: () => <strong style={{ color: "#171527" }}>{form.email}</strong> })}
         </p>
         <Link href="/login" className="btn-primary !py-3 w-full justify-center">
-          Go to Login
+          {t("goToLogin")}
         </Link>
       </div>
     );
@@ -106,32 +107,32 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
 
   return (
     <div className="bg-white p-8" style={{ borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.05)" }}>
-      <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>Create Account</h1>
-      <p className="text-sm mb-6" style={{ color: "#948e84" }}>Join the PAII learning community</p>
+      <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>{t("heading")}</h1>
+      <p className="text-sm mb-6" style={{ color: "#948e84" }}>{t("subheading")}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="reg-first-name" className="block text-xs font-semibold text-slate-700 mb-1.5">First Name *</label>
+            <label htmlFor="reg-first-name" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("firstNameLabel")}</label>
             <input
               id="reg-first-name"
               type="text"
               value={form.first_name}
               onChange={(e) => update("first_name", e.target.value)}
-              placeholder="Sarah"
+              placeholder={t("firstNamePlaceholder")}
               required
               className="input-base"
             />
           </div>
           <div>
-            <label htmlFor="reg-last-name" className="block text-xs font-semibold text-slate-700 mb-1.5">Last Name *</label>
+            <label htmlFor="reg-last-name" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("lastNameLabel")}</label>
             <input
               id="reg-last-name"
               type="text"
               value={form.last_name}
               onChange={(e) => update("last_name", e.target.value)}
-              placeholder="Chen"
+              placeholder={t("lastNamePlaceholder")}
               required
               className="input-base"
             />
@@ -140,13 +141,13 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
 
         {/* Email */}
         <div>
-          <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address *</label>
+          <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("emailLabel")}</label>
           <input
             id="reg-email"
             type="email"
             value={form.email}
             onChange={(e) => update("email", e.target.value)}
-            placeholder="sarah.chen@example.com"
+            placeholder={t("emailPlaceholder")}
             required
             className="input-base"
           />
@@ -155,25 +156,25 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
         {/* Phone + Country */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="reg-phone" className="block text-xs font-semibold text-slate-700 mb-1.5">Phone</label>
+            <label htmlFor="reg-phone" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("phoneLabel")}</label>
             <input
               id="reg-phone"
               type="tel"
               value={form.phone}
               onChange={(e) => update("phone", e.target.value)}
-              placeholder="+1 416 555 0100"
+              placeholder={t("phonePlaceholder")}
               className="input-base"
             />
           </div>
           <div>
-            <label htmlFor="reg-country" className="block text-xs font-semibold text-slate-700 mb-1.5">Country</label>
+            <label htmlFor="reg-country" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("countryLabel")}</label>
             <select
               id="reg-country"
               value={form.country}
               onChange={(e) => update("country", e.target.value)}
               className="input-base"
             >
-              <option value="">Select country</option>
+              <option value="">{t("selectCountry")}</option>
               {COUNTRIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -183,7 +184,7 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
 
         {/* Date of Birth */}
         <div>
-          <label htmlFor="reg-dob" className="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth</label>
+          <label htmlFor="reg-dob" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("dobLabel")}</label>
           <input
             id="reg-dob"
             type="date"
@@ -196,14 +197,14 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
 
         {/* Password */}
         <div>
-          <label htmlFor="reg-password" className="block text-xs font-semibold text-slate-700 mb-1.5">Password *</label>
+          <label htmlFor="reg-password" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("passwordLabel")}</label>
           <div className="relative">
             <input
               id="reg-password"
               type={showPw ? "text" : "password"}
               value={form.password}
               onChange={(e) => update("password", e.target.value)}
-              placeholder="Min 8 chars, uppercase & number"
+              placeholder={t("passwordPlaceholder")}
               required
               minLength={8}
               className="input-base pr-11"
@@ -220,14 +221,14 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
 
         {/* Confirm Password */}
         <div>
-          <label htmlFor="reg-confirm-password" className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password *</label>
+          <label htmlFor="reg-confirm-password" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("confirmPasswordLabel")}</label>
           <div className="relative">
             <input
               id="reg-confirm-password"
               type={showConfirm ? "text" : "password"}
               value={form.confirm_password}
               onChange={(e) => update("confirm_password", e.target.value)}
-              placeholder="Repeat your password"
+              placeholder={t("confirmPasswordPlaceholder")}
               required
               minLength={8}
               className="input-base pr-11"
@@ -241,7 +242,7 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
             </button>
           </div>
           {form.confirm_password && form.password !== form.confirm_password && (
-            <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            <p className="text-xs text-red-500 mt-1">{t("passwordMismatch")}</p>
           )}
         </div>
 
@@ -256,20 +257,20 @@ export default function RegisterForm({ initialRef }: { initialRef?: string }) {
           disabled={isLoading}
           className="w-full btn-primary !py-3 !text-base justify-center disabled:opacity-60"
         >
-          {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Create Account"}
+          {isLoading ? <Loader2 size={18} className="animate-spin" /> : t("submit")}
         </button>
 
         <p className="text-xs text-slate-400 text-center">
-          By creating an account you agree to our{" "}
-          <Link href={`${process.env.NEXT_PUBLIC_MARKETING_URL}/terms`} className="text-navy-700 underline">Terms</Link>{" "}
-          and{" "}
-          <Link href={`${process.env.NEXT_PUBLIC_MARKETING_URL}/privacy`} className="text-navy-700 underline">Privacy Policy</Link>.
+          {t("termsPrefix")}{" "}
+          <Link href={`${process.env.NEXT_PUBLIC_MARKETING_URL}/terms`} className="text-navy-700 underline">{t("terms")}</Link>{" "}
+          {t("and")}{" "}
+          <Link href={`${process.env.NEXT_PUBLIC_MARKETING_URL}/privacy`} className="text-navy-700 underline">{t("privacyPolicy")}</Link>.
         </p>
       </form>
 
       <div className="mt-5 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
-        Already have an account?{" "}
-        <Link href="/login" className="text-navy-700 font-semibold hover:text-navy-900">Sign in</Link>
+        {t("haveAccount")}{" "}
+        <Link href="/login" className="text-navy-700 font-semibold hover:text-navy-900">{t("signIn")}</Link>
       </div>
     </div>
   );

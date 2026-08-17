@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { PageBlocksService } from "./page-blocks.service";
@@ -15,8 +15,8 @@ export class PageBlocksController {
   @Public()
   @Get("public")
   @ApiOperation({ summary: "Get all visible page blocks for the marketing site" })
-  getPublic() {
-    return this.service.getPublic();
+  getPublic(@Query("lang") lang?: string) {
+    return this.service.getPublic(lang);
   }
 
   @Get()

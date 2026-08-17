@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { TranslationsService } from "../translations/translations.service";
+import { hasContent } from "../../common/utils/translate-json";
 
 const DEFAULT_BLOCKS = [
   {
@@ -235,12 +237,28 @@ const DEFAULT_BLOCKS = [
 
 @Injectable()
 export class PageBlocksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private translationsService: TranslationsService,
+  ) {}
 
-  async getPublic() {
+  async getPublic(lang?: string) {
     const blocks = await this.prisma.pageBlock.findMany({ orderBy: { sort_order: "asc" } });
     if (blocks.length === 0) return DEFAULT_BLOCKS.map((b) => ({ ...b, is_visible: true, updated_at: new Date() }));
-    return blocks;
+    if (!lang || lang === "en") return blocks;
+    // Shallow top-level merge: a key present in that locale's translation
+    // (authored as a whole block at a time) fully replaces that key's
+    // English value; keys not yet translated keep showing English rather
+    // than going blank.
+    return blocks.map((b) => {
+      const translated = (b.translations as any)?.[lang];
+      return {
+        ...b,
+        content: translated && hasContent(translated)
+          ? { ...(b.content as object), ...translated }
+          : b.content,
+      };
+    });
   }
 
   async getAll() {
@@ -254,7 +272,7 @@ export class PageBlocksService {
 
   async create(key: string, label?: string, sort_order?: number, content?: Record<string, any>) {
     const defaults = DEFAULT_BLOCKS.find((b) => b.key === key);
-    return this.prisma.pageBlock.create({
+    const created = await this.prisma.pageBlock.create({
       data: {
         key,
         label:      label      ?? defaults?.label      ?? key,
@@ -263,6 +281,8 @@ export class PageBlocksService {
         content:    content    ?? defaults?.content    ?? {},
       },
     });
+    this.translationsService.translateToAllEnabledLocales("page_block", created);
+    return created;
   }
 
   async delete(key: string) {
@@ -270,7 +290,7 @@ export class PageBlocksService {
   }
 
   async update(key: string, dto: { is_visible?: boolean; content?: Record<string, any>; sort_order?: number; label?: string }) {
-    return this.prisma.pageBlock.upsert({
+    const updated = await this.prisma.pageBlock.upsert({
       where: { key },
       update: dto,
       create: {
@@ -281,6 +301,8 @@ export class PageBlocksService {
         sort_order: dto.sort_order ?? 99,
       },
     });
+    if (dto.content !== undefined) this.translationsService.translateToAllEnabledLocales("page_block", updated);
+    return updated;
   }
 
   async updateMany(updates: Array<{ key: string; sort_order: number; is_visible: boolean }>) {

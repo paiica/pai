@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Settings, Globe, ImageIcon, Upload, Magnet } from "lucide-react";
+import { Save, Loader2, Settings, Globe, ImageIcon, Upload, Magnet, Languages as LanguagesIcon, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -43,6 +43,196 @@ async function uploadImage(file: File, token: string, refreshTokens: () => Promi
   return url;
 }
 
+// ── Languages ─────────────────────────────────────────────────────────────────
+
+type Language = {
+  code: string; name: string; native_name: string; is_rtl: boolean; enabled: boolean;
+};
+
+function LanguagesSection() {
+  const { accessToken, refreshTokens } = useAuthStore();
+  const { data: languages, mutate: mutateLanguages } = useSWR<Language[]>(
+    accessToken ? ["/languages/all", accessToken] : null,
+    ([url, t]: [string, string]) => fetcher(url, t)
+  );
+  const { data: available, mutate: mutateAvailable } = useSWR<Language[]>(
+    accessToken ? ["/languages/available", accessToken] : null,
+    ([url, t]: [string, string]) => fetcher(url, t)
+  );
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  async function callWithRefresh<T>(fn: (token: string) => Promise<T>): Promise<T> {
+    let token = accessToken!;
+    try {
+      return await fn(token);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        const ok = await refreshTokens();
+        if (!ok) throw new Error("Session expired — please sign in again");
+        token = useAuthStore.getState().accessToken!;
+        return await fn(token);
+      }
+      throw err;
+    }
+  }
+
+  async function handleAdd(lang: Language) {
+    setAdding(lang.code);
+    setAddOpen(false);
+    try {
+      await callWithRefresh((token) => api.post<any>("/languages", { code: lang.code }, token));
+      toast.success(
+        `${lang.name} added — translating existing content in the background. This can take several minutes for large catalogs; the content fills in as each item finishes.`,
+        { duration: 6000 }
+      );
+      await Promise.all([mutateLanguages(), mutateAvailable()]);
+    } catch (err: any) {
+      toast.error(err.message ?? `Failed to add ${lang.name}`);
+    } finally {
+      setAdding(null);
+    }
+  }
+
+  async function handleToggle(lang: Language) {
+    setToggling(lang.code);
+    try {
+      await callWithRefresh((token) => api.patch<any>(`/languages/${lang.code}`, { enabled: !lang.enabled }, token));
+      await mutateLanguages();
+    } catch (err: any) {
+      toast.error(err.message ?? `Failed to update ${lang.name}`);
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  // Swaps a language with its neighbor and sends the whole resulting order —
+  // this is what drives display order everywhere: the public /languages
+  // endpoint returns languages sort_order-ascending, and both the
+  // marketing-site and student-portal language switchers render in that
+  // same order (filtered down to whichever ones are enabled).
+  async function handleMove(index: number, direction: -1 | 1) {
+    if (!languages) return;
+    const target = index + direction;
+    if (target < 0 || target >= languages.length) return;
+    const reordered = [...languages];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    setReordering(true);
+    try {
+      await mutateLanguages(reordered, false);
+      await callWithRefresh((token) => api.patch<any>("/languages/reorder", { codes: reordered.map((l) => l.code) }, token));
+      await mutateLanguages();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to reorder languages");
+      await mutateLanguages();
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <LanguagesIcon size={16} className="text-navy-600" />
+        <h2 className="font-semibold text-navy-900">Languages</h2>
+      </div>
+      <p className="text-xs text-slate-400 mb-5">
+        Pages, courses, certifications, navigation, and footer content are automatically translated by AI into every language enabled here — both existing content when a language is first added, and new/edited content going forward. Use the arrows to set the order languages appear in the site's language switcher.
+      </p>
+
+      <div className="space-y-2 mb-4">
+        {(languages ?? []).map((lang, index) => (
+          <div key={lang.code} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/60">
+            <div className="flex flex-col -my-1">
+              <button
+                type="button"
+                onClick={() => handleMove(index, -1)}
+                disabled={reordering || index === 0}
+                aria-label={`Move ${lang.name} up`}
+                className="text-slate-400 hover:text-navy-700 disabled:opacity-25 disabled:hover:text-slate-400 transition-colors"
+              >
+                <ChevronUp size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMove(index, 1)}
+                disabled={reordering || index === languages!.length - 1}
+                aria-label={`Move ${lang.name} down`}
+                className="text-slate-400 hover:text-navy-700 disabled:opacity-25 disabled:hover:text-slate-400 transition-colors"
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-semibold text-slate-800">{lang.name}</span>
+              <span className="text-xs text-slate-400 ms-2">{lang.native_name}</span>
+              {lang.is_rtl && <span className="ms-2 text-[10px] font-bold text-navy-500 bg-navy-50 px-1.5 py-0.5 rounded">RTL</span>}
+              {lang.code === "en" && <span className="ms-2 text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">SOURCE</span>}
+            </div>
+            {lang.code === "en" ? (
+              <span className="text-xs text-slate-400">Always enabled</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleToggle(lang)}
+                disabled={toggling === lang.code}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50 ${
+                  lang.enabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                {toggling === lang.code ? <Loader2 size={12} className="animate-spin" /> : lang.enabled ? "Enabled" : "Disabled"}
+              </button>
+            )}
+          </div>
+        ))}
+        {!languages && <p className="text-xs text-slate-400">Loading…</p>}
+      </div>
+
+      <div className="relative" ref={addRef}>
+        <button
+          type="button"
+          onClick={() => setAddOpen((v) => !v)}
+          disabled={!available || available.length === 0}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:border-navy-300 hover:text-navy-700 transition-colors disabled:opacity-50"
+        >
+          <Plus size={13} /> Add a language <ChevronDown size={12} className={addOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+        </button>
+        {addOpen && available && available.length > 0 && (
+          <div className="absolute start-0 top-full mt-1.5 w-64 max-h-72 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 z-10 py-1">
+            {available.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => handleAdd(lang)}
+                disabled={adding === lang.code}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-start disabled:opacity-50"
+              >
+                <span>{lang.name} <span className="text-xs text-slate-400">{lang.native_name}</span></span>
+                {adding === lang.code && <Loader2 size={12} className="animate-spin flex-shrink-0" />}
+              </button>
+            ))}
+          </div>
+        )}
+        {available && available.length === 0 && (
+          <p className="text-xs text-slate-400 mt-2">Every supported language has been added.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────────
 
 export default function SiteSettingsPage() {
@@ -52,7 +242,7 @@ export default function SiteSettingsPage() {
 
   const { data, mutate } = useSWR(
     accessToken ? ["/site-settings", accessToken] : null,
-    ([url, t]) => fetcher(url, t)
+    ([url, t]: [string, string]) => fetcher(url, t)
   );
 
   const [siteTitle,  setSiteTitle]  = useState("");
@@ -298,6 +488,10 @@ export default function SiteSettingsPage() {
             Save Settings
           </button>
         </form>
+
+        <div className="mt-6">
+          <LanguagesSection />
+        </div>
       </div>
 
     </div>

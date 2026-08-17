@@ -15,6 +15,8 @@ import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
 import { ProgramsService } from "../programs/programs.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
+import { localize, localizeMany } from "../../common/utils/localize";
+import { TranslationsService } from "../translations/translations.service";
 
 @Injectable()
 export class PrepCoursesService {
@@ -28,6 +30,7 @@ export class PrepCoursesService {
     private uploads: UploadsService,
     private aiService: AiService,
     private programs: ProgramsService,
+    private translationsService: TranslationsService,
   ) {}
 
   // ─── Auth helpers ────────────────────────────────────────────────────
@@ -1107,8 +1110,8 @@ export class PrepCoursesService {
     );
   }
 
-  async findAll() {
-    return this.prisma.$queryRawUnsafe<any[]>(`
+  async findAll(lang?: string) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
         (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
@@ -1126,12 +1129,14 @@ export class PrepCoursesService {
       WHERE c.status = 'active' AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
+    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
   }
 
-  async findFeatured() {
-    return this.prisma.$queryRawUnsafe<any[]>(`
+  async findFeatured(lang?: string) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.compare_at_price, c.level,
              c.duration_hours, c.thumbnail_url, c.is_featured,
+             c.title_ar, c.subtitle_ar, c.description_ar,
              (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
              cert.acronym AS cert_acronym, cert.title AS cert_title
       FROM lms.courses c
@@ -1139,9 +1144,10 @@ export class PrepCoursesService {
       WHERE c.status = 'active' AND c.is_featured = true AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
+    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
   }
 
-  async findBySlug(slug: string, userId?: string, role?: Role) {
+  async findBySlug(slug: string, userId?: string, role?: Role, lang?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         c.price::float AS price,
@@ -1192,7 +1198,12 @@ export class PrepCoursesService {
       const hasAccess = await this.canViewPrivateCourse(course.id, userId, role);
       if (!hasAccess) throw new NotFoundException("Course not found");
     }
-    return course;
+    const localized = localize(course, lang, ["title", "subtitle", "description"]);
+    const translatedContent = lang ? (course.translations as any)?.[lang]?.content : undefined;
+    if (translatedContent && Object.keys(translatedContent).length) {
+      localized.content = { ...(course.content ?? {}), ...translatedContent };
+    }
+    return localized;
   }
 
   // Private/unlisted courses are only viewable by an admin, someone who
@@ -1431,7 +1442,9 @@ export class PrepCoursesService {
     `, slug, title, subtitle ?? null, description ?? null,
        price, status, thumbnail_url ?? null, preview_video_url ?? null,
        level, duration_hours, pdu_value, certification_id ?? null, sort_order);
-    return rows[0];
+    const created = rows[0];
+    this.translationsService.translateToAllEnabledLocales("course", created);
+    return created;
   }
 
   async adminUpdate(id: string, dto: Record<string, any>) {
@@ -1476,7 +1489,9 @@ export class PrepCoursesService {
       `UPDATE lms.courses SET ${sets.join(', ')} WHERE id = $${p}`,
       ...vals,
     );
-    return this.adminGetOne(id);
+    const updated = await this.adminGetOne(id);
+    this.translationsService.translateToAllEnabledLocales("course", updated);
+    return updated;
   }
 
   async adminDeleteEnrollment(enrollmentId: string) {

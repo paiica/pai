@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { CheckCircle, ArrowRight, BookOpen, Award } from "lucide-react";
 import { useCartStore } from "@/store/cart.store";
 
@@ -11,6 +12,7 @@ function CheckoutSuccessContent() {
   const isCertification = searchParams.get("type") === "certification";
   const [show, setShow] = useState(false);
   const fetchCart = useCartStore((s) => s.fetchCart);
+  const t = useTranslations("CartSuccess");
 
   useEffect(() => { setTimeout(() => setShow(true), 100); }, []);
   // The webhook that fulfilled this purchase already removed the item from
@@ -28,12 +30,10 @@ function CheckoutSuccessContent() {
         </div>
 
         <h1 className="text-2xl font-display font-black text-navy-900 mb-2">
-          {isCertification ? "Payment Received!" : "Payment Successful!"}
+          {isCertification ? t("certHeading") : t("courseHeading")}
         </h1>
         <p className="text-slate-500 mb-8">
-          {isCertification
-            ? "Your payment has been received and your application is now pending admin review. You'll receive an email once it's approved — usually within 1–3 business days."
-            : "You're enrolled. Your course access is now active — start learning right away."}
+          {isCertification ? t("certBody") : t("courseBody")}
         </p>
 
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -44,16 +44,16 @@ function CheckoutSuccessContent() {
                 className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200 hover:border-navy-300 hover:shadow-sm transition-all text-center"
               >
                 <Award size={20} className="text-gold-600" />
-                <span className="text-sm font-semibold text-navy-900">My Certifications</span>
-                <span className="text-xs text-slate-400">Track your application</span>
+                <span className="text-sm font-semibold text-navy-900">{t("myCertifications")}</span>
+                <span className="text-xs text-slate-400">{t("trackApplication")}</span>
               </Link>
               <Link
                 href="/tools"
                 className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200 hover:border-navy-300 hover:shadow-sm transition-all text-center"
               >
                 <BookOpen size={20} className="text-navy-600" />
-                <span className="text-sm font-semibold text-navy-900">Browse Courses</span>
-                <span className="text-xs text-slate-400">Prepare while you wait</span>
+                <span className="text-sm font-semibold text-navy-900">{t("browseCourses")}</span>
+                <span className="text-xs text-slate-400">{t("prepareWhileYouWait")}</span>
               </Link>
             </>
           ) : (
@@ -63,16 +63,16 @@ function CheckoutSuccessContent() {
                 className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200 hover:border-navy-300 hover:shadow-sm transition-all text-center"
               >
                 <BookOpen size={20} className="text-navy-600" />
-                <span className="text-sm font-semibold text-navy-900">My Courses</span>
-                <span className="text-xs text-slate-400">Start learning</span>
+                <span className="text-sm font-semibold text-navy-900">{t("myCourses")}</span>
+                <span className="text-xs text-slate-400">{t("startLearning")}</span>
               </Link>
               <Link
                 href="/certificates"
                 className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-slate-200 hover:border-navy-300 hover:shadow-sm transition-all text-center"
               >
                 <Award size={20} className="text-gold-600" />
-                <span className="text-sm font-semibold text-navy-900">Certifications</span>
-                <span className="text-xs text-slate-400">Track progress</span>
+                <span className="text-sm font-semibold text-navy-900">{t("certifications")}</span>
+                <span className="text-xs text-slate-400">{t("trackProgress")}</span>
               </Link>
             </>
           )}
@@ -82,7 +82,7 @@ function CheckoutSuccessContent() {
           href="/tools"
           className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-navy-700 transition-colors"
         >
-          Browse more courses <ArrowRight size={13} />
+          {t("browseMoreCourses")} <ArrowRight size={13} />
         </Link>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import {
   BookOpen, Calendar, ArrowRight, CheckCircle, GraduationCap,
   ShoppingCart, Layers, ExternalLink, ChevronDown, Clock, Trophy, Play, Sparkles,
@@ -59,6 +60,7 @@ function CertBannerCard({
   onAddToCart: (course: any) => void; hasItem: (id: string) => boolean;
   resumeLessonByCourse: Map<string, string>;
 }) {
+  const t = useTranslations("MyLearning");
   const [open, setOpen] = useState(false);
   const cert = enrollment.certification;
   const certId = cert?.id;
@@ -89,7 +91,7 @@ function CertBannerCard({
     month: "short", day: "numeric", year: "numeric",
   });
 
-  const statusText  = isSuspended ? "Access paused" : isCompleted ? "Completed" : pct > 0 ? `${pct}% complete` : "Not started";
+  const statusText  = isSuspended ? t("accessPaused") : isCompleted ? t("completed") : pct > 0 ? t("pctComplete", { pct }) : t("notStarted");
   const statusClass = isSuspended
     ? "bg-amber-50 text-amber-700"
     : isCompleted
@@ -142,9 +144,10 @@ function CertBannerCard({
           <p className="font-display font-bold text-navy-900 text-[15px] leading-snug truncate mb-1">{cert?.title}</p>
           {requiredCourses.length > 0 && (
             <p className="text-[10px] text-slate-400 mb-2">
-              {requiredCourses.length} course{requiredCourses.length !== 1 ? "s" : ""}
-              {" · "}
-              {requiredCourses.reduce((s, c) => s + (c.module_count || 0), 0)} modules
+              {t("coursesModulesCount", {
+                courseCount: requiredCourses.length,
+                moduleCount: requiredCourses.reduce((s, c) => s + (c.module_count || 0), 0),
+              })}
             </p>
           )}
           <div className="flex items-center gap-2">
@@ -175,7 +178,7 @@ function CertBannerCard({
               )}
             >
               {isSuspended ? null : <Play size={11} className="fill-white" />}
-              {isSuspended ? "View Details" : isCompleted ? "Review" : pct > 0 ? "Continue" : "Start"}
+              {isSuspended ? t("viewDetails") : isCompleted ? t("review") : pct > 0 ? t("continue") : t("start")}
             </Link>
             <div className={cn(
               "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
@@ -198,15 +201,15 @@ function CertBannerCard({
           {requiredCourses.length === 0 ? (
             <div className="rounded-xl border border-slate-100 bg-slate-50/80 py-6">
               <p className="text-xs text-slate-400 text-center">
-                {certCourses.length === 0 ? "No courses linked to this certification yet." : "No required courses for this certification."}
+                {certCourses.length === 0 ? t("noCoursesLinkedYet") : t("noRequiredCourses")}
               </p>
             </div>
           ) : (
             <>
               {requiredCourses.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Required Courses</p>
-                  <p className="text-[11px] text-slate-400 mb-3">Must be completed before you can book or take the exam.</p>
+                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{t("requiredCourses")}</p>
+                  <p className="text-[11px] text-slate-400 mb-3">{t("mustBeCompleted")}</p>
                   <div className="relative">
                     {requiredCourses.map((course: any, idx: number) => {
                       const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
@@ -239,7 +242,7 @@ function CertBannerCard({
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {course.module_count > 0 && (
-                                    <span className="text-[10px] text-slate-400">{course.module_count} module{course.module_count !== 1 ? "s" : ""}</span>
+                                    <span className="text-[10px] text-slate-400">{t("moduleCount", { count: course.module_count })}</span>
                                   )}
                                   {parseFloat(course.duration_hours) > 0 && (
                                     <>
@@ -271,7 +274,7 @@ function CertBannerCard({
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
                                 >
-                                  Included — Go to Course
+                                  {t("includedGoToCourse")}
                                   <ArrowRight size={10} />
                                 </Link>
                               ) : prepEnrollment ? (
@@ -282,7 +285,7 @@ function CertBannerCard({
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
                                 >
-                                  {isDone ? "Review" : coursePct > 0 ? "Continue" : "Start"}
+                                  {isDone ? t("review") : coursePct > 0 ? t("continue") : t("start")}
                                   <ArrowRight size={10} />
                                 </Link>
                               ) : inCart ? (
@@ -291,19 +294,19 @@ function CertBannerCard({
                                   onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors"
                                 >
-                                  <ShoppingCart size={10} /> In Cart
+                                  <ShoppingCart size={10} /> {t("inCart")}
                                 </Link>
                               ) : (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); onAddToCart(course); }}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-700 text-white transition-colors"
                                 >
-                                  <ShoppingCart size={10} /> {price === 0 ? "Enroll Free" : `Buy — $${price.toFixed(0)}`}
+                                  <ShoppingCart size={10} /> {price === 0 ? t("enrollFree") : t("buyFor", { price: price.toFixed(0) })}
                                 </button>
                               )}
                             </div>
                             {course.is_free ? (
-                              <p className="text-[10px] text-emerald-600 font-medium mt-2">Free — included with your certification enrollment</p>
+                              <p className="text-[10px] text-emerald-600 font-medium mt-2">{t("freeIncluded")}</p>
                             ) : !isDone && (
                               <div className="flex items-center gap-2 mt-2">
                                 <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
@@ -332,8 +335,8 @@ function CertBannerCard({
         of it, and never counted in the course/module totals above. */}
     {recommendedCourses.length > 0 && (
       <div className="mt-4 px-1">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Recommended Courses</p>
-        <p className="text-[11px] text-slate-400 mb-3">Optional — pairs well with this certification, not required for the exam.</p>
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{t("recommendedCourses")}</p>
+        <p className="text-[11px] text-slate-400 mb-3">{t("optionalPairsWell")}</p>
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
           {recommendedCourses.map((course: any) => {
             const prepEnrollment = prepEnrollments.find((e: any) => e.course_id === course.id);
@@ -351,7 +354,7 @@ function CertBannerCard({
                       </span>
                     )}
                     <span className="text-[10px] font-black text-navy-900 ml-auto">
-                      {price === 0 ? "Free" : `$${price.toFixed(0)}`}
+                      {price === 0 ? t("free") : `$${price.toFixed(0)}`}
                     </span>
                   </div>
                 </div>
@@ -360,17 +363,17 @@ function CertBannerCard({
                     <Link href={`/learn/course/${prepEnrollment.id}`}
                       target="_blank" rel="noopener noreferrer"
                       className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                      <CheckCircle size={10} /> Enrolled
+                      <CheckCircle size={10} /> {t("enrolled")}
                     </Link>
                   ) : inCart ? (
                     <Link href="/cart"
                       className="w-full text-[11px] font-semibold py-1.5 rounded-lg flex items-center justify-center gap-1 border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors">
-                      <ShoppingCart size={10} /> In Cart
+                      <ShoppingCart size={10} /> {t("inCart")}
                     </Link>
                   ) : (
                     <button onClick={() => onAddToCart(course)}
                       className="w-full bg-navy-900 hover:bg-navy-700 text-white text-[11px] font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1">
-                      <ShoppingCart size={10} /> Add to Cart
+                      <ShoppingCart size={10} /> {t("addToCart")}
                     </button>
                   )}
                 </div>
@@ -437,6 +440,7 @@ function CatalogCourseCard({
   onAddToCart: () => void; inCart: boolean;
   memberDiscount: { percentage: number; certification: { acronym: string } | null };
 }) {
+  const t = useTranslations("MyLearning");
   const price = parseFloat(course.price) || 0;
   const pct = memberDiscount.percentage;
   const finalPrice = pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100) * 100) / 100) : price;
@@ -452,7 +456,7 @@ function CatalogCourseCard({
         {isEnrolled && (
           <div className="absolute top-3 right-3">
             <span className="bg-white/95 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-              <CheckCircle size={9} /> Enrolled
+              <CheckCircle size={9} /> {t("enrolled")}
             </span>
           </div>
         )}
@@ -485,13 +489,13 @@ function CatalogCourseCard({
         </p>
         {pct > 0 && (
           <span className="inline-flex items-center gap-1 mb-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full w-fit">
-            <Sparkles size={9} /> Member price — {pct}% off
+            <Sparkles size={9} /> {t("memberPriceOff", { pct })}
           </span>
         )}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <span className="font-black text-navy-900 text-sm flex items-center gap-1.5">
             {pct > 0 && <span className="text-slate-400 font-semibold text-xs line-through">${price.toFixed(2)}</span>}
-            {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(2)}`}
+            {finalPrice === 0 ? t("free") : `$${finalPrice.toFixed(2)}`}
           </span>
           {isEnrolled ? (
             <Link
@@ -500,7 +504,7 @@ function CatalogCourseCard({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
             >
-              Continue <ArrowRight size={11} />
+              {t("continue")} <ArrowRight size={11} />
             </Link>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -520,7 +524,7 @@ function CatalogCourseCard({
                 target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
               >
-                View <ExternalLink size={10} />
+                {t("view")} <ExternalLink size={10} />
               </a>
             </div>
           )}
@@ -533,6 +537,7 @@ function CatalogCourseCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MyCoursesPage() {
+  const t = useTranslations("MyLearning");
   const token = useAuthStore((s) => s.accessToken)!;
   const { addItem, hasItem, items } = useCartStore();
   const [tab, setTab] = useState<"active" | "completed">("active");
@@ -603,14 +608,14 @@ export default function MyCoursesPage() {
       level: course.level, cert_acronym: course.cert_acronym ?? undefined,
     });
     toast.success(price === 0
-      ? `"${course.title}" added — go to Cart to enroll free!`
-      : `"${course.title}" added to cart`
+      ? t("addedGoToCartFree", { title: course.title })
+      : t("addedToCart", { title: course.title })
     );
   }
 
   const activeSummary = [
-    active.length > 0 && `${active.length} certification${active.length !== 1 ? "s" : ""}`,
-    prepEnrollments.length > 0 && `${prepEnrollments.length} standalone course${prepEnrollments.length !== 1 ? "s" : ""}`,
+    active.length > 0 && t("certificationCount", { count: active.length }),
+    prepEnrollments.length > 0 && t("standaloneCourseCount", { count: prepEnrollments.length }),
   ].filter(Boolean).join(" · ");
 
   return (
@@ -620,9 +625,9 @@ export default function MyCoursesPage() {
         {/* ── Header ── */}
         <div className="flex items-start justify-between mb-10">
           <div>
-            <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">My Learning</h1>
+            <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">{t("myLearning")}</h1>
             <p className="text-sm text-slate-400 mt-1">
-              {activeSummary || "Start your certification journey below"}
+              {activeSummary || t("startJourneyBelow")}
             </p>
           </div>
           {items.length > 0 && (
@@ -630,7 +635,7 @@ export default function MyCoursesPage() {
               href="/cart"
               className="inline-flex items-center gap-2 bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-navy-700 transition-colors shadow-sm"
             >
-              <ShoppingCart size={13} /> Cart ({items.length})
+              <ShoppingCart size={13} /> {t("cartCount", { count: items.length })}
             </Link>
           )}
         </div>
@@ -639,13 +644,13 @@ export default function MyCoursesPage() {
         {(loadingPrep || prepEnrollments.length > 0) && (
           <section className="mb-10">
             <div className="flex items-center justify-between mb-4">
-              <SectionLabel>Standalone Courses</SectionLabel>
+              <SectionLabel>{t("standaloneCourses")}</SectionLabel>
               {!loadingPrep && prepEnrollments.length > 0 && (
                 <Link
                   href="/learn/my-courses"
                   className="inline-flex items-center gap-1 text-xs font-semibold text-navy-700 hover:text-navy-900 transition-colors"
                 >
-                  View all ({prepEnrollments.length}) <ArrowRight size={11} />
+                  {t("viewAllCount", { count: prepEnrollments.length })} <ArrowRight size={11} />
                 </Link>
               )}
             </div>
@@ -666,7 +671,7 @@ export default function MyCoursesPage() {
         {/* ── Certification Programs ── */}
         <section className="mb-12">
           <div className="flex items-center justify-between mb-4">
-            <SectionLabel>Certification Programs</SectionLabel>
+            <SectionLabel>{t("certificationPrograms")}</SectionLabel>
             <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
               {(["active", "completed"] as const).map((key) => {
                 const count = key === "active" ? active.length : completed.length;
@@ -681,7 +686,7 @@ export default function MyCoursesPage() {
                         : "text-slate-400 hover:text-slate-700"
                     )}
                   >
-                    {key}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                    {key === "active" ? t("tabActive") : t("tabCompleted")}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
                   </button>
                 );
               })}
@@ -706,12 +711,12 @@ export default function MyCoursesPage() {
             <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
               <Trophy size={32} className="mx-auto mb-3 text-slate-300" />
               <p className="font-semibold text-slate-500 text-sm mb-1">
-                {tab === "active" ? "No active programs" : "No completed certifications yet"}
+                {tab === "active" ? t("noActivePrograms") : t("noCompletedCertifications")}
               </p>
               <p className="text-xs text-slate-400">
                 {tab === "active"
-                  ? "Enroll in a certification program to get started"
-                  : "Complete an active program to see it here"}
+                  ? t("enrollToGetStarted")
+                  : t("completeToSeeHere")}
               </p>
             </div>
           ) : (
@@ -734,8 +739,8 @@ export default function MyCoursesPage() {
         {/* ── Browse Courses ── */}
         <section>
           <div className="mb-5">
-            <SectionLabel>Browse Courses</SectionLabel>
-            <p className="text-xs text-slate-400 -mt-2">Standalone prep courses available for individual enrollment</p>
+            <SectionLabel>{t("browseCourses")}</SectionLabel>
+            <p className="text-xs text-slate-400 -mt-2">{t("standalonePrepCourses")}</p>
           </div>
 
           {certFilters.length > 0 && (
@@ -749,7 +754,7 @@ export default function MyCoursesPage() {
                     : "bg-white text-slate-600 border-slate-200 hover:border-navy-300 hover:text-navy-700"
                 )}
               >
-                All
+                {t("all")}
               </button>
               {certFilters.map((cf) => (
                 <button
@@ -777,7 +782,7 @@ export default function MyCoursesPage() {
             <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
               <BookOpen size={28} className="mx-auto mb-3 text-slate-300" />
               <p className="text-slate-500 font-semibold text-sm">
-                {catalog.length === 0 ? "No courses available yet" : "No courses match this filter"}
+                {catalog.length === 0 ? t("noCoursesAvailable") : t("noCoursesMatchFilter")}
               </p>
             </div>
           ) : (

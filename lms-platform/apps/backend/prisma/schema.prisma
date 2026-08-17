@@ -541,6 +541,22 @@ model Certification {
   learning_outcomes    String[]
   target_audience      String[]
 
+  // Arabic marketing copy — empty means "not translated yet," public
+  // endpoints fall back to the matching English field above.
+  title_ar             String   @default("")
+  description_ar       String   @default("")
+  long_description_ar  String   @default("")
+  learning_outcomes_ar String[] @default([])
+  target_audience_ar   String[] @default([])
+  skills_ar            String[] @default([])
+  curriculum_overview_ar Json   @default("[]")
+  faqs_json_ar           Json   @default("[]")
+
+  // Per-locale translations, e.g. { "fr": { "title": "...", "description": "...",
+  // "learning_outcomes": [...], "curriculum_overview": [...], ... } }.
+  // Supersedes the *_ar fields above.
+  translations Json @default("{}")
+
   duration_weeks        Int
   total_lessons         Int     @default(0)
   total_hours           Decimal @db.Decimal(5, 1) @default(0)
@@ -856,6 +872,19 @@ model Course {
   title                String
   subtitle             String?
   description          String?
+
+  // Arabic marketing copy — empty/null means "not translated yet," public
+  // endpoints fall back to the matching English field above.
+  title_ar             String?
+  subtitle_ar          String?
+  description_ar       String?
+  content_ar           Json?
+
+  // Per-locale translations, e.g. { "fr": { "title": "...", "subtitle": "...",
+  // "description": "...", "content": {...same shape as content...} } }.
+  // Supersedes the *_ar fields above.
+  translations Json @default("{}")
+
   price                Decimal      @db.Decimal(10, 2) @default(0)
   // Crossed-out "was" price shown next to `price` for a promo (e.g. Launch
   // Pricing) — null means no promo, the card just shows `price` plain.
@@ -1705,6 +1734,25 @@ model StudentAnswer {
   @@schema("lms")
 }
 
+// Admin-enabled content languages, sourced from a curated SUPPORTED_LANGUAGES
+// list in code (see ai/supported-languages.ts) — the admin can only enable a
+// language from that list, not type an arbitrary code. "en" is seeded
+// enabled and is never disabled/removed since it's the source language every
+// translation is generated from.
+model Language {
+  code        String   @id
+  name        String
+  native_name String
+  is_rtl      Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("languages")
+  @@schema("lms")
+}
+
 model SiteSetting {
   key        String   @id
   value      String
@@ -1906,12 +1954,17 @@ model SystemConfig {
 // ─────────────────────────────────────────────
 
 model PageBlock {
-  key        String   @id
-  label      String
-  is_visible Boolean  @default(true)
-  content    Json     @default("{}")
-  sort_order Int      @default(0)
-  updated_at DateTime @updatedAt
+  key          String   @id
+  label        String
+  is_visible   Boolean  @default(true)
+  content      Json     @default("{}")
+  // Arabic content, mirroring the shape of `content` field-for-field —
+  // empty/missing keys fall back to the English `content` value.
+  content_ar   Json     @default("{}")
+  // Per-locale translations of `content`, e.g. { "fr": { ...same shape as content... } }.
+  translations Json     @default("{}")
+  sort_order   Int      @default(0)
+  updated_at   DateTime @updatedAt
 
   @@map("page_blocks")
   @@schema("lms")
@@ -1920,6 +1973,9 @@ model PageBlock {
 model NavItem {
   id           String    @id @default(uuid())
   label        String
+  label_ar     String    @default("")
+  // Per-locale translations, e.g. { "fr": { "label": "..." } }.
+  translations Json      @default("{}")
   href         String
   sort_order   Int       @default(0)
   is_visible   Boolean   @default(true)
@@ -1943,6 +1999,14 @@ model Page {
   meta_description String   @default("")
   is_published     Boolean  @default(false)
 
+  // Arabic counterparts — nullable/empty-default siblings, never restructured
+  // around a generic locale system, so existing English-only rows are
+  // completely unaffected. Empty means "not translated yet"; the public
+  // endpoint falls back to the English field in that case.
+  title_ar            String @default("")
+  content_ar          String @default("")
+  meta_description_ar String @default("")
+
   // Per-page hero banner — single image (no carousel/video/stats, those stay
   // homepage-only via PageBlock). Off by default so adding these columns
   // never changes an existing live page until an admin opts in.
@@ -1958,6 +2022,16 @@ model Page {
   hero_cta_label      String  @default("")
   hero_cta_href       String  @default("")
 
+  hero_badge_ar       String @default("")
+  hero_headline_ar    String @default("")
+  hero_subheadline_ar String @default("")
+  hero_cta_label_ar   String @default("")
+
+  // Per-locale translations, e.g. { "fr": { "title": "...", "content": "...",
+  // "meta_description": "...", "hero_badge": "...", ... } }. Supersedes the
+  // *_ar columns above.
+  translations Json @default("{}")
+
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -1971,6 +2045,14 @@ model BlogPost {
   title           String
   excerpt         String    @default("")
   content         String    @default("")
+  title_ar        String    @default("")
+  excerpt_ar      String    @default("")
+  content_ar      String    @default("")
+  // Per-locale translations, e.g. { "fr": { "title": "...", "excerpt": "...", "content": "..." } }.
+  // Supersedes the *_ar columns above (kept only so existing Arabic data
+  // isn't lost until the migration script copies it in) — new languages
+  // only ever touch this column, never require a schema change.
+  translations    Json      @default("{}")
   cover_image_url String    @default("")
   category        String    @default("")
   tags            String[]  @default([])

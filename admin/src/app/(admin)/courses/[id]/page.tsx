@@ -9,10 +9,10 @@ import {
   Loader2, Save, Plus, Trash2, X, Check,
   BookOpen, Users, Settings, ChevronLeft, ChevronRight, AlertCircle, RefreshCw,
   Globe, Archive, ArchiveRestore, UserPlus, UserMinus,
-  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3, Wand2,
+  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3, Wand2, Sparkles,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { uploadHeroImage, deleteOldUpload } from "@/components/HeroImageFrame";
 import CardImageUpload from "@/components/CardImageUpload";
@@ -45,7 +45,10 @@ type Course = {
   instructors?: { user_id: string; is_lead: boolean; first_name: string; last_name: string }[];
   content?: CourseContent;
   programs?: { id: string; title: string; slug: string; status: string; is_required: boolean; special_type: "capstone" | "internship" | null }[];
+  translations?: Record<string, Record<string, any>>;
 };
+
+type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
 
 type Tab = "overview" | "instructors" | "content" | "documents";
 
@@ -226,6 +229,7 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const token = useAuthStore((s) => s.accessToken)!;
+  const refreshTokens = useAuthStore((s) => s.refreshTokens);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [saving, setSaving] = useState(false);
   const [fillingFromBuild, setFillingFromBuild] = useState(false);
@@ -277,6 +281,107 @@ export default function CourseDetailPage() {
     const d = (allCoursesRaw as any)?.data ?? allCoursesRaw;
     return (Array.isArray(d) ? d : []).filter((c: any) => c.id !== courseId);
   })();
+
+  const { data: languagesData } = useSWR<Language[]>(
+    token ? ["/languages", token] : null,
+    ([url, t]: [string, string]) => api.get<any>(url, t).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
+
+  const [activeLocale, setActiveLocale] = useState("en");
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [translationsInitialized, setTranslationsInitialized] = useState(false);
+  const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
+  const [retranslating, setRetranslating] = useState<string | null>(null);
+  const [translationJsonErrors, setTranslationJsonErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (course.id && !translationsInitialized) {
+      setTranslationDrafts(course.translations ?? {});
+      setTranslationsInitialized(true);
+    }
+  }, [course.id, translationsInitialized]);
+
+  function getTranslatedField(locale: string, field: string): any {
+    return translationDrafts[locale]?.[field];
+  }
+
+  function setTranslatedField(locale: string, field: string, value: any) {
+    setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [field]: value } }));
+  }
+
+  function getTranslatedText(locale: string, field: string): string {
+    return getTranslatedField(locale, field) ?? "";
+  }
+
+  function getTranslatedJsonTextValue(locale: string, field: string): string {
+    const raw = translationDrafts[locale]?.[`__raw_${field}`];
+    if (raw !== undefined) return raw;
+    const val = getTranslatedField(locale, field);
+    return val !== undefined ? JSON.stringify(val, null, 2) : "";
+  }
+
+  function setTranslatedJsonText(locale: string, field: string, text: string) {
+    const key = `${locale}:${field}`;
+    try {
+      const parsed = text.trim() ? JSON.parse(text) : undefined;
+      setTranslatedField(locale, field, parsed);
+      setTranslationJsonErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    } catch {
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [`__raw_${field}`]: text } }));
+      setTranslationJsonErrors((prev) => ({ ...prev, [key]: "Invalid JSON — not saved until fixed" }));
+    }
+  }
+
+  async function saveTranslation(locale: string) {
+    setSavingTranslation(locale);
+    try {
+      let t = token;
+      const rawDraft = translationDrafts[locale] ?? {};
+      const fields = Object.fromEntries(Object.entries(rawDraft).filter(([k]) => !k.startsWith("__raw_")));
+      try {
+        await api.patch(`/translations/course/${courseId}?locale=${locale}`, { fields }, t);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          t = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/course/${courseId}?locale=${locale}`, { fields }, t);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+    } catch {
+      toast.error("Failed to save translation");
+    } finally {
+      setSavingTranslation(null);
+    }
+  }
+
+  async function retranslate(locale: string) {
+    setRetranslating(locale);
+    try {
+      let t = token;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/course/${courseId}?locale=${locale}`, {}, t);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          t = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/course/${courseId}?locale=${locale}`, {}, t);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: updated?.translations?.[locale] ?? {} }));
+      setTranslationJsonErrors({});
+      toast.success("Translated with AI — review and save");
+    } catch {
+      toast.error("Translation failed");
+    } finally {
+      setRetranslating(null);
+    }
+  }
 
   const [form, setForm] = useState({
     title: "",
@@ -702,6 +807,75 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
+      {/* Language tabs */}
+      {languages.length > 1 && (
+        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+          {languages.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => setActiveLocale(lang.code)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {lang.code === "en" ? "English" : lang.native_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeLocale !== "en" && (() => {
+        const lang = languages.find((l) => l.code === activeLocale);
+        const jsonErr = translationJsonErrors[`${activeLocale}:content`];
+        return (
+          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+              <button
+                onClick={() => retranslate(activeLocale)}
+                disabled={retranslating === activeLocale}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+              >
+                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                Re-translate from English
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Auto-translated by AI when this course is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Title</label>
+              <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subtitle</label>
+              <input className="input-base" value={getTranslatedText(activeLocale, "subtitle")} onChange={(e) => setTranslatedField(activeLocale, "subtitle", e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description</label>
+              <textarea className="input-base h-24 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Content <span className="text-slate-400 font-normal">(JSON — marketing content object)</span></label>
+              <textarea
+                className="input-base h-56 resize-y font-mono text-xs"
+                value={getTranslatedJsonTextValue(activeLocale, "content")}
+                onChange={(e) => setTranslatedJsonText(activeLocale, "content", e.target.value)}
+                dir="ltr"
+              />
+              {jsonErr && <p className="text-[11px] text-red-500 mt-1">{jsonErr}</p>}
+            </div>
+            <div className="flex justify-end">
+              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {activeLocale === "en" && (
+      <>
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
         <button
@@ -1458,6 +1632,8 @@ export default function CourseDetailPage() {
       {/* Documents Tab */}
       {activeTab === "documents" && (
         <DocumentsTab courseId={courseId} token={token} />
+      )}
+      </>
       )}
     </div>
   );

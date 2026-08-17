@@ -17,7 +17,101 @@ type Block = {
   is_visible: boolean;
   sort_order: number;
   content: Record<string, any>;
+  translations?: Record<string, Record<string, any>>;
 };
+
+type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
+
+// Each block's `content` JSON has a completely different shape per block
+// type (hero has slides, footer has columns, etc.), so unlike the other
+// translatable entities this doesn't mirror individual fields — it edits
+// the whole translated content object as JSON, and PATCHes it as-is
+// (replacing rather than merging) since the shape varies per block.
+function BlockTranslationPanel({ block, token, locale, lang, refreshTokens, onSave }: {
+  block: Block; token: string; locale: string; lang?: Language; refreshTokens: () => Promise<boolean>; onSave: () => void;
+}) {
+  const [text, setText] = useState(() => JSON.stringify(block.translations?.[locale] ?? {}, null, 2));
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [retranslating, setRetranslating] = useState(false);
+
+  async function retranslate() {
+    setRetranslating(true);
+    try {
+      let t = token;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/page_block/${block.key}?locale=${locale}`, {}, t);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          t = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/page_block/${block.key}?locale=${locale}`, {}, t);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setText(JSON.stringify(updated?.translations?.[locale] ?? {}, null, 2));
+      setJsonError(null);
+      toast.success("Translated with AI — review and save");
+    } catch { toast.error("Translation failed"); }
+    finally { setRetranslating(false); }
+  }
+
+  async function save() {
+    let parsed: any;
+    try {
+      parsed = text.trim() ? JSON.parse(text) : {};
+    } catch {
+      setJsonError("Invalid JSON — not saved until fixed");
+      return;
+    }
+    setJsonError(null);
+    setSaving(true);
+    try {
+      let t = token;
+      try {
+        await api.patch(`/translations/page_block/${block.key}?locale=${locale}`, { fields: parsed }, t);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          t = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/page_block/${block.key}?locale=${locale}`, { fields: parsed }, t);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+      onSave();
+    } catch { toast.error("Failed to save translation"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="space-y-3" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-slate-400">
+          Auto-translated by AI when this block is saved or when {lang?.name ?? "this language"} is enabled. Edit the JSON directly, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+        </p>
+        <button
+          onClick={retranslate}
+          disabled={retranslating}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50 flex-shrink-0 ml-3"
+        >
+          {retranslating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          Re-translate
+        </button>
+      </div>
+      <textarea
+        className="input-base h-72 resize-y font-mono text-xs"
+        value={text}
+        onChange={(e) => { setText(e.target.value); setJsonError(null); }}
+        dir="ltr"
+      />
+      {jsonError && <p className="text-[11px] text-red-500">{jsonError}</p>}
+      <SaveBtn saving={saving} onClick={save} label="Save Translation" />
+    </div>
+  );
+}
 
 // ─── Shared field components ────────────────────────────────────────────────
 
@@ -1752,7 +1846,39 @@ function PromoBannerEditor({ block, token, onSave }: { block: Block; token: stri
 
 // ─── Block editor router ─────────────────────────────────────────────────────
 
-function BlockEditor({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
+function BlockEditor({ block, token, onSave, languages, refreshTokens }: {
+  block: Block; token: string; onSave: () => void; languages: Language[]; refreshTokens: () => Promise<boolean>;
+}) {
+  const [activeLocale, setActiveLocale] = useState("en");
+  const lang = languages.find((l) => l.code === activeLocale);
+
+  return (
+    <div>
+      {languages.length > 1 && (
+        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+          {languages.map((l) => (
+            <button
+              key={l.code}
+              onClick={() => setActiveLocale(l.code)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activeLocale === l.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {l.code === "en" ? "English" : l.native_name}
+            </button>
+          ))}
+        </div>
+      )}
+      {activeLocale === "en" ? (
+        <BlockEditorFields block={block} token={token} onSave={onSave} />
+      ) : (
+        <BlockTranslationPanel block={block} token={token} locale={activeLocale} lang={lang} refreshTokens={refreshTokens} onSave={onSave} />
+      )}
+    </div>
+  );
+}
+
+function BlockEditorFields({ block, token, onSave }: { block: Block; token: string; onSave: () => void }) {
   if (block.key === "hero")           return <HeroEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "identity")       return <IdentityEditor block={block} token={token} onSave={onSave} />;
   if (block.key === "why_pai")        return <WhyPAIEditor block={block} token={token} onSave={onSave} />;
@@ -1822,6 +1948,12 @@ export default function PageBlocksPage() {
 
   const blocks: Block[] = data?.data ?? [];
   const sorted = [...blocks].sort((a, b) => a.sort_order - b.sort_order);
+
+  const { data: languagesData } = useSWR<Language[]>(
+    accessToken ? ["/languages", accessToken] : null,
+    ([url, token]: [string, string]) => api.get<any>(url, token).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
 
   const [expanded,    setExpanded]    = useState<string | null>(null);
   const [saving,      setSaving]      = useState(false);
@@ -2151,7 +2283,7 @@ export default function PageBlocksPage() {
 
               {expanded === block.key && (
                 <div className="px-4 pb-4 border-t border-slate-100 pt-4">
-                  <BlockEditor block={block} token={accessToken!} onSave={() => mutate()} />
+                  <BlockEditor block={block} token={accessToken!} onSave={() => mutate()} languages={languages} refreshTokens={refreshTokens} />
                 </div>
               )}
             </div>

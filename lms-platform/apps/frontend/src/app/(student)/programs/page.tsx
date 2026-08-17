@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import { ArrowRight, GraduationCap, Award, Layers } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -19,16 +20,18 @@ function statusOf(e: any): StatusKey {
   return "registered";
 }
 
-const STATUS_META: Record<StatusKey, { label: string; badge: string; dot: string }> = {
-  completed:  { label: "Completed",   badge: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  started:    { label: "In Progress", badge: "bg-amber-50 text-amber-700",     dot: "bg-amber-400" },
-  registered: { label: "Not Started", badge: "bg-slate-100 text-slate-500",    dot: "bg-slate-300" },
+const STATUS_META: Record<StatusKey, { badge: string; dot: string }> = {
+  completed:  { badge: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  started:    { badge: "bg-amber-50 text-amber-700",     dot: "bg-amber-400" },
+  registered: { badge: "bg-slate-100 text-slate-500",    dot: "bg-slate-300" },
 };
 
 function ProgramRow({ enrollment }: { enrollment: any }) {
+  const t = useTranslations("Programs");
   const pct = enrollment.progress_percentage ?? 0;
   const status = statusOf(enrollment);
   const meta = STATUS_META[status];
+  const statusLabel = status === "completed" ? t("statusCompleted") : status === "started" ? t("statusInProgress") : t("statusNotStarted");
   const program = enrollment.program;
 
   return (
@@ -43,11 +46,11 @@ function ProgramRow({ enrollment }: { enrollment: any }) {
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", meta.badge)}>
             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", meta.dot)} />
-            {meta.label}
+            {statusLabel}
           </span>
           {status === "completed" && program.certificate_title && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100 flex items-center gap-1">
-              <Award size={10} /> Certificate earned
+              <Award size={10} /> {t("certificateEarned")}
             </span>
           )}
         </div>
@@ -70,6 +73,7 @@ function ProgramRow({ enrollment }: { enrollment: any }) {
 }
 
 export default function MyProgramsPage() {
+  const t = useTranslations("Programs");
   const token = useAuthStore((s) => s.accessToken)!;
 
   const { data, isLoading } = useSWR(
@@ -83,9 +87,9 @@ export default function MyProgramsPage() {
     <div className="min-h-screen bg-[#f7f8fa]">
       <div className="max-w-4xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">My Programs</h1>
+          <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">{t("myPrograms")}</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Multi-course programs you're enrolled in — track your progress and earn a completion certificate.
+            {t("pageDescription")}
           </p>
         </div>
 
@@ -96,13 +100,13 @@ export default function MyProgramsPage() {
         ) : enrollments.length === 0 ? (
           <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
             <Layers size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-semibold text-slate-500 text-sm mb-1">No programs yet</p>
-            <p className="text-xs text-slate-400 mb-4">Browse our multi-course programs to get started.</p>
+            <p className="font-semibold text-slate-500 text-sm mb-1">{t("noProgramsYet")}</p>
+            <p className="text-xs text-slate-400 mb-4">{t("browseToGetStarted")}</p>
             <a
               href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}/programs`}
               className="inline-flex items-center gap-2 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              Browse Programs <ArrowRight size={13} />
+              {t("browsePrograms")} <ArrowRight size={13} />
             </a>
           </div>
         ) : (

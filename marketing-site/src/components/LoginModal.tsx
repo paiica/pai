@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -13,6 +14,7 @@ export default function LoginModal({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const t = useTranslations("LoginModal");
   const { login } = useAuth();
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +39,7 @@ export default function LoginModal({
         window.location.href = `${LMS}/auth/sso?${params.toString()}`;
       }
     } catch (err: any) {
-      setError(err.message || "Login failed. Please check your credentials.");
+      setError(err.message || t("loginFailed"));
     } finally {
       setLoading(false);
     }
@@ -55,15 +57,15 @@ export default function LoginModal({
       >
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("close")}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
         >
           <X size={18} />
         </button>
 
         <div className="mb-6">
-          <h2 className="font-display font-black text-xl text-ink-900 mb-1">Welcome back</h2>
-          <p className="text-sm text-slate-500">Sign in to your PAII account</p>
+          <h2 className="font-display font-black text-xl text-ink-900 mb-1">{t("welcomeBack")}</h2>
+          <p className="text-sm text-slate-500">{t("signInToAccount")}</p>
         </div>
 
         {error && (
@@ -74,7 +76,7 @@ export default function LoginModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">{t("emailLabel")}</label>
             <input
               type="email"
               value={email}
@@ -85,7 +87,7 @@ export default function LoginModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">{t("passwordLabel")}</label>
             <input
               type="password"
               value={password}
@@ -100,17 +102,17 @@ export default function LoginModal({
             disabled={loading}
             className="w-full btn-primary !py-3 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : "Sign In"}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : t("signIn")}
           </button>
         </form>
 
         <p className="text-xs text-center text-slate-500 mt-5">
-          Don't have an account?{" "}
+          {t("noAccount")}{" "}
           <a
             href={`${LMS}/register`}
             className="text-ink-900 font-semibold hover:underline"
           >
-            Sign up at the portal
+            {t("signUpAtPortal")}
           </a>
         </p>
       </div>

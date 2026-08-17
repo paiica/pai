@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { BlogPostsService } from "./blog-posts.service";
@@ -15,15 +15,15 @@ export class BlogPostsController {
   @Public()
   @Get("public")
   @ApiOperation({ summary: "Get all published posts (no auth)" })
-  getPublicAll() {
-    return this.service.getPublicAll();
+  getPublicAll(@Query("lang") lang?: string) {
+    return this.service.getPublicAll(lang);
   }
 
   @Public()
   @Get("public/:slug")
   @ApiOperation({ summary: "Get a published post by slug (no auth)" })
-  getPublicBySlug(@Param("slug") slug: string) {
-    return this.service.getPublicBySlug(slug);
+  getPublicBySlug(@Param("slug") slug: string, @Query("lang") lang?: string) {
+    return this.service.getPublicBySlug(slug, lang);
   }
 
   @Get()

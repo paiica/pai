@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
   LayoutDashboard, BookOpen, Award, GraduationCap,
@@ -15,16 +16,16 @@ import { api } from "@/lib/api";
 import { CertIcon } from "@/lib/cert-icons";
 
 const TOP_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-];
+  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+] as const;
 
 const LEARNING_ITEMS = [
-  { href: "/tools",    label: "Online Tools", icon: Wrench },
-];
+  { href: "/tools",    labelKey: "onlineTools", icon: Wrench },
+] as const;
 
 const BOTTOM_ITEMS = [
-  { href: "/student/grades", label: "Grades", icon: BarChart2 },
-];
+  { href: "/student/grades", labelKey: "grades", icon: BarChart2 },
+] as const;
 
 function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => (r as any).data ?? r);
@@ -35,6 +36,7 @@ function fetcher(url: string, token: string) {
 // until they join one.
 function ProgramsNavItem({ collapsed, token }: { collapsed: boolean; token: string | null }) {
   const pathname = usePathname();
+  const t = useTranslations("Sidebar");
 
   const { data: myPrograms } = useSWR(
     token ? ["/programs/my", token] : null,
@@ -53,25 +55,26 @@ function ProgramsNavItem({ collapsed, token }: { collapsed: boolean; token: stri
         pathname === href || pathname.startsWith(href + "/") ? "sidebar-link-active" : "",
         collapsed ? "justify-center !px-2" : "pl-5"
       )}
-      title={collapsed ? "Programs" : undefined}
+      title={collapsed ? t("programs") : undefined}
     >
       <GraduationCap size={18} className="flex-shrink-0" />
-      {!collapsed && <span>Programs</span>}
+      {!collapsed && <span>{t("programs")}</span>}
     </Link>
   );
 }
 
 const ACCOUNT_ITEMS = [
-  { tab: "basic",    href: "/profile",              label: "Profile",       icon: User },
-  { tab: "security", href: "/profile?tab=security", label: "Password",      icon: Lock },
-  { tab: "comms",    href: "/profile?tab=comms",    label: "Notifications", icon: Bell },
-  { tab: "payment",  href: "/profile?tab=payment",  label: "Payment",       icon: CreditCard },
-  { tab: "orders",   href: "/profile?tab=orders",   label: "Orders",        icon: FileText },
-];
+  { tab: "basic",    href: "/profile",              labelKey: "profile",       icon: User },
+  { tab: "security", href: "/profile?tab=security", labelKey: "password",      icon: Lock },
+  { tab: "comms",    href: "/profile?tab=comms",    labelKey: "notifications", icon: Bell },
+  { tab: "payment",  href: "/profile?tab=payment",  labelKey: "payment",       icon: CreditCard },
+  { tab: "orders",   href: "/profile?tab=orders",   labelKey: "orders",        icon: FileText },
+] as const;
 
 function AccountNavItems({ collapsed, accountOpen }: { collapsed: boolean; accountOpen: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const t = useTranslations("Sidebar");
   const onProfilePage = pathname === "/profile";
   const currentTab = onProfilePage ? (searchParams.get("tab") || "basic") : null;
 
@@ -80,7 +83,7 @@ function AccountNavItems({ collapsed, accountOpen }: { collapsed: boolean; accou
       <Link
         href="/profile"
         className={cn("sidebar-link justify-center !px-2", onProfilePage ? "sidebar-link-active" : "")}
-        title="Account Settings"
+        title={t("account")}
       >
         <User size={18} className="flex-shrink-0" />
       </Link>
@@ -89,14 +92,14 @@ function AccountNavItems({ collapsed, accountOpen }: { collapsed: boolean; accou
 
   return accountOpen ? (
     <>
-      {ACCOUNT_ITEMS.map(({ tab, href, label, icon: Icon }) => (
+      {ACCOUNT_ITEMS.map(({ tab, href, labelKey, icon: Icon }) => (
         <Link
           key={tab}
           href={href}
-          className={cn("sidebar-link pl-5", currentTab === tab ? "sidebar-link-active" : "")}
+          className={cn("sidebar-link ps-5", currentTab === tab ? "sidebar-link-active" : "")}
         >
           <Icon size={18} className="flex-shrink-0" />
-          <span>{label}</span>
+          <span>{t(labelKey)}</span>
         </Link>
       ))}
     </>
@@ -105,6 +108,7 @@ function AccountNavItems({ collapsed, accountOpen }: { collapsed: boolean; accou
 
 function CertificationsSection({ collapsed, token }: { collapsed: boolean; token: string | null }) {
   const pathname = usePathname();
+  const t = useTranslations("Sidebar");
   const [open, setOpen] = useState(true);
 
   const { data: enrollmentData } = useSWR(
@@ -150,7 +154,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
       <Link
         href="/certificates"
         className={cn("sidebar-link justify-center !px-2", onCertPage ? "sidebar-link-active" : "")}
-        title="Certifications"
+        title={t("certifications")}
       >
         <Award size={18} className="flex-shrink-0" />
       </Link>
@@ -163,7 +167,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
         onClick={() => setOpen((v) => !v)}
         className="sidebar-link w-full text-slate-500 hover:text-teal-700"
       >
-        <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">Certifications</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">{t("certifications")}</span>
         <ChevronDown
           size={12}
           className={cn("transition-transform flex-shrink-0", open ? "rotate-0" : "-rotate-90")}
@@ -174,10 +178,10 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
         <>
           <Link
             href="/certificates"
-            className={cn("sidebar-link pl-5", onCertPage ? "sidebar-link-active" : "")}
+            className={cn("sidebar-link ps-5", onCertPage ? "sidebar-link-active" : "")}
           >
             <Award size={18} className="flex-shrink-0" />
-            <span>All Certifications</span>
+            <span>{t("allCertifications")}</span>
           </Link>
 
           {activeEnrollments.map((enrollment) => {
@@ -188,7 +192,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
               <Link
                 key={enrollment.id}
                 href={href}
-                className={cn("sidebar-link pl-8 gap-2 text-slate-600 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
+                className={cn("sidebar-link ps-8 gap-2 text-slate-600 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
                 title={cert.title}
               >
                 <CertIcon iconKey={cert.badge_icon} size={14} className="flex-shrink-0 text-teal-600" />
@@ -205,12 +209,12 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
               <Link
                 key={app.id}
                 href={href}
-                className={cn("sidebar-link pl-8 gap-2 text-slate-500 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
+                className={cn("sidebar-link ps-8 gap-2 text-slate-500 hover:text-navy-800", pathname === href ? "sidebar-link-active" : "")}
                 title={cert.title}
               >
                 <CertIcon iconKey={cert.badge_icon} size={14} className="flex-shrink-0 text-amber-500" />
                 <span className="font-semibold text-xs truncate">{cert.acronym}</span>
-                <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wide ml-auto flex-shrink-0">Step 1</span>
+                <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wide ms-auto flex-shrink-0">{t("step1")}</span>
               </Link>
             );
           })}
@@ -222,6 +226,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
 
 function CoursesSection({ collapsed }: { collapsed: boolean }) {
   const pathname = usePathname();
+  const t = useTranslations("Sidebar");
   const [open, setOpen] = useState(true);
 
   const onLearn = pathname === "/learn";
@@ -233,7 +238,7 @@ function CoursesSection({ collapsed }: { collapsed: boolean }) {
       <Link
         href="/learn"
         className={cn("sidebar-link justify-center !px-2", active ? "sidebar-link-active" : "")}
-        title="Courses"
+        title={t("courses")}
       >
         <BookOpen size={18} className="flex-shrink-0" />
       </Link>
@@ -247,7 +252,7 @@ function CoursesSection({ collapsed }: { collapsed: boolean }) {
         className={cn("sidebar-link w-full", active ? "sidebar-link-active" : "")}
       >
         <BookOpen size={18} className="flex-shrink-0" />
-        <span className="flex-1 text-left">Courses</span>
+        <span className="flex-1 text-left">{t("courses")}</span>
         <ChevronDown
           size={12}
           className={cn("transition-transform flex-shrink-0", open ? "rotate-0" : "-rotate-90")}
@@ -258,15 +263,15 @@ function CoursesSection({ collapsed }: { collapsed: boolean }) {
         <>
           <Link
             href="/learn"
-            className={cn("sidebar-link pl-9", onLearn ? "sidebar-link-active" : "")}
+            className={cn("sidebar-link ps-9", onLearn ? "sidebar-link-active" : "")}
           >
-            <span>My Learning</span>
+            <span>{t("myLearning")}</span>
           </Link>
           <Link
             href="/learn/my-courses"
-            className={cn("sidebar-link pl-9", onMyCourses ? "sidebar-link-active" : "")}
+            className={cn("sidebar-link ps-9", onMyCourses ? "sidebar-link-active" : "")}
           >
-            <span>My Courses</span>
+            <span>{t("myCourses")}</span>
           </Link>
         </>
       )}
@@ -277,6 +282,7 @@ function CoursesSection({ collapsed }: { collapsed: boolean }) {
 export default function StudentSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("Sidebar");
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.accessToken);
@@ -297,7 +303,7 @@ export default function StudentSidebar() {
           stays put (and visible) while the sidebar itself is off-canvas. */}
       <button
         onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
+        aria-label={t("openMenu")}
         className="lg:hidden fixed top-3 left-3 z-40 p-2 rounded-lg bg-white border border-slate-200 shadow-lg text-slate-600"
       >
         <Menu size={20} />
@@ -330,15 +336,15 @@ export default function StudentSidebar() {
           </Link>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden lg:block ml-auto text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+            aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
+            className="hidden lg:block ms-auto text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
           >
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
           <button
             onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-            className="lg:hidden ml-auto text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+            aria-label={t("closeMenu")}
+            className="lg:hidden ms-auto text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
           >
             <X size={16} />
           </button>
@@ -347,7 +353,7 @@ export default function StudentSidebar() {
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {/* Dashboard */}
-        {TOP_ITEMS.map(({ href, label, icon: Icon }) => (
+        {TOP_ITEMS.map(({ href, labelKey, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -356,10 +362,10 @@ export default function StudentSidebar() {
               pathname === href ? "sidebar-link-active" : "",
               collapsed && "justify-center !px-2"
             )}
-            title={collapsed ? label : undefined}
+            title={collapsed ? t(labelKey) : undefined}
           >
             <Icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
 
@@ -374,7 +380,7 @@ export default function StudentSidebar() {
             onClick={() => setLearningOpen(!learningOpen)}
             className="sidebar-link w-full text-slate-500 hover:text-teal-700"
           >
-            <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">Learning</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">{t("learning")}</span>
             <ChevronDown
               size={12}
               className={cn("transition-transform flex-shrink-0", learningOpen ? "rotate-0" : "-rotate-90")}
@@ -382,7 +388,7 @@ export default function StudentSidebar() {
           </button>
         )}
         {(collapsed || learningOpen) && <CoursesSection collapsed={collapsed} />}
-        {(collapsed || learningOpen) && LEARNING_ITEMS.map(({ href, label, icon: Icon }) => (
+        {(collapsed || learningOpen) && LEARNING_ITEMS.map(({ href, labelKey, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -391,17 +397,17 @@ export default function StudentSidebar() {
               pathname === href || pathname.startsWith(href + "/") ? "sidebar-link-active" : "",
               collapsed ? "justify-center !px-2" : "pl-5"
             )}
-            title={collapsed ? label : undefined}
+            title={collapsed ? t(labelKey) : undefined}
           >
             <Icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
         {(collapsed || learningOpen) && <ProgramsNavItem collapsed={collapsed} token={token} />}
 
         {/* Other items */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
-        {BOTTOM_ITEMS.map(({ href, label, icon: Icon }) => (
+        {BOTTOM_ITEMS.map(({ href, labelKey, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -410,10 +416,10 @@ export default function StudentSidebar() {
               pathname === href ? "sidebar-link-active" : "",
               collapsed && "justify-center !px-2"
             )}
-            title={collapsed ? label : undefined}
+            title={collapsed ? t(labelKey) : undefined}
           >
             <Icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
 
@@ -426,7 +432,7 @@ export default function StudentSidebar() {
             onClick={() => setAccountOpen(!accountOpen)}
             className="sidebar-link w-full text-slate-500 hover:text-teal-700"
           >
-            <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">Account</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left">{t("account")}</span>
             <ChevronDown
               size={12}
               className={cn("transition-transform flex-shrink-0", accountOpen ? "rotate-0" : "-rotate-90")}
@@ -444,10 +450,10 @@ export default function StudentSidebar() {
           <Link
             href="/admin"
             className={cn("sidebar-link text-xs text-teal-700 hover:bg-teal-50", collapsed && "justify-center !px-2")}
-            title={collapsed ? "Admin Panel" : undefined}
+            title={collapsed ? t("adminPanel") : undefined}
           >
             <Shield size={16} className="flex-shrink-0" />
-            {!collapsed && <span>Admin Panel</span>}
+            {!collapsed && <span>{t("adminPanel")}</span>}
           </Link>
         )}
         <Link
@@ -456,7 +462,7 @@ export default function StudentSidebar() {
           className={cn("sidebar-link text-xs", collapsed && "justify-center !px-2")}
         >
           <ExternalLink size={16} className="flex-shrink-0" />
-          {!collapsed && <span>Main Website</span>}
+          {!collapsed && <span>{t("mainWebsite")}</span>}
         </Link>
 
         {!collapsed && user && (
@@ -473,7 +479,7 @@ export default function StudentSidebar() {
           className={cn("sidebar-link w-full text-red-500 hover:bg-red-50 hover:text-red-700", collapsed && "justify-center !px-2")}
         >
           <LogOut size={16} className="flex-shrink-0" />
-          {!collapsed && <span>Sign Out</span>}
+          {!collapsed && <span>{t("signOut")}</span>}
         </button>
       </div>
       </aside>

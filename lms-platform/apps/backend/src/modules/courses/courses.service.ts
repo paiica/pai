@@ -16,6 +16,13 @@ import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
+import { localize, localizeMany } from "../../common/utils/localize";
+import { TranslationsService } from "../translations/translations.service";
+
+const CERT_LOCALIZED_FIELDS = [
+  "title", "description", "long_description", "learning_outcomes", "target_audience", "skills",
+  "curriculum_overview", "faqs_json", "marketing_meta", "industry_focus", "required_education", "required_documents",
+];
 
 @Injectable()
 export class CoursesService {
@@ -26,6 +33,7 @@ export class CoursesService {
     private uploads: UploadsService,
     private aiService: AiService,
     private notificationsService: NotificationsService,
+    private translationsService: TranslationsService,
   ) {}
 
   // ─── Public ──────────────────────────────────────────────────────────
@@ -42,7 +50,7 @@ export class CoursesService {
     return rest;
   }
 
-  async findAll(status?: CertificationStatus) {
+  async findAll(status?: CertificationStatus, lang?: string) {
     const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       include: {
@@ -62,24 +70,26 @@ export class CoursesService {
       },
       orderBy: { sort_order: "asc" },
     });
-    return certs.map((c) => this.omitInternalFields(c));
+    return localizeMany(certs.map((c) => this.omitInternalFields(c)), lang, CERT_LOCALIZED_FIELDS);
   }
 
   // Lightweight list for browse/catalog UIs (e.g. the student portal's
   // Online Tools page) that only need card-level fields — no nested
   // modules/lessons/instructors, and no internal-only pricing fields.
-  async findCatalogList(status?: CertificationStatus) {
-    return this.prisma.certification.findMany({
+  async findCatalogList(status?: CertificationStatus, lang?: string) {
+    const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       select: {
         id: true, slug: true, acronym: true, title: true, level: true,
         price: true, badge_icon: true, description: true, duration_weeks: true,
+        translations: true,
       },
       orderBy: { sort_order: "asc" },
     });
+    return localizeMany(certs, lang, ["title", "description"]);
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, lang?: string) {
     const cert = await this.prisma.certification.findUnique({
       where: { slug },
       include: {
@@ -106,7 +116,7 @@ export class CoursesService {
       },
     });
     if (!cert) throw new NotFoundException("Certification not found");
-    return this.omitInternalFields(cert);
+    return localize(this.omitInternalFields(cert), lang, CERT_LOCALIZED_FIELDS);
   }
 
   // Public lesson access (gated by enrollment)
@@ -921,7 +931,7 @@ export class CoursesService {
 
   async adminCreateCertification(dto: any) {
     const slug = dto.slug || dto.acronym.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    return this.prisma.certification.create({
+    const created = await this.prisma.certification.create({
       data: {
         slug,
         acronym: dto.acronym,
@@ -941,17 +951,20 @@ export class CoursesService {
         sort_order: dto.sort_order ?? 99,
       },
     });
+    this.translationsService.translateToAllEnabledLocales("certification", created);
+    return created;
   }
 
-  async findFeaturedCertifications() {
-    return this.prisma.$queryRawUnsafe<any[]>(`
+  async findFeaturedCertifications(lang?: string) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.slug, c.acronym, c.title, c.level::text, c.status::text,
              c.badge_icon, c.price, c.description, c.sort_order, c.is_flagship,
-             c.marketing_meta
+             c.marketing_meta, c.translations
       FROM lms.certifications c
       WHERE c.status IN ('active', 'coming_soon') AND c.is_featured = true
       ORDER BY c.sort_order ASC
     `);
+    return localizeMany(rows, lang, ["title", "description"]);
   }
 
   // Persists the exact display order for the homepage's Featured
@@ -985,6 +998,7 @@ export class CoursesService {
           JSON.stringify({ link_grace_minutes: Number(link_grace_minutes) }), certId,
         );
       }
+      this.translationsService.translateToAllEnabledLocales("certification", updated);
       return updated;
     } catch (e: any) {
       throw new InternalServerErrorException(e?.message ?? "Unknown error updating certification");

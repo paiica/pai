@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Loader2, CheckCircle2, ChevronRight, Award,
   User, Briefcase, GraduationCap, FileText, AlertCircle, Eye, EyeOff, ShoppingCart, AlertTriangle,
@@ -24,8 +25,6 @@ type Cert = {
   min_training_hours?: number | null;
   required_documents?: string[];
 };
-
-type StepDef = { id: number; label: string; icon: React.ElementType };
 
 type EducationEntry = {
   id: string;
@@ -52,22 +51,38 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
-const STEPS: StepDef[] = [
-  { id: 1, label: "Personal",     icon: User },
-  { id: 2, label: "Professional", icon: Briefcase },
-  { id: 3, label: "Education",    icon: GraduationCap },
-  { id: 4, label: "Review",       icon: FileText },
-];
+const STEPS: { id: number }[] = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+
+const STEP_ICONS: Record<number, React.ElementType> = {
+  1: User,
+  2: Briefcase,
+  3: GraduationCap,
+  4: FileText,
+};
+
+const STEP_LABEL_KEYS: Record<number, string> = {
+  1: "stepPersonal",
+  2: "stepProfessional",
+  3: "stepEducation",
+  4: "stepReview",
+};
 
 const COUNTRIES = [
   "Canada", "United States", "United Kingdom", "Australia", "India",
   "Germany", "France", "UAE", "Saudi Arabia", "Singapore", "Other",
 ];
 
+// Values kept in English — submitted to the backend as-is; translated at display time via HOW_HEARD_KEYS.
 const HOW_HEARD_OPTIONS = [
   "Google / Search Engine", "LinkedIn", "Colleague or Friend",
   "Social Media", "Conference or Event", "Email Newsletter",
   "Marketing Site", "Other",
+];
+
+const HOW_HEARD_KEYS = [
+  "howHeardGoogle", "howHeardLinkedin", "howHeardColleague",
+  "howHeardSocial", "howHeardConference", "howHeardEmail",
+  "howHeardMarketingSite", "howHeardOther",
 ];
 
 function Field({ label, hint, required, children }: {
@@ -84,24 +99,37 @@ function Field({ label, hint, required, children }: {
   );
 }
 
-function getEligibilityFailures(cert: Cert, yearsExp: string, trainingHours: string): string[] {
+function getEligibilityFailures(
+  cert: Cert,
+  yearsExp: string,
+  trainingHours: string,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string[] {
   const failures: string[] = [];
   if (cert.min_years_experience != null) {
     const exp = yearsExp ? parseInt(yearsExp) : 0;
     if (exp < cert.min_years_experience) {
-      failures.push(`at least ${cert.min_years_experience} year${cert.min_years_experience !== 1 ? "s" : ""} of professional experience (you entered: ${exp || 0})`);
+      failures.push(
+        t("yearsExperienceFailure", {
+          count: cert.min_years_experience,
+          years: cert.min_years_experience !== 1 ? t("yearOther") : t("yearOne"),
+          entered: exp || 0,
+        })
+      );
     }
   }
   if (cert.min_training_hours != null) {
     const hrs = trainingHours ? parseInt(trainingHours) : 0;
     if (hrs < cert.min_training_hours) {
-      failures.push(`at least ${cert.min_training_hours} training hours (you entered: ${hrs || 0})`);
+      failures.push(t("trainingHoursFailure", { count: cert.min_training_hours, entered: hrs || 0 }));
     }
   }
   return failures;
 }
 
 export default function ApplyPage() {
+  const t = useTranslations("Apply");
+  const locale = useLocale();
   const { slug } = useParams<{ slug: string }>();
   const router   = useRouter();
   const { user, accessToken, _hasHydrated, fetchMe } = useAuthStore();
@@ -252,7 +280,7 @@ export default function ApplyPage() {
   const isLoggedIn  = !!accessToken && _hasHydrated;
   const displayName = user ? `${user.profile?.first_name ?? ""} ${user.profile?.last_name ?? ""}`.trim() : "";
 
-  const eligibilityFailures = cert ? getEligibilityFailures(cert, yearsExp, trainingHours) : [];
+  const eligibilityFailures = cert ? getEligibilityFailures(cert, yearsExp, trainingHours, t) : [];
   const hasRequirements = cert && (cert.min_years_experience != null || cert.min_training_hours != null);
   const isEligible = eligibilityFailures.length === 0;
 
@@ -268,7 +296,7 @@ export default function ApplyPage() {
           price:        Number(cert!.price),
           cert_acronym: cert!.acronym,
         });
-        toast.success("Added to cart!");
+        toast.success(t("addedToCart"));
         router.push("/cart");
         return;
       }
@@ -286,7 +314,7 @@ export default function ApplyPage() {
           });
         } catch (err: any) {
           if (err instanceof ApiError && err.status === 409) {
-            toast.error("An account with this email already exists. Please log in first.");
+            toast.error(t("accountExistsError"));
             setSubmitting(false);
             return;
           }
@@ -327,11 +355,11 @@ export default function ApplyPage() {
       setSubmitted(true);
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
-        toast.error("You already have an application for this certification.");
+        toast.error(t("duplicateApplicationError"));
       } else if (err instanceof ApiError && err.status === 400 && err.message?.includes("not eligible")) {
         toast.error(err.message);
       } else {
-        toast.error(err.message ?? "Failed to submit. Please try again.");
+        toast.error(err.message ?? t("submitFailedError"));
       }
     } finally {
       setSubmitting(false);
@@ -352,10 +380,10 @@ export default function ApplyPage() {
     return (
       <div className="max-w-md mx-auto py-20 text-center">
         <AlertCircle size={40} className="text-red-300 mx-auto mb-4" />
-        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Certification Not Found</h2>
-        <p className="text-slate-500 text-sm mb-6">This certification may have been removed or the URL is incorrect.</p>
+        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">{t("certNotFoundHeading")}</h2>
+        <p className="text-slate-500 text-sm mb-6">{t("certNotFoundBody")}</p>
         <a href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
-          ← Browse Certifications
+          {t("browseCertifications")}
         </a>
       </div>
     );
@@ -365,10 +393,12 @@ export default function ApplyPage() {
     return (
       <div className="max-w-md mx-auto py-20 text-center">
         <AlertCircle size={40} className="text-amber-300 mx-auto mb-4" />
-        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Not Yet Available</h2>
-        <p className="text-slate-500 text-sm mb-6">The <strong>{cert.acronym}</strong> certification is not currently accepting applications.</p>
+        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">{t("notAvailableHeading")}</h2>
+        <p className="text-slate-500 text-sm mb-6">
+          {t.rich("notAvailableBody", { acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
+        </p>
         <a href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
-          ← Browse Certifications
+          {t("browseCertifications")}
         </a>
       </div>
     );
@@ -397,10 +427,9 @@ export default function ApplyPage() {
         <div className="w-14 h-14 rounded-2xl bg-navy-50 flex items-center justify-center mx-auto mb-3">
           <CertIcon iconKey={cert.badge_icon} size={26} className="text-navy-700" />
         </div>
-        <h1 className="text-2xl font-display font-black text-navy-900 mb-2">Application Received!</h1>
+        <h1 className="text-2xl font-display font-black text-navy-900 mb-2">{t("applicationReceivedHeading")}</h1>
         <p className="text-slate-500 text-sm leading-relaxed mb-8">
-          Your application for <strong>{cert.title} ({cert.acronym})</strong> has been received.
-          Complete your payment now to secure your spot.
+          {t.rich("applicationReceivedBody", { title: cert.title, acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
         </p>
 
         <button
@@ -408,16 +437,16 @@ export default function ApplyPage() {
           className="btn-primary !py-3.5 !px-10 !text-sm inline-flex items-center gap-2 mb-4 w-full justify-center"
         >
           <ShoppingCart size={16} />
-          Proceed to Payment — ${Number(cert.price).toLocaleString()}
+          {t("proceedToPayment", { price: Number(cert.price).toLocaleString() })}
         </button>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-left space-y-3 mb-6 shadow-sm">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">What happens next</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">{t("whatHappensNext")}</p>
           {[
-            "Complete payment to submit your application for review",
-            "Our admissions team verifies your payment (1–2 business days)",
-            "Once approved, your enrollment is activated immediately",
-            "You get full access to all course materials and exam scheduling",
+            t("nextStep1"),
+            t("nextStep2"),
+            t("nextStep3"),
+            t("nextStep4"),
           ].map((s, i) => (
             <div key={i} className="flex items-start gap-3 text-sm text-slate-700">
               <div className="w-5 h-5 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
@@ -427,7 +456,7 @@ export default function ApplyPage() {
         </div>
 
         <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-          I&apos;ll pay later — go to Dashboard
+          {t("payLater")}
         </Link>
       </div>
     );
@@ -441,12 +470,12 @@ export default function ApplyPage() {
         <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
           <Award size={32} className="text-emerald-600" />
         </div>
-        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Certificate Already Earned</h2>
+        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">{t("certificateEarnedHeading")}</h2>
         <p className="text-slate-500 text-sm mb-6">
-          You have already been granted the <strong>{cert.acronym}</strong> certificate.
+          {t.rich("certificateEarnedBody", { acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
         </p>
         <Link href="/certificates" className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
-          View My Certificates
+          {t("viewCertificates")}
         </Link>
       </div>
     );
@@ -458,12 +487,12 @@ export default function ApplyPage() {
     return (
       <div className="max-w-md mx-auto py-20 text-center">
         <AlertCircle size={40} className="text-teal-400 mx-auto mb-4" />
-        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Already Enrolled</h2>
+        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">{t("alreadyEnrolledHeading")}</h2>
         <p className="text-slate-500 text-sm mb-6">
-          You are currently enrolled in <strong>{cert.acronym}</strong>.
+          {t.rich("alreadyEnrolledBody", { acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
         </p>
         <Link href={`/certificates/${cert.id}`} className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
-          Go to My Program
+          {t("goToProgram")}
         </Link>
       </div>
     );
@@ -495,19 +524,19 @@ export default function ApplyPage() {
           <div className="w-14 h-14 rounded-2xl bg-navy-50 flex items-center justify-center mx-auto mb-3">
           <CertIcon iconKey={cert.badge_icon} size={26} className="text-navy-700" />
         </div>
-          <h1 className="text-2xl font-display font-black text-navy-900 mb-2">Application Received!</h1>
+          <h1 className="text-2xl font-display font-black text-navy-900 mb-2">{t("applicationPendingPaymentHeading")}</h1>
           <p className="text-slate-500 text-sm leading-relaxed mb-8">
-            Your application for <strong>{cert.title} ({cert.acronym})</strong> is awaiting payment.
+            {t.rich("applicationPendingPaymentBody", { title: cert.title, acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
           </p>
           <button
             onClick={handleProceedToPaymentFromGuard}
             className="btn-primary !py-3.5 !px-10 !text-sm inline-flex items-center gap-2 mb-4 w-full justify-center"
           >
             <ShoppingCart size={16} />
-            Proceed to Payment — ${Number(cert.price).toLocaleString()}
+            {t("proceedToPayment", { price: Number(cert.price).toLocaleString() })}
           </button>
           <Link href={`/certificates/${cert.id}`} className="text-sm text-slate-400 hover:text-slate-600 transition-colors block">
-            Track My Application
+            {t("trackApplication")}
           </Link>
         </div>
       );
@@ -516,17 +545,17 @@ export default function ApplyPage() {
     return (
       <div className="max-w-md mx-auto py-20 text-center">
         <AlertCircle size={40} className="text-amber-400 mx-auto mb-4" />
-        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">Application In Progress</h2>
+        <h2 className="text-lg font-display font-bold text-navy-900 mb-2">{t("applicationInProgressHeading")}</h2>
         <p className="text-slate-500 text-sm mb-1">
-          You have an active application for <strong>{cert.acronym}</strong>.
+          {t.rich("applicationInProgressBody", { acronym: cert.acronym, b: (chunks) => <strong>{chunks}</strong> })}
         </p>
         <p className="text-xs text-slate-400 mb-6">
-          Status: <span className="font-semibold text-slate-600">
-            {existingApp.status === "payment_submitted" ? "Payment Processing" : "Under Review"}
+          {t("statusLabel")} <span className="font-semibold text-slate-600">
+            {existingApp.status === "payment_submitted" ? t("statusPaymentProcessing") : t("statusUnderReview")}
           </span>
         </p>
         <Link href={`/certificates/${cert.id}`} className="btn-primary !py-2.5 !px-6 !text-sm inline-flex">
-          Track My Application
+          {t("trackApplication")}
         </Link>
       </div>
     );
@@ -561,7 +590,7 @@ export default function ApplyPage() {
           <CertIcon iconKey={cert.badge_icon} size={26} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">Applying for</p>
+          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">{t("applyingFor")}</p>
           <h1 className="text-white font-display font-black text-lg leading-snug">{cert.title}</h1>
           <p className="text-white/60 text-sm">{cert.acronym} · ${Number(cert.price).toLocaleString()}</p>
         </div>
@@ -571,7 +600,7 @@ export default function ApplyPage() {
       {/* Step bar */}
       <div className="flex items-center mb-8">
         {STEPS.map((s, i) => {
-          const Icon    = s.icon;
+          const Icon    = STEP_ICONS[s.id];
           const done    = step > s.id;
           const current = step === s.id;
           return (
@@ -587,7 +616,7 @@ export default function ApplyPage() {
                 </div>
                 <span className={`text-[10px] font-semibold whitespace-nowrap ${
                   current ? "text-navy-900" : done ? "text-emerald-600" : "text-slate-400"
-                }`}>{s.label}</span>
+                }`}>{t(STEP_LABEL_KEYS[s.id] as any)}</span>
               </div>
               {i < STEPS.length - 1 && (
                 <div className={`flex-1 h-0.5 mb-4 mx-2 ${step > s.id ? "bg-emerald-300" : "bg-slate-100"}`} />
@@ -604,40 +633,40 @@ export default function ApplyPage() {
         {step === 1 && (
           <>
             <div>
-              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Personal Information</h2>
+              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">{t("personalInfoHeading")}</h2>
               <p className="text-slate-400 text-xs">
-                {isLoggedIn ? "Some fields are pre-filled from your account." : "Create your PAII account to track your application."}
+                {isLoggedIn ? t("personalInfoPrefilled") : t("personalInfoCreateAccount")}
               </p>
             </div>
 
             {isLoggedIn ? (
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Full Name">
+                <Field label={t("fullNameLabel")}>
                   <input className="input-base bg-slate-50 cursor-not-allowed" value={displayName || "—"} readOnly />
                 </Field>
-                <Field label="Email Address">
+                <Field label={t("emailLabel")}>
                   <input className="input-base bg-slate-50 cursor-not-allowed" value={user?.email ?? ""} readOnly />
                 </Field>
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="First Name" required>
-                    <input className="input-base" placeholder="Jane" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                  <Field label={t("firstNameLabel")} required>
+                    <input className="input-base" placeholder={t("firstNamePlaceholder")} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </Field>
-                  <Field label="Last Name" required>
-                    <input className="input-base" placeholder="Smith" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                  <Field label={t("lastNameLabel")} required>
+                    <input className="input-base" placeholder={t("lastNamePlaceholder")} value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </Field>
                 </div>
-                <Field label="Email Address" required>
-                  <input className="input-base" type="email" placeholder="jane@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Field label={t("emailLabel")} required>
+                  <input className="input-base" type="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} />
                 </Field>
-                <Field label="Password" required hint="Minimum 8 characters — this will be your account password.">
+                <Field label={t("passwordLabel")} required hint={t("passwordHint")}>
                   <div className="relative">
                     <input
                       className="input-base pr-10"
                       type={showPw ? "text" : "password"}
-                      placeholder="Create a password"
+                      placeholder={t("passwordPlaceholder")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -651,35 +680,35 @@ export default function ApplyPage() {
                   </div>
                 </Field>
                 <p className="text-[11px] text-slate-400">
-                  Already have an account?{" "}
+                  {t("haveAccount")}{" "}
                   <Link href={`/login?redirect=/apply/${slug}`} className="text-navy-700 font-semibold hover:underline">
-                    Log in instead
+                    {t("logInInstead")}
                   </Link>
                 </p>
               </>
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Phone Number">
-                <input className="input-base" type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Field label={t("phoneLabel")}>
+                <input className="input-base" type="tel" placeholder={t("phonePlaceholder")} value={phone} onChange={(e) => setPhone(e.target.value)} />
               </Field>
-              <Field label="Date of Birth">
+              <Field label={t("dobLabel")}>
                 <input className="input-base" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Gender">
+              <Field label={t("genderLabel")}>
                 <select className="input-base" value={gender} onChange={(e) => setGender(e.target.value)}>
-                  <option value="">Prefer not to say</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="non_binary">Non-binary</option>
-                  <option value="other">Other</option>
+                  <option value="">{t("genderPreferNot")}</option>
+                  <option value="male">{t("genderMale")}</option>
+                  <option value="female">{t("genderFemale")}</option>
+                  <option value="non_binary">{t("genderNonBinary")}</option>
+                  <option value="other">{t("genderOther")}</option>
                 </select>
               </Field>
-              <Field label="Country" required>
+              <Field label={t("countryLabel")} required>
                 <select className="input-base" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  <option value="">Select country…</option>
+                  <option value="">{t("selectCountry")}</option>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
@@ -691,50 +720,50 @@ export default function ApplyPage() {
         {step === 2 && (
           <>
             <div>
-              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Professional Background</h2>
-              <p className="text-slate-400 text-xs">Helps us tailor your learning experience.</p>
+              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">{t("professionalHeading")}</h2>
+              <p className="text-slate-400 text-xs">{t("professionalSubheading")}</p>
             </div>
-            <Field label="Career Status" required>
+            <Field label={t("careerStatusLabel")} required>
               <select className="input-base" value={careerStatus} onChange={(e) => setCareerStatus(e.target.value)}>
-                <option value="">Select status…</option>
-                <option value="professional">Working Professional</option>
-                <option value="student">Student</option>
-                <option value="other">Other</option>
+                <option value="">{t("selectStatus")}</option>
+                <option value="professional">{t("careerStatusProfessional")}</option>
+                <option value="student">{t("careerStatusStudent")}</option>
+                <option value="other">{t("careerStatusOther")}</option>
               </select>
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field
-                label="Years of Experience"
-                hint={cert.min_years_experience != null ? `Minimum required: ${cert.min_years_experience} year${cert.min_years_experience !== 1 ? "s" : ""}` : undefined}
+                label={t("yearsExperienceLabel")}
+                hint={cert.min_years_experience != null ? t("yearsExperienceMinHint", { count: cert.min_years_experience, years: cert.min_years_experience !== 1 ? t("yearOther") : t("yearOne") }) : undefined}
               >
                 <input
                   className={`input-base ${cert.min_years_experience != null && yearsExp && parseInt(yearsExp) < cert.min_years_experience ? "border-red-300 focus:border-red-400" : ""}`}
-                  type="number" min="0" max="50" placeholder="e.g. 5"
+                  type="number" min="0" max="50" placeholder={t("yearsExperiencePlaceholder")}
                   value={yearsExp} onChange={(e) => setYearsExp(e.target.value)}
                 />
               </Field>
               <Field
-                label="Completed Training Hours"
-                hint={cert.min_training_hours != null ? `Minimum required: ${cert.min_training_hours} hours` : "Total hours of AI/related training completed"}
+                label={t("trainingHoursLabel")}
+                hint={cert.min_training_hours != null ? t("trainingHoursMinHint", { count: cert.min_training_hours }) : t("trainingHoursHint")}
               >
                 <input
                   className={`input-base ${cert.min_training_hours != null && trainingHours && parseInt(trainingHours) < cert.min_training_hours ? "border-red-300 focus:border-red-400" : ""}`}
-                  type="number" min="0" placeholder="e.g. 80"
+                  type="number" min="0" placeholder={t("trainingHoursPlaceholder")}
                   value={trainingHours} onChange={(e) => setTrainingHours(e.target.value)}
                 />
               </Field>
             </div>
-            <Field label="LinkedIn Profile URL">
-              <input className="input-base" placeholder="linkedin.com/in/yourname" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+            <Field label={t("linkedinLabel")}>
+              <input className="input-base" placeholder={t("linkedinPlaceholder")} value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
             </Field>
 
             {/* Career Experience entries */}
             <div className="pt-1">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Career Experience</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t("careerExperienceHeading")}</p>
 
               {experienceEntries.length === 0 && (
                 <div className="text-center py-5 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl mb-3">
-                  No experience entries yet.
+                  {t("noExperienceEntries")}
                 </div>
               )}
 
@@ -756,7 +785,7 @@ export default function ApplyPage() {
                 }])}
                 className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors mt-3"
               >
-                <Plus size={15} /> Add Experience
+                <Plus size={15} /> {t("addExperience")}
               </button>
             </div>
           </>
@@ -766,13 +795,13 @@ export default function ApplyPage() {
         {step === 3 && (
           <>
             <div>
-              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Education</h2>
-              <p className="text-slate-400 text-xs">Optional — add all your degrees and qualifications.</p>
+              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">{t("educationHeading")}</h2>
+              <p className="text-slate-400 text-xs">{t("educationSubheading")}</p>
             </div>
 
             {educationEntries.length === 0 && (
               <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
-                No education entries yet. Add your degrees and qualifications.
+                {t("noEducationEntries")}
               </div>
             )}
 
@@ -794,21 +823,21 @@ export default function ApplyPage() {
               }])}
               className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors"
             >
-              <Plus size={15} /> Add Education Entry
+              <Plus size={15} /> {t("addEducationEntry")}
             </button>
 
-            <Field label={`Why do you want the ${cert.acronym}?`} hint="Tell us what motivated you to pursue this certification.">
+            <Field label={t("motivationLabel", { acronym: cert.acronym })} hint={t("motivationHint")}>
               <textarea
                 className="input-base h-28 resize-none"
-                placeholder={`I want to earn the ${cert.acronym} because…`}
+                placeholder={t("motivationPlaceholder", { acronym: cert.acronym })}
                 value={motivation}
                 onChange={(e) => setMotivation(e.target.value)}
               />
             </Field>
-            <Field label="How did you hear about us?">
+            <Field label={t("howHeardLabel")}>
               <select className="input-base" value={howHeard} onChange={(e) => setHowHeard(e.target.value)}>
-                <option value="">Select…</option>
-                {HOW_HEARD_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                <option value="">{t("selectOption")}</option>
+                {HOW_HEARD_OPTIONS.map((o, i) => <option key={o} value={o}>{t(HOW_HEARD_KEYS[i] as any)}</option>)}
               </select>
             </Field>
 
@@ -819,24 +848,24 @@ export default function ApplyPage() {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-emerald-800">You meet the eligibility requirements</p>
-                      <p className="text-xs text-emerald-700 mt-0.5">You can proceed to submit your application.</p>
+                      <p className="text-sm font-semibold text-emerald-800">{t("eligibleHeading")}</p>
+                      <p className="text-xs text-emerald-700 mt-0.5">{t("eligibleBody")}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
                     <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-amber-800">You're below the usual minimum for this certification</p>
+                      <p className="text-sm font-semibold text-amber-800">{t("ineligibleHeading")}</p>
                       <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                        You don't currently meet the {eligibilityFailures.join(" and ")}. You can still submit your application — it will be flagged for manual review by our team, who may accept equivalent experience.
+                        {t("ineligibleBody", { failures: eligibilityFailures.join(` ${locale === "ar" ? "و" : locale === "fr" ? "et" : "and"} `) })}
                       </p>
                       <p className="text-xs text-amber-600 mt-2">
-                        Or go back to Step 2 and update your experience details, or{" "}
+                        {t("ineligibleFooterPrefix")}{" "}
                         <a href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} className="underline font-semibold">
-                          explore our prep courses
+                          {t("ineligibleFooterLink")}
                         </a>{" "}
-                        to build your qualifications first.
+                        {t("ineligibleFooterSuffix")}
                       </p>
                     </div>
                   </div>
@@ -850,9 +879,9 @@ export default function ApplyPage() {
                 <div className="flex items-start gap-3">
                   <FileText size={16} className="text-slate-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">Have these documents ready</p>
+                    <p className="text-sm font-semibold text-slate-700">{t("requiredDocsHeading")}</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      After applying, you may be asked to upload: {cert.required_documents.join(", ")}.
+                      {t("requiredDocsBody", { documents: cert.required_documents.join(", ") })}
                     </p>
                   </div>
                 </div>
@@ -865,35 +894,35 @@ export default function ApplyPage() {
         {step === 4 && (
           <>
             <div>
-              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">Review Your Application</h2>
-              <p className="text-slate-400 text-xs">Confirm your information before submitting.</p>
+              <h2 className="text-lg font-display font-bold text-navy-900 mb-0.5">{t("reviewHeading")}</h2>
+              <p className="text-slate-400 text-xs">{t("reviewSubheading")}</p>
             </div>
             <div className="space-y-4">
-              <ReviewSection title="Personal Information">
-                <ReviewRow label="Full Name" value={isLoggedIn ? (displayName || "—") : `${firstName} ${lastName}`.trim()} />
-                <ReviewRow label="Email"     value={isLoggedIn ? (user?.email ?? "") : email} />
-                <ReviewRow label="Phone"     value={phone} />
-                <ReviewRow label="Country"   value={country} />
-                <ReviewRow label="Gender"    value={gender || "Not specified"} />
+              <ReviewSection title={t("reviewPersonalInfo")}>
+                <ReviewRow label={t("reviewFullName")} value={isLoggedIn ? (displayName || "—") : `${firstName} ${lastName}`.trim()} />
+                <ReviewRow label={t("reviewEmail")}     value={isLoggedIn ? (user?.email ?? "") : email} />
+                <ReviewRow label={t("reviewPhone")}     value={phone} />
+                <ReviewRow label={t("reviewCountry")}   value={country} />
+                <ReviewRow label={t("reviewGender")}    value={gender || t("notSpecified")} />
               </ReviewSection>
 
-              <ReviewSection title="Professional Background">
-                <ReviewRow label="Career Status" value={
-                  careerStatus === "professional" ? "Working Professional"
-                  : careerStatus === "student" ? "Student"
+              <ReviewSection title={t("reviewProfessionalBackground")}>
+                <ReviewRow label={t("reviewCareerStatus")} value={
+                  careerStatus === "professional" ? t("careerStatusProfessional")
+                  : careerStatus === "student" ? t("careerStatusStudent")
                   : careerStatus || "—"
                 } />
-                <ReviewRow label="Experience"     value={yearsExp ? `${yearsExp} years` : ""} />
-                <ReviewRow label="Training Hours" value={trainingHours ? `${trainingHours} hours` : ""} />
-                <ReviewRow label="LinkedIn"       value={linkedin} />
+                <ReviewRow label={t("reviewExperience")}     value={yearsExp ? t("reviewExperienceValue", { count: yearsExp }) : ""} />
+                <ReviewRow label={t("reviewTrainingHours")} value={trainingHours ? t("reviewTrainingHoursValue", { count: trainingHours }) : ""} />
+                <ReviewRow label={t("reviewLinkedin")}       value={linkedin} />
                 {experienceEntries.length > 0 && (
                   <div className="pt-1 space-y-1">
                     {experienceEntries.map((e) => (
                       <div key={e.id} className="flex items-start gap-3 text-sm">
-                        <span className="text-slate-400 w-28 flex-shrink-0">Experience</span>
+                        <span className="text-slate-400 w-28 flex-shrink-0">{t("reviewExperience")}</span>
                         <span className="text-slate-800 font-medium">
                           {[e.title, e.company].filter(Boolean).join(" · ")}
-                          {(e.start_date || e.is_current) ? ` (${e.start_date || ""}${e.is_current ? " – Present" : e.end_date ? ` – ${e.end_date}` : ""})` : ""}
+                          {(e.start_date || e.is_current) ? ` (${e.start_date || ""}${e.is_current ? ` – ${t("presentDate")}` : e.end_date ? ` – ${e.end_date}` : ""})` : ""}
                         </span>
                       </div>
                     ))}
@@ -901,17 +930,17 @@ export default function ApplyPage() {
                 )}
               </ReviewSection>
 
-              <ReviewSection title="Education">
+              <ReviewSection title={t("reviewEducation")}>
                 {educationEntries.length === 0 ? (
-                  <p className="text-sm text-slate-400 italic">No education entries added.</p>
+                  <p className="text-sm text-slate-400 italic">{t("noEducationEntriesAdded")}</p>
                 ) : (
                   <div className="space-y-1">
                     {educationEntries.map((e) => (
                       <div key={e.id} className="flex items-start gap-3 text-sm">
-                        <span className="text-slate-400 w-28 flex-shrink-0">Degree</span>
+                        <span className="text-slate-400 w-28 flex-shrink-0">{t("reviewDegree")}</span>
                         <span className="text-slate-800 font-medium">
                           {[e.institution, e.degree, e.field_of_study].filter(Boolean).join(" · ")}
-                          {e.end_year ? ` (${e.end_year})` : e.is_current ? " (In progress)" : ""}
+                          {e.end_year ? ` (${e.end_year})` : e.is_current ? ` (${t("inProgress")})` : ""}
                         </span>
                       </div>
                     ))}
@@ -920,13 +949,13 @@ export default function ApplyPage() {
               </ReviewSection>
 
               {motivation && (
-                <ReviewSection title="Motivation">
+                <ReviewSection title={t("reviewMotivation")}>
                   <p className="text-sm text-slate-700 leading-relaxed">{motivation}</p>
                 </ReviewSection>
               )}
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
-              By submitting, you confirm the information above is accurate. Your application will be reviewed within 1–2 business days.
+              {t("confirmSubmitNotice")}
             </div>
           </>
         )}
@@ -936,11 +965,11 @@ export default function ApplyPage() {
       <div className="flex items-center justify-between mt-6">
         {step > 1 ? (
           <button onClick={() => setStep((s) => s - 1)} className="btn-outline !py-2.5 !px-5 !text-sm">
-            ← Back
+            {t("back")}
           </button>
         ) : (
           <a href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"} className="btn-outline !py-2.5 !px-5 !text-sm">
-            Cancel
+            {t("cancel")}
           </a>
         )}
 
@@ -950,7 +979,7 @@ export default function ApplyPage() {
             disabled={!canProceed()}
             className="btn-primary !py-2.5 !px-6 !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Continue <ChevronRight size={16} />
+            {t("continue")} <ChevronRight size={16} />
           </button>
         ) : (
           <button
@@ -959,8 +988,8 @@ export default function ApplyPage() {
             className="btn-primary !py-2.5 !px-6 !text-sm disabled:opacity-60"
           >
             {submitting
-              ? <><Loader2 size={15} className="animate-spin" /> Submitting…</>
-              : <><CheckCircle2 size={15} /> Submit Application</>
+              ? <><Loader2 size={15} className="animate-spin" /> {t("submitting")}</>
+              : <><CheckCircle2 size={15} /> {t("submitApplication")}</>
             }
           </button>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { X, Briefcase, GraduationCap, Calendar } from "lucide-react";
 
 type EducationEntry = {
@@ -33,6 +34,7 @@ export default function InstructorCard({
   name, avatarUrl, bio, isLead, jobTitle, company, yearsExperience,
   educationEntries, experienceEntries,
 }: InstructorCardProps) {
+  const t = useTranslations("InstructorCard");
   const [open, setOpen] = useState(false);
 
   const education = safeArray<EducationEntry>(educationEntries);
@@ -60,12 +62,12 @@ export default function InstructorCard({
           <div className="font-display font-bold text-ink-900 text-base">{name}</div>
           {isLead && (
             <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full mt-1">
-              Lead Instructor
+              {t("leadInstructor")}
             </span>
           )}
           {roleLine && <p className="text-xs text-slate-500 mt-1.5 font-medium">{roleLine}</p>}
           {bio && <p className="text-sm text-slate-500 mt-2 leading-relaxed line-clamp-2">{bio}</p>}
-          {hasMore && <span className="text-xs font-semibold text-ink-900 mt-2 inline-block underline underline-offset-2">View full profile</span>}
+          {hasMore && <span className="text-xs font-semibold text-ink-900 mt-2 inline-block underline underline-offset-2">{t("viewFullProfile")}</span>}
         </div>
       </button>
 
@@ -94,12 +96,12 @@ export default function InstructorCard({
                   <h3 className="font-display font-black text-ink-900 text-xl leading-tight">{name}</h3>
                   {isLead && (
                     <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full mt-1.5">
-                      Lead Instructor
+                      {t("leadInstructor")}
                     </span>
                   )}
                   {roleLine && <p className="text-sm text-slate-500 mt-1.5 font-medium">{roleLine}</p>}
                   {Boolean(yearsExperience) && (
-                    <p className="text-xs text-slate-400 mt-1">{yearsExperience}+ years of experience</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("yearsExperience", { count: yearsExperience! })}</p>
                   )}
                 </div>
               </div>
@@ -110,7 +112,7 @@ export default function InstructorCard({
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <Briefcase size={14} className="text-slate-400" />
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Experience</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">{t("experience")}</h4>
                   </div>
                   <div className="space-y-4">
                     {experience.map((e) => (
@@ -121,7 +123,7 @@ export default function InstructorCard({
                         </p>
                         {(e.start_date || e.end_date) && (
                           <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Calendar size={11} /> {e.start_date}{" — "}{e.is_current ? "Present" : e.end_date}
+                            <Calendar size={11} /> {e.start_date}{" — "}{e.is_current ? t("present") : e.end_date}
                           </p>
                         )}
                         {e.description && <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{e.description}</p>}
@@ -135,7 +137,7 @@ export default function InstructorCard({
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <GraduationCap size={14} className="text-slate-400" />
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Education</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">{t("education")}</h4>
                   </div>
                   <div className="space-y-3">
                     {education.map((ed) => (
@@ -146,7 +148,7 @@ export default function InstructorCard({
                         <p className="text-xs text-slate-500">{ed.institution}</p>
                         {(ed.start_year || ed.end_year) && (
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {ed.start_year}{" — "}{ed.is_current ? "Present" : ed.end_year}
+                            {ed.start_year}{" — "}{ed.is_current ? t("present") : ed.end_year}
                           </p>
                         )}
                       </div>

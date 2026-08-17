@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { localize } from "../../common/utils/localize";
+import { TranslationsService } from "../translations/translations.service";
 
 const DEFAULT_NAV: Array<{ label: string; href: string; sort_order: number; children?: Array<{ label: string; href: string; sort_order: number }> }> = [
   { label: "Certifications", href: "/certifications", sort_order: 1, children: [
@@ -17,16 +19,22 @@ const DEFAULT_NAV: Array<{ label: string; href: string; sort_order: number; chil
 
 @Injectable()
 export class NavigationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private translationsService: TranslationsService,
+  ) {}
 
-  async getPublic() {
+  async getPublic(lang?: string) {
     const items = await this.prisma.navItem.findMany({
       where: { is_visible: true, parent_id: null },
       include: { children: { where: { is_visible: true }, orderBy: { sort_order: "asc" } } },
       orderBy: { sort_order: "asc" },
     });
     if (items.length === 0) return this.defaultPublic();
-    return items;
+    return items.map((item) => ({
+      ...localize(item, lang, ["label"]),
+      children: item.children.map((c) => localize(c, lang, ["label"])),
+    }));
   }
 
   async getAll(): Promise<any[]> {
@@ -47,11 +55,15 @@ export class NavigationService {
   }
 
   async create(dto: { label: string; href: string; sort_order?: number; parent_id?: string; open_new_tab?: boolean }) {
-    return this.prisma.navItem.create({ data: dto });
+    const created = await this.prisma.navItem.create({ data: dto });
+    this.translationsService.translateToAllEnabledLocales("nav_item", created);
+    return created;
   }
 
   async update(id: string, dto: { label?: string; href?: string; sort_order?: number; is_visible?: boolean; open_new_tab?: boolean }) {
-    return this.prisma.navItem.update({ where: { id }, data: dto });
+    const updated = await this.prisma.navItem.update({ where: { id }, data: dto });
+    if (dto.label !== undefined) this.translationsService.translateToAllEnabledLocales("nav_item", updated);
+    return updated;
   }
 
   async remove(id: string) {

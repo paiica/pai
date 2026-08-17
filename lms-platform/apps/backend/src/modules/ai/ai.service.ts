@@ -5,11 +5,24 @@ import * as pdfParse from "pdf-parse";
 import * as mammoth from "mammoth";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
 
+// Groq deprecated llama-3.3-70b-versatile (confirmed gone from their /models
+// list) — gpt-oss-20b is their current general-purpose model with solid
+// JSON-mode support, a safe default until an admin picks something else.
+// (Not gpt-oss-120b: same quality tier, but 120b's daily token budget is
+// shared/smaller in practice — confirmed live, it ran out mid-session during
+// a bulk translation pass while every other model still had full quota.)
 const PROVIDER_DEFAULTS: Record<string, { baseURL?: string; model: string }> = {
   openai: { model: "gpt-4o" },
-  groq:   { baseURL: "https://api.groq.com/openai/v1",                              model: "llama-3.3-70b-versatile" },
+  groq:   { baseURL: "https://api.groq.com/openai/v1",                              model: "openai/gpt-oss-20b" },
   gemini: { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",    model: "gemini-2.0-flash" },
 };
+
+// Each Groq model has its own separate daily token budget. When the
+// configured model's quota runs out mid-task (confirmed live during a bulk
+// translation run), automatically retry with the next model here instead of
+// failing outright — ordered roughly by general-purpose capability, most
+// capable first, ending with a small Arabic-tuned model as a last resort.
+const GROQ_FALLBACK_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "allam-2-7b"];
 
 // Certification badge icons are Lucide icon keys, not emoji — keeps every
 // cert badge on the same stroke-icon visual language as the rest of the UI.
@@ -46,6 +59,34 @@ export class AiService {
 
     const client = new OpenAI({ apiKey, ...(def.baseURL ? { baseURL: def.baseURL } : {}) });
     return { client, model, provider };
+  }
+
+  // Wraps client.chat.completions.create with automatic model fallback —
+  // only for Groq, and only on a 429 (rate limit / daily quota exceeded),
+  // since that's the one failure mode where a *different* model can actually
+  // succeed where the first one didn't. Any other error (bad request,
+  // malformed prompt) fails identically on every model, so it's raised
+  // immediately rather than retried 4x for no benefit.
+  private async createChatCompletion(
+    client: OpenAI, provider: string, primaryModel: string, params: Record<string, any>,
+  ): Promise<{ res: any; modelUsed: string }> {
+    const candidates = provider === "groq"
+      ? [primaryModel, ...GROQ_FALLBACK_MODELS.filter((m) => m !== primaryModel)]
+      : [primaryModel];
+
+    let lastErr: any;
+    for (const model of candidates) {
+      try {
+        const res = await client.chat.completions.create({ ...params, model } as any);
+        return { res, modelUsed: model };
+      } catch (err: any) {
+        lastErr = err;
+        const status = err?.status ?? err?.response?.status;
+        if (status !== 429) throw err;
+        this.logger.warn(`Model ${model} rate-limited/quota exceeded, trying next fallback…`);
+      }
+    }
+    throw lastErr;
   }
 
   async getSettings() {
@@ -89,6 +130,69 @@ export class AiService {
       const msg = err?.message ?? err?.error?.message ?? "Connection failed";
       throw new BadRequestException(`${provider} error: ${msg}`);
     }
+  }
+
+  // Generic English→target-language field translator, reused by every admin
+  // content editor's "Translate" button (Pages, Blog, Nav, Footer,
+  // Certifications, Courses) and by TranslationsService's auto-translate-on-
+  // save/bulk-language-enable flows. One AI call translates a whole record's
+  // fields together (title/description/etc.) so terminology stays
+  // consistent within a record, rather than one call per field. Accepts
+  // arbitrarily nested JSON (strings, arrays, nested objects — e.g. a
+  // course's `content` marketing JSON or a certification's
+  // `curriculum_overview`) and preserves that exact shape in the response.
+  // Callers own writing the result into that entity's `translations` column
+  // — the AI output is an editable starting point, not a locked final value.
+  async translateFields(fields: Record<string, any>, targetLocale: string, languageName: string): Promise<Record<string, any>> {
+    const entries = Object.entries(fields).filter(([, v]) => this.hasTranslatableContent(v));
+    if (!entries.length) return {};
+    const payload = Object.fromEntries(entries);
+
+    const { client, model, provider } = await this.getClientAndModel();
+    const useJsonMode = provider === "openai" || provider === "groq";
+
+    const createParams: any = {
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional English-to-${languageName} translator for a professional AI-certification institute's marketing and course content. Translate into natural, formal ${languageName} suitable for a global professional audience. Preserve any HTML tags exactly as they appear in the source, only translating the text content between them. Preserve the exact JSON structure, keys, nesting, and array lengths of the input exactly — only translate string leaf values, never translate or alter keys, URLs, numbers, or booleans. Return ONLY a JSON object with the same shape, each translatable string replaced by its ${languageName} translation.`,
+        },
+        { role: "user", content: JSON.stringify(payload) },
+      ],
+      temperature: 0.3,
+      // Without an explicit ceiling, some models' JSON mode truncates mid-object
+      // on longer content and returns invalid/incomplete JSON rather than an
+      // error — confirmed live. Kept modest rather than generous: Groq's
+      // free/on-demand tier enforces a strict tokens-per-minute budget that
+      // counts requested max_tokens against it (confirmed live: 8000 TPM for
+      // gpt-oss-120b), so an overly large ceiling gets the *request* itself
+      // rejected before any content-length problem even comes up.
+      max_tokens: 4000,
+    };
+    if (useJsonMode) createParams.response_format = { type: "json_object" };
+
+    let raw = "";
+    try {
+      const { res, modelUsed } = await this.createChatCompletion(client, provider, model, createParams);
+      raw = res.choices[0]?.message?.content ?? "";
+      if (modelUsed !== model) this.logger.log(`Translation to ${targetLocale} used fallback model ${modelUsed} (${model} was rate-limited)`);
+    } catch (err: any) {
+      throw new BadRequestException(`Translation to ${targetLocale} failed: ${err?.message ?? "AI request failed"}`);
+    }
+
+    try {
+      const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/, "").trim();
+      return JSON.parse(cleaned);
+    } catch {
+      this.logger.error(`translateFields(${targetLocale}) raw response:`, raw);
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
+  private hasTranslatableContent(value: any): boolean {
+    if (Array.isArray(value)) return value.length > 0 && value.some((v) => this.hasTranslatableContent(v));
+    if (value && typeof value === "object") return Object.keys(value).length > 0 && Object.values(value).some((v) => this.hasTranslatableContent(v));
+    return typeof value === "string" ? value.trim().length > 0 : false;
   }
 
   async generateExamStructure(params: {

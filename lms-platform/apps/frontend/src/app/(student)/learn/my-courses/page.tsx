@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import { ArrowRight, BookOpen, Clock, GraduationCap, Layers } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -26,23 +27,20 @@ function statusOf(e: any): StatusKey {
   return "registered";
 }
 
-const STATUS_META: Record<StatusKey, { label: string; badge: string; dot: string }> = {
-  completed:  { label: "Completed",   badge: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  started:    { label: "In Progress", badge: "bg-amber-50 text-amber-700",     dot: "bg-amber-400" },
-  registered: { label: "Not Started", badge: "bg-slate-100 text-slate-500",    dot: "bg-slate-300" },
+const STATUS_META: Record<StatusKey, { badge: string; dot: string }> = {
+  completed:  { badge: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  started:    { badge: "bg-amber-50 text-amber-700",     dot: "bg-amber-400" },
+  registered: { badge: "bg-slate-100 text-slate-500",    dot: "bg-slate-300" },
 };
 
-const TABS: { key: "all" | StatusKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "registered", label: "Registered" },
-  { key: "started", label: "In Progress" },
-  { key: "completed", label: "Completed" },
-];
+const TAB_KEYS: ("all" | StatusKey)[] = ["all", "registered", "started", "completed"];
 
 function CourseRow({ enrollment }: { enrollment: any }) {
+  const t = useTranslations("MyCourses");
   const pct = enrollment.progress_percentage ?? 0;
   const status = statusOf(enrollment);
   const meta = STATUS_META[status];
+  const statusLabel = status === "completed" ? t("statusCompleted") : status === "started" ? t("statusInProgress") : t("statusNotStarted");
   const isBundled = enrollment.source === "certification";
   // Bundled courses have no player of their own — their lessons live inside
   // the certification's player. Link straight to the resume lesson within
@@ -74,11 +72,11 @@ function CourseRow({ enrollment }: { enrollment: any }) {
           )}
           <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", meta.badge)}>
             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", meta.dot)} />
-            {meta.label}
+            {statusLabel}
           </span>
           {isBundled && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-              Included with {enrollment.cert_acronym}
+              {t("includedWith", { acronym: enrollment.cert_acronym })}
             </span>
           )}
         </div>
@@ -94,7 +92,7 @@ function CourseRow({ enrollment }: { enrollment: any }) {
               <Clock size={9} /> {parseFloat(enrollment.duration_hours)}h
             </span>
           )}
-          <span className="text-[10px] text-slate-400">Enrolled {enrolledDate}</span>
+          <span className="text-[10px] text-slate-400">{t("enrolledOn", { date: enrolledDate })}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -114,8 +112,16 @@ function CourseRow({ enrollment }: { enrollment: any }) {
 }
 
 export default function MyCoursesListPage() {
+  const t = useTranslations("MyCourses");
   const token = useAuthStore((s) => s.accessToken)!;
   const [tab, setTab] = useState<"all" | StatusKey>("all");
+
+  const TAB_LABELS: Record<"all" | StatusKey, string> = {
+    all: t("tabAll"),
+    registered: t("tabRegistered"),
+    started: t("tabInProgress"),
+    completed: t("tabCompleted"),
+  };
 
   const { data, isLoading } = useSWR(
     token ? ["/prep-courses/my/all-courses", token] : null,
@@ -134,22 +140,21 @@ export default function MyCoursesListPage() {
 
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">My Courses</h1>
+            <h1 className="text-3xl font-display font-black text-navy-900 tracking-tight">{t("myCourses")}</h1>
             <p className="text-sm text-slate-400 mt-1">
-              Every course you have access to — standalone or bundled with a certification —
-              registered, started, or completed.
+              {t("pageDescription")}
             </p>
           </div>
           <Link
             href="/learn"
             className="inline-flex items-center gap-2 bg-white border border-slate-200 text-navy-700 text-xs font-semibold px-4 py-2.5 rounded-xl hover:border-slate-300 transition-colors shadow-sm"
           >
-            <BookOpen size={13} /> My Learning
+            <BookOpen size={13} /> {t("myLearning")}
           </Link>
         </div>
 
         <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm mb-6 w-fit">
-          {TABS.map(({ key, label }) => {
+          {TAB_KEYS.map((key) => {
             const count = key === "all" ? all.length : counts[key];
             return (
               <button
@@ -160,7 +165,7 @@ export default function MyCoursesListPage() {
                   tab === key ? "bg-navy-900 text-white shadow-sm" : "text-slate-400 hover:text-slate-700"
                 )}
               >
-                {label}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                {TAB_LABELS[key]}{count > 0 && <span className="ml-1 opacity-70">({count})</span>}
               </button>
             );
           })}
@@ -174,12 +179,12 @@ export default function MyCoursesListPage() {
           <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
             <Layers size={32} className="mx-auto mb-3 text-slate-300" />
             <p className="font-semibold text-slate-500 text-sm mb-1">
-              {all.length === 0 ? "No courses yet" : "Nothing in this category"}
+              {all.length === 0 ? t("noCoursesYet") : t("nothingInCategory")}
             </p>
             <p className="text-xs text-slate-400">
               {all.length === 0
-                ? "Browse courses from your My Learning page to get started."
-                : "Try a different tab above."}
+                ? t("browseFromMyLearning")
+                : t("tryDifferentTab")}
             </p>
           </div>
         ) : (

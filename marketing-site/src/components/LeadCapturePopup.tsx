@@ -1,27 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { X, Check } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const SEEN_KEY = "pai-lead-popup-seen";
 
-const INTERESTS = [
-  "AI Fundamentals",
-  "Generative AI",
-  "Data & Analytics",
-  "AI for Business",
-  "Professional Certificates",
-  "I'm not sure yet",
+const INTEREST_KEYS = [
+  "interestFundamentals",
+  "interestGenerativeAi",
+  "interestDataAnalytics",
+  "interestAiForBusiness",
+  "interestCertificates",
+  "interestNotSure",
 ];
 
-const BENEFITS = [
-  "Discover the right AI skills",
-  "Explore PAII programs & certificates",
-  "Receive upcoming opportunities",
-];
+const BENEFIT_KEYS = ["benefitDiscoverSkills", "benefitExplorePrograms", "benefitReceiveOpportunities"];
 
 export default function LeadCapturePopup({ source }: { source: "blog" | "homepage" }) {
+  const t = useTranslations("LeadPopup");
   const [visible, setVisible]   = useState(false);
   const [name, setName]         = useState("");
   const [email, setEmail]       = useState("");
@@ -73,7 +71,7 @@ export default function LeadCapturePopup({ source }: { source: "blog" | "homepag
       <div className="relative w-full max-w-[920px] max-h-[92vh] overflow-y-auto bg-white rounded-3xl shadow-2xl grid md:grid-cols-[42%_58%]">
         <button
           onClick={dismiss}
-          aria-label="Close"
+          aria-label={t("close")}
           className="absolute right-4 top-4 w-9 h-9 rounded-full bg-white/90 shadow flex items-center justify-center text-ink-900 hover:bg-white transition-colors z-10"
         >
           <X size={18} />
@@ -91,20 +89,19 @@ export default function LeadCapturePopup({ source }: { source: "blog" | "homepag
           />
 
           <h2 className="relative font-display font-black text-3xl sm:text-[34px] leading-[1.12] mb-4">
-            Build Your Future in AI.
+            {t("headline")}
           </h2>
           <p className="relative text-white/85 text-sm leading-relaxed">
-            Get a personalized AI learning roadmap based on your interests,
-            career goals, and current experience.
+            {t("subheadline")}
           </p>
 
           <div className="relative mt-7 space-y-3 hidden sm:block">
-            {BENEFITS.map((b) => (
-              <div key={b} className="flex items-center gap-2.5 text-sm">
+            {BENEFIT_KEYS.map((k) => (
+              <div key={k} className="flex items-center gap-2.5 text-sm">
                 <span className="w-[22px] h-[22px] rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                   <Check size={12} />
                 </span>
-                {b}
+                {t(k)}
               </div>
             ))}
           </div>
@@ -117,52 +114,50 @@ export default function LeadCapturePopup({ source }: { source: "blog" | "homepag
               <div className="w-16 h-16 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center mx-auto mb-5">
                 <Check size={28} />
               </div>
-              <p className="font-display font-black text-ink-900 text-2xl mb-2">You&apos;re All Set!</p>
+              <p className="font-display font-black text-ink-900 text-2xl mb-2">{t("allSet")}</p>
               <p className="text-slate-500 text-sm leading-relaxed">
-                Thank you for your interest in PAII. We&apos;ll be in touch with
-                information about your AI learning opportunities.
+                {t("thankYouBody")}
               </p>
             </div>
           ) : (
             <>
-              <p className="font-display font-black text-ink-900 text-2xl mb-2">Start Your AI Journey</p>
+              <p className="font-display font-black text-ink-900 text-2xl mb-2">{t("startYourJourney")}</p>
               <p className="text-sm text-slate-500 leading-relaxed mb-6">
-                Tell us a little about yourself and we&apos;ll help you find the right learning path.
+                {t("tellUsAboutYourself")}
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">First Name</label>
+                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("firstNameLabel")}</label>
                   <input
                     type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                    placeholder="Your first name" className="input-base text-sm"
+                    placeholder={t("firstNamePlaceholder")} className="input-base text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">Email Address</label>
+                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("emailLabel")}</label>
                   <input
                     type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com" className="input-base text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">What are you interested in?</label>
+                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("interestLabel")}</label>
                   <select
                     required value={interest} onChange={(e) => setInterest(e.target.value)}
                     className="input-base text-sm"
                   >
-                    <option value="">Select an area</option>
-                    {INTERESTS.map((i) => <option key={i} value={i}>{i}</option>)}
+                    <option value="">{t("selectAnArea")}</option>
+                    {INTEREST_KEYS.map((k) => <option key={k} value={t(k)}>{t(k)}</option>)}
                   </select>
                 </div>
 
                 <button type="submit" disabled={submitting} className="btn-primary w-full justify-center disabled:opacity-60 !mt-6">
-                  {submitting ? "Submitting…" : "Get My AI Roadmap →"}
+                  {submitting ? t("submitting") : t("getMyRoadmap")}
                 </button>
 
                 <p className="text-center text-[11px] text-slate-400 leading-relaxed">
-                  By submitting this form, you agree to receive updates from PAII.
-                  You can unsubscribe at any time.
+                  {t("consentText")}
                 </p>
               </form>
             </>

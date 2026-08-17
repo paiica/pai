@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { AiService } from "./ai.service";
+import { getSupportedLanguage } from "../languages/supported-languages";
 
 // Custom in-memory storage that avoids importing multer v2 directly (ESM-only package).
 // Mirrors the same pattern used in uploads.controller.ts — buffers the file stream into
@@ -67,6 +68,21 @@ export class AiController {
   @Roles(Role.admin, Role.super_admin)
   testConnection() {
     return this.aiService.testConnection();
+  }
+
+  // Powers every "Translate" / "Re-translate" button across the admin
+  // content editors (Pages, Blog, Navigation, Footer, Certifications,
+  // Courses). Body is `{ fields: { fieldName: englishValue }, locale }` —
+  // englishValue can be a string, string[], or nested object; response
+  // mirrors the same keys/shape with translated values.
+  @Post("translate")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  translate(@Body() body: { fields: Record<string, any>; locale: string }) {
+    const language = getSupportedLanguage(body.locale);
+    if (!language) throw new BadRequestException(`Unsupported locale: ${body.locale}`);
+    return this.aiService.translateFields(body.fields ?? {}, body.locale, language.name);
   }
 
   @Post("generate-exam-questions")

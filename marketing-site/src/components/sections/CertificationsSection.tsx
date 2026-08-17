@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,13 +21,18 @@ export const CERT_THEMES = [
   { dark: true, bg: "bg-gradient-to-br from-[#241207] via-[#5a2e0d] to-[#92400e]", shapeColor: "#fbbf24", shapeType: "pentagon" },
 ];
 
-export const LEVEL_LABEL: Record<string, string> = {
-  pre_certificate: "Pre-Certification",
-  foundation: "Foundation",
-  advanced: "Advanced",
-  specialist: "Specialist",
-  executive: "Executive",
-  other: "Other",
+// Maps the certification-level enum to its Certifications-namespace
+// translation key — cert.level is sometimes a free-text CMS override
+// (marketing_meta.audience_label) instead of one of these enum values, in
+// which case it's already the localized string the admin wrote and is
+// rendered as-is (no key here will match it, which is intentional).
+export const LEVEL_LABEL_KEYS: Record<string, string> = {
+  pre_certificate: "levelPreCertificate",
+  foundation: "levelFoundation",
+  advanced: "levelAdvanced",
+  specialist: "levelSpecialist",
+  executive: "levelExecutive",
+  other: "levelOther",
 };
 
 export type CertCard = {
@@ -89,6 +95,9 @@ export function Shape({ type, color }: { type: string; color: string }) {
 // its grid cell, without touching any of the internal visual treatment.
 export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85vw] max-w-[312px]" }: { cert: CertCard; idx: number; widthClassName?: string }) {
   const theme = CERT_THEMES[idx % CERT_THEMES.length];
+  const t = useTranslations("Certifications");
+  const levelKey = cert.level ? LEVEL_LABEL_KEYS[cert.level] : undefined;
+  const levelLabel = levelKey ? t(levelKey) : cert.level;
   return (
     <div className={cn("group relative h-[480px] rounded-2xl cursor-pointer", widthClassName)}>
       <div className={cn(
@@ -113,7 +122,7 @@ export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85v
           {cert.flagship && (
             <span className="flagship-pill absolute top-5 right-5 flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-gradient-to-r from-teal-500 to-teal-700 text-white border-0 flex-shrink-0">
               <Star size={12} fill="currentColor" />
-              Flagship
+              {t("flagship")}
             </span>
           )}
           <div className="absolute top-5 left-5 flex items-center gap-2 flex-wrap">
@@ -121,15 +130,15 @@ export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85v
               "text-[12px] font-semibold px-3 py-1.5 rounded-full border bg-transparent",
               theme.dark ? "text-white border-white/40" : "text-ink-900 border-ink-900/30"
             )}>
-              Certification
+              {t("badge")}
             </span>
             {cert.status === "coming_soon" ? (
               <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
-                Coming Soon
+                {t("comingSoon")}
               </span>
             ) : cert.popular === "true" && (
               <span className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-teal-500 text-white border-0">
-                Most Popular
+                {t("mostPopular")}
               </span>
             )}
           </div>
@@ -137,7 +146,7 @@ export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85v
 
         <div className="p-6 flex flex-col flex-1">
           <p className={cn("text-sm font-semibold mb-2", theme.dark ? "text-white" : "text-ink-900")}>
-            {cert.level && (LEVEL_LABEL[cert.level] ?? cert.level)}
+            {levelLabel}
           </p>
           <p className={cn("font-display font-black text-3xl uppercase tracking-wide mb-2 leading-none", theme.dark ? "text-white" : "text-ink-900")}>
             {cert.acronym}<span className="text-xs align-super font-semibold">™</span>
@@ -160,7 +169,7 @@ export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85v
               theme.dark ? "bg-white text-ink-900 hover:bg-teal-50" : "bg-ink-900 text-white hover:bg-ink-700"
             )}
           >
-            <span className="inline-block origin-left transition-transform duration-200 group-hover:scale-105">Learn More</span>
+            <span className="inline-block origin-left transition-transform duration-200 group-hover:scale-105">{t("learnMore")}</span>
             <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
         </div>
@@ -170,11 +179,13 @@ export function CertCardItem({ cert, idx, widthClassName = "flex-shrink-0 w-[85v
 }
 
 export default function CertificationsSection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
+  const t = useTranslations("Certifications");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [apiCerts, setApiCerts] = useState<CertCard[] | null>(null);
+  const locale = useLocale();
 
   useEffect(() => {
-    fetch(`${API_BASE}/courses/featured`)
+    fetch(`${API_BASE}/courses/featured?lang=${locale}`)
       .then((r) => r.json())
       .then((r) => {
         const items: any[] = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
@@ -195,15 +206,15 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
         }));
       })
       .catch(() => {});
-  }, []);
+  }, [locale]);
 
-  const badge          = cmsContent.badge           || "Certification Programs";
-  const title          = cmsContent.title           || "Become a";
-  const titleHighlight = cmsContent.title_highlight || "certified success";
-  const description    = cmsContent.description     || "No matter what your professional goals are, we have a certification to help you reach them. AI credentials are an excellent way to advance your career.";
-  const ctaCardTitle   = cmsContent.cta_card_title  || "Not sure where to start?";
-  const ctaCardDesc    = cmsContent.cta_card_desc   || "Compare every credential to find the right fit for your goals.";
-  const ctaCardLabel   = cmsContent.cta_card_label  || "View All Certifications";
+  const badge          = cmsContent.badge           || t("defaultBadge");
+  const title          = cmsContent.title           || t("defaultTitle");
+  const titleHighlight = cmsContent.title_highlight || t("defaultTitleHighlight");
+  const description    = cmsContent.description     || t("defaultDescription");
+  const ctaCardTitle   = cmsContent.cta_card_title  || t("defaultCtaCardTitle");
+  const ctaCardDesc    = cmsContent.cta_card_desc   || t("defaultCtaCardDesc");
+  const ctaCardLabel   = cmsContent.cta_card_label  || t("defaultCtaCardLabel");
   const ctaCardHref    = cmsContent.cta_card_href   || "/certifications";
   // apiCerts is null before the fetch resolves, then an array (possibly empty).
   // Once the API has responded, use its result exclusively — no fallback to
@@ -241,7 +252,7 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
           <div className="max-w-sm">
             <p className="text-ink-900 text-[24px] leading-relaxed mb-5">{description}</p>
             <Link href="/certifications" className="inline-flex items-center gap-1.5 text-ink-900 font-bold text-sm hover:text-ink-900 transition-colors border-b border-ink-300 pb-0.5">
-              View All Certifications <ArrowRight size={13} />
+              {t("defaultCtaCardLabel")} <ArrowRight size={13} />
             </Link>
           </div>
         </div>
@@ -279,10 +290,10 @@ export default function CertificationsSection({ cmsContent = {} }: { cmsContent?
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("left")} aria-label={t("scrollLeft")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronLeft size={18} />
             </button>
-            <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("right")} aria-label={t("scrollRight")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronRight size={18} />
             </button>
           </div>

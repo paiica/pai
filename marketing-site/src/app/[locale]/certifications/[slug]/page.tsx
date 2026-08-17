@@ -1,0 +1,455 @@
+import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import StickyEnrollBar from "./StickyEnrollBar";
+import CertTabs from "./CertTabs";
+import type { PageTabsData } from "./cert-types";
+import {
+  CheckCircle2, Award, ArrowRight, ChevronRight,
+  Shield, Quote, Tag,
+} from "lucide-react";
+import CertCTAButton from "@/components/CertCTAButton";
+import InstructorCard from "@/components/InstructorCard";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+type CurriculumItem  = { title: string; description: string; lessons: number };
+type FaqItem         = { question: string; answer: string };
+type Testimonial     = { name: string; role: string; company: string; quote: string; avatar_initials: string };
+type MarketingMeta   = {
+  reviews_rating: string; reviews_count: string; social_proof: string;
+  hero_badge_label: string; prerequisites: string; enrollment_includes: string[];
+  page_tabs?: PageTabsData;
+};
+
+type Cert = {
+  id: string; slug: string; acronym: string; title: string;
+  level: string; status: string; badge_icon: string; badge_image_url?: string;
+  price: number; description: string; long_description: string;
+  learning_outcomes: string[]; target_audience: string[];
+  curriculum_overview: CurriculumItem[];
+  faqs_json: FaqItem[];
+  marketing_meta?: MarketingMeta;
+  testimonials?: Testimonial[];
+  skills?: string[];
+  related_slugs?: string[];
+  certificate_preview_url?: string;
+  duration_weeks: number; total_lessons: number; total_hours: number;
+  passing_score: number; exam_duration_minutes: number;
+  exam_questions_count: number; validity_years: number;
+  max_retakes_included: number; retake_fee: number;
+  min_years_experience?: number | null;
+  min_training_hours?: number | null;
+  industry_focus?: string[];
+  required_education?: string[];
+  required_documents?: string[];
+  modules?: { title: string; description?: string; _count?: { lessons: number } }[];
+  instructors?: {
+    is_lead: boolean;
+    user: {
+      profile?: {
+        first_name?: string; last_name?: string; avatar_url?: string; bio?: string;
+        job_title?: string; company?: string; years_experience?: number;
+        education_entries?: any[]; experience_entries?: any[];
+      };
+    };
+  }[];
+};
+
+// Hero sphere gradient per certification level — a lit-sphere radial (light
+// source upper-left, fading to a dark edge) so the mark reads as dimensional
+// rather than a flat color fill, and the color itself signals the tier.
+const LEVEL_SPHERE_GRADIENT: Record<string, string> = {
+  pre_certificate: "radial-gradient(circle at 32% 28%, #e2e8f0 0%, #64748b 42%, #1e293b 100%)",
+  foundation: "radial-gradient(circle at 32% 28%, #99f6e4 0%, #14b8a6 42%, #0a3d3a 100%)",
+  advanced:   "radial-gradient(circle at 32% 28%, #7dd3fc 0%, #0891b2 42%, #0c2b3d 100%)",
+  executive:  "radial-gradient(circle at 32% 28%, #fde68a 0%, #d97706 42%, #451a03 100%)",
+  specialist: "radial-gradient(circle at 32% 28%, #d8b4fe 0%, #9333ea 42%, #2e1065 100%)",
+  other:      "radial-gradient(circle at 32% 28%, #e2e8f0 0%, #64748b 42%, #1e293b 100%)",
+};
+
+async function getCert(slug: string, locale: string): Promise<Cert | null> {
+  try {
+    const res = await fetch(`${API}/courses/${slug}?lang=${locale}`, { next: { revalidate: 300 } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data ?? json ?? null;
+  } catch { return null; }
+}
+
+async function getRelatedCerts(slugs: string[], locale: string): Promise<Cert[]> {
+  if (!slugs.length) return [];
+  const results = await Promise.all(
+    slugs.map((s) =>
+      fetch(`${API}/courses/${s}?lang=${locale}`, { next: { revalidate: 300 } })
+        .then((r) => r.ok ? r.json() : null)
+        .then((j) => j?.data ?? j ?? null)
+        .catch(() => null)
+    )
+  );
+  return results.filter(Boolean) as Cert[];
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const locale = await getLocale();
+  const { slug } = await params;
+  const cert = await getCert(slug, locale);
+  if (!cert) return { title: "Not Found" };
+  return {
+    title: `${cert.title} (${cert.acronym})`,
+    description: cert.description,
+    openGraph: {
+      title: `${cert.title} | Professional Artificial Intelligence Institute`,
+      description: cert.description,
+      images: cert.badge_image_url ? [cert.badge_image_url] : undefined,
+    },
+  };
+}
+
+function safeArray<T>(val: unknown, fallback: T[] = []): T[] {
+  return Array.isArray(val) ? (val as T[]) : fallback;
+}
+
+export default async function CertificationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const locale = await getLocale();
+  const { slug } = await params;
+  const cert = await getCert(slug, locale);
+  if (!cert || cert.status === "archived") notFound();
+
+  const t  = await getTranslations("CertificationDetail");
+  const tc = await getTranslations("Common");
+
+  const lmsUrl = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
+  const applyUrl = `${lmsUrl}/apply/${cert.slug}`;
+
+  const learningOutcomes   = safeArray<string>(cert.learning_outcomes);
+  const targetAudience     = safeArray<string>(cert.target_audience);
+  const faqs               = safeArray<FaqItem>(cert.faqs_json);
+  const testimonials       = safeArray<Testimonial>(cert.testimonials);
+  const skills             = safeArray<string>(cert.skills);
+  const relatedSlugsRaw    = safeArray<string>(cert.related_slugs);
+  const instructors        = safeArray(cert.instructors);
+
+  const curriculumRaw = safeArray<CurriculumItem>(cert.curriculum_overview);
+  const modulesRaw    = safeArray(cert.modules);
+  const curriculum: CurriculumItem[] = curriculumRaw.length > 0
+    ? curriculumRaw
+    : modulesRaw.map((m: any) => ({ title: m.title, description: m.description ?? "", lessons: m._count?.lessons ?? 0 }));
+
+  const meta               = cert.marketing_meta;
+  const socialProof        = meta?.social_proof        || "";
+  const heroBadgeLabel     = meta?.hero_badge_label    || t("defaultHeroBadge");
+  const prerequisites      = meta?.prerequisites        || "";
+  const enrollmentIncludes = safeArray<string>(meta?.enrollment_includes, [
+    t("defaultIncludePracticeExam"),
+    t("defaultIncludeDigitalCert"),
+    t("defaultIncludeLinkedin"),
+    t("defaultIncludeMoneyBack"),
+  ]);
+
+  const certPreviewUrl = cert.certificate_preview_url || "";
+  const relatedCerts   = await getRelatedCerts(relatedSlugsRaw, locale);
+  const isComingSoon   = cert.status === "coming_soon";
+
+  return (
+    <>
+      <Navbar />
+      {!isComingSoon && <StickyEnrollBar title={cert.title} acronym={cert.acronym} price={Number(cert.price)} applyUrl={applyUrl} />}
+
+      <main>
+        {/* ── HERO ── */}
+        <section className="pb-32 bg-hero-dark relative overflow-hidden" style={{ paddingTop: "calc(var(--header-height, 88px) + 48px)" }}>
+          <div className="absolute inset-0 opacity-[0.06]"
+            style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(201,145,58,0.9) 1px, transparent 0)", backgroundSize: "48px 48px" }} />
+          <div className="container-lg relative">
+            <div className="flex items-center gap-2 text-white/60 text-xs font-semibold mb-3">
+              <Link href="/" className="hover:text-white">{tc("home")}</Link>
+              <ChevronRight size={12} />
+              <Link href="/certifications" className="hover:text-white">{t("certificationsBreadcrumb")}</Link>
+              <ChevronRight size={12} />
+              <span className="text-white">{cert.acronym}</span>
+            </div>
+            {prerequisites && <p className="text-xs text-white/60 mb-4 font-medium">{prerequisites}</p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+              <div className="lg:col-span-2">
+                <span className="badge-dark inline-block mb-6">{heroBadgeLabel}</span>
+
+                <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-8 mb-6">
+                  {/* Signature graphic — acronym mark on a level-tinted lit sphere */}
+                  <div
+                    className="relative w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-full flex-shrink-0 shadow-2xl"
+                    style={{ background: LEVEL_SPHERE_GRADIENT[cert.level] ?? LEVEL_SPHERE_GRADIENT.foundation }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center px-4">
+                      <div className="border-2 border-white/80 rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 bg-ink-900/15 backdrop-blur-sm">
+                        <span className="font-display font-black text-white text-base sm:text-xl tracking-tight leading-none whitespace-nowrap">{cert.acronym}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight">{cert.title}</h1>
+                    <p className="text-white text-xl mt-2">({cert.acronym})</p>
+                  </div>
+                </div>
+
+                <p className="text-lg text-white leading-relaxed max-w-2xl mb-5">{cert.long_description || cert.description}</p>
+
+                {/* Skills tags */}
+                {skills.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {skills.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1 text-xs font-semibold text-white/80 bg-white/10 border border-white/20 px-3 py-1 rounded-full">
+                        <Tag size={10} /> {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Enrollment card */}
+              {isComingSoon ? (
+                <div className="bg-white rounded-2xl p-7 shadow-xl border border-amber-200">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-2xl">🕐</span>
+                    <span className="text-lg font-display font-black text-amber-700">{t("comingSoon")}</span>
+                  </div>
+                  <p className="text-sm text-ink-900 leading-relaxed mb-6">
+                    {t("comingSoonBody")}
+                  </p>
+                  <div className="space-y-2.5 mb-6">
+                    {[
+                      cert.total_hours > 0 ? t("hoursOfContent", { count: cert.total_hours }) : null,
+                      cert.exam_duration_minutes > 0 ? t("minOnlineExam", { count: cert.exam_duration_minutes }) : null,
+                      cert.validity_years > 0 ? t("yearCredentialValidity", { count: cert.validity_years }) : null,
+                    ].filter(Boolean).map((item) => (
+                      <div key={item!} className="flex items-center gap-2.5 text-sm text-ink-900">
+                        <CheckCircle2 size={15} className="text-amber-500 flex-shrink-0" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="w-full flex items-center justify-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-800 font-bold py-3 rounded-xl text-sm cursor-default">
+                    🕐 {t("enrollmentOpeningSoon")}
+                  </div>
+                  <div className="mt-5 pt-4 border-t border-sand-200 text-center text-xs text-ink-900">
+                    {t("priceSubjectToChange")}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-7 shadow-xl border border-sand-200">
+                  <div className="text-4xl font-display font-black text-ink-900 mb-0.5">${Number(cert.price).toLocaleString()}</div>
+                  <div className="text-ink-900 text-sm mb-5">{t("oneTimeFeeLifetime")}</div>
+                  <div className="space-y-2.5 mb-6">
+                    {[
+                      cert.total_hours > 0 ? t("hoursOfContent", { count: cert.total_hours }) : null,
+                      cert.total_lessons > 0 && curriculum.length > 0 ? t("lessonsAcrossModules", { lessons: cert.total_lessons, modules: curriculum.length }) : cert.total_lessons > 0 ? t("lessonsCount", { count: cert.total_lessons }) : null,
+                      cert.exam_duration_minutes > 0 ? t("minOnlineProctoredExam", { count: cert.exam_duration_minutes }) : null,
+                      cert.validity_years > 0 ? t("yearCredentialValidity", { count: cert.validity_years }) : null,
+                      ...enrollmentIncludes,
+                    ].filter(Boolean).map((item) => (
+                      <div key={item!} className="flex items-center gap-2.5 text-sm text-ink-900">
+                        <CheckCircle2 size={15} className="text-ink-900 flex-shrink-0" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <CertCTAButton
+                    certId={cert.id}
+                    certSlug={cert.slug}
+                    title={cert.title}
+                    price={Number(cert.price)}
+                  />
+                  <Link href="/corporate" className="w-full flex items-center justify-center gap-2 border-2 border-ink-800 text-ink-900 font-semibold py-3 rounded-xl text-sm transition-all hover:bg-ink-800 hover:text-white">
+                    {t("corporateGroupPricing")} →
+                  </Link>
+                  <div className="mt-5 pt-4 border-t border-sand-200 text-center text-xs text-ink-900">
+                    🔒 {t("secureCheckoutGuarantee")}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ── TABBED CONTENT ── */}
+        <CertTabs
+          acronym={cert.acronym}
+          applyUrl={applyUrl}
+          learningOutcomes={learningOutcomes}
+          targetAudience={targetAudience}
+          curriculum={curriculum}
+          faqs={faqs}
+          totalLessons={cert.total_lessons}
+          totalHours={Number(cert.total_hours)}
+          pageTabs={meta?.page_tabs}
+          minYearsExperience={cert.min_years_experience}
+          minTrainingHours={cert.min_training_hours}
+          industryFocus={cert.industry_focus}
+          requiredEducation={cert.required_education}
+          requiredDocuments={cert.required_documents}
+        />
+
+        {/* ── EXAM INFO STRIP ── */}
+        <section className="py-10 bg-sand-50 border-t border-sand-200 border-b">
+          <div className="container-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
+              {[
+                { label: t("examFormatLabel"), value: t("examFormatValue", { count: cert.exam_questions_count > 0 ? cert.exam_questions_count : 75 }) },
+                { label: t("examDurationLabel"), value: cert.exam_duration_minutes > 0 ? t("minutesValue", { count: cert.exam_duration_minutes }) : t("minutesValue", { count: 90 }) },
+                { label: t("examDeliveryLabel"), value: t("examDeliveryValue") },
+                { label: t("passingScoreLabel"), value: `${cert.passing_score}%` },
+                { label: t("validityLabel"), value: cert.validity_years > 0 ? t("yearsValue", { count: cert.validity_years }) : t("yearsValue", { count: 2 }) },
+                { label: t("retakesLabel"), value: cert.max_retakes_included > 0 ? t("retakesIncluded", { count: cert.max_retakes_included }) : t("contactUs") },
+              ].map((item) => (
+                <div key={item.label}>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{item.label}</div>
+                  <div className="font-display font-bold text-ink-900 text-sm">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── TESTIMONIALS ── */}
+        {testimonials.length > 0 && (
+          <section className="section-padding bg-sand-50 border-t border-sand-200">
+            <div className="container-lg">
+              <h2 className="text-2xl font-display font-bold text-ink-900 mb-2 text-center">{t("whatCertifiedProfessionalsSay")}</h2>
+              <p className="text-slate-500 text-sm text-center mb-10">{t("realFeedbackFrom", { acronym: cert.acronym })}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {testimonials.map((t, i) => (
+                  <div key={i} className="bg-white rounded-2xl p-6 border border-sand-200 shadow-card flex flex-col">
+                    <Quote size={20} className="text-sand-300 mb-4 flex-shrink-0" />
+                    <p className="text-ink-900 text-sm leading-relaxed flex-1 mb-5">"{t.quote}"</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-ink-800 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        {t.avatar_initials || t.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-ink-900 text-sm">{t.name}</div>
+                        <div className="text-xs text-slate-500">{t.role}{t.company ? ` · ${t.company}` : ""}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── INSTRUCTORS ── */}
+        {instructors.length > 0 && (
+          <section className="section-padding bg-white border-t border-sand-200">
+            <div className="container-lg">
+              <h2 className="text-2xl font-display font-bold text-ink-900 mb-8">{t("yourInstructors")}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {instructors.map((ins: any, i: number) => {
+                  const p = ins.user?.profile;
+                  const name = `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim();
+                  if (!name) return null;
+                  return (
+                    <InstructorCard
+                      key={i}
+                      name={name}
+                      avatarUrl={p?.avatar_url}
+                      bio={p?.bio}
+                      isLead={ins.is_lead}
+                      jobTitle={p?.job_title}
+                      company={p?.company}
+                      yearsExperience={p?.years_experience}
+                      educationEntries={p?.education_entries}
+                      experienceEntries={p?.experience_entries}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── CERTIFICATE PREVIEW ── */}
+        {certPreviewUrl && (
+          <section className="section-padding bg-ink-900">
+            <div className="container-lg text-center">
+              <h2 className="text-2xl font-display font-bold text-white mb-2">{t("yourCertificate")}</h2>
+              <p className="text-white/60 text-sm mb-8">{t("issuedUponPassing", { acronym: cert.acronym })}</p>
+              <div className="max-w-2xl mx-auto">
+                <img src={certPreviewUrl} alt={`${cert.acronym} certificate preview`}
+                  className="w-full rounded-2xl shadow-2xl border border-white/10" />
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-8 text-sm text-white/60">
+                {[t("globallyVerifiable"), t("linkedinIntegration"), t("openBadgeStandard"), t("qrCodeVerification")].map((f) => (
+                  <div key={f} className="flex items-center gap-2">
+                    <Shield size={13} className="text-teal-400" /> {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── RELATED CERTIFICATIONS ── */}
+        {relatedCerts.length > 0 && (
+          <section className="section-padding bg-white border-t border-sand-200">
+            <div className="container-lg">
+              <h2 className="text-2xl font-display font-bold text-ink-900 mb-2">{t("whatsNext")}</h2>
+              <p className="text-slate-500 text-sm mb-8">{t("continueYourJourney", { acronym: cert.acronym })}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {relatedCerts.map((r) => (
+                  <div key={r.slug} className="bg-white rounded-2xl border border-sand-200 shadow-card hover:shadow-card-hover transition-all p-5 flex flex-col">
+                    <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{r.acronym}</div>
+                    <h3 className="font-display font-bold text-ink-900 text-base mb-2 leading-snug">{r.title}</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed flex-1 mb-4">{r.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-display font-black text-ink-900">${Number(r.price).toLocaleString()}</span>
+                      <Link href={`/certifications/${r.slug}`} className="btn-dark !py-2 !px-4 !text-xs">
+                        {t("learnMore")} <ArrowRight size={12} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── BOTTOM CTA ── */}
+        <section className="section-padding bg-ink-900">
+          <div className="container-lg text-center">
+            <div className="max-w-2xl mx-auto">
+              <h2 className="text-3xl font-display font-black text-white mb-3">
+                {isComingSoon ? t("acronymComingSoon", { acronym: cert.acronym }) : t("readyToEarn", { acronym: cert.acronym })}
+              </h2>
+              {(isComingSoon || socialProof) && (
+                <p className="text-white/70 text-base mb-8">
+                  {isComingSoon ? t("inDevelopmentStayTuned") : socialProof}
+                </p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                {isComingSoon ? (
+                  <span className="btn-primary !py-4 !px-8 !text-base justify-center opacity-60 cursor-default">
+                    🕐 {t("enrollmentOpeningSoon")}
+                  </span>
+                ) : (
+                  <a href={applyUrl} className="btn-primary !py-4 !px-8 !text-base justify-center">
+                    <Award size={18} /> {t("applyNowPrice", { price: Number(cert.price).toLocaleString() })}
+                  </a>
+                )}
+                <Link href="/certifications" className="btn-outline-light !py-4 !px-8 !text-base justify-center">
+                  {t("viewAllCertifications")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </>
+  );
+}

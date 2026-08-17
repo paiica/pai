@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ChevronLeft, ChevronRight, Clock, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ type CourseCard = {
 // segmented "syllabus rail" — a distinct, quieter counterpart to the
 // certification cards' colored credential-badge treatment.
 function CourseCardItem({ course }: { course: CourseCard }) {
+  const t = useTranslations("CoursesSection");
   const modules = Math.max(0, Math.round(course.module_count || 0));
   const railSegments = Math.min(Math.max(modules, 1), 8);
   const coursePrice = Number(course.price);
@@ -45,14 +47,14 @@ function CourseCardItem({ course }: { course: CourseCard }) {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-sand-300 bg-sand-50 text-ink-900">
-              Course
+              {t("courseBadge")}
             </span>
             <span className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold text-teal-700 uppercase tracking-[0.15em] pl-3 border-l-2 border-teal-500">
               {course.level}
             </span>
           </div>
           {course.featured === "true" && (
-            <span className="text-[10px] font-mono font-semibold text-sand-500 uppercase tracking-widest">Featured</span>
+            <span className="text-[10px] font-mono font-semibold text-sand-500 uppercase tracking-widest">{t("featured")}</span>
           )}
         </div>
 
@@ -68,7 +70,7 @@ function CourseCardItem({ course }: { course: CourseCard }) {
           </div>
         )}
         <div className="flex items-center gap-3 text-xs text-sand-500 mb-5">
-          {modules > 0 && <span>{modules} module{modules !== 1 ? "s" : ""}</span>}
+          {modules > 0 && <span>{t("moduleCount", { count: modules })}</span>}
           {course.duration_hours > 0 && (
             <span className="flex items-center gap-1"><Clock size={11} /> {course.duration_hours}h</span>
           )}
@@ -78,9 +80,9 @@ function CourseCardItem({ course }: { course: CourseCard }) {
           {isLaunchPricing && (
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-500 text-white border-0">
-                Launch Pricing
+                {t("launchPricing")}
               </span>
-              <span className="text-[11px] text-sand-500">Available for a limited time</span>
+              <span className="text-[11px] text-sand-500">{t("limitedTime")}</span>
             </div>
           )}
           <div className="flex items-center justify-between">
@@ -89,14 +91,14 @@ function CourseCardItem({ course }: { course: CourseCard }) {
                 <span className="text-sm font-mono text-sand-400 line-through">${compareAtPrice!.toLocaleString()}</span>
               )}
               <span className="text-xl font-mono font-bold text-ink-900">
-                {coursePrice === 0 ? "Free" : `$${coursePrice.toLocaleString()}`}
+                {coursePrice === 0 ? t("free") : `$${coursePrice.toLocaleString()}`}
               </span>
             </span>
             <Link
               href={`/courses/${course.slug}`}
               className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-900 hover:text-teal-600 transition-colors"
             >
-              View Course <ArrowRight size={14} />
+              {t("viewCourse")} <ArrowRight size={14} />
             </Link>
           </div>
         </div>
@@ -105,19 +107,28 @@ function CourseCardItem({ course }: { course: CourseCard }) {
   );
 }
 
+// Certification level → CoursesSection.levelXxx translation key. c.level from
+// the API is a raw enum ("beginner"/"intermediate"/"advanced"); it used to be
+// capitalized client-side (English-only) instead of translated.
+const LEVEL_LABEL_KEYS: Record<string, string> = {
+  beginner: "levelBeginner", intermediate: "levelIntermediate", advanced: "levelAdvanced",
+};
+
 export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Record<string, any> }) {
+  const t = useTranslations("CoursesSection");
+  const locale = useLocale();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [apicourses, setApiCourses] = useState<CourseCard[] | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/prep-courses/featured`)
+    fetch(`${API_BASE}/prep-courses/featured?lang=${locale}`)
       .then((r) => r.json())
       .then((r) => {
         const items: any[] = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
         setApiCourses(items.map((c: any) => ({
           title: c.title,
           slug: c.slug,
-          level: c.level ? c.level.charAt(0).toUpperCase() + c.level.slice(1) : "All Levels",
+          level: c.level && LEVEL_LABEL_KEYS[c.level] ? t(LEVEL_LABEL_KEYS[c.level]) : t("allLevels"),
           description: c.subtitle || c.description || "",
           price: c.price != null ? String(Math.round(Number(c.price))) : "0",
           compare_at_price: c.compare_at_price != null ? String(Math.round(Number(c.compare_at_price))) : null,
@@ -127,15 +138,15 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
         })));
       })
       .catch(() => { setApiCourses([]); });
-  }, []);
+  }, [locale, t]);
 
-  const badge = cmsContent.badge ?? "Prep Courses";
-  const title = cmsContent.title ?? "Learn at Your Own Pace.";
-  const titleHighlight = cmsContent.title_highlight ?? "Pass with Confidence.";
-  const description = cmsContent.description ?? "Our self-paced courses prepare you for certification exams with video lessons, quizzes, and hands-on projects.";
-  const ctaCardTitle = cmsContent.cta_card_title ?? "Not sure where to start?";
-  const ctaCardDesc = cmsContent.cta_card_desc ?? "Browse all courses and find the right path for your goals.";
-  const ctaCardLabel = cmsContent.cta_card_label ?? "Browse All Courses";
+  const badge = cmsContent.badge ?? t("defaultBadge");
+  const title = cmsContent.title ?? t("defaultTitle");
+  const titleHighlight = cmsContent.title_highlight ?? t("defaultTitleHighlight");
+  const description = cmsContent.description ?? t("defaultDescription");
+  const ctaCardTitle = cmsContent.cta_card_title ?? t("defaultCtaCardTitle");
+  const ctaCardDesc = cmsContent.cta_card_desc ?? t("defaultCtaCardDesc");
+  const ctaCardLabel = cmsContent.cta_card_label ?? t("defaultCtaCardLabel");
   const ctaCardHref = cmsContent.cta_card_href ?? "/courses";
 
   // Only use API data — never fall back to hardcoded defaults
@@ -164,7 +175,7 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
           <div className="max-w-sm">
             <p className="text-ink-900/70 leading-relaxed mb-5">{description}</p>
             <Link href="/courses" className="inline-flex items-center gap-1.5 text-ink-900 font-bold text-sm hover:text-teal-600 transition-colors border-b border-sand-300 pb-0.5">
-              View All Courses <ArrowRight size={13} />
+              {t("viewAllCourses")} <ArrowRight size={13} />
             </Link>
           </div>
         </div>
@@ -198,10 +209,10 @@ export default function CoursesSection({ cmsContent = {} }: { cmsContent?: Recor
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("left")} aria-label={t("scrollLeft")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronLeft size={18} />
             </button>
-            <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
+            <button onClick={() => scroll("right")} aria-label={t("scrollRight")} className="w-10 h-10 rounded-full border border-sand-300 flex items-center justify-center text-ink-900 hover:border-ink-300 transition-colors">
               <ChevronRight size={18} />
             </button>
           </div>

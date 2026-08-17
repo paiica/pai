@@ -42,7 +42,7 @@ type UserProfile = {
   id: string;
   email: string;
   role: string;
-  profile?: { first_name: string; last_name: string; avatar_url?: string };
+  profile?: { first_name: string; last_name: string; avatar_url?: string; language?: string };
 };
 
 type LoginResult = { user: UserProfile; accessToken: string; refreshToken: string };

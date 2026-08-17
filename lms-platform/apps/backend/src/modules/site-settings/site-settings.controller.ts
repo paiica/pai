@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Body, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { SiteSettingsService } from "./site-settings.service";
@@ -15,8 +15,8 @@ export class SiteSettingsController {
   @Public()
   @Get("public")
   @ApiOperation({ summary: "Get public site settings (no auth required)" })
-  getPublic() {
-    return this.service.getPublic();
+  getPublic(@Query("lang") lang?: string) {
+    return this.service.getPublic(lang);
   }
 
   @Get()

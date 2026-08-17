@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import {
   ArrowRight, Play, ChevronRight,
   Clock, CheckCircle2, GraduationCap, LayoutDashboard, Mail,
@@ -59,13 +60,6 @@ function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r) => r.data);
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
-}
-
 function getInitials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
@@ -73,37 +67,41 @@ function getInitials(first: string, last: string) {
 // ─── Cert status card (dark) ──────────────────────────────────────────────────
 
 function CertCard({ enrollment, certificate }: { enrollment: any; certificate: any }) {
+  const t = useTranslations("Dashboard");
   const cert = enrollment.certification;
   const pct = enrollment.progress_percentage ?? 0;
   const isCompleted = pct === 100;
   const hasCert = !!certificate;
 
-  let statusLabel = `${pct}% Complete`;
+  let statusLabel = t("percentComplete", { pct });
   let statusColor = "bg-white/10 text-white/70";
-  let body = `You're ${pct}% through the course material.`;
-  let ctaLabel = pct > 0 ? "Continue Learning" : "Start Learning";
+  let body = t("throughCourseMaterial", { pct });
+  let ctaLabel = pct > 0 ? t("continueLearning") : t("startLearning");
   let ctaHref = `/learn/${enrollment.id}`;
 
   if (hasCert) {
-    statusLabel = "Certified ✓";
+    statusLabel = t("certifiedCheck");
     statusColor = "bg-gold-500/20 text-gold-300";
-    body = `Certificate ${certificate.certificate_number} · expires ${new Date(certificate.expires_at).toLocaleDateString("en-CA", { year: "numeric", month: "short" })}`;
-    ctaLabel = "View Certificate";
+    body = t("certificateExpiresAt", {
+      number: certificate.certificate_number,
+      date: new Date(certificate.expires_at).toLocaleDateString("en-CA", { year: "numeric", month: "short" }),
+    });
+    ctaLabel = t("viewCertificate");
     ctaHref = "/certificates";
   } else if (enrollment.status === "suspended") {
     // Most commonly: an organization removed this person from its roster
     // mid-course. Nothing was deleted — route to the cert detail page,
     // which has the full "paused" explanation + pay-to-reactivate flow.
-    statusLabel = "Access Paused";
+    statusLabel = t("accessPaused");
     statusColor = "bg-amber-500/20 text-amber-300";
-    body = `Paused at ${pct}% — pay to reactivate and pick up where you left off.`;
-    ctaLabel = "View Details";
+    body = t("pausedAtPct", { pct });
+    ctaLabel = t("viewDetails");
     ctaHref = `/certificates/${cert?.id ?? ""}`;
   } else if (isCompleted) {
-    statusLabel = "Course Complete";
+    statusLabel = t("courseComplete");
     statusColor = "bg-emerald-500/20 text-emerald-300";
-    body = "All lessons complete. You're ready to take the certification exam.";
-    ctaLabel = "Take Exam";
+    body = t("allLessonsComplete");
+    ctaLabel = t("takeExam");
   }
 
   return (
@@ -144,6 +142,7 @@ function CertCard({ enrollment, certificate }: { enrollment: any; certificate: a
 // ─── Learning card ────────────────────────────────────────────────────────────
 
 function LearningCard({ enrollment }: { enrollment: any }) {
+  const t = useTranslations("Dashboard");
   const cert = enrollment.certification;
   const pct = enrollment.progress_percentage ?? 0;
 
@@ -164,11 +163,11 @@ function LearningCard({ enrollment }: { enrollment: any }) {
             pct === 100 ? "bg-emerald-100 text-emerald-700" :
             "bg-gold-50 text-gold-700"
           )}>
-            {pct === 0 ? "Not Started" : pct === 100 ? "Complete" : "In Progress"}
+            {pct === 0 ? t("notStarted") : pct === 100 ? t("complete") : t("inProgress")}
           </span>
         </div>
         <p className="font-semibold text-navy-900 text-sm truncate">{cert?.title}</p>
-        <p className="text-xs text-slate-400 mt-0.5">{cert?.acronym} · {cert?.duration_weeks}-week program</p>
+        <p className="text-xs text-slate-400 mt-0.5">{t("weekProgram", { acronym: cert?.acronym, weeks: cert?.duration_weeks })}</p>
 
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -180,7 +179,7 @@ function LearningCard({ enrollment }: { enrollment: any }) {
 
       <div className="flex-shrink-0 self-center">
         <div className="flex items-center gap-1.5 bg-navy-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg group-hover:bg-navy-700 transition-colors">
-          {pct > 0 ? <><Play size={11} className="fill-white" /> Continue</> : <><Play size={11} className="fill-white" /> Start</>}
+          {pct > 0 ? <><Play size={11} className="fill-white" /> {t("continue")}</> : <><Play size={11} className="fill-white" /> {t("start")}</>}
         </div>
       </div>
     </Link>
@@ -190,6 +189,7 @@ function LearningCard({ enrollment }: { enrollment: any }) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function StudentDashboard() {
+  const t = useTranslations("Dashboard");
   const router = useRouter();
   const { user, accessToken, _hasHydrated } = useAuthStore();
 
@@ -248,13 +248,16 @@ export default function StudentDashboard() {
   const ringCircumference = 2 * Math.PI * ringR;
   const ringOffset = ringCircumference - (profilePct / 100) * ringCircumference;
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t("goodMorning") : hour < 17 ? t("goodAfternoon") : t("goodEvening");
+
   return (
     <div className="min-h-screen bg-[#f7f8fa]">
 
       {/* ── Hero banner ─────────────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-navy-900 via-navy-800 to-[#2d1b69] px-6 lg:px-12 pt-10 pb-0">
         <h2 className="text-white font-display font-black text-3xl mb-8">
-          {greeting()}, {firstName || "there"}!
+          {greeting}, {firstName || t("there")}!
         </h2>
 
         <div className="flex items-end justify-between flex-wrap gap-6 pb-8">
@@ -285,20 +288,20 @@ export default function StudentDashboard() {
                 href="/profile"
                 className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold bg-white text-navy-700 px-2 py-0.5 rounded-full shadow whitespace-nowrap"
               >
-                Edit
+                {t("edit")}
               </Link>
             </div>
 
             <div>
               <h1 className="text-white font-display font-black text-xl leading-tight">{displayName}</h1>
-              <p className="text-white/50 text-xs mt-0.5">{profilePct}% Complete</p>
+              <p className="text-white/50 text-xs mt-0.5">{t("percentComplete", { pct: profilePct })}</p>
             </div>
 
             {/* Account details */}
             {paiId && (
               <div className="hidden md:block border-l border-white/10 pl-6 ml-2">
-                <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Account Details</p>
-                <p className="text-white/80 text-sm font-medium">PAII ID: <span className="font-bold text-white">{paiId}</span></p>
+                <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">{t("accountDetails")}</p>
+                <p className="text-white/80 text-sm font-medium">{t("paiId")}: <span className="font-bold text-white">{paiId}</span></p>
               </div>
             )}
           </div>
@@ -308,17 +311,17 @@ export default function StudentDashboard() {
             href="/profile"
             className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors border border-white/20 mb-8"
           >
-            Complete Account <ArrowRight size={14} />
+            {t("completeAccount")} <ArrowRight size={14} />
           </Link>
         </div>
 
         {/* Stats strip */}
         <div className="flex items-center gap-8 pt-5 pb-5 border-t border-white/10">
           {[
-            { label: "Enrolled",    value: allEnrollments.length },
-            { label: "In Progress", value: allEnrollments.filter((e: any) => e.status === "active").length },
-            { label: "Completed",   value: allEnrollments.filter((e: any) => e.status === "completed").length },
-            { label: "Certificates",value: allCerts.filter((c: any) => c.status !== "revoked").length },
+            { label: t("enrolled"),    value: allEnrollments.length },
+            { label: t("inProgressLabel"), value: allEnrollments.filter((e: any) => e.status === "active").length },
+            { label: t("completed"),   value: allEnrollments.filter((e: any) => e.status === "completed").length },
+            { label: t("certificatesLabel"),value: allCerts.filter((c: any) => c.status !== "revoked").length },
           ].map(({ label, value }) => (
             <div key={label}>
               <div className="text-white font-black text-2xl">{value}</div>
@@ -342,9 +345,9 @@ export default function StudentDashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-navy-900">
-                You have {pendingInvitations.length} pending course invitation{pendingInvitations.length !== 1 ? "s" : ""}
+                {t("pendingInvitations", { count: pendingInvitations.length })}
               </p>
-              <p className="text-sm text-slate-500">Tap to review and accept or decline.</p>
+              <p className="text-sm text-slate-500">{t("tapToReview")}</p>
             </div>
             <ChevronRight size={18} className="text-navy-400 flex-shrink-0" />
           </Link>
@@ -353,9 +356,9 @@ export default function StudentDashboard() {
         {/* Your Certifications */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-black text-navy-900 text-lg">Your Certifications</h2>
+            <h2 className="font-display font-black text-navy-900 text-lg">{t("yourCertifications")}</h2>
             <Link href="/learn" className="text-xs font-semibold text-navy-600 hover:text-navy-800 flex items-center gap-1">
-              View all <ChevronRight size={13} />
+              {t("viewAll")} <ChevronRight size={13} />
             </Link>
           </div>
 
@@ -366,13 +369,13 @@ export default function StudentDashboard() {
           ) : allEnrollments.length === 0 ? (
             <div className="rounded-2xl bg-navy-900 p-8 text-center">
               <GraduationCap size={36} className="mx-auto mb-3 text-white/30" />
-              <p className="text-white font-semibold mb-1">No certifications yet</p>
-              <p className="text-white/40 text-sm mb-5">Apply for a PAII certification program to get started.</p>
+              <p className="text-white font-semibold mb-1">{t("noCertificationsYet")}</p>
+              <p className="text-white/40 text-sm mb-5">{t("applyToGetStarted")}</p>
               <a
                 href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}/certifications`}
                 className="inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-400 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
               >
-                Browse Certifications <ArrowRight size={14} />
+                {t("browseCertifications")} <ArrowRight size={14} />
               </a>
             </div>
           ) : (
@@ -388,9 +391,9 @@ export default function StudentDashboard() {
         {allEnrollments.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-black text-navy-900 text-lg">Your Learning</h2>
+              <h2 className="font-display font-black text-navy-900 text-lg">{t("yourLearning")}</h2>
               <Link href="/learn" className="text-xs font-semibold text-navy-600 hover:text-navy-800 flex items-center gap-1">
-                View all <ChevronRight size={13} />
+                {t("viewAll")} <ChevronRight size={13} />
               </Link>
             </div>
             <div className="space-y-3">
@@ -404,12 +407,12 @@ export default function StudentDashboard() {
         {/* Quick links */}
         {allEnrollments.length > 0 && (
           <section>
-            <h2 className="font-display font-black text-navy-900 text-lg mb-4">Quick Access</h2>
+            <h2 className="font-display font-black text-navy-900 text-lg mb-4">{t("quickAccess")}</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { href: "/student/grades", label: "Grades", icon: CheckCircle2, desc: "Quiz & assignment scores" },
-                { href: "/certificates", label: "Certificates", icon: LayoutDashboard, desc: "Your earned credentials" },
-                { href: "/profile", label: "My Profile", icon: GraduationCap, desc: "Account settings" },
+                { href: "/student/grades", label: t("grades"), icon: CheckCircle2, desc: t("quizAssignmentScores") },
+                { href: "/certificates", label: t("certificatesLabel"), icon: LayoutDashboard, desc: t("earnedCredentials") },
+                { href: "/profile", label: t("myProfile"), icon: GraduationCap, desc: t("accountSettings") },
               ].map(({ href, label, icon: Icon, desc }) => (
                 <Link
                   key={href}

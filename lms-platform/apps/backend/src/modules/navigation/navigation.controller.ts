@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { NavigationService } from "./navigation.service";
@@ -15,8 +15,8 @@ export class NavigationController {
   @Public()
   @Get("public")
   @ApiOperation({ summary: "Get visible nav items for the marketing site" })
-  getPublic() {
-    return this.service.getPublic();
+  getPublic(@Query("lang") lang?: string) {
+    return this.service.getPublic(lang);
   }
 
   @Get()

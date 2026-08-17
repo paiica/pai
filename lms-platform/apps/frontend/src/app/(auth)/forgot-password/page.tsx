@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 
 const cardCls = { borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" };
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("ForgotPassword");
   const [email, setEmail]     = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone]       = useState(false);
@@ -22,7 +24,7 @@ export default function ForgotPasswordPage() {
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
-      else setError("Something went wrong. Please try again.");
+      else setError(t("genericError"));
     } finally {
       setLoading(false);
     }
@@ -34,13 +36,12 @@ export default function ForgotPasswordPage() {
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#f0fdfa", border: "1px solid #ccfbf1" }}>
           <CheckCircle2 size={28} style={{ color: "#14b8a6" }} />
         </div>
-        <h2 className="text-xl font-display font-black text-ink-900 mb-2">Check your inbox</h2>
+        <h2 className="text-xl font-display font-black text-ink-900 mb-2">{t("checkInboxHeading")}</h2>
         <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-          If <strong>{email}</strong> is registered, we&apos;ve sent a password reset link.
-          It expires in 1 hour.
+          {t.rich("checkInboxBody", { email: () => <strong>{email}</strong> })}
         </p>
         <Link href="/login" className="text-sm font-semibold text-ink-700 hover:text-ink-900 flex items-center justify-center gap-1.5">
-          <ArrowLeft size={14} /> Back to sign in
+          <ArrowLeft size={14} /> {t("backToSignIn")}
         </Link>
       </div>
     );
@@ -48,19 +49,19 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="bg-white p-8" style={cardCls}>
-      <h1 className="text-2xl font-display font-black text-ink-900 mb-1">Forgot password?</h1>
+      <h1 className="text-2xl font-display font-black text-ink-900 mb-1">{t("heading")}</h1>
       <p className="text-slate-500 text-sm mb-6">
-        Enter your email and we&apos;ll send you a reset link.
+        {t("subheading")}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{t("emailLabel")}</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             required
             className="input-base"
             autoComplete="email"
@@ -78,13 +79,13 @@ export default function ForgotPasswordPage() {
           disabled={loading}
           className="w-full btn-primary !py-3 !text-base justify-center disabled:opacity-60"
         >
-          {loading ? <Loader2 size={18} className="animate-spin" /> : "Send Reset Link"}
+          {loading ? <Loader2 size={18} className="animate-spin" /> : t("submit")}
         </button>
       </form>
 
       <div className="mt-5 pt-5 border-t border-slate-100 text-center">
         <Link href="/login" className="text-sm font-semibold text-ink-700 hover:text-ink-900 flex items-center justify-center gap-1.5">
-          <ArrowLeft size={14} /> Back to sign in
+          <ArrowLeft size={14} /> {t("backToSignIn")}
         </Link>
       </div>
     </div>

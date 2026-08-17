@@ -3,11 +3,13 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
 function LoginContent() {
+  const t = useTranslations("Login");
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/dashboard";
@@ -36,7 +38,7 @@ function LoginContent() {
         }
         setError(err.message);
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(t("genericError"));
       }
     }
   }
@@ -53,18 +55,18 @@ function LoginContent() {
 
   return (
     <div className="bg-white p-8" style={{ borderRadius: "20px", border: "1px solid #ddd8d0", boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.05)" }}>
-      <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>Sign In</h1>
-      <p className="text-sm mb-6" style={{ color: "#948e84" }}>Access your PAII learning portal</p>
+      <h1 className="text-2xl font-display font-black mb-1" style={{ color: "#171527" }}>{t("heading")}</h1>
+      <p className="text-sm mb-6" style={{ color: "#948e84" }}>{t("subheading")}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
+          <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700 mb-1.5">{t("emailLabel")}</label>
           <input
             id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             required
             className="input-base"
             autoComplete="email"
@@ -72,9 +74,9 @@ function LoginContent() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="login-password" className="text-xs font-semibold text-slate-700">Password</label>
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-700">{t("passwordLabel")}</label>
             <Link href="/forgot-password" className="text-xs text-navy-600 hover:text-navy-800 font-medium">
-              Forgot password?
+              {t("forgotPassword")}
             </Link>
           </div>
           <div className="relative">
@@ -109,18 +111,18 @@ function LoginContent() {
             {resendStatus === "sent" ? (
               <div className="flex items-center gap-2 text-emerald-700 text-sm">
                 <MailCheck size={16} />
-                <span>Verification email sent! Check your inbox.</span>
+                <span>{t("verificationEmailSent")}</span>
               </div>
             ) : (
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-amber-700">Didn&apos;t get the email?</p>
+                <p className="text-xs text-amber-700">{t("noEmailPrompt")}</p>
                 <button
                   type="button"
                   onClick={handleResend}
                   disabled={resendStatus === "sending"}
                   className="text-xs font-semibold text-amber-800 underline underline-offset-2 disabled:opacity-60"
                 >
-                  {resendStatus === "sending" ? "Sending…" : "Resend verification email"}
+                  {resendStatus === "sending" ? t("resendSending") : t("resendVerification")}
                 </button>
               </div>
             )}
@@ -132,14 +134,14 @@ function LoginContent() {
           disabled={isLoading}
           className="w-full btn-primary !py-3 !text-base justify-center disabled:opacity-60"
         >
-          {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Sign In"}
+          {isLoading ? <Loader2 size={18} className="animate-spin" /> : t("submit")}
         </button>
       </form>
 
       <div className="mt-5 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
-        Don&apos;t have an account?{" "}
+        {t("noAccount")}{" "}
         <Link href="/register" className="text-navy-700 font-semibold hover:text-navy-900">
-          Create account
+          {t("createAccount")}
         </Link>
       </div>
 
@@ -148,7 +150,7 @@ function LoginContent() {
           href={process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca"}
           className="text-xs text-slate-400 hover:text-slate-600"
         >
-          ← Back to main website
+          {t("backToMainWebsite")}
         </Link>
       </div>
     </div>

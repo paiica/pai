@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { api, ApiError } from "@/lib/api";
+import { resolveLocale } from "@/i18n/locales";
 
 interface UserProfile {
   id: string;
@@ -13,7 +14,24 @@ interface UserProfile {
     last_name: string;
     display_name?: string;
     avatar_url?: string;
+    language?: string;
   };
+}
+
+// Keeps the NEXT_LOCALE cookie (read server-side by src/i18n/request.ts) in
+// step with the student's saved language preference, so signing in on a new
+// device/browser picks up their Arabic choice instead of defaulting to
+// English until they manually switch again. Only writes when it would
+// actually change the cookie, and reloads so the server-rendered shell
+// (which already read the stale cookie for this request) picks it up too.
+function syncLocaleCookie(language: string | undefined) {
+  if (typeof document === "undefined") return;
+  const target = resolveLocale(language);
+  const cookieVal = document.cookie.match(/(?:^|; )NEXT_LOCALE=([^;]*)/)?.[1];
+  const current = resolveLocale(cookieVal); // absent cookie == "en" per src/i18n/request.ts's own default
+  if (current === target) return;
+  document.cookie = `NEXT_LOCALE=${target}; path=/; max-age=31536000`;
+  window.location.reload();
 }
 
 interface AuthState {
@@ -84,6 +102,7 @@ export const useAuthStore = create<AuthState>()(
             accessToken: data.data.access_token,
             refreshToken: data.data.refresh_token,
           });
+          syncLocaleCookie(data.data.user.profile?.language);
           // Separate origin in production, so setting this store's own state
           // above doesn't touch the marketing site's independent session at
           // all — only logging in *through* the marketing site (via its
@@ -172,12 +191,14 @@ export const useAuthStore = create<AuthState>()(
         try {
           const data = await api.get<{ data: UserProfile }>("/auth/me", accessToken);
           set({ user: data.data });
+          syncLocaleCookie(data.data.profile?.language);
         } catch (err) {
           if (err instanceof ApiError && err.status === 401) {
             const refreshed = await get().refreshTokens();
             if (refreshed) {
               const data = await api.get<{ data: UserProfile }>("/auth/me", get().accessToken!);
               set({ user: data.data });
+              syncLocaleCookie(data.data.profile?.language);
             }
           }
         }

@@ -39,6 +39,8 @@ import { ProfessorStudentsModule } from "./modules/professor-students/professor-
 import { ProgramsModule } from "./modules/programs/programs.module";
 import { TranscriptsModule } from "./modules/transcripts/transcripts.module";
 import { LabsModule } from "./modules/labs/labs.module";
+import { LanguagesModule } from "./modules/languages/languages.module";
+import { TranslationsModule } from "./modules/translations/translations.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -82,6 +84,8 @@ import { AppController } from "./app.controller";
     OnlineToolsModule,
     ExamSessionsModule,
     AiModule,
+    LanguagesModule,
+    TranslationsModule,
     MailSchedulerModule,
     AffiliateModule,
     EventsModule,

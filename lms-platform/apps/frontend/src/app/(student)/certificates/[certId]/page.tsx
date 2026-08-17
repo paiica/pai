@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import {
   RefreshCw, CheckCircle2, Clock, BookOpen, ExternalLink,
   ChevronRight, X, User, Briefcase, GraduationCap, MessageSquare,
@@ -16,33 +17,38 @@ import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
 import toast from "react-hot-toast";
 
-const STEPS = [
-  { id: 1, label: "Requirements",  doneLabel: "Application Submitted" },
-  { id: 2, label: "Pay for Exam",  doneLabel: "Payment Received" },
-  { id: 3, label: "Approval",      doneLabel: "Approved" },
-  { id: 4, label: "Schedule Exam", doneLabel: "Exam Complete" },
-];
+function getSteps(t: ReturnType<typeof useTranslations>) {
+  return [
+    { id: 1, label: t("stepRequirements"),  doneLabel: t("stepRequirementsDone") },
+    { id: 2, label: t("stepPayExam"),       doneLabel: t("stepPayExamDone") },
+    { id: 3, label: t("stepApproval"),      doneLabel: t("stepApprovalDone") },
+    { id: 4, label: t("stepScheduleExam"),  doneLabel: t("stepScheduleExamDone") },
+  ];
+}
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_payment:   "Application Submitted",
-  payment_submitted: "Payment Processing",
-  pending_review:    "Under Review",
-  approved:          "Approved",
-  rejected:          "Not Approved",
-  withdrawn:         "Withdrawn",
-};
+function getStatusLabels(t: ReturnType<typeof useTranslations>): Record<string, string> {
+  return {
+    pending_payment:   t("statusApplicationSubmitted"),
+    payment_submitted: t("statusPaymentProcessing"),
+    pending_review:    t("statusUnderReview"),
+    approved:          t("statusApproved"),
+    rejected:          t("statusNotApproved"),
+    withdrawn:         t("statusWithdrawn"),
+  };
+}
 
-function getProgress(application: any, enrollment: any) {
+// badgeKind drives color/comparison logic so it stays language-independent;
+// `badge` is the display string shown to the user.
+function getProgress(application: any, enrollment: any, t: ReturnType<typeof useTranslations>) {
   // Enrollment always wins — unless suspended (admin revoked/set back to pending)
   if (enrollment && enrollment.status !== "suspended") {
     const isCompleted = enrollment.status === "completed";
     return {
       step: isCompleted ? 4 : 3,
-      badge: isCompleted ? "Completed" : "Enrolled",
-      title: isCompleted ? "Certification Complete!" : "You're enrolled",
-      subtitle: isCompleted
-        ? "You have successfully completed this certification program."
-        : "You are currently enrolled. Complete your coursework and take the exam to earn your certificate.",
+      badgeKind: isCompleted ? "completed" : "enrolled",
+      badge: isCompleted ? t("badgeCompleted") : t("badgeEnrolled"),
+      title: isCompleted ? t("titleCompleted") : t("titleEnrolled"),
+      subtitle: isCompleted ? t("subtitleCompleted") : t("subtitleEnrolled"),
     };
   }
 
@@ -53,11 +59,12 @@ function getProgress(application: any, enrollment: any) {
   if (enrollment && enrollment.status === "suspended") {
     return {
       step: 3,
-      badge: "Access Paused",
-      title: "Your access to this certification is paused",
-      subtitle: `You were removed from an organization's roster before finishing. Your progress${
-        enrollment.progress_percentage ? ` (${enrollment.progress_percentage}% complete)` : ""
-      } is saved — pay to reactivate and pick up right where you left off, or ask an organization to re-invite you.`,
+      badgeKind: "accessPaused",
+      badge: t("badgeAccessPaused"),
+      title: t("titleAccessPaused"),
+      subtitle: t("subtitleAccessPausedBase", {
+        progressNote: enrollment.progress_percentage ? t("progressCompleteNote", { percentage: enrollment.progress_percentage }) : "",
+      }),
       suspended: true,
     };
   }
@@ -65,9 +72,10 @@ function getProgress(application: any, enrollment: any) {
   if (!application) {
     return {
       step: 0,
-      badge: "Not Started",
-      title: "Start your certification journey",
-      subtitle: "Submit an application to begin the process for this certification.",
+      badgeKind: "notStarted",
+      badge: t("badgeNotStarted"),
+      title: t("titleNotStarted"),
+      subtitle: t("subtitleNotStarted"),
     };
   }
 
@@ -75,34 +83,39 @@ function getProgress(application: any, enrollment: any) {
 
   if (status === "rejected") return {
     step: 0,
-    badge: "Not Approved",
-    title: "Application not approved",
-    subtitle: application.rejection_reason || "Unfortunately your application was not approved at this time.",
+    badgeKind: "notApproved",
+    badge: t("statusNotApproved"),
+    title: t("titleNotApproved"),
+    subtitle: application.rejection_reason || t("subtitleNotApprovedFallback"),
   };
   if (status === "pending_payment") return {
     step: 1,
-    badge: "Application in Progress",
-    title: "Your application was received",
-    subtitle: `Your application was submitted on ${new Date(application.created_at).toLocaleDateString("en-CA", { dateStyle: "long" })}. You'll receive an email with next steps once your status updates, this may take up to 5 days.`,
+    badgeKind: "applicationInProgress",
+    badge: t("badgeApplicationInProgress"),
+    title: t("titleApplicationReceived"),
+    subtitle: t("subtitleApplicationReceived", { date: new Date(application.created_at).toLocaleDateString("en-CA", { dateStyle: "long" }) }),
   };
   if (status === "payment_submitted") return {
     step: 1,
-    badge: "Payment Processing",
-    title: "Payment submitted — awaiting confirmation",
-    subtitle: "Your payment was received and is being verified by our team. You'll be notified once it's confirmed.",
+    badgeKind: "paymentProcessing",
+    badge: t("statusPaymentProcessing"),
+    title: t("titlePaymentAwaitingConfirmation"),
+    subtitle: t("subtitlePaymentAwaitingConfirmation"),
     paymentPending: true,
   };
   if (status === "pending_review") return {
     step: 2,
-    badge: "Approval Pending",
-    title: "Payment verified — awaiting approval",
-    subtitle: "Your payment has been confirmed. Our admissions team is reviewing your application and will notify you once a decision is made.",
+    badgeKind: "approvalPending",
+    badge: t("badgeApprovalPending"),
+    title: t("titlePaymentVerified"),
+    subtitle: t("subtitlePaymentVerified"),
   };
   return {
     step: 3,
-    badge: "Approved",
-    title: "Your application has been approved!",
-    subtitle: "Congratulations! You can now schedule and take your exam.",
+    badgeKind: "approved",
+    badge: t("statusApproved"),
+    title: t("titleApproved"),
+    subtitle: t("subtitleApproved"),
   };
 }
 
@@ -119,6 +132,8 @@ function StepBar({
   onStepClick?: (stepId: number) => void;
   hasApplication?: boolean;
 }) {
+  const t = useTranslations("CertificateDetail");
+  const STEPS = getSteps(t);
   return (
     <div className="flex items-center w-full mt-8">
       {STEPS.map((step, i) => {
@@ -140,11 +155,11 @@ function StepBar({
         const step2Clickable = step.id === 2 && currentStep >= 1 && !!onStepClick && (!!hasApplication || (!isEnrolled && currentStep <= 1));
 
         const label = examBooked
-          ? "Exam Scheduled"
+          ? t("examScheduled")
           : paymentSubmitted
-          ? "Payment Processed"
+          ? t("paymentProcessed")
           : waitingForAdmin
-          ? "Approval Pending"
+          ? t("badgeApprovalPending")
           : done
           ? step.doneLabel
           : step.label;
@@ -181,12 +196,12 @@ function StepBar({
                                            : "text-red-400/50"
           )}>
             {label}
-            {needsAction       && <span className="block text-[9px] text-red-400 text-center">Action needed</span>}
-            {scheduleClickable && <span className="block text-[9px] text-red-400 text-center">Click to book</span>}
-            {paymentSubmitted  && <span className="block text-[9px] text-amber-300 text-center">Awaiting verification</span>}
-            {waitingForAdmin   && <span className="block text-[9px] text-amber-400 text-center">Awaiting approval</span>}
-            {step1Clickable && !waitingForAdmin && done && <span className="block text-[9px] text-emerald-400/70 text-center">Click to view</span>}
-            {step2Clickable && !paymentSubmitted && !done && active && <span className="block text-[9px] text-red-400 text-center">Click to pay</span>}
+            {needsAction       && <span className="block text-[9px] text-red-400 text-center">{t("actionNeeded")}</span>}
+            {scheduleClickable && <span className="block text-[9px] text-red-400 text-center">{t("clickToBook")}</span>}
+            {paymentSubmitted  && <span className="block text-[9px] text-amber-300 text-center">{t("awaitingVerification")}</span>}
+            {waitingForAdmin   && <span className="block text-[9px] text-amber-400 text-center">{t("awaitingApproval")}</span>}
+            {step1Clickable && !waitingForAdmin && done && <span className="block text-[9px] text-emerald-400/70 text-center">{t("clickToView")}</span>}
+            {step2Clickable && !paymentSubmitted && !done && active && <span className="block text-[9px] text-red-400 text-center">{t("clickToPay")}</span>}
           </span>
         );
 
@@ -247,6 +262,8 @@ function SectionHead({ icon: Icon, title }: { icon: any; title: string }) {
 }
 
 function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: () => void; onWithdraw: () => void }) {
+  const t = useTranslations("CertificateDetail");
+  const STATUS_LABELS = getStatusLabels(t);
   const statusColor: Record<string, string> = {
     pending_payment:   "bg-blue-50 text-blue-700",
     payment_submitted: "bg-amber-50 text-amber-700",
@@ -264,8 +281,8 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="font-display font-black text-navy-900 text-base">Application Details</h2>
-            <p className="text-xs text-slate-400">Submitted {new Date(app.created_at).toLocaleDateString("en-CA", { dateStyle: "long" })}</p>
+            <h2 className="font-display font-black text-navy-900 text-base">{t("applicationDetails")}</h2>
+            <p className="text-xs text-slate-400">{t("submittedOn", { date: new Date(app.created_at).toLocaleDateString("en-CA", { dateStyle: "long" }) })}</p>
           </div>
           <button
             onClick={onClose}
@@ -288,43 +305,43 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
 
           {/* Personal */}
           <div>
-            <SectionHead icon={User} title="Personal Information" />
+            <SectionHead icon={User} title={t("personalInformation")} />
             <div className="space-y-2 pl-5">
-              <DetailRow label="Full Name"      value={app.full_name} />
-              <DetailRow label="Email"          value={app.email} />
-              <DetailRow label="Phone"          value={app.phone} />
-              <DetailRow label="Date of Birth"  value={app.date_of_birth ? new Date(app.date_of_birth).toLocaleDateString("en-CA", { dateStyle: "long" }) : null} />
-              <DetailRow label="Gender"         value={app.gender} />
-              <DetailRow label="Country"        value={app.country} />
+              <DetailRow label={t("fullName")}     value={app.full_name} />
+              <DetailRow label={t("email")}        value={app.email} />
+              <DetailRow label={t("phone")}        value={app.phone} />
+              <DetailRow label={t("dateOfBirth")}  value={app.date_of_birth ? new Date(app.date_of_birth).toLocaleDateString("en-CA", { dateStyle: "long" }) : null} />
+              <DetailRow label={t("gender")}       value={app.gender} />
+              <DetailRow label={t("country")}      value={app.country} />
             </div>
           </div>
 
           {/* Professional */}
           <div>
-            <SectionHead icon={Briefcase} title="Professional Background" />
+            <SectionHead icon={Briefcase} title={t("professionalBackground")} />
             <div className="space-y-2 pl-5">
-              <DetailRow label="Career Status"     value={app.career_status?.replace(/_/g, " ")} />
-              <DetailRow label="Job Title"         value={app.job_title} />
-              <DetailRow label="Company"           value={app.company} />
-              <DetailRow label="Years Experience"  value={app.years_experience != null ? `${app.years_experience} years` : null} />
-              <DetailRow label="LinkedIn"          value={app.linkedin_url} />
+              <DetailRow label={t("careerStatus")}     value={app.career_status?.replace(/_/g, " ")} />
+              <DetailRow label={t("jobTitle")}         value={app.job_title} />
+              <DetailRow label={t("company")}          value={app.company} />
+              <DetailRow label={t("yearsExperience")}  value={app.years_experience != null ? t("yearsExperienceValue", { count: app.years_experience }) : null} />
+              <DetailRow label={t("linkedin")}         value={app.linkedin_url} />
             </div>
           </div>
 
           {/* Education */}
           <div>
-            <SectionHead icon={GraduationCap} title="Education" />
+            <SectionHead icon={GraduationCap} title={t("education")} />
             <div className="space-y-2 pl-5">
-              <DetailRow label="University"      value={app.university} />
-              <DetailRow label="Degree"          value={app.degree_program} />
-              <DetailRow label="Graduation Year" value={app.graduation_year} />
+              <DetailRow label={t("university")}      value={app.university} />
+              <DetailRow label={t("degree")}          value={app.degree_program} />
+              <DetailRow label={t("graduationYear")}  value={app.graduation_year} />
             </div>
           </div>
 
           {/* Motivation */}
           {app.motivation && (
             <div>
-              <SectionHead icon={MessageSquare} title="Motivation" />
+              <SectionHead icon={MessageSquare} title={t("motivation")} />
               <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 pl-5">
                 {app.motivation}
               </p>
@@ -334,7 +351,7 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
           {/* How heard */}
           {app.how_heard && (
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">How They Heard</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{t("howTheyHeard")}</p>
               <p className="text-sm text-slate-600 pl-5">{app.how_heard}</p>
             </div>
           )}
@@ -343,23 +360,23 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
           {(app.payment_status === "succeeded" || app.status === "payment_submitted") && (
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="bg-slate-50 px-4 py-2.5">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t("payment")}</p>
               </div>
               <div className="px-4 py-3 space-y-2">
                 <DetailRow
-                  label="Amount"
+                  label={t("amount")}
                   value={app.amount_paid !== null && app.amount_paid !== undefined
-                    ? (Number(app.amount_paid) === 0 ? "Free (100% promo)" : `$${Number(app.amount_paid).toFixed(2)}`)
+                    ? (Number(app.amount_paid) === 0 ? t("freePromo") : `$${Number(app.amount_paid).toFixed(2)}`)
                     : undefined}
                 />
-                {app.promo_code && <DetailRow label="Promo Code" value={app.promo_code} />}
+                {app.promo_code && <DetailRow label={t("promoCode")} value={app.promo_code} />}
                 <DetailRow
-                  label="Paid On"
+                  label={t("paidOn")}
                   value={app.paid_at ? new Date(app.paid_at).toLocaleDateString("en-CA", { dateStyle: "long" }) : undefined}
                 />
                 <DetailRow
-                  label="Status"
-                  value={app.status === "payment_submitted" ? "Processing — awaiting admin confirmation" : "Confirmed ✓"}
+                  label={t("status")}
+                  value={app.status === "payment_submitted" ? t("paymentProcessingConfirmation") : t("confirmed")}
                 />
               </div>
             </div>
@@ -368,7 +385,7 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
           {/* Rejection reason */}
           {app.rejection_reason && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">Rejection Reason</p>
+              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">{t("rejectionReason")}</p>
               <p className="text-sm text-red-700">{app.rejection_reason}</p>
             </div>
           )}
@@ -376,7 +393,7 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
           {/* Submitted documents */}
           {Array.isArray(app.documents) && app.documents.length > 0 && (
             <div>
-              <SectionHead icon={FileText} title="Submitted Documents" />
+              <SectionHead icon={FileText} title={t("submittedDocuments")} />
               <div className="space-y-2 pl-5">
                 {app.documents.map((doc: any) => (
                   <div key={doc.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
@@ -386,7 +403,7 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
                       {doc.file_size && <p className="text-[10px] text-slate-400">{(doc.file_size / 1024).toFixed(0)} KB</p>}
                     </div>
                     <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-navy-600 hover:underline font-semibold flex-shrink-0">
-                      View
+                      {t("view")}
                     </a>
                   </div>
                 ))}
@@ -401,10 +418,10 @@ function ApplicationDrawer({ app, onClose, onWithdraw }: { app: any; onClose: ()
                 onClick={onWithdraw}
                 className="w-full py-2.5 text-sm font-semibold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
               >
-                Withdraw Application
+                {t("withdrawApplication")}
               </button>
               <p className="text-[10px] text-slate-400 text-center mt-2">
-                You can withdraw as long as no payment has been made.
+                {t("withdrawHint")}
               </p>
             </div>
           )}
@@ -433,6 +450,7 @@ function DocumentUploadSection({
   const fileRef   = useRef<HTMLInputElement>(null);
   const [uploading,  setUploading]  = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const t = useTranslations("CertificateDetail");
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -464,11 +482,11 @@ function DocumentUploadSection({
 
         anyUploaded = true;
       } catch (err: any) {
-        toast.error(`Failed to upload ${file.name}: ${err.message ?? "unknown error"}`);
+        toast.error(t("toastUploadFailed", { name: file.name, error: err.message ?? "unknown error" }));
       }
     }
     setUploading(false);
-    if (anyUploaded) { toast.success("Document(s) uploaded"); onUploaded(); }
+    if (anyUploaded) { toast.success(t("toastDocumentsUploaded")); onUploaded(); }
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -476,10 +494,10 @@ function DocumentUploadSection({
     setSubmitting(true);
     try {
       await api.post(`/applications/${applicationId}/submit-documents`, {}, token);
-      toast.success("Documents submitted! Our team will review them shortly.");
+      toast.success(t("toastDocumentsSubmitted"));
       onUploaded();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to submit documents");
+      toast.error(err.message ?? t("toastDocumentsSubmitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -493,8 +511,8 @@ function DocumentUploadSection({
           <AlertTriangle size={16} className="text-white" />
         </div>
         <div>
-          <p className="font-display font-black text-red-900 text-sm">Supporting Documents Required</p>
-          <p className="text-xs text-red-700">Our admissions team has requested additional documents before your application can proceed.</p>
+          <p className="font-display font-black text-red-900 text-sm">{t("supportingDocsRequired")}</p>
+          <p className="text-xs text-red-700">{t("supportingDocsBody")}</p>
         </div>
       </div>
 
@@ -502,7 +520,7 @@ function DocumentUploadSection({
         {/* Admin message */}
         {message && (
           <div className="bg-white border border-red-200 rounded-xl p-4">
-            <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">Message from admissions team</p>
+            <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">{t("messageFromAdmissions")}</p>
             <p className="text-sm text-slate-700 leading-relaxed">{message}</p>
           </div>
         )}
@@ -510,7 +528,7 @@ function DocumentUploadSection({
         {/* Already uploaded */}
         {existingDocs.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Uploaded ({existingDocs.length})</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t("uploadedCount", { count: existingDocs.length })}</p>
             {existingDocs.map((doc: any) => (
               <div key={doc.id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl">
                 <FileText size={14} className="text-slate-400 flex-shrink-0" />
@@ -519,7 +537,7 @@ function DocumentUploadSection({
                   {doc.file_size && <p className="text-[10px] text-slate-400">{(doc.file_size / 1024).toFixed(0)} KB</p>}
                 </div>
                 <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-navy-600 hover:underline font-semibold flex-shrink-0">
-                  View
+                  {t("view")}
                 </a>
               </div>
             ))}
@@ -542,13 +560,13 @@ function DocumentUploadSection({
           {uploading ? (
             <div className="flex items-center justify-center gap-2 text-red-600">
               <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm font-semibold">Uploading…</span>
+              <span className="text-sm font-semibold">{t("uploading")}</span>
             </div>
           ) : (
             <>
               <Upload size={24} className="text-red-400 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-red-800">Click to upload documents</p>
-              <p className="text-xs text-red-500 mt-1">PDF, JPG, PNG, DOC — multiple files allowed</p>
+              <p className="text-sm font-semibold text-red-800">{t("clickToUploadDocuments")}</p>
+              <p className="text-xs text-red-500 mt-1">{t("uploadHint")}</p>
             </>
           )}
         </div>
@@ -560,7 +578,7 @@ function DocumentUploadSection({
             disabled={submitting || uploading}
             className="w-full py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            {submitting ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Documents"}
+            {submitting ? <><Loader2 size={16} className="animate-spin" /> {t("submitting")}</> : t("submitDocuments")}
           </button>
         )}
       </div>
@@ -571,6 +589,7 @@ function DocumentUploadSection({
 /* ── Prep course card ────────────────────────────────────────────────── */
 function PrepCourseCard({ course }: { course: any }) {
   const price = Number(course.price);
+  const t = useTranslations("CertificateDetail");
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow">
       <div className="relative h-44 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden flex-shrink-0">
@@ -596,13 +615,13 @@ function PrepCourseCard({ course }: { course: any }) {
         )}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <span className="font-black text-navy-900 text-sm">
-            {price === 0 ? "Free" : `$${price.toFixed(2)}`}
+            {price === 0 ? t("free") : `$${price.toFixed(2)}`}
           </span>
           <Link
             href={`/tools/course/${course.slug}`}
             className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
           >
-            Learn More <ChevronRight size={12} />
+            {t("learnMore")} <ChevronRight size={12} />
           </Link>
         </div>
       </div>
@@ -648,6 +667,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
   latestAttempt: any | null; certSlug?: string; certId: string;
   enrollmentId?: string | null; token?: string | null;
 }) {
+  const t = useTranslations("CertificateDetail");
   const session = booking.exam_session;
   const unlockAt = new Date(new Date(session.scheduled_at).getTime() - 3 * 60 * 1000).toISOString();
   const remaining = useCountdown(session.scheduled_at, serverOffsetMs);
@@ -675,9 +695,9 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
       const res = await api.post<any>("/payments/retake-checkout", { enrollment_id: enrollmentId }, token);
       const url = res?.data?.checkout_url ?? res?.checkout_url;
       if (url) window.location.href = url;
-      else toast.error("Could not start checkout");
+      else toast.error(t("toastCheckoutFailed"));
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to start retake checkout");
+      toast.error(e?.message ?? t("toastRetakeCheckoutFailed"));
     } finally {
       setPurchasingRetake(false);
     }
@@ -689,9 +709,9 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Check size={14} className="text-emerald-400" />
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Exam Booked</span>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">{t("examBooked")}</span>
           </div>
-          <h3 className="text-base font-display font-black text-white">{session.title || "Exam Session"}</h3>
+          <h3 className="text-base font-display font-black text-white">{session.title || t("examSessionFallback")}</h3>
           <p className="text-sm text-white/60 mt-0.5">{fmtFull(session.scheduled_at)}</p>
         </div>
         {!isOver && (
@@ -700,7 +720,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
             disabled={cancelling}
             className="text-xs text-white/40 hover:text-red-400 border border-white/10 hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
           >
-            {cancelling ? <Loader2 size={11} className="animate-spin" /> : "Cancel Booking"}
+            {cancelling ? <Loader2 size={11} className="animate-spin" /> : t("cancelBooking")}
           </button>
         )}
       </div>
@@ -709,9 +729,9 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
         {/* ── Pre-exam: countdown ── */}
         {!isOver && (
           <>
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4">Time until exam</p>
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4">{t("timeUntilExam")}</p>
             <div className="grid grid-cols-4 gap-3 mb-6">
-              {[{ val: days, label: "Days" }, { val: hours, label: "Hrs" }, { val: minutes, label: "Min" }, { val: seconds, label: "Sec" }].map(({ val, label }) => (
+              {[{ val: days, label: t("days") }, { val: hours, label: t("hrs") }, { val: minutes, label: t("min") }, { val: seconds, label: t("sec") }].map(({ val, label }) => (
                 <div key={label} className="text-center bg-white/8 rounded-xl py-3">
                   <div className="text-2xl font-black font-display text-teal-300 tabular-nums">{String(val).padStart(2, "0")}</div>
                   <div className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">{label}</div>
@@ -727,12 +747,12 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
               )}
             >
               {starting ? <Loader2 size={15} className="animate-spin" /> : null}
-              {isUnlocked ? "Enter Exam Room" : "Unlocks 3 minutes before start"}
+              {isUnlocked ? t("enterExamRoom") : t("unlocksIn3Min")}
             </button>
             {session.meeting_link && isUnlocked && (
               <a href={session.meeting_link} target="_blank" rel="noreferrer"
                 className="mt-3 flex items-center justify-center gap-2 w-full py-2.5 border border-white/15 rounded-xl text-sm text-white/60 hover:text-white hover:border-white/30 transition-colors">
-                <ExternalLink size={12} /> Open Meeting Link
+                <ExternalLink size={12} /> {t("openMeetingLink")}
               </a>
             )}
           </>
@@ -747,8 +767,8 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                   <Clock size={20} className="text-white" />
                 </div>
                 <div>
-                  <p className="font-bold text-amber-300 text-sm">Pending Exam Results</p>
-                  <p className="text-white/50 text-xs mt-1">Your result will show here once the exam is submitted.</p>
+                  <p className="font-bold text-amber-300 text-sm">{t("pendingExamResults")}</p>
+                  <p className="text-white/50 text-xs mt-1">{t("pendingExamResultsHint")}</p>
                 </div>
                 <button
                   onClick={onStartExam}
@@ -756,7 +776,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                   className="w-full py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   {starting ? <Loader2 size={15} className="animate-spin" /> : null}
-                  Return to Exam Room
+                  {t("returnToExamRoom")}
                 </button>
               </>
             ) : (
@@ -764,14 +784,14 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                 <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center mx-auto">
                   <ExternalLink size={20} className="text-white" />
                 </div>
-                <p className="font-bold text-teal-300 text-sm">Your exam is ready!</p>
+                <p className="font-bold text-teal-300 text-sm">{t("examReady")}</p>
                 <button
                   onClick={onStartExam}
                   disabled={starting}
                   className="w-full py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   {starting ? <Loader2 size={15} className="animate-spin" /> : null}
-                  Enter Exam Room
+                  {t("enterExamRoom")}
                 </button>
               </>
             )}
@@ -785,18 +805,18 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
               <Award size={24} className="text-white" />
             </div>
             <div>
-              <p className="font-black text-emerald-300 text-base">Exam Passed!</p>
+              <p className="font-black text-emerald-300 text-base">{t("examPassed")}</p>
               <p className="text-white/50 text-xs mt-1">
-                Score: <span className="text-emerald-300 font-semibold">{latestAttempt.score_percentage}%</span>
-                {" · "}{latestAttempt.correct_answers}/{latestAttempt.total_questions} correct
+                {t.rich("scorePercentage", { score: latestAttempt.score_percentage, b: (chunks) => <span className="text-emerald-300 font-semibold">{chunks}</span> })}
+                {" · "}{t("correctAnswers", { correct: latestAttempt.correct_answers, total: latestAttempt.total_questions })}
               </p>
-              <p className="text-white/40 text-xs mt-2">Your certificate will be issued and will appear on this page once confirmed.</p>
+              <p className="text-white/40 text-xs mt-2">{t("certificateWillBeIssued")}</p>
             </div>
             <Link
               href={`/certificates/${bpCertId}`}
               className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm transition-colors"
             >
-              <Award size={15} /> View Certificate
+              <Award size={15} /> {t("viewCertificate")}
             </Link>
           </div>
         )}
@@ -808,22 +828,22 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
               <X size={24} className="text-red-400" />
             </div>
             <div>
-              <p className="font-black text-red-400 text-base">Not Passed</p>
+              <p className="font-black text-red-400 text-base">{t("notPassed")}</p>
               <p className="text-white/50 text-xs mt-1">
                 Score: <span className="text-red-400 font-semibold">{latestAttempt.score_percentage}%</span>
-                {" · "}{latestAttempt.correct_answers}/{latestAttempt.total_questions} correct
+                {" · "}{t("correctAnswers", { correct: latestAttempt.correct_answers, total: latestAttempt.total_questions })}
               </p>
               {retakeStatus?.exhausted ? (
                 <p className="text-white/40 text-xs mt-2 leading-relaxed">
-                  You've used all available retakes for this certification. You'll need to register again to continue.
+                  {t("retakesExhausted")}
                 </p>
               ) : retakeStatus?.needs_payment ? (
                 <p className="text-white/40 text-xs mt-2 leading-relaxed">
-                  You have one retake available for a fee of ${Number(retakeStatus.retake_fee).toFixed(2)}, drawing a different set of questions from the exam bank.
+                  {t("retakeNeedsPayment", { fee: Number(retakeStatus.retake_fee).toFixed(2) })}
                 </p>
               ) : (
                 <p className="text-white/40 text-xs mt-2 leading-relaxed">
-                  Your retake is ready — start it below whenever you're ready.
+                  {t("retakeReady")}
                 </p>
               )}
             </div>
@@ -833,7 +853,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                   href={`/apply/${certSlug}`}
                   className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl font-bold text-sm transition-colors"
                 >
-                  Submit New Application
+                  {t("submitNewApplication")}
                 </Link>
               )
             ) : retakeStatus?.needs_payment ? (
@@ -842,7 +862,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
                 disabled={purchasingRetake}
                 className="flex items-center justify-center gap-2 w-full py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-60"
               >
-                {purchasingRetake ? <Loader2 size={15} className="animate-spin" /> : `Purchase Retake — $${Number(retakeStatus.retake_fee).toFixed(2)}`}
+                {purchasingRetake ? <Loader2 size={15} className="animate-spin" /> : t("purchaseRetake", { fee: Number(retakeStatus.retake_fee).toFixed(2) })}
               </button>
             ) : null}
           </div>
@@ -855,6 +875,7 @@ function BookingPanel({ booking, serverOffsetMs, onStartExam, starting, onCancel
 function SessionCard({ session, isBooked, onBook, booking }: {
   session: any; isBooked: boolean; onBook: (id: string) => void; booking: boolean;
 }) {
+  const t = useTranslations("CertificateDetail");
   const booked = session._count?.bookings ?? 0;
   const full = session.max_seats != null && booked >= session.max_seats;
   const past = new Date(session.scheduled_at) <= new Date();
@@ -864,15 +885,15 @@ function SessionCard({ session, isBooked, onBook, booking }: {
       <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="font-semibold text-slate-800 text-sm">{session.title || "Exam Session"}</span>
-            {full && !past && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">Full</span>}
-            {past && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-semibold rounded-full">Past</span>}
+            <span className="font-semibold text-slate-800 text-sm">{session.title || t("examSessionFallback")}</span>
+            {full && !past && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">{t("full")}</span>}
+            {past && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-semibold rounded-full">{t("past")}</span>}
           </div>
           <div className="space-y-1 text-xs text-slate-500">
             <div className="flex items-center gap-1.5"><CalendarDays size={11} className="text-slate-400" /> {fmtDate(session.scheduled_at)} at {fmtTime(session.scheduled_at)}</div>
             <div className="flex items-center gap-1.5"><Clock size={11} className="text-slate-400" /> {session.duration_minutes} minutes</div>
             <div className="flex items-center gap-1.5"><Users size={11} className="text-slate-400" />
-              {session.max_seats == null ? `${booked} registered` : `${booked} / ${session.max_seats} seats`}
+              {session.max_seats == null ? t("registeredCount", { count: booked }) : t("seatsCount", { booked, max: session.max_seats })}
             </div>
             {session.notes && (
               <div className="flex items-start gap-1.5 mt-1"><Info size={11} className="text-slate-400 flex-shrink-0 mt-0.5" /><span className="leading-relaxed">{session.notes}</span></div>
@@ -884,7 +905,7 @@ function SessionCard({ session, isBooked, onBook, booking }: {
           disabled={booking || full || past}
           className="flex-shrink-0 px-4 py-2 text-sm font-bold bg-teal-500 text-white rounded-xl hover:bg-teal-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {booking ? <Loader2 size={13} className="animate-spin" /> : "Book"}
+          {booking ? <Loader2 size={13} className="animate-spin" /> : t("book")}
         </button>
       </div>
     </div>
@@ -917,6 +938,7 @@ function renderTemplate(html: string, cert: any): string {
 
 function CertificateSection({ issuedCert }: { issuedCert: any }) {
   const [copied, setCopied] = useState(false);
+  const t = useTranslations("CertificateDetail");
 
   const templateHtml: string | undefined =
     (issuedCert.certification?.marketing_meta as any)?.certificate_template_html;
@@ -927,7 +949,7 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
   function handleDownloadPdf() {
     if (!rendered) return;
     const win = window.open("", "_blank");
-    if (!win) { toast.error("Popup blocked — please allow popups for this site and try again."); return; }
+    if (!win) { toast.error(t("popupBlocked")); return; }
     win.document.write(rendered);
     win.document.close();
     setTimeout(() => { win.focus(); win.print(); }, 300);
@@ -940,12 +962,12 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
   }
 
   function shareLinkedIn() {
-    const url = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(verifyUrl)}&title=${encodeURIComponent(`I earned the ${issuedCert.certification_acronym} certificate from PAII!`)}`;
+    const url = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(verifyUrl)}&title=${encodeURIComponent(t("linkedinShareText", { acronym: issuedCert.certification_acronym }))}`;
     window.open(url, "_blank", "width=600,height=520");
   }
 
   function shareTwitter() {
-    const text = `I just earned the ${issuedCert.certification_acronym} — ${issuedCert.certification_title} certificate from PAII! 🎓 Verify it here:`;
+    const text = t("twitterShareText", { acronym: issuedCert.certification_acronym, title: issuedCert.certification_title });
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(verifyUrl)}`, "_blank", "width=600,height=400");
   }
 
@@ -953,7 +975,7 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
     <div className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
       <h2 className="text-xl font-display font-black text-navy-900 flex items-center gap-2 mb-6">
         <Award size={20} className="text-gold-500" />
-        Your Certificate
+        {t("yourCertificate")}
       </h2>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -969,16 +991,16 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
         ) : (
           <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
             <Award size={48} className="text-slate-200 mb-4" />
-            <h3 className="font-display font-bold text-navy-900 mb-2">Certificate Design Coming Soon</h3>
+            <h3 className="font-display font-bold text-navy-900 mb-2">{t("certificateDesignComingSoon")}</h3>
             <p className="text-slate-400 text-sm max-w-sm mb-6">
-              The administrator hasn't uploaded a certificate design yet. Your credential is valid and can be verified.
+              {t("certificateDesignComingSoonBody")}
             </p>
             <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 text-left w-full max-w-sm space-y-2 mb-4">
-              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">Holder:</span> {issuedCert.holder_name}</p>
-              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">Certification:</span> {issuedCert.certification_title}</p>
-              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">Certificate No:</span> {issuedCert.certificate_number}</p>
-              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">Issued:</span> {fmt(issuedCert.issued_at)}</p>
-              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">Valid until:</span> {fmt(issuedCert.expires_at)}</p>
+              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{t("holder")}</span> {issuedCert.holder_name}</p>
+              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{t("certificationLabel")}</span> {issuedCert.certification_title}</p>
+              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{t("certificateNo")}</span> {issuedCert.certificate_number}</p>
+              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{t("issued")}</span> {fmt(issuedCert.issued_at)}</p>
+              <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{t("validUntilLabel")}</span> {fmt(issuedCert.expires_at)}</p>
             </div>
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}`}
@@ -987,14 +1009,14 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
               height={120}
               className="rounded-xl border border-slate-200"
             />
-            <p className="text-[10px] text-slate-400 mt-2">Scan to verify</p>
+            <p className="text-[10px] text-slate-400 mt-2">{t("scanToVerify")}</p>
           </div>
         )}
 
         {/* Action bar */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center gap-2 flex-wrap">
           <p className="text-xs text-slate-500 mr-auto">
-            Valid until{" "}
+            {t("validUntil")}{" "}
             <span className={cn(
               "font-semibold",
               issuedCert.status === "lapsed" || issuedCert.status === "expired" ? "text-red-600" :
@@ -1005,30 +1027,30 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
 
           <Link href={verifyUrl} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-navy-300 hover:text-navy-700 transition-colors">
-            <Shield size={12} /> Verify
+            <Shield size={12} /> {t("verify")}
           </Link>
 
           {rendered && (
             <button onClick={handleDownloadPdf}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-navy-300 hover:text-navy-700 transition-colors">
-              <Download size={12} /> Download PDF
+              <Download size={12} /> {t("downloadPdf")}
             </button>
           )}
 
           <button onClick={handleCopyLink}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-navy-300 hover:text-navy-700 transition-colors">
             {copied ? <Check size={12} className="text-emerald-500" /> : <Link2 size={12} />}
-            {copied ? "Copied!" : "Copy Link"}
+            {copied ? t("copied") : t("copyLink")}
           </button>
 
           <button onClick={shareLinkedIn}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A66C2] text-white text-xs font-semibold hover:bg-[#004182] transition-colors">
-            <Linkedin size={12} /> LinkedIn
+            <Linkedin size={12} /> {t("linkedin")}
           </button>
 
           <button onClick={shareTwitter}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black text-white text-xs font-semibold hover:bg-neutral-800 transition-colors">
-            <Twitter size={12} /> Share
+            <Twitter size={12} /> {t("share")}
           </button>
         </div>
       </div>
@@ -1047,6 +1069,7 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
   certificateId: string; token: string; onSubmitted: () => void; onCancel: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations("CertificateDetail");
   const [title, setTitle] = useState("");
   const [provider, setProvider] = useState("");
   const [description, setDescription] = useState("");
@@ -1078,15 +1101,15 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
       setProofUrl(file_url);
       setProofName(file_name ?? file.name);
     } catch (err: any) {
-      toast.error(`Failed to upload ${file.name}: ${err.message ?? "unknown error"}`);
+      toast.error(t("toastUploadFailed", { name: file.name, error: err.message ?? "unknown error" }));
     } finally {
       setUploading(false);
     }
   }
 
   async function handleSubmit() {
-    if (!title.trim()) return toast.error("Title is required");
-    if (!activityDate) return toast.error("Activity date is required");
+    if (!title.trim()) return toast.error(t("toastTitleRequired"));
+    if (!activityDate) return toast.error(t("toastActivityDateRequired"));
     setSubmitting(true);
     try {
       await api.post(`/certificates/${certificateId}/external-pdus`, {
@@ -1097,10 +1120,10 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
         proof_url: proofUrl ?? undefined,
         requested_pdu_value: requestedValue ? Number(requestedValue) : undefined,
       }, token);
-      toast.success("Submitted for admin review");
+      toast.success(t("toastSubmittedForReview"));
       onSubmitted();
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to submit");
+      toast.error(e?.message ?? t("toastSubmitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1110,37 +1133,37 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
     <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3 mb-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Activity title *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. AI in Healthcare Summit 2026"
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("activityTitleLabel")}</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("activityTitlePlaceholder")}
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Provider / organizer</label>
-          <input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder="e.g. Coursera, IEEE, employer training"
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("providerLabel")}</label>
+          <input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder={t("providerPlaceholder")}
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
         </div>
       </div>
       <div>
-        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Description</label>
+        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("descriptionLabel")}</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-          placeholder="What did this activity cover?"
+          placeholder={t("descriptionPlaceholder")}
           className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white resize-none" />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Date completed *</label>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("dateCompletedLabel")}</label>
           <input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)}
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Suggested PDU value (optional)</label>
+          <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("suggestedPduLabel")}</label>
           <input type="number" min={0} step={0.5} value={requestedValue} onChange={(e) => setRequestedValue(e.target.value)}
-            placeholder="Admin will confirm the final value"
+            placeholder={t("suggestedPduPlaceholder")}
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white" />
         </div>
       </div>
       <div>
-        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Proof (certificate, receipt, attendance letter)</label>
+        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">{t("proofLabel")}</label>
         <input ref={fileRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files)} />
         <button
           type="button"
@@ -1149,12 +1172,12 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
           className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-2.5 text-xs font-semibold text-slate-500 hover:border-teal-400 hover:text-teal-600 transition-colors disabled:opacity-50"
         >
           {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-          {proofName ? proofName : uploading ? "Uploading…" : "Attach a file (optional)"}
+          {proofName ? proofName : uploading ? t("uploading") : t("attachFile")}
         </button>
       </div>
       <div className="flex items-center justify-end gap-2 pt-1">
         <button onClick={onCancel} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-2">
-          Cancel
+          {t("cancel")}
         </button>
         <button
           onClick={handleSubmit}
@@ -1162,7 +1185,7 @@ function ExternalPduForm({ certificateId, token, onSubmitted, onCancel }: {
           className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
         >
           {submitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-          Submit for Review
+          {t("submitForReview")}
         </button>
       </div>
     </div>
@@ -1176,6 +1199,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
     ([url, t]) => api.get<any>(url, t),
     { revalidateOnFocus: true },
   );
+  const t = useTranslations("CertificateDetail");
   const [renewing, setRenewing] = useState(false);
   const [showExternalForm, setShowExternalForm] = useState(false);
 
@@ -1192,9 +1216,9 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
       const res = await api.post<any>("/payments/renewal-checkout", { certificate_id: certificateId }, token);
       const url = res?.data?.checkout_url ?? res?.checkout_url;
       if (url) window.location.href = url;
-      else toast.error("Could not start checkout");
+      else toast.error(t("toastCheckoutFailed"));
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to start renewal checkout");
+      toast.error(e?.message ?? t("toastRenewalCheckoutFailed"));
     } finally {
       setRenewing(false);
     }
@@ -1205,11 +1229,11 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <h2 className="text-lg font-display font-black text-navy-900 flex items-center gap-2">
-            <RefreshCw size={18} className="text-teal-500" /> Certificate Renewal
+            <RefreshCw size={18} className="text-teal-500" /> {t("certificateRenewal")}
           </h2>
           {!isLapsed && (
             <span className="text-xs font-semibold text-slate-500">
-              {progress.pdu_earned} / {progress.pdu_required} PDUs earned
+              {t("pduEarnedCount", { earned: progress.pdu_earned, required: progress.pdu_required })}
             </span>
           )}
         </div>
@@ -1217,7 +1241,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
         {isLapsed ? (
           <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
             <p className="text-sm text-red-700">
-              This certificate's renewal window has closed. <Link href="/contact" className="underline font-semibold">Contact us</Link> about reapplying.
+              {t("renewalWindowClosed")} <Link href="/contact" className="underline font-semibold">{t("contactUs")}</Link>{t("aboutReapplying")}
             </p>
           </div>
         ) : (
@@ -1236,7 +1260,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
                         : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 flex-shrink-0" />}
                       <span className={cn("truncate", c.completed ? "text-slate-700" : "text-slate-400")}>{c.title}</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400 flex-shrink-0 ml-2">{c.pdu_value} PDU{Number(c.pdu_value) !== 1 ? "s" : ""}</span>
+                    <span className="text-xs font-semibold text-slate-400 flex-shrink-0 ml-2">{c.pdu_value} {Number(c.pdu_value) !== 1 ? t("pduPlural") : t("pduSingular")}</span>
                   </div>
                 ))}
               </div>
@@ -1245,13 +1269,13 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
             {/* External PDU submissions */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">External PDU Credits</p>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("externalPduCredits")}</p>
                 {!showExternalForm && (
                   <button
                     onClick={() => setShowExternalForm(true)}
                     className="text-xs font-semibold text-teal-600 hover:text-teal-800"
                   >
-                    + Submit External PDU
+                    {t("submitExternalPdu")}
                   </button>
                 )}
               </div>
@@ -1278,7 +1302,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         {s.status === "approved" && (
                           <span className="text-xs font-semibold text-slate-400">
-                            {Number(s.awarded_pdu_value)} PDU{Number(s.awarded_pdu_value) !== 1 ? "s" : ""}
+                            {Number(s.awarded_pdu_value)} {Number(s.awarded_pdu_value) !== 1 ? t("pduPlural") : t("pduSingular")}
                           </span>
                         )}
                         <span className={cn("badge text-[10px]", EXTERNAL_PDU_STATUS_STYLE[s.status])}>{s.status}</span>
@@ -1288,7 +1312,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
                 </div>
               ) : !showExternalForm && (
                 <p className="text-xs text-slate-400">
-                  Attended a conference or another provider's course? Submit it for admin approval to count it toward this PDU requirement.
+                  {t("externalPduHint")}
                 </p>
               )}
             </div>
@@ -1296,10 +1320,10 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
             <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
               <p className="text-xs text-slate-400">
                 {progress.eligible
-                  ? `Renewal fee: $${Number(progress.fee).toFixed(2)}`
+                  ? t("renewalFee", { fee: Number(progress.fee).toFixed(2) })
                   : progress.pdu_earned < progress.pdu_required
-                    ? `Complete ${progress.pdu_required - progress.pdu_earned} more PDU(s) to unlock renewal.`
-                    : `Renewal opens ${fmt(progress.window_opens_at)}.`}
+                    ? t("completeMorePdus", { count: progress.pdu_required - progress.pdu_earned })
+                    : t("renewalOpensOn", { date: fmt(progress.window_opens_at) })}
               </p>
               <button
                 onClick={handleRenew}
@@ -1307,7 +1331,7 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
                 className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {renewing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                Renew for ${Number(progress.fee).toFixed(2)}
+                {t("renewFor", { fee: Number(progress.fee).toFixed(2) })}
               </button>
             </div>
           </>
@@ -1322,6 +1346,7 @@ export default function CertDetailPage() {
   const { certId } = useParams<{ certId: string }>();
   const token      = useAuthStore((s) => s.accessToken);
   const router     = useRouter();
+  const t          = useTranslations("CertificateDetail");
   const [showApp,  setShowApp]  = useState(false);
   const [booking,  setBooking]  = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -1411,9 +1436,9 @@ export default function CertDetailPage() {
       const res = await api.post<any>("/payments/reactivation-checkout", { enrollment_id: enrollment.id }, token);
       const url = res?.data?.checkout_url ?? res?.checkout_url;
       if (url) window.location.href = url;
-      else toast.error("Could not start checkout");
+      else toast.error(t("toastCheckoutFailed"));
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to start reactivation checkout");
+      toast.error(e?.message ?? t("toastReactivationCheckoutFailed"));
     } finally {
       setReactivating(false);
     }
@@ -1424,10 +1449,10 @@ export default function CertDetailPage() {
     setBooking(true);
     try {
       await api.post(`/exam-sessions/${sessionId}/book`, {}, token);
-      toast.success("Exam session booked!");
+      toast.success(t("toastExamBooked"));
       mutateSessions();
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to book");
+      toast.error(e?.message ?? t("toastBookFailed"));
     } finally {
       setBooking(false);
     }
@@ -1435,14 +1460,14 @@ export default function CertDetailPage() {
 
   async function handleCancel() {
     if (!token || !myBooking) return;
-    if (!confirm("Cancel your exam booking?")) return;
+    if (!confirm(t("confirmCancelBooking"))) return;
     setCancelling(true);
     try {
       await api.delete(`/exam-sessions/${myBooking.exam_session_id}/book`, token);
-      toast.success("Booking cancelled");
+      toast.success(t("toastBookingCancelled"));
       mutateSessions();
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to cancel");
+      toast.error(e?.message ?? t("toastCancelFailed"));
     } finally {
       setCancelling(false);
     }
@@ -1456,7 +1481,7 @@ export default function CertDetailPage() {
       const { url } = res?.data ?? res;
       window.location.href = url;
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to enter exam");
+      toast.error(e?.message ?? t("toastEnterExamFailed"));
       setStarting(false);
     }
   }
@@ -1479,14 +1504,14 @@ export default function CertDetailPage() {
 
   async function handleWithdraw() {
     if (!token || !application) return;
-    if (!confirm("Are you sure you want to withdraw your application? This cannot be undone.")) return;
+    if (!confirm(t("confirmWithdraw"))) return;
     try {
       await api.patch(`/applications/${application.id}/withdraw`, {}, token);
-      toast.success("Application withdrawn");
+      toast.success(t("toastApplicationWithdrawn"));
       setShowApp(false);
       refetchApps();
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to withdraw");
+      toast.error(e?.message ?? t("toastWithdrawFailed"));
     }
   }
 
@@ -1516,9 +1541,9 @@ export default function CertDetailPage() {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[40vh]">
         <div className="text-center">
-          <p className="text-slate-400 text-sm">Certification not found or you are not enrolled.</p>
+          <p className="text-slate-400 text-sm">{t("notFoundOrNotEnrolled")}</p>
           <Link href="/certificates" className="text-navy-700 text-sm font-semibold mt-2 inline-block hover:underline">
-            ← Back to Certifications
+            {t("backToCertifications")}
           </Link>
         </div>
       </div>
@@ -1528,16 +1553,16 @@ export default function CertDetailPage() {
   const acronym   = cert?.acronym    ?? "—";
   const badgeIcon = cert?.badge_icon ?? "";
 
-  const { step, badge, title: statusTitle, subtitle, paymentPending, suspended } = getProgress(application, enrollment) as any;
+  const { step, badgeKind, badge, title: statusTitle, subtitle, paymentPending, suspended } = getProgress(application, enrollment, t) as any;
 
   const badgeColor =
-    badge === "Approved" || badge === "Completed" || badge === "Enrolled"
+    badgeKind === "approved" || badgeKind === "completed" || badgeKind === "enrolled"
       ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-      : badge === "Not Approved"
+      : badgeKind === "notApproved"
       ? "bg-red-500/20 text-red-300 border-red-500/30"
-      : badge === "Payment Processing" || badge === "Approval Pending" || badge === "Access Paused"
+      : badgeKind === "paymentProcessing" || badgeKind === "approvalPending" || badgeKind === "accessPaused"
       ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-      : badge === "Application in Progress"
+      : badgeKind === "applicationInProgress"
       ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
       : "bg-ink-700/40 text-ink-200 border-ink-600/40";
 
@@ -1564,7 +1589,7 @@ export default function CertDetailPage() {
               onClick={() => { refetchEnrollments(); refetchApps(); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors text-sm"
             >
-              <RefreshCw size={13} className={cn(appsLoading || enrollmentsLoading ? "animate-spin" : "")} /> Refresh
+              <RefreshCw size={13} className={cn(appsLoading || enrollmentsLoading ? "animate-spin" : "")} /> {t("refresh")}
             </button>
           </div>
 
@@ -1589,7 +1614,7 @@ export default function CertDetailPage() {
                   className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors disabled:opacity-60"
                 >
                   {reactivating ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {reactivating ? "Starting checkout…" : `Reactivate${cert?.price ? ` — $${Number(cert.price).toFixed(2)}` : ""}`}
+                  {reactivating ? t("startingCheckout") : cert?.price ? t("reactivateWithPrice", { price: Number(cert.price).toFixed(2) }) : t("reactivate")}
                 </button>
               )}
               {application && (
@@ -1597,7 +1622,7 @@ export default function CertDetailPage() {
                   onClick={() => setShowApp(true)}
                   className="px-5 py-2.5 bg-white/10 border border-white/20 text-white font-semibold text-sm rounded-xl hover:bg-white/20 transition-colors"
                 >
-                  View Application
+                  {t("viewApplication")}
                 </button>
               )}
               {enrollment && enrollment.status === "active" && (
@@ -1606,7 +1631,7 @@ export default function CertDetailPage() {
                   className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors"
                 >
                   <CalendarDays size={14} />
-                  {hasBooking ? "View Booking" : "Schedule Exam"}
+                  {hasBooking ? t("viewBooking") : t("scheduleExam")}
                 </a>
               )}
               {!application && cert?.slug && (
@@ -1614,7 +1639,7 @@ export default function CertDetailPage() {
                   href={`/apply/${cert.slug}`}
                   className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors"
                 >
-                  Apply Now
+                  {t("applyNow")}
                 </Link>
               )}
             </div>
@@ -1630,8 +1655,8 @@ export default function CertDetailPage() {
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 flex items-start gap-4">
             <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-800 text-sm">Certificate Revoked</p>
-              <p className="text-red-700 text-xs mt-1">This certificate has been revoked by an administrator and is no longer valid. Contact support if you believe this is an error.</p>
+              <p className="font-semibold text-red-800 text-sm">{t("certificateRevoked")}</p>
+              <p className="text-red-700 text-xs mt-1">{t("certificateRevokedBody")}</p>
             </div>
           </div>
         </div>
@@ -1658,7 +1683,7 @@ export default function CertDetailPage() {
         <div id="schedule" className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
           <h2 className="text-xl font-display font-black text-ink-900 flex items-center gap-2 mb-5">
             <CalendarDays size={20} className="text-teal-500" />
-            Exam Scheduling
+            {t("examScheduling")}
           </h2>
 
           {myBooking ? (
@@ -1678,8 +1703,8 @@ export default function CertDetailPage() {
           ) : sessions.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center">
               <CalendarDays size={32} className="mx-auto mb-3 text-slate-200" />
-              <p className="text-slate-500 font-semibold text-sm">No upcoming sessions available</p>
-              <p className="text-slate-400 text-xs mt-1">Check back soon — new sessions are added regularly.</p>
+              <p className="text-slate-500 font-semibold text-sm">{t("noUpcomingSessions")}</p>
+              <p className="text-slate-400 text-xs mt-1">{t("noUpcomingSessionsHint")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1706,23 +1731,23 @@ export default function CertDetailPage() {
       <div className="max-w-5xl mx-auto px-6 lg:px-8 py-10">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div>
-            <h2 className="text-2xl font-display font-black text-navy-900">Begin your exam preparation</h2>
+            <h2 className="text-2xl font-display font-black text-navy-900">{t("beginExamPrep")}</h2>
             <p className="text-slate-500 text-sm mt-0.5">
-              Take a look at these resources to get started on studying for your exam.
+              {t("beginExamPrepBody")}
             </p>
           </div>
           <Link
             href="/learn"
             className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-navy-400 text-navy-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
           >
-            View All {acronym} Exam Prep <ExternalLink size={12} />
+            {t("viewAllExamPrep", { acronym })} <ExternalLink size={12} />
           </Link>
         </div>
 
         {prepCourses.length === 0 ? (
           <div className="py-16 text-center">
             <BookOpen size={32} className="text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-400 text-sm">No prep courses available for this certification yet.</p>
+            <p className="text-slate-400 text-sm">{t("noPrepCourses")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">

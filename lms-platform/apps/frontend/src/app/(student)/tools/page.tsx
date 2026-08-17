@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
+import { useTranslations } from "next-intl";
 import {
   Sparkles, Search, X, CheckCircle, ShoppingCart, Star,
   Wrench, BookOpen, Award, RotateCcw, SlidersHorizontal, Check, ChevronDown, GraduationCap,
@@ -76,21 +77,25 @@ type CatalogItem = {
   recommended?: boolean;
 };
 
-const TYPE_LABEL: Record<CatalogType, string> = {
-  tool: "Online Tools",
-  course: "eLearning",
-  certification: "Certification",
-  program: "Program",
-};
+function getTypeLabels(t: ReturnType<typeof useTranslations>): Record<CatalogType, string> {
+  return {
+    tool: t("typeTool"),
+    course: t("typeCourse"),
+    certification: t("typeCertification"),
+    program: t("typeProgram"),
+  };
+}
 
-const CERT_LEVEL_LABEL: Record<string, string> = {
-  pre_certificate: "Pre-Certificate",
-  foundation: "Foundation",
-  advanced: "Advanced",
-  specialist: "Specialist",
-  executive: "Executive",
-  other: "Other",
-};
+function getCertLevelLabels(t: ReturnType<typeof useTranslations>): Record<string, string> {
+  return {
+    pre_certificate: t("levelPreCertificate"),
+    foundation: t("levelFoundation"),
+    advanced: t("levelAdvanced"),
+    specialist: t("levelSpecialist"),
+    executive: t("levelExecutive"),
+    other: t("levelOther"),
+  };
+}
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 
@@ -102,12 +107,15 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
   const token = useAuthStore((s) => s.accessToken);
   const { addItem, hasItem } = useCartStore();
   const inCart = item.cartId ? hasItem(item.cartId) : false;
+  const t = useTranslations("Tools");
+  const TYPE_LABEL = getTypeLabels(t);
+  const CERT_LEVEL_LABEL = getCertLevelLabels(t);
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (!token) {
-      toast.error("Please log in to add items to your cart");
+      toast.error(t("toastLoginRequired"));
       return;
     }
     if (!item.cartId || !item.cartType) return;
@@ -123,7 +131,7 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
       level: item.level,
       cert_acronym: item.certAcronym,
     });
-    toast.success(finalPrice === 0 ? "Added — finish enrolling from your cart" : "Added to cart");
+    toast.success(finalPrice === 0 ? t("toastAddedFree") : t("toastAdded"));
   }
 
   return (
@@ -134,14 +142,14 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
           {item.recommended && (
             <div className="absolute top-3 left-3">
               <span className="bg-white/95 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                <Star size={10} /> Recommended
+                <Star size={10} /> {t("recommendedBadge")}
               </span>
             </div>
           )}
           {item.enrolled && (
             <div className="absolute top-3 right-3">
               <span className="bg-white/95 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                <CheckCircle size={10} /> {item.enrolledDone ? "Completed" : "Enrolled"}
+                <CheckCircle size={10} /> {item.enrolledDone ? t("completedBadge") : t("enrolledBadge")}
               </span>
             </div>
           )}
@@ -153,14 +161,14 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
           {item.recommended && (
             <div className="absolute top-3 left-3 z-10">
               <span className="bg-white/95 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                <Star size={10} /> Recommended
+                <Star size={10} /> {t("recommendedBadge")}
               </span>
             </div>
           )}
           {item.enrolled && (
             <div className="absolute top-3 right-3 z-10">
               <span className="bg-white/95 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                <CheckCircle size={10} /> {item.enrolledDone ? "Completed" : "Enrolled"}
+                <CheckCircle size={10} /> {item.enrolledDone ? t("completedBadge") : t("enrolledBadge")}
               </span>
             </div>
           )}
@@ -199,13 +207,13 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
           <span className="ml-auto flex items-center gap-1.5">
             {pct > 0 && <span className="text-xs text-slate-400 font-semibold line-through">${price.toFixed(0)}</span>}
             <span className="text-lg font-black text-navy-900">
-              {finalPrice === 0 ? "Free" : `$${finalPrice.toFixed(0)}`}
+              {finalPrice === 0 ? t("free") : `$${finalPrice.toFixed(0)}`}
             </span>
           </span>
         </div>
         {pct > 0 && (
           <span className="inline-flex items-center gap-1 mb-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full w-fit">
-            <Sparkles size={9} /> Member price — {pct}% off
+            <Sparkles size={9} /> {t("memberPriceOff", { percentage: pct })}
           </span>
         )}
         {item.subtitle && (
@@ -221,7 +229,7 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
               item.enrolled ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-navy-900 hover:bg-navy-700 text-white"
             )}
           >
-            {item.enrolled ? (item.enrolledDone ? "Review" : "Continue Learning") : "Learn More"}
+            {item.enrolled ? (item.enrolledDone ? t("review") : t("continueLearning")) : t("learnMore")}
           </Link>
           {!item.enrolled && item.purchasable && item.cartType && (
             inCart ? (
@@ -229,14 +237,14 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
                 href="/cart"
                 className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors w-fit"
               >
-                <ShoppingCart size={14} /> In Cart
+                <ShoppingCart size={14} /> {t("inCart")}
               </Link>
             ) : (
               <button
                 onClick={handleAddToCart}
                 className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors w-fit"
               >
-                <ShoppingCart size={14} /> {finalPrice === 0 ? "Enroll Free" : "Add to Cart"}
+                <ShoppingCart size={14} /> {finalPrice === 0 ? t("enrollFree") : t("addToCart")}
               </button>
             )
           )}
@@ -277,6 +285,7 @@ function FilterOption({ checked, onClick, icon: Icon, variant = "navy", label, c
 // ── Removable active-filter pill ───────────────────────────────────────────────
 
 function ActiveFilterPill({ label, onRemove, variant = "navy" }: { label: string; onRemove: () => void; variant?: "navy" | "gold" }) {
+  const t = useTranslations("Tools");
   return (
     <span
       className={cn(
@@ -285,7 +294,7 @@ function ActiveFilterPill({ label, onRemove, variant = "navy" }: { label: string
       )}
     >
       {label}
-      <button onClick={onRemove} aria-label={`Remove ${label} filter`} className="hover:bg-black/10 rounded-full p-0.5 transition-colors">
+      <button onClick={onRemove} aria-label={t("removeFilterLabel", { label })} className="hover:bg-black/10 rounded-full p-0.5 transition-colors">
         <X size={10} />
       </button>
     </span>
@@ -296,6 +305,7 @@ function ActiveFilterPill({ label, onRemove, variant = "navy" }: { label: string
 
 export default function OnlineToolsPage() {
   const token = useAuthStore((s) => s.accessToken);
+  const t = useTranslations("Tools");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<Set<CatalogType>>(new Set());
   const [priceFilter, setPriceFilter] = useState<Set<"free" | "paid">>(new Set());
@@ -482,9 +492,9 @@ export default function OnlineToolsPage() {
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-display font-black text-navy-900 mb-2">
-            {!hasContent && !isLoading ? "You don't have any online tools yet" : "Online Tools"}
+            {!hasContent && !isLoading ? t("noToolsHeading") : t("onlineToolsHeading")}
           </h1>
-          <p className="text-slate-500">Tools, courses, and certifications — everything we offer, in one place</p>
+          <p className="text-slate-500">{t("subheading")}</p>
         </div>
 
         {isLoading ? (
@@ -495,7 +505,7 @@ export default function OnlineToolsPage() {
           </div>
         ) : !hasContent ? (
           <div className="py-16 text-center text-slate-400 text-sm">
-            No tools available yet — check back soon.
+            {t("noToolsAvailable")}
           </div>
         ) : (
           <>
@@ -507,13 +517,13 @@ export default function OnlineToolsPage() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search tools, courses, certifications…"
+                    placeholder={t("searchPlaceholder")}
                     className="w-full pl-10 pr-9 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 transition-colors"
                   />
                   {search && (
                     <button
                       onClick={() => setSearch("")}
-                      aria-label="Clear search"
+                      aria-label={t("clearSearch")}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                       <X size={14} />
@@ -532,7 +542,7 @@ export default function OnlineToolsPage() {
                     )}
                   >
                     <SlidersHorizontal size={14} />
-                    Filters
+                    {t("filters")}
                     {activeFilterCount > 0 && (
                       <span className="w-[18px] h-[18px] min-w-[18px] px-1 rounded-full bg-white/20 text-white text-[10px] font-bold flex items-center justify-center">
                         {activeFilterCount}
@@ -544,23 +554,23 @@ export default function OnlineToolsPage() {
                   {filtersOpen && (
                     <div className="absolute right-0 sm:right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-2 max-h-[70vh] overflow-y-auto">
                       <div className="px-2 pt-1.5 pb-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("typeHeader")}</p>
                       </div>
-                      <FilterOption checked={typeFilter.has("tool")} onClick={() => toggleType("tool")} icon={Wrench} label="Tools" count={counts.tool} />
-                      <FilterOption checked={typeFilter.has("course")} onClick={() => toggleType("course")} icon={BookOpen} label="Courses" count={counts.course} />
-                      <FilterOption checked={typeFilter.has("certification")} onClick={() => toggleType("certification")} icon={Award} label="Certifications" count={counts.certification} />
-                      <FilterOption checked={typeFilter.has("program")} onClick={() => toggleType("program")} icon={GraduationCap} label="Programs" count={counts.program} />
+                      <FilterOption checked={typeFilter.has("tool")} onClick={() => toggleType("tool")} icon={Wrench} label={t("filterTools")} count={counts.tool} />
+                      <FilterOption checked={typeFilter.has("course")} onClick={() => toggleType("course")} icon={BookOpen} label={t("filterCourses")} count={counts.course} />
+                      <FilterOption checked={typeFilter.has("certification")} onClick={() => toggleType("certification")} icon={Award} label={t("filterCertifications")} count={counts.certification} />
+                      <FilterOption checked={typeFilter.has("program")} onClick={() => toggleType("program")} icon={GraduationCap} label={t("filterPrograms")} count={counts.program} />
 
                       <div className="px-2 pt-3 pb-1 border-t border-slate-100 mt-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Price</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("priceHeader")}</p>
                       </div>
-                      <FilterOption checked={priceFilter.has("free")} onClick={() => togglePrice("free")} label="Free" count={counts.free} />
-                      <FilterOption checked={priceFilter.has("paid")} onClick={() => togglePrice("paid")} label="Paid" count={counts.paid} />
+                      <FilterOption checked={priceFilter.has("free")} onClick={() => togglePrice("free")} label={t("filterFree")} count={counts.free} />
+                      <FilterOption checked={priceFilter.has("paid")} onClick={() => togglePrice("paid")} label={t("filterPaid")} count={counts.paid} />
 
                       <div className="px-2 pt-3 pb-1 border-t border-slate-100 mt-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">For You</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("forYouHeader")}</p>
                       </div>
-                      <FilterOption checked={recommendedOnly} onClick={() => setRecommendedOnly((v) => !v)} icon={Star} variant="gold" label="Recommended by my professors" count={counts.recommended} />
+                      <FilterOption checked={recommendedOnly} onClick={() => setRecommendedOnly((v) => !v)} icon={Star} variant="gold" label={t("filterRecommended")} count={counts.recommended} />
 
                       {filtersActive && (
                         <div className="border-t border-slate-100 mt-2 pt-2 px-2">
@@ -568,7 +578,7 @@ export default function OnlineToolsPage() {
                             onClick={clearFilters}
                             className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-red-600 transition-colors"
                           >
-                            <RotateCcw size={12} /> Clear all filters
+                            <RotateCcw size={12} /> {t("clearAllFilters")}
                           </button>
                         </div>
                       )}
@@ -579,20 +589,20 @@ export default function OnlineToolsPage() {
 
               {activeFilterCount > 0 && (
                 <div className="flex items-center gap-2 flex-wrap mt-3">
-                  {typeFilter.has("tool") && <ActiveFilterPill label="Tools" onRemove={() => toggleType("tool")} />}
-                  {typeFilter.has("course") && <ActiveFilterPill label="Courses" onRemove={() => toggleType("course")} />}
-                  {typeFilter.has("certification") && <ActiveFilterPill label="Certifications" onRemove={() => toggleType("certification")} />}
-                  {typeFilter.has("program") && <ActiveFilterPill label="Programs" onRemove={() => toggleType("program")} />}
-                  {priceFilter.has("free") && <ActiveFilterPill label="Free" onRemove={() => togglePrice("free")} />}
-                  {priceFilter.has("paid") && <ActiveFilterPill label="Paid" onRemove={() => togglePrice("paid")} />}
-                  {recommendedOnly && <ActiveFilterPill label="Recommended" variant="gold" onRemove={() => setRecommendedOnly(false)} />}
+                  {typeFilter.has("tool") && <ActiveFilterPill label={t("filterTools")} onRemove={() => toggleType("tool")} />}
+                  {typeFilter.has("course") && <ActiveFilterPill label={t("filterCourses")} onRemove={() => toggleType("course")} />}
+                  {typeFilter.has("certification") && <ActiveFilterPill label={t("filterCertifications")} onRemove={() => toggleType("certification")} />}
+                  {typeFilter.has("program") && <ActiveFilterPill label={t("filterPrograms")} onRemove={() => toggleType("program")} />}
+                  {priceFilter.has("free") && <ActiveFilterPill label={t("filterFree")} onRemove={() => togglePrice("free")} />}
+                  {priceFilter.has("paid") && <ActiveFilterPill label={t("filterPaid")} onRemove={() => togglePrice("paid")} />}
+                  {recommendedOnly && <ActiveFilterPill label={t("recommendedBadge")} variant="gold" onRemove={() => setRecommendedOnly(false)} />}
                 </div>
               )}
             </div>
 
             {filtered.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-sm">
-                Nothing matches your search or filter.
+                {t("noMatches")}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

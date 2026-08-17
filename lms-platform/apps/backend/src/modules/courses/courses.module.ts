@@ -9,9 +9,10 @@ import { ContentImportModule } from "../content-import/content-import.module";
 import { UploadsModule } from "../uploads/uploads.module";
 import { AiModule } from "../ai/ai.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { TranslationsModule } from "../translations/translations.module";
 
 @Module({
-  imports: [LearningModule, PrepCoursesModule, ContentImportModule, UploadsModule, AiModule, NotificationsModule],
+  imports: [LearningModule, PrepCoursesModule, ContentImportModule, UploadsModule, AiModule, NotificationsModule, TranslationsModule],
   providers: [CoursesService],
   controllers: [CoursesController, ProfCoursesController, AdminCoursesController],
   exports: [CoursesService],

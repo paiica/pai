@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft, Loader2, Printer, Download, Share2, X, Copy, Check, Ban, ShieldCheck,
 } from "lucide-react";
@@ -26,6 +27,7 @@ function formatDate(d: string | null) {
 // ─── Share management modal ─────────────────────────────────────────────────
 
 function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; token: string; onClose: () => void }) {
+  const tt = useTranslations("ProgramTranscript");
   const { data: shares, isLoading, mutate } = useSWR(
     [`/transcripts/${transcriptId}/shares`, token],
     ([url, t]) => fetcher(url, t),
@@ -44,30 +46,30 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
     setCreating(true);
     try {
       await api.post(`/transcripts/${transcriptId}/shares`, {}, token);
-      toast.success("Share link created");
+      toast.success(tt("shareLinkCreated"));
       mutate();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to create link");
+      toast.error(err instanceof ApiError ? err.message : tt("failedToCreateLink"));
     } finally {
       setCreating(false);
     }
   }
 
   async function revoke(shareId: string) {
-    if (!confirm("Revoke this share link? Anyone with the link will lose access immediately.")) return;
+    if (!confirm(tt("revokeConfirm"))) return;
     try {
       await api.patch(`/transcripts/shares/${shareId}/revoke`, {}, token);
-      toast.success("Link revoked");
+      toast.success(tt("linkRevoked"));
       mutate();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to revoke link");
+      toast.error(err instanceof ApiError ? err.message : tt("failedToRevokeLink"));
     }
   }
 
   async function copyLink(id: string, url: string) {
     await navigator.clipboard.writeText(url);
     setCopiedId(id);
-    toast.success("Link copied");
+    toast.success(tt("linkCopied"));
     setTimeout(() => setCopiedId(null), 2000);
   }
 
@@ -75,7 +77,7 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h3 className="font-display font-black text-navy-900 text-lg">Share Transcript</h3>
+          <h3 className="font-display font-black text-navy-900 text-lg">{tt("shareTranscript")}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={18} />
           </button>
@@ -83,8 +85,7 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
 
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-500 leading-relaxed">
-            Anyone with an active link can view and print this transcript without a PAII account —
-            no private portal access, no other data. Revoke a link at any time to cut off access immediately.
+            {tt("shareExplanation")}
           </p>
 
           <button
@@ -93,15 +94,15 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
             className="w-full inline-flex items-center justify-center gap-2 bg-navy-900 hover:bg-navy-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
           >
             {creating ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-            Create New Share Link
+            {tt("createNewShareLink")}
           </button>
 
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Active Links</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tt("activeLinks")}</p>
             {isLoading ? (
               <div className="py-6 text-center"><Loader2 size={18} className="animate-spin text-slate-300 mx-auto" /></div>
             ) : activeShares.length === 0 ? (
-              <p className="text-xs text-slate-400">No active share links yet.</p>
+              <p className="text-xs text-slate-400">{tt("noActiveShareLinks")}</p>
             ) : (
               <div className="space-y-2">
                 {activeShares.map((s) => {
@@ -115,9 +116,9 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-[10px] text-slate-400">Created {formatDate(s.created_at)}</p>
+                        <p className="text-[10px] text-slate-400">{tt("createdOn", { date: formatDate(s.created_at) })}</p>
                         <button onClick={() => revoke(s.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-500 hover:text-red-700">
-                          <Ban size={11} /> Revoke
+                          <Ban size={11} /> {tt("revoke")}
                         </button>
                       </div>
                       <img
@@ -136,10 +137,10 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
 
           {shareList.some((s) => s.status === "revoked") && (
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Revoked</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tt("revoked")}</p>
               <div className="space-y-1">
                 {shareList.filter((s) => s.status === "revoked").map((s) => (
-                  <p key={s.id} className="text-[11px] text-slate-400 font-mono truncate">{shareUrl(s.token)} — revoked</p>
+                  <p key={s.id} className="text-[11px] text-slate-400 font-mono truncate">{tt("revokedLink", { url: shareUrl(s.token) })}</p>
                 ))}
               </div>
             </div>
@@ -152,48 +153,49 @@ function ShareModal({ transcriptId, token, onClose }: { transcriptId: string; to
 
 // ─── Transcript document ─────────────────────────────────────────────────────
 
-function TranscriptDocument({ t }: { t: any }) {
+function TranscriptDocument({ t: data }: { t: any }) {
+  const tt = useTranslations("ProgramTranscript");
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-lg print:border-0 print:shadow-none print:rounded-none p-8 sm:p-12 print:p-0">
       <div className="text-center border-b-2 border-navy-900 pb-6 mb-8">
-        <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400 mb-1">Professional AI Institute</p>
-        <h1 className="text-2xl font-display font-black text-navy-900">Official Program Transcript</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400 mb-1">{tt("professionalAiInstitute")}</p>
+        <h1 className="text-2xl font-display font-black text-navy-900">{tt("officialProgramTranscript")}</h1>
         <div className="flex items-center justify-center gap-4 mt-3 text-xs text-slate-500">
-          <span>Transcript No. <span className="font-mono font-semibold text-navy-800">{t.transcript_number}</span></span>
+          <span>{tt("transcriptNo")} <span className="font-mono font-semibold text-navy-800">{data.transcript_number}</span></span>
           <span>·</span>
-          <span>Issued {formatDate(t.issued_at)}</span>
+          <span>{tt("issuedOn", { date: formatDate(data.issued_at) })}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8 text-sm">
-        <div><span className="text-slate-400">Student:</span> <span className="font-semibold text-navy-900">{t.student.name}</span></div>
-        <div><span className="text-slate-400">Student ID:</span> <span className="font-semibold text-navy-900">{t.student.student_id}</span></div>
-        <div><span className="text-slate-400">Program:</span> <span className="font-semibold text-navy-900">{t.program.title}</span></div>
-        <div><span className="text-slate-400">Program Code:</span> <span className="font-semibold text-navy-900">{t.program.code || "—"}</span></div>
-        <div><span className="text-slate-400">Enrolled:</span> <span className="font-semibold text-navy-900">{formatDate(t.enrollment.enrolled_at)}</span></div>
-        <div><span className="text-slate-400">Status:</span> <span className="font-semibold text-navy-900">{t.summary.program_status}</span></div>
-        {t.enrollment.completed_at && (
-          <div><span className="text-slate-400">Completion Date:</span> <span className="font-semibold text-navy-900">{formatDate(t.enrollment.completed_at)}</span></div>
+        <div><span className="text-slate-400">{tt("student")}:</span> <span className="font-semibold text-navy-900">{data.student.name}</span></div>
+        <div><span className="text-slate-400">{tt("studentId")}:</span> <span className="font-semibold text-navy-900">{data.student.student_id}</span></div>
+        <div><span className="text-slate-400">{tt("program")}:</span> <span className="font-semibold text-navy-900">{data.program.title}</span></div>
+        <div><span className="text-slate-400">{tt("programCode")}:</span> <span className="font-semibold text-navy-900">{data.program.code || "—"}</span></div>
+        <div><span className="text-slate-400">{tt("enrolled")}:</span> <span className="font-semibold text-navy-900">{formatDate(data.enrollment.enrolled_at)}</span></div>
+        <div><span className="text-slate-400">{tt("status")}:</span> <span className="font-semibold text-navy-900">{data.summary.program_status}</span></div>
+        {data.enrollment.completed_at && (
+          <div><span className="text-slate-400">{tt("completionDate")}:</span> <span className="font-semibold text-navy-900">{formatDate(data.enrollment.completed_at)}</span></div>
         )}
       </div>
 
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Academic Record</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tt("academicRecord")}</p>
       <table className="w-full text-sm mb-8 border-collapse">
         <thead>
           <tr className="border-b-2 border-slate-200">
-            <th className="text-left py-2 font-semibold text-slate-600">Course Code</th>
-            <th className="text-left py-2 font-semibold text-slate-600">Course Title</th>
-            <th className="text-right py-2 font-semibold text-slate-600">Hours</th>
-            <th className="text-left py-2 font-semibold text-slate-600 pl-4">Grade</th>
-            <th className="text-right py-2 font-semibold text-slate-600">Grade %</th>
-            <th className="text-left py-2 font-semibold text-slate-600 pl-4">Status</th>
+            <th className="text-left py-2 font-semibold text-slate-600">{tt("courseCode")}</th>
+            <th className="text-left py-2 font-semibold text-slate-600">{tt("courseTitle")}</th>
+            <th className="text-right py-2 font-semibold text-slate-600">{tt("hours")}</th>
+            <th className="text-left py-2 font-semibold text-slate-600 pl-4">{tt("grade")}</th>
+            <th className="text-right py-2 font-semibold text-slate-600">{tt("gradePercent")}</th>
+            <th className="text-left py-2 font-semibold text-slate-600 pl-4">{tt("status")}</th>
           </tr>
         </thead>
         <tbody>
-          {t.academic_record.map((r: any, i: number) => (
+          {data.academic_record.map((r: any, i: number) => (
             <tr key={i} className="border-b border-slate-100">
               <td className="py-2 font-mono text-xs text-slate-500">{r.course_code}</td>
-              <td className="py-2 text-navy-900">{r.course_title}{!r.is_required && <span className="text-slate-400 text-xs"> (Elective)</span>}</td>
+              <td className="py-2 text-navy-900">{r.course_title}{!r.is_required && <span className="text-slate-400 text-xs"> ({tt("elective")})</span>}</td>
               <td className="py-2 text-right text-slate-600">{r.hours}</td>
               <td className="py-2 pl-4 text-navy-900 font-semibold">{r.letter_grade ?? "—"}</td>
               <td className="py-2 text-right text-slate-600">{r.grade_percentage != null ? `${r.grade_percentage}%` : "—"}</td>
@@ -203,21 +205,21 @@ function TranscriptDocument({ t }: { t: any }) {
         </tbody>
       </table>
 
-      {t.capstone.length > 0 && (
+      {data.capstone.length > 0 && (
         <>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Capstone</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tt("capstone")}</p>
           <table className="w-full text-sm mb-8 border-collapse">
             <thead>
               <tr className="border-b-2 border-slate-200">
-                <th className="text-left py-2 font-semibold text-slate-600">Component</th>
-                <th className="text-left py-2 font-semibold text-slate-600">Title</th>
-                <th className="text-left py-2 font-semibold text-slate-600 pl-4">Grade</th>
-                <th className="text-left py-2 font-semibold text-slate-600 pl-4">Result</th>
-                <th className="text-left py-2 font-semibold text-slate-600 pl-4">Status</th>
+                <th className="text-left py-2 font-semibold text-slate-600">{tt("component")}</th>
+                <th className="text-left py-2 font-semibold text-slate-600">{tt("title")}</th>
+                <th className="text-left py-2 font-semibold text-slate-600 pl-4">{tt("grade")}</th>
+                <th className="text-left py-2 font-semibold text-slate-600 pl-4">{tt("result")}</th>
+                <th className="text-left py-2 font-semibold text-slate-600 pl-4">{tt("status")}</th>
               </tr>
             </thead>
             <tbody>
-              {t.capstone.map((r: any, i: number) => (
+              {data.capstone.map((r: any, i: number) => (
                 <tr key={i} className="border-b border-slate-100">
                   <td className="py-2 text-slate-600 capitalize">{r.special_type}</td>
                   <td className="py-2 text-navy-900">{r.course_title}</td>
@@ -237,37 +239,37 @@ function TranscriptDocument({ t }: { t: any }) {
 
       <div className="bg-slate-50 rounded-xl p-5 mb-8 grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Courses Completed</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.summary.courses_completed} / {t.summary.courses_total}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("coursesCompleted")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.summary.courses_completed} / {data.summary.courses_total}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Hours</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.summary.hours_completed} / {t.summary.hours_total}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("totalHours")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.summary.hours_completed} / {data.summary.hours_total}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Overall Average</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.summary.overall_average != null ? `${t.summary.overall_average}%` : "—"}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("overallAverage")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.summary.overall_average != null ? `${data.summary.overall_average}%` : "—"}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Program GPA</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.summary.gpa ?? "—"}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("programGpa")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.summary.gpa ?? "—"}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Academic Standing</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.academic_standing}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("academicStanding")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.academic_standing}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Program Status</p>
-          <p className="text-sm font-semibold text-navy-900 mt-0.5">{t.summary.program_status}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tt("programStatus")}</p>
+          <p className="text-sm font-semibold text-navy-900 mt-0.5">{data.summary.program_status}</p>
         </div>
       </div>
 
       <div className="border-t border-slate-200 pt-5 text-center">
         <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">
-          This transcript is an official record of the learner's academic performance in the Professional AI Institute program.
+          {tt("officialRecordNotice")}
         </p>
         <p className="text-[10px] text-slate-400 mt-2">
-          Verification ID: <span className="font-mono">{t.transcript_number}</span>
+          {tt("verificationId")}: <span className="font-mono">{data.transcript_number}</span>
         </p>
       </div>
     </div>
@@ -277,6 +279,7 @@ function TranscriptDocument({ t }: { t: any }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProgramTranscriptPage() {
+  const tt = useTranslations("ProgramTranscript");
   const { id } = useParams<{ id: string }>();
   const token = useAuthStore((s) => s.accessToken)!;
   const [sharing, setSharing] = useState(false);
@@ -288,7 +291,7 @@ export default function ProgramTranscriptPage() {
 
   function handleDownloadPdf() {
     const win = window.open("", "_blank");
-    if (!win) { toast.error("Popup blocked — please allow popups for this site and try again."); return; }
+    if (!win) { toast.error(tt("popupBlocked")); return; }
     const printArea = document.getElementById("transcript-document");
     if (!printArea) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Transcript</title><script src="https://cdn.tailwindcss.com"></script></head><body class="p-10">${printArea.outerHTML}</body></html>`);
@@ -308,8 +311,8 @@ export default function ProgramTranscriptPage() {
     return (
       <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-600 text-sm font-semibold mb-1">Couldn't load your transcript</p>
-          <Link href={`/programs/${id}`} className="text-xs text-teal-700 hover:underline">Back to Program</Link>
+          <p className="text-slate-600 text-sm font-semibold mb-1">{tt("couldntLoadTranscript")}</p>
+          <Link href={`/programs/${id}`} className="text-xs text-teal-700 hover:underline">{tt("backToProgram")}</Link>
         </div>
       </div>
     );
@@ -320,26 +323,26 @@ export default function ProgramTranscriptPage() {
       <div className="max-w-3xl mx-auto px-6 py-10 print:py-0 print:px-0 print:max-w-none">
         <div className="flex items-center justify-between gap-3 mb-6 print:hidden flex-wrap">
           <Link href={`/programs/${id}`} className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
-            <ArrowLeft size={12} /> Back to Program
+            <ArrowLeft size={12} /> {tt("backToProgram")}
           </Link>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setSharing(true)}
               className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-navy-300 text-navy-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              <Share2 size={13} /> Share Transcript
+              <Share2 size={13} /> {tt("shareTranscript")}
             </button>
             <button
               onClick={handleDownloadPdf}
               className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-navy-300 text-navy-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              <Download size={13} /> Download PDF
+              <Download size={13} /> {tt("downloadPdf")}
             </button>
             <button
               onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              <Printer size={13} /> Print Transcript
+              <Printer size={13} /> {tt("printTranscript")}
             </button>
           </div>
         </div>

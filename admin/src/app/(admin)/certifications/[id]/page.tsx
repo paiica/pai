@@ -12,7 +12,7 @@ import {
   GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck, Wrench,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CertIcon, CertIconPicker } from "@/lib/cert-icons";
 import { uploadHeroImage, deleteOldUpload } from "@/components/HeroImageFrame";
@@ -88,7 +88,10 @@ type Cert = {
     id: string; user_id: string; is_lead: boolean;
     user?: { email?: string; profile?: { first_name?: string; last_name?: string; avatar_url?: string } };
   }[];
+  translations?: Record<string, Record<string, any>>;
 };
+
+type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
 
 const LEVELS   = ["pre_certificate", "foundation", "advanced", "specialist", "executive", "other"] as const;
 const STATUSES = ["coming_soon", "active", "archived"] as const;
@@ -789,7 +792,7 @@ function CertInstructorsTab({
 
 export default function CertEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { accessToken } = useAuthStore();
+  const { accessToken, refreshTokens } = useAuthStore();
   const [tab, setTab] = useState<TabId>("overview");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -809,6 +812,124 @@ export default function CertEditorPage() {
   );
 
   const cert: Cert | null = data?.data ?? data ?? null;
+
+  const { data: languagesData } = useSWR<Language[]>(
+    accessToken ? ["/languages", accessToken] : null,
+    ([url, token]: [string, string]) => api.get<any>(url, token).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
+
+  const [activeLocale, setActiveLocale] = useState("en");
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [translationsInitialized, setTranslationsInitialized] = useState(false);
+  const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
+  const [retranslating, setRetranslating] = useState<string | null>(null);
+  const [translationJsonErrors, setTranslationJsonErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (cert && !translationsInitialized) {
+      setTranslationDrafts(cert.translations ?? {});
+      setTranslationsInitialized(true);
+    }
+  }, [cert, translationsInitialized]);
+
+  function getTranslatedField(locale: string, field: string): any {
+    return translationDrafts[locale]?.[field];
+  }
+
+  function setTranslatedField(locale: string, field: string, value: any) {
+    setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [field]: value } }));
+  }
+
+  function getTranslatedText(locale: string, field: string): string {
+    return getTranslatedField(locale, field) ?? "";
+  }
+
+  function getTranslatedStringList(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return Array.isArray(val) ? val.join("\n") : (val ?? "");
+  }
+
+  function setTranslatedStringList(locale: string, field: string, text: string) {
+    setTranslatedField(locale, field, text.split("\n"));
+  }
+
+  function getTranslatedJsonText(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return val !== undefined ? JSON.stringify(val, null, 2) : "";
+  }
+
+  function setTranslatedJsonText(locale: string, field: string, text: string) {
+    const key = `${locale}:${field}`;
+    try {
+      const parsed = text.trim() ? JSON.parse(text) : undefined;
+      setTranslatedField(locale, field, parsed);
+      setTranslationJsonErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    } catch {
+      // Keep the raw text editable even while invalid — stash it under a
+      // "__raw" shadow key so the textarea reflects what was typed, but
+      // don't touch the actual draft value (which stays the last valid parse).
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [`__raw_${field}`]: text } }));
+      setTranslationJsonErrors((prev) => ({ ...prev, [key]: "Invalid JSON — not saved until fixed" }));
+    }
+  }
+
+  function getTranslatedJsonTextValue(locale: string, field: string): string {
+    const raw = translationDrafts[locale]?.[`__raw_${field}`];
+    return raw !== undefined ? raw : getTranslatedJsonText(locale, field);
+  }
+
+  async function saveTranslation(locale: string) {
+    setSavingTranslation(locale);
+    try {
+      let token = accessToken!;
+      // Strip any "__raw_*" shadow keys used only to keep an invalid JSON
+      // textarea editable — those must never be sent to the API.
+      const rawDraft = translationDrafts[locale] ?? {};
+      const fields = Object.fromEntries(Object.entries(rawDraft).filter(([k]) => !k.startsWith("__raw_")));
+      try {
+        await api.patch(`/translations/certification/${id}?locale=${locale}`, { fields }, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/certification/${id}?locale=${locale}`, { fields }, token);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+    } catch {
+      toast.error("Failed to save translation");
+    } finally {
+      setSavingTranslation(null);
+    }
+  }
+
+  async function retranslate(locale: string) {
+    setRetranslating(locale);
+    try {
+      let token = accessToken!;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/certification/${id}?locale=${locale}`, {}, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/certification/${id}?locale=${locale}`, {}, token);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: updated?.translations?.[locale] ?? {} }));
+      setTranslationJsonErrors({});
+      toast.success("Translated with AI — review and save");
+    } catch {
+      toast.error("Translation failed");
+    } finally {
+      setRetranslating(null);
+    }
+  }
 
   const [isFeatured,         setIsFeatured]         = useState(false);
   const [aiProfessorEnabled, setAiProfessorEnabled] = useState(false);
@@ -1371,6 +1492,89 @@ export default function CertEditorPage() {
         </div>
       )}
 
+      {/* Language tabs */}
+      {languages.length > 1 && (
+        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+          {languages.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => setActiveLocale(lang.code)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {lang.code === "en" ? "English" : lang.native_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeLocale !== "en" && (() => {
+        const lang = languages.find((l) => l.code === activeLocale);
+        const jsonErr = (field: string) => translationJsonErrors[`${activeLocale}:${field}`];
+        return (
+          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+              <button
+                onClick={() => retranslate(activeLocale)}
+                disabled={retranslating === activeLocale}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+              >
+                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                Re-translate from English
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Auto-translated by AI when this certification is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+            </p>
+            <Field label="Title">
+              <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+            </Field>
+            <Field label="Description">
+              <textarea className="input-base h-20 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
+            </Field>
+            <Field label="Long Description">
+              <textarea className="input-base h-36 resize-none" value={getTranslatedText(activeLocale, "long_description")} onChange={(e) => setTranslatedField(activeLocale, "long_description", e.target.value)} />
+            </Field>
+            <Field label="Learning Outcomes" hint="One per line">
+              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "learning_outcomes")} onChange={(e) => setTranslatedStringList(activeLocale, "learning_outcomes", e.target.value)} />
+            </Field>
+            <Field label="Target Audience" hint="One per line">
+              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "target_audience")} onChange={(e) => setTranslatedStringList(activeLocale, "target_audience", e.target.value)} />
+            </Field>
+            <Field label="Skills" hint="One per line">
+              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "skills")} onChange={(e) => setTranslatedStringList(activeLocale, "skills", e.target.value)} />
+            </Field>
+            <Field label="Curriculum Overview" hint="JSON — array of { title, description, lessons }">
+              <textarea
+                className="input-base h-48 resize-y font-mono text-xs"
+                value={getTranslatedJsonTextValue(activeLocale, "curriculum_overview")}
+                onChange={(e) => setTranslatedJsonText(activeLocale, "curriculum_overview", e.target.value)}
+                dir="ltr"
+              />
+              {jsonErr("curriculum_overview") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("curriculum_overview")}</p>}
+            </Field>
+            <Field label="FAQs" hint="JSON — array of { question, answer }">
+              <textarea
+                className="input-base h-48 resize-y font-mono text-xs"
+                value={getTranslatedJsonTextValue(activeLocale, "faqs_json")}
+                onChange={(e) => setTranslatedJsonText(activeLocale, "faqs_json", e.target.value)}
+                dir="ltr"
+              />
+              {jsonErr("faqs_json") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("faqs_json")}</p>}
+            </Field>
+            <div className="flex justify-end">
+              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {activeLocale === "en" && (
+      <>
       <div className="flex flex-wrap gap-1 mb-6 border-b border-slate-100">
         {TABS.map((t) => {
           const Icon = t.icon;
@@ -2043,6 +2247,8 @@ export default function CertEditorPage() {
           </div>
           </>)}
         </div>
+      )}
+      </>
       )}
 
       <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">

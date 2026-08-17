@@ -3,16 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, X, Award, BookOpen, LogOut, User, ChevronDown } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import { ShoppingCart, X, Award, BookOpen, LogOut, User, ChevronDown, Globe } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import NotificationBell from "./NotificationBell";
+import { UI_SUPPORTED_LOCALES } from "@/i18n/locales";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+// Maps each UI-chrome-supported locale to its TopBar translation key —
+// adding a new locale is just UI_SUPPORTED_LOCALES + messages/{locale}.json
+// + a key here; the dropdown below renders generically off this list rather
+// than fixed per-locale buttons.
+const LOCALE_LABEL_KEYS: Record<string, string> = { en: "english", ar: "arabic", fr: "french" };
 
 export default function StudentTopBar() {
   const [mounted,   setMounted]   = useState(false);
   const [cartOpen,  setCartOpen]  = useState(false);
   const [userOpen,  setUserOpen]  = useState(false);
+  const [langOpen,  setLangOpen]  = useState(false);
+  // Only English assumed enabled until the real list loads, so the switcher
+  // stays hidden rather than flashing a language that turns out unavailable.
+  const [enabledLocales, setEnabledLocales] = useState<string[]>(["en"]);
   const user       = useAuthStore(s => s.user);
   const token      = useAuthStore(s => s.accessToken);
   const logout     = useAuthStore(s => s.logout);
@@ -21,17 +35,43 @@ export default function StudentTopBar() {
   const router     = useRouter();
   const cartRef    = useRef<HTMLDivElement>(null);
   const userRef    = useRef<HTMLDivElement>(null);
+  const langRef    = useRef<HTMLDivElement>(null);
+  const t          = useTranslations("TopBar");
+  const locale     = useLocale();
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/languages`)
+      .then((r) => r.json())
+      .then((json) => {
+        const codes: string[] = (json?.data ?? json ?? []).map((l: any) => l.code);
+        setEnabledLocales(codes.filter((c) => (UI_SUPPORTED_LOCALES as readonly string[]).includes(c)));
+      })
+      .catch(() => {});
+  }, []);
+
+  const showLanguageSwitcher = enabledLocales.length > 1;
 
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (cartRef.current && !cartRef.current.contains(e.target as Node)) setCartOpen(false);
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  function switchLocale(next: string) {
+    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000`;
+    setLangOpen(false);
+    // Persisted so the choice follows the student to their next
+    // login/device instead of resetting to the default — fire-and-forget,
+    // the cookie above already drives this session's UI immediately.
+    if (token) api.patch("/users/me/profile", { language: next }, token).catch(() => {});
+    router.refresh();
+  }
 
   if (!mounted || !token || !user) return null;
 
@@ -49,14 +89,14 @@ export default function StudentTopBar() {
       {/* Cart dropdown */}
       <div className="relative" ref={cartRef}>
         <button
-          onClick={() => { setCartOpen(v => !v); setUserOpen(false); }}
-          aria-label="Cart"
+          onClick={() => { setCartOpen(v => !v); setUserOpen(false); setLangOpen(false); }}
+          aria-label={t("cart")}
           className="flex items-center gap-1.5 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
         >
           <div className="relative">
             <ShoppingCart size={16} />
             {items.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-navy-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-1.5 -end-1.5 w-4 h-4 bg-navy-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                 {items.length}
               </span>
             )}
@@ -65,10 +105,10 @@ export default function StudentTopBar() {
         </button>
 
         {cartOpen && (
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+          <div className="absolute end-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">
-                Cart {items.length > 0 ? `(${items.length})` : ""}
+                {t("cart")} {items.length > 0 ? `(${items.length})` : ""}
               </span>
               <button onClick={() => setCartOpen(false)} aria-label="Close cart" className="text-slate-400 hover:text-slate-600">
                 <X size={13} />
@@ -76,7 +116,7 @@ export default function StudentTopBar() {
             </div>
 
             {items.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-400">Your cart is empty</div>
+              <div className="py-8 text-center text-xs text-slate-400">{t("cartEmpty")}</div>
             ) : (
               <>
                 <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
@@ -93,14 +133,14 @@ export default function StudentTopBar() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{item.title}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {item.price === 0 ? "Free" : `$${item.price.toFixed(2)}`}
+                          {item.price === 0 ? t("free") : `$${item.price.toFixed(2)}`}
                         </p>
                       </div>
                       <button
                         onClick={() => removeItem(item.id)}
                         className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 p-1"
-                        title="Remove"
-                        aria-label="Remove from cart"
+                        title={t("remove")}
+                        aria-label={t("remove")}
                       >
                         <X size={13} />
                       </button>
@@ -109,14 +149,14 @@ export default function StudentTopBar() {
                 </div>
                 <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
                   <span className="text-xs font-bold text-slate-700">
-                    Total: ${total.toFixed(2)}
+                    {t("total")}: ${total.toFixed(2)}
                   </span>
                   <Link
                     href="/cart"
                     onClick={() => setCartOpen(false)}
                     className="text-xs font-bold bg-navy-900 hover:bg-navy-700 text-white px-4 py-1.5 rounded-xl transition-colors"
                   >
-                    View Cart
+                    {t("viewCart")}
                   </Link>
                 </div>
               </>
@@ -131,10 +171,47 @@ export default function StudentTopBar() {
       {/* Divider */}
       <span className="h-4 w-px bg-slate-200" />
 
+      {/* Language switcher — hidden entirely when no additional language is
+          enabled (or none have UI-chrome support yet) */}
+      {showLanguageSwitcher && (
+        <div className="relative" ref={langRef}>
+          <button
+            onClick={() => { setLangOpen(v => !v); setCartOpen(false); setUserOpen(false); }}
+            aria-label={t("language")}
+            className="flex items-center gap-1 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
+          >
+            <Globe size={15} />
+          </button>
+
+          {langOpen && (
+            <div className="absolute end-0 top-full mt-2 w-36 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
+              {/* enabledLocales is already in the admin-configured display
+                  order — it comes straight from GET /languages, which is
+                  sorted by each language's sort_order. */}
+              {enabledLocales.map((code) => (
+                <button
+                  key={code}
+                  onClick={() => switchLocale(code)}
+                  className={cn(
+                    "w-full text-start flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors",
+                    locale === code ? "text-navy-900 font-bold" : "text-slate-700"
+                  )}
+                >
+                  {t(LOCALE_LABEL_KEYS[code] ?? code)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Divider */}
+      <span className="h-4 w-px bg-slate-200" />
+
       {/* User dropdown */}
       <div className="relative" ref={userRef}>
         <button
-          onClick={() => { setUserOpen(v => !v); setCartOpen(false); }}
+          onClick={() => { setUserOpen(v => !v); setCartOpen(false); setLangOpen(false); }}
           className="flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900 font-medium transition-colors max-w-[130px]"
         >
           <span className="truncate">{name}</span>
@@ -142,14 +219,14 @@ export default function StudentTopBar() {
         </button>
 
         {userOpen && (
-          <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
+          <div className="absolute end-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
             <Link
               href="/profile"
               onClick={() => setUserOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <User size={13} className="text-slate-400" />
-              My Profile
+              {t("myProfile")}
             </Link>
             <div className="border-t border-slate-100 my-1" />
             <button
@@ -157,7 +234,7 @@ export default function StudentTopBar() {
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
             >
               <LogOut size={13} />
-              Sign Out
+              {t("signOut")}
             </button>
           </div>
         )}
@@ -168,7 +245,7 @@ export default function StudentTopBar() {
         href="mailto:support@paii.ca"
         className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded transition-colors"
       >
-        SUPPORT
+        {t("support")}
       </Link>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
@@ -18,15 +18,15 @@ export class PrepCoursesController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all active prep courses" })
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query("lang") lang?: string) {
+    return this.service.findAll(lang);
   }
 
   @Public()
   @Get("featured")
   @ApiOperation({ summary: "List featured prep courses for homepage" })
-  findFeatured() {
-    return this.service.findFeatured();
+  findFeatured(@Query("lang") lang?: string) {
+    return this.service.findFeatured(lang);
   }
 
   @ApiBearerAuth()
@@ -219,7 +219,7 @@ export class PrepCoursesController {
   @OptionalAuth()
   @Get(":slug")
   @ApiOperation({ summary: "Get prep course by slug — publicly listed courses are open to anyone; private/unlisted courses require the caller to teach it, be invited to it, or be an admin" })
-  findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role) {
-    return this.service.findBySlug(slug, userId, role);
+  findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string) {
+    return this.service.findBySlug(slug, userId, role, lang);
   }
 }

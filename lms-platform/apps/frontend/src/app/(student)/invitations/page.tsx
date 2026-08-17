@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
+import { useTranslations } from "next-intl";
 import { Mail, Check, X, Loader2, GraduationCap, Award, ExternalLink, BookOpen } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -14,14 +15,18 @@ function fetcher(url: string, token: string) {
   return api.get<any>(url, token).then((r: any) => r.data);
 }
 
-const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  pending:  { label: "Pending",  cls: "bg-amber-100 text-amber-700" },
-  accepted: { label: "Accepted", cls: "bg-emerald-100 text-emerald-700" },
-  rejected: { label: "Declined", cls: "bg-slate-100 text-slate-500" },
-};
+function getStatusLabels(t: ReturnType<typeof useTranslations>): Record<string, { label: string; cls: string }> {
+  return {
+    pending:  { label: t("statusPending"),  cls: "bg-amber-100 text-amber-700" },
+    accepted: { label: t("statusAccepted"), cls: "bg-emerald-100 text-emerald-700" },
+    rejected: { label: t("statusRejected"), cls: "bg-slate-100 text-slate-500" },
+  };
+}
 
 export default function InvitationsPage() {
   const { accessToken } = useAuthStore();
+  const t = useTranslations("Invitations");
+  const STATUS_LABEL = getStatusLabels(t);
   const { data: invitations, isLoading, mutate } = useSWR(
     accessToken ? ["/me/course-invitations", accessToken] : null,
     ([url, t]) => fetcher(url, t)
@@ -42,10 +47,10 @@ export default function InvitationsPage() {
         window.location.href = r.data.checkout_url;
         return;
       }
-      toast.success("Invitation accepted — course added to My Learning");
+      toast.success(t("toastAccepted"));
       mutate();
     } catch (err: any) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to accept invitation");
+      toast.error(err instanceof ApiError ? err.message : t("toastAcceptFailedFallback"));
     } finally {
       setActingId(null);
     }
@@ -55,12 +60,12 @@ export default function InvitationsPage() {
     setActingId(id);
     try {
       await api.post(`/me/course-invitations/${id}/reject`, { reason: reason.trim() || undefined }, accessToken!);
-      toast.success("Invitation declined");
+      toast.success(t("toastDeclined"));
       setRejectingId(null);
       setReason("");
       mutate();
     } catch (err: any) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to decline invitation");
+      toast.error(err instanceof ApiError ? err.message : t("toastDeclineFailedFallback"));
     } finally {
       setActingId(null);
     }
@@ -72,8 +77,8 @@ export default function InvitationsPage() {
   return (
     <div className="min-h-screen bg-[#f7f8fa] px-6 py-10">
       <div className="max-w-2xl mx-auto">
-        <h1 className="font-display font-black text-navy-900 text-2xl mb-1">Course Invitations</h1>
-        <p className="text-slate-500 text-sm mb-8">Courses professors have shared directly with you.</p>
+        <h1 className="font-display font-black text-navy-900 text-2xl mb-1">{t("heading")}</h1>
+        <p className="text-slate-500 text-sm mb-8">{t("subheading")}</p>
 
         {isLoading ? (
           <div className="space-y-3">
@@ -82,8 +87,8 @@ export default function InvitationsPage() {
         ) : (invitations ?? []).length === 0 ? (
           <div className="card p-12 text-center">
             <Mail size={36} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-semibold text-navy-800">No invitations yet</p>
-            <p className="text-sm text-slate-400 mt-1">When a professor shares a course with you, it'll show up here.</p>
+            <p className="font-semibold text-navy-800">{t("emptyHeading")}</p>
+            <p className="text-sm text-slate-400 mt-1">{t("emptyBody")}</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -97,24 +102,24 @@ export default function InvitationsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-slate-400 mb-0.5">
-                          {inv.is_recommendation ? "Course Recommendation" : "New Course Invitation"}
+                          {inv.is_recommendation ? t("courseRecommendation") : t("newCourseInvitation")}
                         </p>
                         <p className="font-semibold text-navy-900">
                           {inv.is_recommendation
-                            ? `Professor ${inv.professor_name} recommends this course:`
-                            : `Professor ${inv.professor_name} has invited you to join:`}
+                            ? t("professorRecommends", { name: inv.professor_name })
+                            : t("professorInvited", { name: inv.professor_name })}
                         </p>
                         <p className="font-display font-black text-navy-900 text-lg mt-1">{inv.course.title}</p>
                         <p className="text-xs text-slate-400 mt-1">
-                          {Number(inv.course.price) > 0 ? `Payment required: $${Number(inv.course.price).toFixed(2)}` : "Free"}
-                          {" · "}Invited {new Date(inv.invited_at).toLocaleDateString()}
+                          {Number(inv.course.price) > 0 ? t("paymentRequired", { price: Number(inv.course.price).toFixed(2) }) : t("free")}
+                          {" · "}{t("invitedOn", { date: new Date(inv.invited_at).toLocaleDateString() })}
                         </p>
                         {inv.course.slug && (
                           <Link
                             href={`/tools/course/${inv.course.slug}`}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-navy-600 hover:underline mt-1.5"
                           >
-                            <BookOpen size={12} /> View Course Details
+                            <BookOpen size={12} /> {t("viewCourseDetails")}
                           </Link>
                         )}
 
@@ -123,7 +128,7 @@ export default function InvitationsPage() {
                             <input
                               value={reason}
                               onChange={(e) => setReason(e.target.value)}
-                              placeholder="Reason (optional)"
+                              placeholder={t("reasonPlaceholder")}
                               className="input-base text-sm"
                             />
                             <div className="flex gap-2">
@@ -132,10 +137,10 @@ export default function InvitationsPage() {
                                 disabled={actingId === inv.id}
                                 className="btn-outline !text-red-600 !border-red-200 !py-2 !px-4 text-sm disabled:opacity-60"
                               >
-                                {actingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : "Confirm Decline"}
+                                {actingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : t("confirmDecline")}
                               </button>
                               <button onClick={() => { setRejectingId(null); setReason(""); }} className="btn-outline !py-2 !px-4 text-sm">
-                                Cancel
+                                {t("cancel")}
                               </button>
                             </div>
                           </div>
@@ -147,14 +152,14 @@ export default function InvitationsPage() {
                               className="btn-primary !py-2 !px-4 text-sm disabled:opacity-60"
                             >
                               {actingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                              Accept
+                              {t("accept")}
                             </button>
                             <button
                               onClick={() => setRejectingId(inv.id)}
                               disabled={actingId === inv.id}
                               className="btn-outline !py-2 !px-4 text-sm disabled:opacity-60"
                             >
-                              <X size={14} /> Reject
+                              <X size={14} /> {t("reject")}
                             </button>
                           </div>
                         )}
@@ -167,7 +172,7 @@ export default function InvitationsPage() {
 
             {responded.length > 0 && (
               <section>
-                <h2 className="text-sm font-semibold text-slate-500 mb-3">Past Invitations</h2>
+                <h2 className="text-sm font-semibold text-slate-500 mb-3">{t("pastInvitations")}</h2>
                 <div className="space-y-2">
                   {responded.map((inv: any) => {
                     const status = STATUS_LABEL[inv.status] ?? STATUS_LABEL.pending;
@@ -176,7 +181,7 @@ export default function InvitationsPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-navy-900 truncate">{inv.course.title}</p>
                           <p className="text-xs text-slate-400">
-                            Professor {inv.professor_name}{inv.is_recommendation ? " · Recommended" : ""}
+                            {t("professorLabel", { name: inv.professor_name })}{inv.is_recommendation ? t("recommendedSuffix") : ""}
                           </p>
                         </div>
                         {inv.course.slug && (
@@ -184,7 +189,7 @@ export default function InvitationsPage() {
                             href={`/tools/course/${inv.course.slug}`}
                             className="text-xs font-semibold text-navy-600 hover:underline flex-shrink-0"
                           >
-                            View
+                            {t("view")}
                           </Link>
                         )}
                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.cls}`}>{status.label}</span>
@@ -199,7 +204,7 @@ export default function InvitationsPage() {
 
         {!loadingCertRecs && (certRecommendations ?? []).length > 0 && (
           <section className="mt-8">
-            <h2 className="text-sm font-semibold text-slate-500 mb-3">Recommended Certifications</h2>
+            <h2 className="text-sm font-semibold text-slate-500 mb-3">{t("recommendedCertifications")}</h2>
             <div className="space-y-2">
               {certRecommendations.map((rec: any) => (
                 <div key={rec.id} className="card p-4 flex items-center gap-3">
@@ -208,7 +213,7 @@ export default function InvitationsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-navy-900 truncate">{rec.certification.title}</p>
-                    <p className="text-xs text-slate-400">Recommended by Professor {rec.professor_name}</p>
+                    <p className="text-xs text-slate-400">{t("recommendedByProfessor", { name: rec.professor_name })}</p>
                   </div>
                   <a
                     href={`${MARKETING}/certifications/${rec.certification.slug}`}
@@ -216,7 +221,7 @@ export default function InvitationsPage() {
                     rel="noopener noreferrer"
                     className="btn-outline !py-1.5 !px-3 text-xs flex-shrink-0 inline-flex items-center gap-1"
                   >
-                    View <ExternalLink size={12} />
+                    {t("view")} <ExternalLink size={12} />
                   </a>
                 </div>
               ))}

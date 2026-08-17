@@ -19,29 +19,29 @@ export class CoursesController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all active certifications (public)" })
-  findAll() {
-    return this.coursesService.findAll();
+  findAll(@Query("lang") lang?: string) {
+    return this.coursesService.findAll(undefined, lang);
   }
 
   @Public()
   @Get("featured")
   @ApiOperation({ summary: "List featured certifications for homepage" })
-  findFeatured() {
-    return this.coursesService.findFeaturedCertifications();
+  findFeatured(@Query("lang") lang?: string) {
+    return this.coursesService.findFeaturedCertifications(lang);
   }
 
   @Public()
   @Get("catalog")
   @ApiOperation({ summary: "Lightweight certification list for browse/catalog UIs (no modules/lessons)" })
-  findCatalogList() {
-    return this.coursesService.findCatalogList();
+  findCatalogList(@Query("lang") lang?: string) {
+    return this.coursesService.findCatalogList(undefined, lang);
   }
 
   @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get certification details by slug (public)" })
-  findOne(@Param("slug") slug: string) {
-    return this.coursesService.findBySlug(slug);
+  findOne(@Param("slug") slug: string, @Query("lang") lang?: string) {
+    return this.coursesService.findBySlug(slug, lang);
   }
 
   @UseGuards(JwtAuthGuard)

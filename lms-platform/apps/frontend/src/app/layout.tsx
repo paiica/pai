@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 import "./globals.css";
 import ReferralCapture from "@/components/ReferralCapture";
 
@@ -16,13 +18,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="en" className={`${jakarta.variable} ${fraunces.variable}`}>
+    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} className={`${jakarta.variable} ${fraunces.variable}`}>
       <body>
-        <ReferralCapture />
-        {children}
-        <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        <NextIntlClientProvider>
+          <ReferralCapture />
+          {children}
+          <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

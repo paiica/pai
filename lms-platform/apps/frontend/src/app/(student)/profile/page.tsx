@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   User, Lock, Bell, CreditCard, FileText, Briefcase,
   GraduationCap, MapPin, Plus, Trash2, ExternalLink,
@@ -81,6 +82,7 @@ function Field({ label, required, hint, children }: {
 }
 
 function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+  const t = useTranslations("Profile");
   return (
     <div className="flex justify-end pt-4 mt-2 border-t border-slate-100">
       <button
@@ -89,7 +91,7 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
         className="btn-primary !py-2 !px-5 !text-sm disabled:opacity-60"
       >
         {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        Save Changes
+        {t("saveChanges")}
       </button>
     </div>
   );
@@ -97,15 +99,13 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 
-const BASIC_SUBSECTIONS = [
-  { id: "personal",     label: "Personal",    icon: User },
-  { id: "professional", label: "Professional", icon: Briefcase },
-  { id: "education",    label: "Education",    icon: GraduationCap },
-];
+const BASIC_SUBSECTION_IDS = ["personal", "professional", "education"] as const;
+const BASIC_SUBSECTION_ICONS = { personal: User, professional: Briefcase, education: GraduationCap };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ProfilePageContent() {
+  const t = useTranslations("Profile");
   const token      = useAuthStore((s) => s.accessToken)!;
   const fetchMe    = useAuthStore((s) => s.fetchMe);
   const authUser   = useAuthStore((s) => s.user);
@@ -117,7 +117,7 @@ function ProfilePageContent() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("emailChanged") === "true") {
-      toast.success("Email address updated successfully!");
+      toast.success(t("emailUpdatedSuccessfully"));
       fetchMe();
       window.history.replaceState({}, "", "/profile");
     }
@@ -181,10 +181,16 @@ function ProfilePageContent() {
 // ── Basic Section ─────────────────────────────────────────────────────────────
 
 function BasicSection({ token, profile, email, mutate, fetchMe, activeSubsection, setActiveSubsection }: any) {
+  const t = useTranslations("Profile");
+  const subsectionLabels: Record<string, string> = {
+    personal: t("personal"), professional: t("professional"), education: t("education"),
+  };
   return (
     <div>
       <div className="flex flex-wrap gap-1 mb-6 border-b border-slate-200">
-        {BASIC_SUBSECTIONS.map(({ id, label, icon: Icon }) => (
+        {BASIC_SUBSECTION_IDS.map((id) => {
+          const Icon = BASIC_SUBSECTION_ICONS[id];
+          return (
           <button
             key={id}
             onClick={() => setActiveSubsection(id)}
@@ -195,9 +201,10 @@ function BasicSection({ token, profile, email, mutate, fetchMe, activeSubsection
             }`}
           >
             <Icon size={12} />
-            {label}
+            {subsectionLabels[id]}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className={activeSubsection !== "personal"     ? "hidden" : ""}><PersonalSubsection     token={token} profile={profile} email={email} mutate={mutate} fetchMe={fetchMe} /></div>
@@ -210,6 +217,7 @@ function BasicSection({ token, profile, email, mutate, fetchMe, activeSubsection
 // ── Personal ──────────────────────────────────────────────────────────────────
 
 function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
+  const t = useTranslations("Profile");
   const [firstName,   setFirstName]   = useState("");
   const [lastName,    setLastName]    = useState("");
   const [dob,         setDob]         = useState("");
@@ -254,9 +262,9 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
       }, token);
       await mutate();
       await fetchMe();
-      toast.success("Personal information saved");
+      toast.success(t("personalInfoSaved"));
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(err.message ?? t("failedToSave"));
     } finally { setSaving(false); }
   }
 
@@ -266,27 +274,27 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
     try {
       await api.post<any>("/users/me/email-change", { new_email: newEmail.trim() }, token);
       setEmailSent(true);
-      toast.success(`Verification email sent to ${newEmail.trim()}`);
+      toast.success(t("verificationEmailSentTo", { email: newEmail.trim() }));
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to send verification email");
+      toast.error(err.message ?? t("failedToSendVerification"));
     } finally { setEmailSending(false); }
   }
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Personal Information</SectionTitle>
+      <SectionTitle>{t("personalInformation")}</SectionTitle>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="First Name" required>
+        <Field label={t("firstName")} required>
           <input className="input-base" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         </Field>
-        <Field label="Last Name" required>
+        <Field label={t("lastName")} required>
           <input className="input-base" value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </Field>
       </div>
 
       {/* Email — shown read-only with a change option */}
-      <Field label="Email Address">
+      <Field label={t("emailAddress")}>
         <input className="input-base bg-slate-50" value={email} readOnly />
         {!showEmailForm && !emailSent && (
           <button
@@ -294,7 +302,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
             onClick={() => setShowEmailForm(true)}
             className="mt-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800 underline underline-offset-2"
           >
-            Change email address
+            {t("changeEmailAddress")}
           </button>
         )}
         {showEmailForm && !emailSent && (
@@ -302,7 +310,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
             <input
               className="input-base flex-1 text-sm"
               type="email"
-              placeholder="New email address"
+              placeholder={t("newEmailAddress")}
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendEmailVerification()}
@@ -313,40 +321,40 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
               disabled={emailSending || !newEmail.trim()}
               className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60 whitespace-nowrap"
             >
-              {emailSending ? <Loader2 size={12} className="animate-spin" /> : "Send verification"}
+              {emailSending ? <Loader2 size={12} className="animate-spin" /> : t("sendVerification")}
             </button>
-            <button type="button" onClick={() => { setShowEmailForm(false); setNewEmail(""); }} className="text-xs text-slate-400 hover:text-slate-600 px-2">Cancel</button>
+            <button type="button" onClick={() => { setShowEmailForm(false); setNewEmail(""); }} className="text-xs text-slate-400 hover:text-slate-600 px-2">{t("cancel")}</button>
           </div>
         )}
         {emailSent && (
           <p className="mt-1.5 text-xs text-emerald-600 font-medium">
-            Verification link sent to <strong>{newEmail}</strong>. Check your inbox and click the link to confirm the change.
+            {t.rich("verificationLinkSentTo", { email: newEmail, strong: (chunks) => <strong>{chunks}</strong> })}
           </p>
         )}
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Phone Number">
+        <Field label={t("phoneNumber")}>
           <input className="input-base" type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </Field>
-        <Field label="Date of Birth">
+        <Field label={t("dateOfBirth")}>
           <input className="input-base" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Gender">
+        <Field label={t("gender")}>
           <select className="input-base" value={gender} onChange={(e) => setGender(e.target.value)}>
-            <option value="">Prefer not to say</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="non_binary">Non-binary</option>
-            <option value="other">Other</option>
+            <option value="">{t("preferNotToSay")}</option>
+            <option value="male">{t("male")}</option>
+            <option value="female">{t("female")}</option>
+            <option value="non_binary">{t("nonBinary")}</option>
+            <option value="other">{t("other")}</option>
           </select>
         </Field>
-        <Field label="Nationality">
+        <Field label={t("nationality")}>
           <select className="input-base" value={nationality} onChange={(e) => setNationality(e.target.value)}>
-            <option value="">Select nationality…</option>
+            <option value="">{t("selectNationality")}</option>
             {["Canadian","American","British","Australian","Indian","German","French","Emirati","Saudi","Singaporean","Other"].map(n => (
               <option key={n} value={n}>{n}</option>
             ))}
@@ -356,20 +364,20 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
 
       {/* Primary Address */}
       <div className="pt-2">
-        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3"><MapPin size={14} /> Primary Address</h3>
+        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3"><MapPin size={14} /> {t("primaryAddress")}</h3>
         <div className="border border-slate-200 rounded-xl p-4 space-y-3">
           <select className="input-base" value={address.country} onChange={(e) => setAddress(a => ({ ...a, country: e.target.value }))}>
-            <option value="">Select country…</option>
+            <option value="">{t("selectCountry")}</option>
             {["Canada","United States","United Kingdom","Australia","India","Germany","France","UAE","Saudi Arabia","Singapore","Other"].map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <input className="input-base" placeholder="Street address" value={address.line1} onChange={(e) => setAddress(a => ({ ...a, line1: e.target.value }))} />
-          <input className="input-base" placeholder="Apt, suite, etc. (optional)" value={address.line2} onChange={(e) => setAddress(a => ({ ...a, line2: e.target.value }))} />
+          <input className="input-base" placeholder={t("streetAddress")} value={address.line1} onChange={(e) => setAddress(a => ({ ...a, line1: e.target.value }))} />
+          <input className="input-base" placeholder={t("aptSuite")} value={address.line2} onChange={(e) => setAddress(a => ({ ...a, line2: e.target.value }))} />
           <div className="grid grid-cols-3 gap-3">
-            <input className="input-base" placeholder="City" value={address.city} onChange={(e) => setAddress(a => ({ ...a, city: e.target.value }))} />
-            <input className="input-base" placeholder="State / Province" value={address.state} onChange={(e) => setAddress(a => ({ ...a, state: e.target.value }))} />
-            <input className="input-base" placeholder="Postal code" value={address.zip} onChange={(e) => setAddress(a => ({ ...a, zip: e.target.value }))} />
+            <input className="input-base" placeholder={t("city")} value={address.city} onChange={(e) => setAddress(a => ({ ...a, city: e.target.value }))} />
+            <input className="input-base" placeholder={t("stateProvince")} value={address.state} onChange={(e) => setAddress(a => ({ ...a, state: e.target.value }))} />
+            <input className="input-base" placeholder={t("postalCode")} value={address.zip} onChange={(e) => setAddress(a => ({ ...a, zip: e.target.value }))} />
           </div>
         </div>
       </div>
@@ -382,6 +390,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
 // ── Professional ──────────────────────────────────────────────────────────────
 
 function ProfessionalSubsection({ token, profile, mutate }: any) {
+  const t = useTranslations("Profile");
   const [careerStatus, setCareerStatus] = useState("");
   const [jobTitle,     setJobTitle]     = useState("");
   const [company,      setCompany]      = useState("");
@@ -427,59 +436,59 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
         experience_entries: entries,
       }, token);
       await mutate();
-      toast.success("Professional information saved");
+      toast.success(t("professionalInfoSaved"));
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(err.message ?? t("failedToSave"));
     } finally { setSaving(false); }
   }
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Professional Background</SectionTitle>
+      <SectionTitle>{t("professionalBackground")}</SectionTitle>
 
-      <Field label="Career Status">
+      <Field label={t("careerStatus")}>
         <select className="input-base" value={careerStatus} onChange={(e) => setCareerStatus(e.target.value)}>
-          <option value="">Select…</option>
-          <option value="professional">Working Professional</option>
-          <option value="student">Student</option>
-          <option value="other">Other</option>
+          <option value="">{t("select")}</option>
+          <option value="professional">{t("workingProfessional")}</option>
+          <option value="student">{t("student")}</option>
+          <option value="other">{t("other")}</option>
         </select>
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Job Title">
-          <input className="input-base" placeholder="e.g. Product Manager" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+        <Field label={t("jobTitle")}>
+          <input className="input-base" placeholder={t("jobTitlePlaceholder")} value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
         </Field>
-        <Field label="Company / Organization">
-          <input className="input-base" placeholder="e.g. Accenture" value={company} onChange={(e) => setCompany(e.target.value)} />
+        <Field label={t("companyOrganization")}>
+          <input className="input-base" placeholder={t("companyPlaceholder")} value={company} onChange={(e) => setCompany(e.target.value)} />
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Industry">
+        <Field label={t("industry")}>
           <select className="input-base" value={industry} onChange={(e) => setIndustry(e.target.value)}>
-            <option value="">Select…</option>
+            <option value="">{t("select")}</option>
             {["Technology","Finance","Healthcare","Education","Marketing","Consulting","Legal","Government","Other"].map(i => (
               <option key={i} value={i}>{i}</option>
             ))}
           </select>
         </Field>
-        <Field label="Years of Experience">
-          <input className="input-base" type="number" min="0" max="50" placeholder="e.g. 5" value={yearsExp} onChange={(e) => setYearsExp(e.target.value)} />
+        <Field label={t("yearsOfExperience")}>
+          <input className="input-base" type="number" min="0" max="50" placeholder={t("yearsExperiencePlaceholder")} value={yearsExp} onChange={(e) => setYearsExp(e.target.value)} />
         </Field>
       </div>
 
-      <Field label="LinkedIn Profile URL">
+      <Field label={t("linkedinProfileUrl")}>
         <input className="input-base" placeholder="https://linkedin.com/in/yourname" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
       </Field>
 
       {/* Career Experience */}
       <div className="pt-2">
-        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3"><Building size={14} /> Career Experience</h3>
+        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3"><Building size={14} /> {t("careerExperience")}</h3>
 
         {entries.length === 0 && (
           <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl mb-3">
-            No experience entries yet.
+            {t("noExperienceEntries")}
           </div>
         )}
 
@@ -498,7 +507,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
           onClick={addEntry}
           className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors mt-3"
         >
-          <Plus size={15} /> Add Experience
+          <Plus size={15} /> {t("addExperience")}
         </button>
       </div>
 

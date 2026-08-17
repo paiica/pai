@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import { toPng } from "html-to-image";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Printer, Lock, Link2, Check, FileImage } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -30,6 +31,7 @@ const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 export default function CourseCertificatePage() {
   const { courseId } = useParams<{ courseId: string }>();
   const token = useAuthStore((s) => s.accessToken)!;
+  const t = useTranslations("CourseCertificate");
   const [copied, setCopied] = useState(false);
   const [downloadingPng, setDownloadingPng] = useState(false);
 
@@ -53,9 +55,9 @@ export default function CourseCertificatePage() {
       <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
         <div className="text-center max-w-sm px-6">
           <Lock size={32} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-700 text-sm font-semibold mb-1">You haven't earned this certificate yet</p>
-          <p className="text-xs text-slate-400 mb-4">Complete and pass this course to unlock its certificate of completion.</p>
-          <Link href="/student/grades" className="text-xs text-teal-700 hover:underline">Back to Grades</Link>
+          <p className="text-slate-700 text-sm font-semibold mb-1">{t("notEarnedHeading")}</p>
+          <p className="text-xs text-slate-400 mb-4">{t("notEarnedBody")}</p>
+          <Link href="/student/grades" className="text-xs text-teal-700 hover:underline">{t("backToGrades")}</Link>
         </div>
       </div>
     );
@@ -65,8 +67,8 @@ export default function CourseCertificatePage() {
     return (
       <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-600 text-sm font-semibold mb-1">Couldn't load this certificate</p>
-          <Link href="/student/grades" className="text-xs text-teal-700 hover:underline">Back to Grades</Link>
+          <p className="text-slate-600 text-sm font-semibold mb-1">{t("couldNotLoad")}</p>
+          <Link href="/student/grades" className="text-xs text-teal-700 hover:underline">{t("backToGrades")}</Link>
         </div>
       </div>
     );
@@ -86,7 +88,7 @@ export default function CourseCertificatePage() {
   async function handleCopyLink() {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
-    toast.success("Link copied");
+    toast.success(t("linkCopied"));
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -108,7 +110,7 @@ export default function CourseCertificatePage() {
       a.download = `${cert.course_title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-certificate.png`;
       a.click();
     } catch {
-      toast.error("Failed to generate PNG — please try again");
+      toast.error(t("toastPngFailed"));
     } finally {
       setDownloadingPng(false);
     }
@@ -122,7 +124,7 @@ export default function CourseCertificatePage() {
   // "Download PDF" button.
   function handleDownloadPdf() {
     const win = window.open("", "_blank");
-    if (!win) { toast.error("Popup blocked — please allow popups for this site and try again."); return; }
+    if (!win) { toast.error(t("popupBlocked")); return; }
     const printArea = document.getElementById("certificate-document");
     if (!printArea) return;
     // margin:0 + no body padding — the sheet itself is sized to exactly
@@ -154,7 +156,7 @@ export default function CourseCertificatePage() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <Link href="/student/grades" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
-            <ArrowLeft size={12} /> Back to Grades
+            <ArrowLeft size={12} /> {t("backToGrades")}
           </Link>
           <div className="flex items-center gap-2">
             <button
@@ -162,7 +164,7 @@ export default function CourseCertificatePage() {
               className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-navy-300 text-navy-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               {copied ? <Check size={13} className="text-emerald-500" /> : <Link2 size={13} />}
-              {copied ? "Copied!" : "Copy Link"}
+              {copied ? t("copied") : t("copyLink")}
             </button>
             <button
               onClick={handleDownloadPng}
@@ -170,13 +172,13 @@ export default function CourseCertificatePage() {
               className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-navy-300 text-navy-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
             >
               {downloadingPng ? <Loader2 size={13} className="animate-spin" /> : <FileImage size={13} />}
-              Download PNG
+              {t("downloadPng")}
             </button>
             <button
               onClick={handleDownloadPdf}
               className="inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              <Printer size={13} /> Print / Save as PDF
+              <Printer size={13} /> {t("printSaveAsPdf")}
             </button>
           </div>
         </div>

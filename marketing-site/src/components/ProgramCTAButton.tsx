@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { GraduationCap, ShoppingCart, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import LoginModal from "@/components/LoginModal";
@@ -18,6 +19,7 @@ export default function ProgramCTAButton({
   price: number;
   className?: string;
 }) {
+  const t = useTranslations("ProgramDetail");
   const { user, accessToken, hydrated, ssoLink } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [enrolled, setEnrolled]   = useState(false);
@@ -65,7 +67,7 @@ export default function ProgramCTAButton({
   if (!hydrated) {
     return (
       <div className={`${base} opacity-50 pointer-events-none`}>
-        <GraduationCap size={18} /> Enroll Now
+        <GraduationCap size={18} /> {t("enrollNow")}
       </div>
     );
   }
@@ -74,7 +76,7 @@ export default function ProgramCTAButton({
     return (
       <>
         <button onClick={() => setShowLogin(true)} className={base}>
-          <GraduationCap size={18} /> Sign In to Enroll
+          <GraduationCap size={18} /> {t("signInToEnroll")}
         </button>
         {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
       </>
@@ -84,7 +86,7 @@ export default function ProgramCTAButton({
   if (checking) {
     return (
       <div className={`${base} opacity-60 pointer-events-none`}>
-        <Loader2 size={18} className="animate-spin" /> Checking status…
+        <Loader2 size={18} className="animate-spin" /> {t("checkingStatus")}
       </div>
     );
   }
@@ -92,7 +94,7 @@ export default function ProgramCTAButton({
   if (enrolled) {
     return (
       <a href={ssoLink("/dashboard")} className={base}>
-        <CheckCircle2 size={18} /> Continue Program
+        <CheckCircle2 size={18} /> {t("continueProgram")}
       </a>
     );
   }
@@ -100,7 +102,7 @@ export default function ProgramCTAButton({
   return (
     <button onClick={handleEnroll} disabled={purchasing} className={`${base} disabled:opacity-60`}>
       {purchasing ? <Loader2 size={18} className="animate-spin" /> : <ShoppingCart size={18} />}
-      {purchasing ? "Redirecting…" : price === 0 ? "Enroll Free" : `Enroll Now — $${price.toLocaleString()}`}
+      {purchasing ? t("redirecting") : price === 0 ? t("enrollFree") : t("enrollNowPrice", { price: price.toLocaleString() })}
     </button>
   );
 }

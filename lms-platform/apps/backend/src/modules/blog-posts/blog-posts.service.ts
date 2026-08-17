@@ -1,27 +1,35 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { localize, localizeMany } from "../../common/utils/localize";
+import { TranslationsService } from "../translations/translations.service";
+
+const BLOG_LOCALIZED_FIELDS = ["title", "excerpt", "content"];
 
 @Injectable()
 export class BlogPostsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private translationsService: TranslationsService,
+  ) {}
 
-  getPublicAll() {
-    return this.prisma.blogPost.findMany({
+  async getPublicAll(lang?: string) {
+    const posts = await this.prisma.blogPost.findMany({
       where: { is_published: true },
       orderBy: { published_at: "desc" },
       select: {
-        id: true, slug: true, title: true, excerpt: true,
+        id: true, slug: true, title: true, excerpt: true, translations: true,
         cover_image_url: true, category: true, tags: true,
         author_name: true, author_avatar: true, reading_time: true,
         published_at: true, created_at: true,
       },
     });
+    return localizeMany(posts, lang, BLOG_LOCALIZED_FIELDS);
   }
 
-  async getPublicBySlug(slug: string) {
+  async getPublicBySlug(slug: string, lang?: string) {
     const post = await this.prisma.blogPost.findUnique({ where: { slug } });
     if (!post || !post.is_published) throw new NotFoundException("Post not found");
-    return post;
+    return localize(post, lang, BLOG_LOCALIZED_FIELDS);
   }
 
   getAll() {
@@ -34,7 +42,7 @@ export class BlogPostsService {
     return post;
   }
 
-  create(dto: {
+  async create(dto: {
     slug: string; title: string; excerpt?: string; content?: string;
     cover_image_url?: string; category?: string; tags?: string[];
     author_name?: string; author_avatar?: string; reading_time?: string;
@@ -42,7 +50,9 @@ export class BlogPostsService {
   }) {
     const data: any = { ...dto };
     if (dto.is_published && !data.published_at) data.published_at = new Date();
-    return this.prisma.blogPost.create({ data });
+    const created = await this.prisma.blogPost.create({ data });
+    this.translationsService.translateToAllEnabledLocales("blog_post", created);
+    return created;
   }
 
   async update(id: string, dto: {
@@ -57,7 +67,9 @@ export class BlogPostsService {
     if (dto.is_published && !post.published_at && !data.published_at) {
       data.published_at = new Date();
     }
-    return this.prisma.blogPost.update({ where: { id }, data });
+    const updated = await this.prisma.blogPost.update({ where: { id }, data });
+    this.translationsService.translateToAllEnabledLocales("blog_post", updated);
+    return updated;
   }
 
   async delete(id: string) {
