@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2,
   Award, BookOpen, Users, HelpCircle, Settings, ChevronRight,
   Globe, EyeOff, Megaphone, Star, Quote, Tag, AlertCircle, RefreshCw, LayoutTemplate, Code2, Eye, Copy, Check, Upload,
-  GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck, Wrench,
+  GraduationCap, Sparkles, X, Layers, Wand2, ClipboardCheck, Wrench, Languages,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -110,6 +110,7 @@ const TABS = [
   { id: "testimonials", label: "Testimonials",      icon: Quote },
   { id: "page_tabs",    label: "Page Tabs",         icon: LayoutTemplate },
   { id: "certificate",  label: "Certificate Design",icon: Code2 },
+  { id: "translations", label: "Translations",      icon: Languages },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -818,8 +819,9 @@ export default function CertEditorPage() {
     ([url, token]: [string, string]) => api.get<any>(url, token).then((r: any) => r.data ?? r)
   );
   const languages = languagesData ?? [];
+  const nonEnglishLanguages = languages.filter((l) => l.code !== "en");
 
-  const [activeLocale, setActiveLocale] = useState("en");
+  const [activeLocale, setActiveLocale] = useState("");
   const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
   const [translationsInitialized, setTranslationsInitialized] = useState(false);
   const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
@@ -832,6 +834,10 @@ export default function CertEditorPage() {
       setTranslationsInitialized(true);
     }
   }, [cert, translationsInitialized]);
+
+  useEffect(() => {
+    if (!activeLocale && nonEnglishLanguages.length > 0) setActiveLocale(nonEnglishLanguages[0].code);
+  }, [nonEnglishLanguages, activeLocale]);
 
   function getTranslatedField(locale: string, field: string): any {
     return translationDrafts[locale]?.[field];
@@ -1506,88 +1512,6 @@ export default function CertEditorPage() {
         </div>
       )}
 
-      {/* Language tabs */}
-      {languages.length > 1 && (
-        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
-          {languages.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => setActiveLocale(lang.code)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {lang.code === "en" ? "English" : lang.native_name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeLocale !== "en" && (() => {
-        const lang = languages.find((l) => l.code === activeLocale);
-        const jsonErr = (field: string) => translationJsonErrors[`${activeLocale}:${field}`];
-        return (
-          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
-              <button
-                onClick={() => retranslate(activeLocale)}
-                disabled={retranslating === activeLocale}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
-              >
-                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                Re-translate from English
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              Auto-translated by AI when this certification is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
-            </p>
-            <Field label="Title">
-              <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
-            </Field>
-            <Field label="Description">
-              <textarea className="input-base h-20 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
-            </Field>
-            <Field label="Long Description">
-              <textarea className="input-base h-36 resize-none" value={getTranslatedText(activeLocale, "long_description")} onChange={(e) => setTranslatedField(activeLocale, "long_description", e.target.value)} />
-            </Field>
-            <Field label="Learning Outcomes" hint="One per line">
-              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "learning_outcomes")} onChange={(e) => setTranslatedStringList(activeLocale, "learning_outcomes", e.target.value)} />
-            </Field>
-            <Field label="Target Audience" hint="One per line">
-              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "target_audience")} onChange={(e) => setTranslatedStringList(activeLocale, "target_audience", e.target.value)} />
-            </Field>
-            <Field label="Skills" hint="One per line">
-              <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "skills")} onChange={(e) => setTranslatedStringList(activeLocale, "skills", e.target.value)} />
-            </Field>
-            <Field label="Curriculum Overview" hint="JSON — array of { title, description, lessons }">
-              <textarea
-                className="input-base h-48 resize-y font-mono text-xs"
-                value={getTranslatedJsonTextValue(activeLocale, "curriculum_overview")}
-                onChange={(e) => setTranslatedJsonText(activeLocale, "curriculum_overview", e.target.value)}
-                dir="ltr"
-              />
-              {jsonErr("curriculum_overview") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("curriculum_overview")}</p>}
-            </Field>
-            <Field label="FAQs" hint="JSON — array of { question, answer }">
-              <textarea
-                className="input-base h-48 resize-y font-mono text-xs"
-                value={getTranslatedJsonTextValue(activeLocale, "faqs_json")}
-                onChange={(e) => setTranslatedJsonText(activeLocale, "faqs_json", e.target.value)}
-                dir="ltr"
-              />
-              {jsonErr("faqs_json") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("faqs_json")}</p>}
-            </Field>
-            <div className="flex justify-end">
-              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
-                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {activeLocale === "en" && (
       <>
       <div className="flex flex-wrap gap-1 mb-6 border-b border-slate-100">
         {TABS.map((t) => {
@@ -2262,8 +2186,115 @@ export default function CertEditorPage() {
           </>)}
         </div>
       )}
-      </>
+
+      {tab === "translations" && (
+        <div className="space-y-4">
+          {nonEnglishLanguages.length === 0 ? (
+            <div className="card p-6 text-center text-slate-500 text-sm">
+              No additional languages are enabled yet. Add one in Site Settings → Languages.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+                {nonEnglishLanguages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setActiveLocale(lang.code)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {lang.native_name}
+                  </button>
+                ))}
+              </div>
+
+              {activeLocale && (() => {
+                const lang = nonEnglishLanguages.find((l) => l.code === activeLocale);
+                const jsonErr = (field: string) => translationJsonErrors[`${activeLocale}:${field}`];
+                return (
+                  <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+                      <button
+                        onClick={() => retranslate(activeLocale)}
+                        disabled={retranslating === activeLocale}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+                      >
+                        {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        Re-translate from English
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Auto-translated by AI when this certification is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+                    </p>
+                    <Field label="Title">
+                      <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+                    </Field>
+                    <Field label="Description">
+                      <textarea className="input-base h-20 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
+                    </Field>
+                    <Field label="Long Description">
+                      <textarea className="input-base h-36 resize-none" value={getTranslatedText(activeLocale, "long_description")} onChange={(e) => setTranslatedField(activeLocale, "long_description", e.target.value)} />
+                    </Field>
+                    <Field label="Learning Outcomes" hint="One per line">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "learning_outcomes")} onChange={(e) => setTranslatedStringList(activeLocale, "learning_outcomes", e.target.value)} />
+                    </Field>
+                    <Field label="Target Audience" hint="One per line">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "target_audience")} onChange={(e) => setTranslatedStringList(activeLocale, "target_audience", e.target.value)} />
+                    </Field>
+                    <Field label="Skills" hint="One per line">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(activeLocale, "skills")} onChange={(e) => setTranslatedStringList(activeLocale, "skills", e.target.value)} />
+                    </Field>
+                    <Field label="Industry Focus" hint="One per line">
+                      <textarea className="input-base h-24 resize-none" value={getTranslatedStringList(activeLocale, "industry_focus")} onChange={(e) => setTranslatedStringList(activeLocale, "industry_focus", e.target.value)} />
+                    </Field>
+                    <Field label="Required Education" hint="One per line">
+                      <textarea className="input-base h-24 resize-none" value={getTranslatedStringList(activeLocale, "required_education")} onChange={(e) => setTranslatedStringList(activeLocale, "required_education", e.target.value)} />
+                    </Field>
+                    <Field label="Required Documents" hint="One per line">
+                      <textarea className="input-base h-24 resize-none" value={getTranslatedStringList(activeLocale, "required_documents")} onChange={(e) => setTranslatedStringList(activeLocale, "required_documents", e.target.value)} />
+                    </Field>
+                    <Field label="Curriculum Overview" hint="JSON — array of { title, description, lessons }">
+                      <textarea
+                        className="input-base h-48 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(activeLocale, "curriculum_overview")}
+                        onChange={(e) => setTranslatedJsonText(activeLocale, "curriculum_overview", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr("curriculum_overview") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("curriculum_overview")}</p>}
+                    </Field>
+                    <Field label="FAQs" hint="JSON — array of { question, answer }">
+                      <textarea
+                        className="input-base h-48 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(activeLocale, "faqs_json")}
+                        onChange={(e) => setTranslatedJsonText(activeLocale, "faqs_json", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr("faqs_json") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("faqs_json")}</p>}
+                    </Field>
+                    <Field label="Marketing Meta" hint="JSON — reviews_rating, reviews_count, social_proof, hero_badge_label, enrollment_includes[], etc.">
+                      <textarea
+                        className="input-base h-40 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(activeLocale, "marketing_meta")}
+                        onChange={(e) => setTranslatedJsonText(activeLocale, "marketing_meta", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr("marketing_meta") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("marketing_meta")}</p>}
+                    </Field>
+                    <div className="flex justify-end">
+                      <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                        {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
       )}
+      </>
 
       <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
         {confirmDelete ? (

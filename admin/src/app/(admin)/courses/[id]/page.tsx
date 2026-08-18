@@ -9,7 +9,7 @@ import {
   Loader2, Save, Plus, Trash2, X, Check,
   BookOpen, Users, Settings, ChevronLeft, ChevronRight, AlertCircle, RefreshCw,
   Globe, Archive, ArchiveRestore, UserPlus, UserMinus,
-  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3, Wand2, Sparkles,
+  DollarSign, Clock, Layers, Eye, EyeOff, FileText, Upload, Download, Edit3, Wand2, Sparkles, Languages,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
@@ -50,7 +50,7 @@ type Course = {
 
 type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
 
-type Tab = "overview" | "instructors" | "content" | "documents";
+type Tab = "overview" | "instructors" | "content" | "documents" | "translations";
 
 type CourseDocument = {
   id: string;
@@ -287,8 +287,9 @@ export default function CourseDetailPage() {
     ([url, t]: [string, string]) => api.get<any>(url, t).then((r: any) => r.data ?? r)
   );
   const languages = languagesData ?? [];
+  const nonEnglishLanguages = languages.filter((l) => l.code !== "en");
 
-  const [activeLocale, setActiveLocale] = useState("en");
+  const [activeLocale, setActiveLocale] = useState("");
   const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
   const [translationsInitialized, setTranslationsInitialized] = useState(false);
   const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
@@ -301,6 +302,10 @@ export default function CourseDetailPage() {
       setTranslationsInitialized(true);
     }
   }, [course.id, translationsInitialized]);
+
+  useEffect(() => {
+    if (!activeLocale && nonEnglishLanguages.length > 0) setActiveLocale(nonEnglishLanguages[0].code);
+  }, [nonEnglishLanguages, activeLocale]);
 
   function getTranslatedField(locale: string, field: string): any {
     return translationDrafts[locale]?.[field];
@@ -807,74 +812,6 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
-      {/* Language tabs */}
-      {languages.length > 1 && (
-        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
-          {languages.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => setActiveLocale(lang.code)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {lang.code === "en" ? "English" : lang.native_name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeLocale !== "en" && (() => {
-        const lang = languages.find((l) => l.code === activeLocale);
-        const jsonErr = translationJsonErrors[`${activeLocale}:content`];
-        return (
-          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
-              <button
-                onClick={() => retranslate(activeLocale)}
-                disabled={retranslating === activeLocale}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
-              >
-                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                Re-translate from English
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              Auto-translated by AI when this course is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
-            </p>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Title</label>
-              <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subtitle</label>
-              <input className="input-base" value={getTranslatedText(activeLocale, "subtitle")} onChange={(e) => setTranslatedField(activeLocale, "subtitle", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description</label>
-              <textarea className="input-base h-24 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Content <span className="text-slate-400 font-normal">(JSON — marketing content object)</span></label>
-              <textarea
-                className="input-base h-56 resize-y font-mono text-xs"
-                value={getTranslatedJsonTextValue(activeLocale, "content")}
-                onChange={(e) => setTranslatedJsonText(activeLocale, "content", e.target.value)}
-                dir="ltr"
-              />
-              {jsonErr && <p className="text-[11px] text-red-500 mt-1">{jsonErr}</p>}
-            </div>
-            <div className="flex justify-end">
-              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
-                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {activeLocale === "en" && (
       <>
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
@@ -931,6 +868,17 @@ export default function CourseDetailPage() {
           )}
         >
           <FileText size={13} /> Documents
+        </button>
+        <button
+          onClick={() => setActiveTab("translations")}
+          className={cn(
+            "px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
+            activeTab === "translations"
+              ? "border-gold-500 text-gold-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <Languages size={13} /> Translations
         </button>
       </div>
 
@@ -1633,8 +1581,83 @@ export default function CourseDetailPage() {
       {activeTab === "documents" && (
         <DocumentsTab courseId={courseId} token={token} />
       )}
-      </>
+
+      {activeTab === "translations" && (
+        <div className="space-y-4">
+          {nonEnglishLanguages.length === 0 ? (
+            <div className="card p-6 text-center text-slate-500 text-sm">
+              No additional languages are enabled yet. Add one in Site Settings → Languages.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+                {nonEnglishLanguages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setActiveLocale(lang.code)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {lang.native_name}
+                  </button>
+                ))}
+              </div>
+
+              {activeLocale && (() => {
+                const lang = nonEnglishLanguages.find((l) => l.code === activeLocale);
+                const jsonErr = translationJsonErrors[`${activeLocale}:content`];
+                return (
+                  <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+                      <button
+                        onClick={() => retranslate(activeLocale)}
+                        disabled={retranslating === activeLocale}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+                      >
+                        {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        Re-translate from English
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Auto-translated by AI when this course is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Title</label>
+                      <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subtitle</label>
+                      <input className="input-base" value={getTranslatedText(activeLocale, "subtitle")} onChange={(e) => setTranslatedField(activeLocale, "subtitle", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description</label>
+                      <textarea className="input-base h-24 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Content <span className="text-slate-400 font-normal">(JSON — marketing content object)</span></label>
+                      <textarea
+                        className="input-base h-56 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(activeLocale, "content")}
+                        onChange={(e) => setTranslatedJsonText(activeLocale, "content", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr && <p className="text-[11px] text-red-500 mt-1">{jsonErr}</p>}
+                    </div>
+                    <div className="flex justify-end">
+                      <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                        {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
       )}
+      </>
     </div>
   );
 }
