@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import {
   BookOpen, Plus, PlusCircle, Loader2, AlertCircle, RefreshCw,
   Users, Layers, Edit3, Archive, Globe, Trash2, DollarSign, Clock, ExternalLink, Search, X,
-  CheckCircle2, XCircle, ShieldAlert, Calendar,
+  CheckCircle2, XCircle, ShieldAlert, Calendar, Star,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -139,6 +139,107 @@ export default function AdminCoursesPage() {
     setLevelFilter("");
     setCertFilter("");
     setPendingOnly(false);
+  }
+
+  // ── Selection + bulk actions ────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking] = useState(false);
+  const selectAllRef = React.useRef<HTMLInputElement>(null);
+
+  const allVisibleSelected = filteredCourses.length > 0 && filteredCourses.every((c) => selectedIds.has(c.id));
+  const someVisibleSelected = filteredCourses.some((c) => selectedIds.has(c.id));
+
+  React.useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }, [someVisibleSelected, allVisibleSelected]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filteredCourses.forEach((c) => next.delete(c.id));
+      } else {
+        filteredCourses.forEach((c) => next.add(c.id));
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  const selectedPendingCount = [...selectedIds].filter(
+    (id) => courses.find((c) => c.id === id)?.approval_status === "pending"
+  ).length;
+
+  async function bulkSetStatus(status: "active" | "archived") {
+    const ids = [...selectedIds];
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) => api.patch(`/admin/courses/${id}`, { status }, token)));
+      await mutate();
+      toast.success(`${ids.length} course${ids.length !== 1 ? "s" : ""} updated`);
+      clearSelection();
+    } catch {
+      toast.error("Some updates failed");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function bulkSetFeatured(is_featured: boolean) {
+    const ids = [...selectedIds];
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) => api.patch(`/admin/courses/${id}`, { is_featured }, token)));
+      await mutate();
+      toast.success(`${ids.length} course${ids.length !== 1 ? "s" : ""} updated`);
+      clearSelection();
+    } catch {
+      toast.error("Some updates failed");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function bulkApprove() {
+    const ids = [...selectedIds].filter((id) => courses.find((c) => c.id === id)?.approval_status === "pending");
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) => api.post(`/admin/courses/${id}/approve`, {}, token)));
+      await mutate();
+      toast.success(`${ids.length} course${ids.length !== 1 ? "s" : ""} approved`);
+      clearSelection();
+    } catch {
+      toast.error("Some approvals failed");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedIds];
+    if (!confirm(`Delete ${ids.length} course${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) => api.delete(`/admin/courses/${id}`, token)));
+      await mutate();
+      toast.success(`${ids.length} course${ids.length !== 1 ? "s" : ""} deleted`);
+      clearSelection();
+    } catch {
+      toast.error("Some deletions failed");
+    } finally {
+      setBulkWorking(false);
+    }
   }
 
   const [approving, setApproving] = useState<string | null>(null);
@@ -478,6 +579,82 @@ export default function AdminCoursesPage() {
         </div>
       )}
 
+      {/* ── Selection / count bar ────────────────────────────────── */}
+      {!isLoading && !error && filteredCourses.length > 0 && (
+        <div className="flex items-center justify-between gap-3 mb-3 px-1 flex-wrap">
+          <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAllVisible}
+              className="rounded border-slate-300 text-navy-700 focus:ring-navy-300"
+              aria-label="Select all visible courses"
+            />
+            {selectedIds.size > 0
+              ? <span className="font-semibold text-navy-900">{selectedIds.size} selected</span>
+              : <span>Showing {filteredCourses.length} of {courses.length} course{courses.length !== 1 ? "s" : ""}</span>}
+          </label>
+
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {selectedPendingCount > 0 && (
+                <button
+                  onClick={bulkApprove}
+                  disabled={bulkWorking}
+                  className="btn-outline !py-1.5 !px-3 !text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={12} /> Approve ({selectedPendingCount})
+                </button>
+              )}
+              <button
+                onClick={() => bulkSetStatus("active")}
+                disabled={bulkWorking}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                <Globe size={12} /> Activate
+              </button>
+              <button
+                onClick={() => bulkSetStatus("archived")}
+                disabled={bulkWorking}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-amber-600 border-amber-200 hover:bg-amber-50 disabled:opacity-50"
+              >
+                <Archive size={12} /> Archive
+              </button>
+              <button
+                onClick={() => bulkSetFeatured(true)}
+                disabled={bulkWorking}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-teal-700 border-teal-200 hover:bg-teal-50 disabled:opacity-50"
+              >
+                <Star size={12} /> Feature
+              </button>
+              <button
+                onClick={() => bulkSetFeatured(false)}
+                disabled={bulkWorking}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <Star size={12} /> Unfeature
+              </button>
+              <button
+                onClick={bulkDelete}
+                disabled={bulkWorking}
+                className="btn-outline !py-1.5 !px-3 !text-xs text-red-500 border-red-200 hover:bg-red-50 disabled:opacity-50"
+              >
+                {bulkWorking ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Delete
+              </button>
+              <button
+                onClick={clearSelection}
+                className="btn-outline !py-1.5 !px-2.5 !text-xs"
+                title="Clear selection"
+                aria-label="Clear selection"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Course list ──────────────────────────────────────────── */}
       {isLoading ? (
         <div className="card p-10 text-center">
@@ -525,6 +702,8 @@ export default function AdminCoursesPage() {
               onApprove={() => approveCourse(course)}
               onReject={() => rejectCourse(course)}
               approving={approving === course.id}
+              selected={selectedIds.has(course.id)}
+              onToggleSelect={() => toggleSelect(course.id)}
             />
           ))}
         </div>
@@ -639,7 +818,7 @@ function EnrollmentsTab({ token, courses }: { token: string; courses: Course[] }
 function CourseCard({
   course, certs, professors, token,
   onToggleStatus, onToggleFeatured, togglingFeatured, onDelete, onMutate,
-  onApprove, onReject, approving,
+  onApprove, onReject, approving, selected, onToggleSelect,
 }: {
   course: Course;
   certs: any[];
@@ -653,15 +832,28 @@ function CourseCard({
   onApprove: () => void;
   onReject: () => void;
   approving: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
 
   const instructors = course.instructors ?? [];
   const creator = instructors.find((i) => i.is_lead) ?? instructors[0];
 
   return (
-    <div className={cn("card overflow-hidden", course.status === "archived" && "opacity-60")}>
+    <div className={cn(
+      "card overflow-hidden transition-colors",
+      course.status === "archived" && "opacity-60",
+      selected && "!border-navy-300 ring-1 ring-navy-200 bg-navy-50/20"
+    )}>
       {/* ── Course card row ─────────────────────────────────────── */}
       <div className="px-4 py-4 flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          className="flex-shrink-0 rounded border-slate-300 text-navy-700 focus:ring-navy-300"
+          aria-label={`Select ${course.title}`}
+        />
         <div className="w-10 h-10 rounded-xl bg-navy-50 flex items-center justify-center flex-shrink-0">
           <BookOpen size={18} className="text-navy-400" />
         </div>
