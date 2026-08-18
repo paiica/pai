@@ -34,7 +34,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://paii.ca";
 
 async function getEvent(slug: string, locale: string): Promise<EventDetail | null> {
   try {
-    const res = await fetch(`${API}/events/${slug}?lang=${locale}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/events/${slug}?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     const e = json?.data ?? json;

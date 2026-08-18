@@ -55,7 +55,7 @@ const LEVEL_LABEL_KEYS: Record<string, string> = { beginner: "levelBeginner", in
 
 async function getProgram(slug: string, locale: string): Promise<Program | null> {
   try {
-    const res = await fetch(`${API}/programs/${slug}?lang=${locale}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/programs/${slug}?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
@@ -66,7 +66,7 @@ async function getRelatedPrograms(slugs: string[], locale: string): Promise<Prog
   if (!slugs.length) return [];
   const results = await Promise.all(
     slugs.map((s) =>
-      fetch(`${API}/programs/${s}?lang=${locale}`, { next: { revalidate: 300 } })
+      fetch(`${API}/programs/${s}?lang=${locale}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => j?.data ?? j ?? null)
         .catch(() => null)
@@ -528,7 +528,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                 <a href="#enroll" className="btn-primary !py-4 !px-8 !text-base justify-center">
                   <GraduationCap size={18} /> {t("enrollNow")}{Number(program.price) > 0 ? ` — $${Number(program.price).toLocaleString()}` : ""}
                 </a>
-                <Link href="/programs" className="btn-outline-light !py-4 !px-8 !text-base justify-center">
+                <Link href="/programs" className="btn-outline-white !py-4 !px-8 !text-base justify-center">
                   {t("viewAllPrograms")}
                 </Link>
               </div>

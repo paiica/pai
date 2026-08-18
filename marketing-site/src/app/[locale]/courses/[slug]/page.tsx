@@ -74,7 +74,7 @@ function safeArray<T>(val: unknown, fallback: T[] = []): T[] {
 
 async function getCourse(slug: string, locale: string): Promise<Course | null> {
   try {
-    const res = await fetch(`${API}/prep-courses/${slug}?lang=${locale}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/prep-courses/${slug}?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
@@ -85,7 +85,7 @@ async function getRelatedCourses(slugs: string[], locale: string): Promise<Cours
   if (!slugs.length) return [];
   const results = await Promise.all(
     slugs.map(s =>
-      fetch(`${API}/prep-courses/${s}?lang=${locale}`, { next: { revalidate: 300 } })
+      fetch(`${API}/prep-courses/${s}?lang=${locale}`, { cache: "no-store" })
         .then(r => r.ok ? r.json() : null)
         .then(j => j?.data ?? j ?? null)
         .catch(() => null)
@@ -503,7 +503,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
                   <ShoppingCart size={18} />
                   {price === 0 ? t("enrollFree") : t("getStartedPrice", { price: price.toLocaleString() })}
                 </Link>
-                <Link href="/courses" className="btn-outline-light !py-4 !px-8 !text-base justify-center">
+                <Link href="/courses" className="btn-outline-white !py-4 !px-8 !text-base justify-center">
                   {t("viewAllCourses")}
                 </Link>
               </div>

@@ -21,7 +21,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 async function getNavItems(locale: string, fallback: NavItem[]): Promise<NavItem[]> {
   try {
-    const res = await fetch(`${API}/navigation/public?lang=${locale}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/navigation/public?lang=${locale}`, { next: { revalidate: 30 } });
     if (!res.ok) return fallback;
     const json = await res.json();
     return json?.data?.length ? json.data : fallback;

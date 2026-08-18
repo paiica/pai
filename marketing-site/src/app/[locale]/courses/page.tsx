@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function getCourses(locale: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API}/prep-courses?lang=${locale}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/prep-courses?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];

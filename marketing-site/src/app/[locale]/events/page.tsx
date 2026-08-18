@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function getEvents(locale: string): Promise<EventListItem[]> {
   try {
-    const res = await fetch(`${API}/events?lang=${locale}`, { next: { revalidate: 120 } });
+    const res = await fetch(`${API}/events?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     return (json.data ?? json) as EventListItem[];

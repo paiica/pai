@@ -73,7 +73,7 @@ const LEVEL_SPHERE_GRADIENT: Record<string, string> = {
 
 async function getCert(slug: string, locale: string): Promise<Cert | null> {
   try {
-    const res = await fetch(`${API}/courses/${slug}?lang=${locale}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/courses/${slug}?lang=${locale}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
@@ -84,7 +84,7 @@ async function getRelatedCerts(slugs: string[], locale: string): Promise<Cert[]>
   if (!slugs.length) return [];
   const results = await Promise.all(
     slugs.map((s) =>
-      fetch(`${API}/courses/${s}?lang=${locale}`, { next: { revalidate: 300 } })
+      fetch(`${API}/courses/${s}?lang=${locale}`, { cache: "no-store" })
         .then((r) => r.ok ? r.json() : null)
         .then((j) => j?.data ?? j ?? null)
         .catch(() => null)
@@ -440,7 +440,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                     <Award size={18} /> {t("applyNowPrice", { price: Number(cert.price).toLocaleString() })}
                   </a>
                 )}
-                <Link href="/certifications" className="btn-outline-light !py-4 !px-8 !text-base justify-center">
+                <Link href="/certifications" className="btn-outline-white !py-4 !px-8 !text-base justify-center">
                   {t("viewAllCertifications")}
                 </Link>
               </div>
