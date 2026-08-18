@@ -781,6 +781,8 @@
     "popupBlocked": "Popup blocked — please allow popups for this site and try again.",
     "validUntil": "Valid until",
     "verify": "Verify",
+    "downloadPng": "Download PNG",
+    "toastPngFailed": "Failed to generate PNG — please try again",
     "downloadPdf": "Download PDF",
     "copied": "Copied!",
     "copyLink": "Copy Link",

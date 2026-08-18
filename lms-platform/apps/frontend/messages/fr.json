@@ -781,6 +781,8 @@
     "popupBlocked": "Fenêtre contextuelle bloquée — veuillez autoriser les fenêtres contextuelles pour ce site et réessayer.",
     "validUntil": "Valide jusqu'au",
     "verify": "Vérifier",
+    "downloadPng": "Télécharger le PNG",
+    "toastPngFailed": "Échec de la génération du PNG — veuillez réessayer",
     "downloadPdf": "Télécharger le PDF",
     "copied": "Copié !",
     "copyLink": "Copier le lien",

@@ -5,11 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { toPng } from "html-to-image";
 import {
   RefreshCw, CheckCircle2, Clock, BookOpen, ExternalLink,
   ChevronRight, X, User, Briefcase, GraduationCap, MessageSquare,
   AlertTriangle, Upload, FileText, Loader2, CalendarDays,
-  Users, Check, Info, Award, Download, Share2, Shield, Linkedin, Twitter, Link2,
+  Users, Check, Info, Award, Download, FileImage, Share2, Shield, Linkedin, Twitter, Link2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
@@ -997,6 +998,8 @@ function renderTemplate(html: string, cert: any): string {
 
 function CertificateSection({ issuedCert }: { issuedCert: any }) {
   const [copied, setCopied] = useState(false);
+  const [downloadingPng, setDownloadingPng] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const t = useTranslations("CertificateDetail");
 
   const templateHtml: string | undefined =
@@ -1012,6 +1015,42 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
     win.document.write(rendered);
     win.document.close();
     setTimeout(() => { win.focus(); win.print(); }, 300);
+  }
+
+  // Rasterizes the certificate's rendered HTML template (shown in the iframe
+  // above) to a PNG. The iframe is same-origin (sandbox="allow-same-origin"),
+  // so its contentDocument.body is reachable and html-to-image can walk it
+  // exactly like it would a normal in-page node.
+  async function handleDownloadPng() {
+    const doc = iframeRef.current?.contentDocument;
+    // Certificate templates wrap the actual 11in x 8.5in certificate sheet
+    // (class="sheet") in a screen-only backdrop — extra padding, a gray
+    // background, and a "swap per-student values..." caption — that's meant
+    // to be hidden by @media print when printing/saving as PDF. toPng always
+    // renders in screen-media context, so capturing body would include all
+    // of that scaffolding (and the fixed-size sheet's internal bottom-pinned
+    // layout can misrender against body's taller, ambiguous natural height).
+    // Targeting .sheet directly captures only the self-contained certificate
+    // box, matching how the course-completion certificate targets its own
+    // dedicated #certificate-document node instead of the whole page.
+    const node = doc?.querySelector<HTMLElement>(".sheet") ?? doc?.body;
+    if (!node) return;
+    setDownloadingPng(true);
+    try {
+      // imagePlaceholder: some certificate templates reference logos/QR
+      // codes hosted without CORS headers, which html-to-image can't fetch
+      // to inline — without a placeholder that throws and aborts the whole
+      // export. With it, that one image just renders blank instead.
+      const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true, backgroundColor: "#ffffff", imagePlaceholder: "" });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${issuedCert.certificate_number || issuedCert.certification_acronym || "certificate"}.png`;
+      a.click();
+    } catch {
+      toast.error(t("toastPngFailed"));
+    } finally {
+      setDownloadingPng(false);
+    }
   }
 
   async function handleCopyLink() {
@@ -1041,6 +1080,7 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
         {/* Certificate render */}
         {rendered ? (
           <iframe
+            ref={iframeRef}
             srcDoc={rendered}
             className="w-full"
             style={{ height: "580px", border: "none" }}
@@ -1088,6 +1128,13 @@ function CertificateSection({ issuedCert }: { issuedCert: any }) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-navy-300 hover:text-navy-700 transition-colors">
             <Shield size={12} /> {t("verify")}
           </Link>
+
+          {rendered && (
+            <button onClick={handleDownloadPng} disabled={downloadingPng}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-navy-300 hover:text-navy-700 transition-colors disabled:opacity-60">
+              {downloadingPng ? <Loader2 size={12} className="animate-spin" /> : <FileImage size={12} />} {t("downloadPng")}
+            </button>
+          )}
 
           {rendered && (
             <button onClick={handleDownloadPdf}
