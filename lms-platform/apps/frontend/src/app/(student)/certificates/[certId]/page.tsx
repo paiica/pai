@@ -17,13 +17,17 @@ import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
 import toast from "react-hot-toast";
 
-function getSteps(t: ReturnType<typeof useTranslations>) {
-  return [
+function getSteps(t: ReturnType<typeof useTranslations>, hasRequiredCourses: boolean) {
+  const steps = [
     { id: 1, label: t("stepRequirements"),  doneLabel: t("stepRequirementsDone") },
     { id: 2, label: t("stepPayExam"),       doneLabel: t("stepPayExamDone") },
     { id: 3, label: t("stepApproval"),      doneLabel: t("stepApprovalDone") },
-    { id: 4, label: t("stepScheduleExam"),  doneLabel: t("stepScheduleExamDone") },
   ];
+  if (hasRequiredCourses) {
+    steps.push({ id: 4, label: t("stepCompleteCourses"), doneLabel: t("stepCompleteCoursesDone") });
+  }
+  steps.push({ id: hasRequiredCourses ? 5 : 4, label: t("stepScheduleExam"), doneLabel: t("stepScheduleExamDone") });
+  return steps;
 }
 
 function getStatusLabels(t: ReturnType<typeof useTranslations>): Record<string, string> {
@@ -39,12 +43,21 @@ function getStatusLabels(t: ReturnType<typeof useTranslations>): Record<string, 
 
 // badgeKind drives color/comparison logic so it stays language-independent;
 // `badge` is the display string shown to the user.
-function getProgress(application: any, enrollment: any, t: ReturnType<typeof useTranslations>) {
+function getProgress(
+  application: any, enrollment: any, t: ReturnType<typeof useTranslations>,
+  hasRequiredCourses: boolean, requiredCoursesDone: boolean,
+) {
   // Enrollment always wins — unless suspended (admin revoked/set back to pending)
   if (enrollment && enrollment.status !== "suspended") {
     const isCompleted = enrollment.status === "completed";
+    const scheduleStepId = hasRequiredCourses ? 5 : 4;
+    const step = isCompleted
+      ? scheduleStepId
+      : hasRequiredCourses && requiredCoursesDone
+      ? 4
+      : 3;
     return {
-      step: isCompleted ? 4 : 3,
+      step,
       badgeKind: isCompleted ? "completed" : "enrolled",
       badge: isCompleted ? t("badgeCompleted") : t("badgeEnrolled"),
       title: isCompleted ? t("titleCompleted") : t("titleEnrolled"),
@@ -122,6 +135,7 @@ function getProgress(application: any, enrollment: any, t: ReturnType<typeof use
 /* ── Step progress bar ───────────────────────────────────────────────── */
 function StepBar({
   currentStep, docsRequested, certId, isEnrolled, hasBooking, paymentPending, onStepClick, hasApplication,
+  hasRequiredCourses, requiredCoursesDone,
 }: {
   currentStep: number;
   docsRequested: boolean;
@@ -131,19 +145,24 @@ function StepBar({
   paymentPending?: boolean;
   onStepClick?: (stepId: number) => void;
   hasApplication?: boolean;
+  hasRequiredCourses?: boolean;
+  requiredCoursesDone?: boolean;
 }) {
   const t = useTranslations("CertificateDetail");
-  const STEPS = getSteps(t);
+  const STEPS = getSteps(t, !!hasRequiredCourses);
+  const scheduleStepId = hasRequiredCourses ? 5 : 4;
   return (
     <div className="flex items-center w-full mt-8">
       {STEPS.map((step, i) => {
         const done              = currentStep >= step.id;
         const active            = currentStep > 0 && currentStep === step.id - 1;
         const needsAction       = docsRequested && step.id === 3 && !done;
-        const isScheduleStep    = step.id === 4;
+        const isScheduleStep    = step.id === scheduleStepId;
+        const isCoursesStep     = !!hasRequiredCourses && step.id === 4;
         const isPaymentStep     = step.id === 2;
         const examBooked        = isScheduleStep && hasBooking && !done;
-        const scheduleClickable = isScheduleStep && isEnrolled && !hasBooking && !done;
+        const scheduleClickable = isScheduleStep && isEnrolled && !hasBooking && !done && (!hasRequiredCourses || requiredCoursesDone);
+        const coursesClickable  = isCoursesStep && isEnrolled && !requiredCoursesDone && !done;
         const paymentSubmitted  = isPaymentStep && paymentPending && !done;
 
         const isVerificationStep = step.id === 3;
@@ -197,6 +216,7 @@ function StepBar({
           )}>
             {label}
             {needsAction       && <span className="block text-[9px] text-red-400 text-center">{t("actionNeeded")}</span>}
+            {coursesClickable  && <span className="block text-[9px] text-red-400 text-center">{t("clickToComplete")}</span>}
             {scheduleClickable && <span className="block text-[9px] text-red-400 text-center">{t("clickToBook")}</span>}
             {paymentSubmitted  && <span className="block text-[9px] text-amber-300 text-center">{t("awaitingVerification")}</span>}
             {waitingForAdmin   && <span className="block text-[9px] text-amber-400 text-center">{t("awaitingApproval")}</span>}
@@ -218,6 +238,11 @@ function StepBar({
                 </button>
               ) : (scheduleClickable || examBooked) ? (
                 <a href="#schedule" className="flex flex-col items-center gap-1.5 group">
+                  {circle}
+                  {labelEl}
+                </a>
+              ) : coursesClickable ? (
+                <a href="#required-courses" className="flex flex-col items-center gap-1.5 group">
                   {circle}
                   {labelEl}
                 </a>
@@ -587,6 +612,40 @@ function DocumentUploadSection({
 }
 
 /* ── Prep course card ────────────────────────────────────────────────── */
+function RequiredCourseRow({ course }: { course: any }) {
+  const t = useTranslations("CertificateDetail");
+  const done = course.completed || course.waived;
+  return (
+    <div className={cn(
+      "flex items-center justify-between gap-4 rounded-2xl border p-4",
+      done ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-white"
+    )}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={cn(
+          "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
+          done ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400"
+        )}>
+          {done ? <CheckCircle2 size={18} /> : <BookOpen size={16} />}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-navy-900 text-sm truncate">{course.course_title}</p>
+          <p className="text-xs text-slate-400">
+            {course.waived ? t("courseWaived") : course.completed ? t("courseCompleted") : course.purchased ? t("courseInProgress") : t("courseNotStarted")}
+          </p>
+        </div>
+      </div>
+      {!done && course.course_slug && (
+        <Link
+          href={`/tools/course/${course.course_slug}`}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 bg-navy-900 hover:bg-navy-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
+        >
+          {course.purchased ? t("continueCourse") : t("enrollInCourse")} <ChevronRight size={12} />
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function PrepCourseCard({ course }: { course: any }) {
   const price = Number(course.price);
   const t = useTranslations("CertificateDetail");
@@ -1253,15 +1312,19 @@ function RenewalSection({ certificateId, token }: { certificateId: string; token
             {progress.courses?.length > 0 && (
               <div className="space-y-2 mb-5">
                 {progress.courses.map((c: any) => (
-                  <div key={c.id} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
+                  <Link
+                    key={c.id}
+                    href={`/tools/course/${c.slug}`}
+                    className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 rounded-lg -mx-1.5 px-1.5 transition-colors group"
+                  >
                     <div className="flex items-center gap-2 min-w-0">
                       {c.completed
                         ? <CheckCircle2 size={14} className="text-teal-500 flex-shrink-0" />
                         : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 flex-shrink-0" />}
-                      <span className={cn("truncate", c.completed ? "text-slate-700" : "text-slate-400")}>{c.title}</span>
+                      <span className={cn("truncate group-hover:text-teal-700 group-hover:underline", c.completed ? "text-slate-700" : "text-slate-400")}>{c.title}</span>
                     </div>
                     <span className="text-xs font-semibold text-slate-400 flex-shrink-0 ml-2">{c.pdu_value} {Number(c.pdu_value) !== 1 ? t("pduPlural") : t("pduSingular")}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -1412,6 +1475,17 @@ export default function CertDetailPage() {
   const allAttempts: any[] = Array.isArray(attemptsRaw?.data) ? attemptsRaw.data : Array.isArray(attemptsRaw) ? attemptsRaw : [];
   const latestAttempt: any | null = allAttempts.length > 0 ? allAttempts[allAttempts.length - 1] : null;
 
+  const { data: requiredCoursesRaw } = useSWR(
+    token && enrollmentId ? [`/certificates/${enrollmentId}/my-required-courses`, token] : null,
+    ([url, t]) => api.get<any>(url, t),
+    { revalidateOnFocus: true },
+  );
+  const requiredCourses: any[] = Array.isArray(requiredCoursesRaw?.data)
+    ? requiredCoursesRaw.data
+    : Array.isArray(requiredCoursesRaw) ? requiredCoursesRaw : [];
+  const hasRequiredCourses  = requiredCourses.length > 0;
+  const requiredCoursesDone = hasRequiredCourses && requiredCourses.every((c) => c.completed || c.waived);
+
   const enrollments: any[]   = Array.isArray(enrollmentsData?.data) ? enrollmentsData.data : [];
   const applications: any[]  = Array.isArray(appsData?.data) ? appsData.data : Array.isArray(appsData) ? appsData : [];
   const allPrep: any[]       = Array.isArray(prepData?.data) ? prepData.data : Array.isArray(prepData) ? prepData : [];
@@ -1553,7 +1627,8 @@ export default function CertDetailPage() {
   const acronym   = cert?.acronym    ?? "—";
   const badgeIcon = cert?.badge_icon ?? "";
 
-  const { step, badgeKind, badge, title: statusTitle, subtitle, paymentPending, suspended } = getProgress(application, enrollment, t) as any;
+  const { step, badgeKind, badge, title: statusTitle, subtitle, paymentPending, suspended } =
+    getProgress(application, enrollment, t, hasRequiredCourses, requiredCoursesDone) as any;
 
   const badgeColor =
     badgeKind === "approved" || badgeKind === "completed" || badgeKind === "enrolled"
@@ -1626,13 +1701,23 @@ export default function CertDetailPage() {
                 </button>
               )}
               {enrollment && enrollment.status === "active" && (
-                <a
-                  href="#schedule"
-                  className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors"
-                >
-                  <CalendarDays size={14} />
-                  {hasBooking ? t("viewBooking") : t("scheduleExam")}
-                </a>
+                hasRequiredCourses && !requiredCoursesDone && !hasBooking ? (
+                  <a
+                    href="#required-courses"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors"
+                  >
+                    <BookOpen size={14} />
+                    {t("completeRequiredCourses")}
+                  </a>
+                ) : (
+                  <a
+                    href="#schedule"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm rounded-xl transition-colors"
+                  >
+                    <CalendarDays size={14} />
+                    {hasBooking ? t("viewBooking") : t("scheduleExam")}
+                  </a>
+                )
               )}
               {!application && cert?.slug && (
                 <Link
@@ -1645,7 +1730,11 @@ export default function CertDetailPage() {
             </div>
           </div>
 
-          <StepBar currentStep={step} docsRequested={docsRequested} certId={certId} isEnrolled={isEnrolledHere} hasBooking={hasBooking} paymentPending={!!paymentPending} onStepClick={handleStepClick} hasApplication={!!application} />
+          <StepBar
+            currentStep={step} docsRequested={docsRequested} certId={certId} isEnrolled={isEnrolledHere}
+            hasBooking={hasBooking} paymentPending={!!paymentPending} onStepClick={handleStepClick}
+            hasApplication={!!application} hasRequiredCourses={hasRequiredCourses} requiredCoursesDone={requiredCoursesDone}
+          />
         </div>
       </div>
 
@@ -1678,8 +1767,27 @@ export default function CertDetailPage() {
         </div>
       )}
 
+      {/* ── Required Courses ─────────────────────────────────────────────── */}
+      {hasRequiredCourses && enrollment && enrollment.status === "active" && (
+        <div id="required-courses" className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
+          <h2 className="text-xl font-display font-black text-ink-900 flex items-center gap-2 mb-2">
+            <BookOpen size={20} className="text-teal-500" />
+            {t("requiredCourses")}
+          </h2>
+          <p className="text-slate-500 text-sm mb-5">{t("requiredCoursesBody")}</p>
+          <div className="space-y-3">
+            {requiredCourses.map((c) => (
+              <RequiredCourseRow key={c.course_id} course={c} />
+            ))}
+          </div>
+          {!requiredCoursesDone && (
+            <p className="text-xs text-slate-400 mt-4">{t("requiredCoursesGateNote")}</p>
+          )}
+        </div>
+      )}
+
       {/* ── Exam Scheduling ──────────────────────────────────────────────── */}
-      {enrollment && enrollment.status === "active" && (
+      {enrollment && enrollment.status === "active" && (hasBooking || !hasRequiredCourses || requiredCoursesDone) && (
         <div id="schedule" className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
           <h2 className="text-xl font-display font-black text-ink-900 flex items-center gap-2 mb-5">
             <CalendarDays size={20} className="text-teal-500" />

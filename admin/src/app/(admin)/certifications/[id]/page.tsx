@@ -1193,6 +1193,16 @@ export default function CertEditorPage() {
         deleteOldUpload(lastSavedBadgeImageUrlRef.current, accessToken!);
       }
       lastSavedBadgeImageUrlRef.current = badgeImageUrl;
+      // Prep Courses lives in its own tab with its own "Required for exam"
+      // checkboxes and its own small Save button — easy to miss since this
+      // page's main Save buttons look like they cover everything. Folding a
+      // save in here too (whenever that tab's data has actually been loaded)
+      // means admins don't lose required-course edits by using the "wrong"
+      // Save button.
+      if (certCoursesInitialized.current) {
+        await persistCertCourses();
+        mutateCertCourses();
+      }
       toast.success("Saved!");
       mutate();
     } catch (err: any) {
@@ -1243,15 +1253,19 @@ export default function CertEditorPage() {
     setFreeCourseIds(certCourses.filter((c) => c.is_free).map((c) => c.id));
   }, [certCoursesRaw]);
 
+  async function persistCertCourses() {
+    const courses = selectedCourseIds.map((course_id) => ({
+      course_id,
+      is_required: requiredCourseIds.includes(course_id),
+      is_free: freeCourseIds.includes(course_id),
+    }));
+    await api.put(`/admin/certifications/${id}/courses`, { courses }, accessToken!);
+  }
+
   async function handleSaveCertCourses() {
     setSavingCourses(true);
     try {
-      const courses = selectedCourseIds.map((course_id) => ({
-        course_id,
-        is_required: requiredCourseIds.includes(course_id),
-        is_free: freeCourseIds.includes(course_id),
-      }));
-      await api.put(`/admin/certifications/${id}/courses`, { courses }, accessToken!);
+      await persistCertCourses();
       toast.success("Prep course requirements saved!");
       mutateCertCourses();
     } catch (err: any) {

@@ -178,6 +178,17 @@ export class CertificatesController {
   }
 
   @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get(":enrollmentId/my-required-courses")
+  @ApiOperation({ summary: "List required courses for my own enrollment's certification, with completion/exemption status" })
+  getMyRequiredCourses(
+    @Param("enrollmentId", ParseUUIDPipe) enrollmentId: string,
+    @CurrentUser("id") userId: string,
+  ) {
+    return this.certificatesService.getMyRequiredCourses(enrollmentId, userId);
+  }
+
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.admin, Role.super_admin)
   @Put(":enrollmentId/course-waivers/:courseId")

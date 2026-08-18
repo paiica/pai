@@ -592,10 +592,27 @@ export class CertificatesService {
       select: { id: true, user_id: true, certification_id: true },
     });
     if (!enrollment) throw new NotFoundException("Enrollment not found");
+    return this.computeRequiredCourseStatus(enrollment);
+  }
 
+  // Same status computation as the admin view, but scoped to the requesting
+  // student's own enrollment — used to drive the "Complete Courses" step on
+  // the student portal's certificate page.
+  async getMyRequiredCourses(enrollmentId: string, userId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { id: true, user_id: true, certification_id: true },
+    });
+    if (!enrollment) throw new NotFoundException("Enrollment not found");
+    if (enrollment.user_id !== userId) throw new ForbiddenException("Not your enrollment");
+    return this.computeRequiredCourseStatus(enrollment);
+  }
+
+  private async computeRequiredCourseStatus(enrollment: { id: string; user_id: string; certification_id: string }) {
+    const enrollmentId = enrollment.id;
     const required = await this.prisma.courseCertRecommendation.findMany({
       where: { certification_id: enrollment.certification_id, is_required: true },
-      include: { course: { select: { id: true, title: true } } },
+      include: { course: { select: { id: true, title: true, slug: true } } },
     });
     if (!required.length) return [];
 
@@ -634,6 +651,7 @@ export class CertificatesService {
         return {
           course_id: r.course_id,
           course_title: r.course.title,
+          course_slug: r.course.slug,
           is_free: r.is_free,
           purchased,
           completed,

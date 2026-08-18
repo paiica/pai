@@ -833,7 +833,7 @@ export class PrepCoursesService {
       FROM lms.courses c
       LEFT JOIN lms.course_cert_recommendations r
         ON r.course_id = c.id AND r.certification_id = $1
-      WHERE c.status != 'archived'
+      WHERE c.status = 'active'
       ORDER BY c.title
     `, certificationId);
   }
