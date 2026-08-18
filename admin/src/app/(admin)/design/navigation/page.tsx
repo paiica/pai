@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Save, X, ExternalLink, ChevronRight, Languages, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, GripVertical, Save, X, ExternalLink, ChevronRight, Languages, Sparkles, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -107,14 +107,40 @@ function NavItemTranslations({ item, token, languages, refreshTokens }: {
   );
 }
 
-function ItemRow({ item, token, onMutate, isChild = false, languages, refreshTokens }: {
+function ItemRow({
+  item, token, onMutate, isChild = false, languages, refreshTokens,
+  isDragging, isDragOver, onDragStart, onDragEnter, onDrop, onDragEnd,
+}: {
   item: NavItem; token: string; onMutate: () => void; isChild?: boolean; languages: Language[]; refreshTokens: () => Promise<boolean>;
+  isDragging: boolean; isDragOver: boolean;
+  onDragStart: () => void; onDragEnter: () => void; onDrop: () => void; onDragEnd: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.label);
   const [href, setHref] = useState(item.href);
   const [openNewTab, setOpenNewTab] = useState(item.open_new_tab);
   const [showTranslations, setShowTranslations] = useState(false);
+  const [reordering, setReordering] = useState(false);
+
+  // Sub-items reorder among their own siblings only, scoped to this parent's
+  // children array — independent drag state from the top-level list, which
+  // NavigationPage manages for the parent rows themselves.
+  const [draggedChildIdx, setDraggedChildIdx] = useState<number | null>(null);
+  const [dragOverChildIdx, setDragOverChildIdx] = useState<number | null>(null);
+
+  async function reorderChildren(from: number, to: number) {
+    const children = item.children ?? [];
+    if (from === to) return;
+    const reordered = [...children];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setReordering(true);
+    try {
+      await Promise.all(reordered.map((c, i) => api.patch(`/navigation/${c.id}`, { sort_order: i + 1 }, token)));
+      onMutate();
+    } catch { toast.error("Failed to reorder"); }
+    finally { setReordering(false); }
+  }
 
   async function save() {
     try {
@@ -142,9 +168,24 @@ function ItemRow({ item, token, onMutate, isChild = false, languages, refreshTok
   }
 
   return (
-    <div className={`${isChild ? "ml-6 border-l-2 border-slate-100 pl-3" : ""}`}>
-      <div className={`card p-3 mb-2 ${!item.is_visible ? "opacity-50" : ""}`}>
+    <div
+      className={`${isChild ? "ml-6 border-l-2 border-slate-100 pl-3" : ""} transition-opacity ${isDragging ? "opacity-40" : ""}`}
+      draggable={!editing}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); onDragStart(); }}
+      onDragEnter={(e) => { e.preventDefault(); onDragEnter(); }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      onDragEnd={onDragEnd}
+    >
+      <div className={`card p-3 mb-2 transition-colors ${!item.is_visible ? "opacity-50" : ""} ${isDragOver && !isDragging ? "!border-navy-300 !bg-navy-50/40" : ""}`}>
         <div className="flex items-center gap-3">
+          <div
+            className={`text-slate-300 flex-shrink-0 ${reordering ? "cursor-wait" : "cursor-grab active:cursor-grabbing"}`}
+            title="Drag to reorder"
+            aria-hidden="true"
+          >
+            <GripVertical size={15} />
+          </div>
           {isChild && <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />}
 
           {editing ? (
@@ -186,9 +227,58 @@ function ItemRow({ item, token, onMutate, isChild = false, languages, refreshTok
         )}
       </div>
 
-      {(item.children ?? []).map((child) => (
-        <ItemRow key={child.id} item={child} token={token} onMutate={onMutate} isChild languages={languages} refreshTokens={refreshTokens} />
+      {(item.children ?? []).map((child, idx) => (
+        <ItemRow
+          key={child.id}
+          item={child}
+          token={token}
+          onMutate={onMutate}
+          isChild
+          languages={languages}
+          refreshTokens={refreshTokens}
+          isDragging={draggedChildIdx === idx}
+          isDragOver={dragOverChildIdx === idx}
+          onDragStart={() => setDraggedChildIdx(idx)}
+          onDragEnter={() => { if (draggedChildIdx !== null) setDragOverChildIdx(idx); }}
+          onDrop={() => { if (draggedChildIdx !== null) reorderChildren(draggedChildIdx, idx); }}
+          onDragEnd={() => { setDraggedChildIdx(null); setDragOverChildIdx(null); }}
+        />
       ))}
+    </div>
+  );
+}
+
+// Module-scope, not declared inside NavigationPage's body — a component
+// defined inline in a render function gets a brand-new function identity
+// every render, so React treats it as a different component type and
+// remounts its <input> elements on every keystroke (losing focus after each
+// character typed). Declaring it here once, with the field values/setters
+// passed as props, keeps its identity stable across NavigationPage renders.
+function AddForm({
+  newLabel, setNewLabel, newHref, setNewHref, newTab, setNewTab,
+  adding, onAdd, onCancel,
+}: {
+  newLabel: string; setNewLabel: (v: string) => void;
+  newHref: string; setNewHref: (v: string) => void;
+  newTab: boolean; setNewTab: (v: boolean) => void;
+  adding: boolean; onAdd: () => void; onCancel: () => void;
+}) {
+  return (
+    <div className="card p-4 border-2 border-dashed border-slate-200 mt-2">
+      <div className="flex flex-wrap gap-2">
+        <input className="input-base !py-1.5 text-sm flex-1 min-w-[120px]" placeholder="Label (e.g. Blog)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
+        <input className="input-base !py-1.5 text-sm flex-1 min-w-[120px]" placeholder="/path or https://..." value={newHref} onChange={(e) => setNewHref(e.target.value)} />
+        <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer self-center">
+          <input type="checkbox" checked={newTab} onChange={(e) => setNewTab(e.target.checked)} />
+          New tab
+        </label>
+      </div>
+      <div className="flex gap-2 mt-3">
+        <button onClick={onAdd} disabled={adding} className="btn-primary !py-1.5 !px-4 !text-xs disabled:opacity-60">
+          {adding ? <><span className="animate-spin">⏳</span> Adding…</> : "Add Item"}
+        </button>
+        <button onClick={onCancel} className="btn-outline !py-1.5 !px-4 !text-xs">Cancel</button>
+      </div>
     </div>
   );
 }
@@ -224,6 +314,8 @@ export default function NavigationPage() {
   const [newHref, setNewHref] = useState("");
   const [newTab, setNewTab] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   async function addItem(parentId?: string) {
     if (!newLabel || !newHref) { toast.error("Label and URL are required"); return; }
@@ -244,25 +336,19 @@ export default function NavigationPage() {
     setAdding(false);
   }
 
-  function AddForm({ parentId }: { parentId?: string }) {
-    return (
-      <div className="card p-4 border-2 border-dashed border-slate-200 mt-2">
-        <div className="flex flex-wrap gap-2">
-          <input className="input-base !py-1.5 text-sm flex-1 min-w-[120px]" placeholder="Label (e.g. Blog)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
-          <input className="input-base !py-1.5 text-sm flex-1 min-w-[120px]" placeholder="/path or https://..." value={newHref} onChange={(e) => setNewHref(e.target.value)} />
-          <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer self-center">
-            <input type="checkbox" checked={newTab} onChange={(e) => setNewTab(e.target.checked)} />
-            New tab
-          </label>
-        </div>
-        <div className="flex gap-2 mt-3">
-          <button onClick={() => addItem(parentId)} disabled={adding} className="btn-primary !py-1.5 !px-4 !text-xs disabled:opacity-60">
-            {adding ? <><span className="animate-spin">⏳</span> Adding…</> : "Add Item"}
-          </button>
-          <button onClick={() => { setShowAdd(false); setShowAddChild(null); setNewLabel(""); setNewHref(""); }} className="btn-outline !py-1.5 !px-4 !text-xs">Cancel</button>
-        </div>
-      </div>
-    );
+  function cancelAdd() {
+    setShowAdd(false); setShowAddChild(null); setNewLabel(""); setNewHref("");
+  }
+
+  async function reorderTopLevel(from: number, to: number) {
+    if (from === to) return;
+    const reordered = [...items];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    try {
+      await Promise.all(reordered.map((it, i) => api.patch(`/navigation/${it.id}`, { sort_order: i + 1 }, accessToken!)));
+      mutate();
+    } catch { toast.error("Failed to reorder"); }
   }
 
   return (
@@ -277,7 +363,14 @@ export default function NavigationPage() {
         </button>
       </div>
 
-      {showAdd && <AddForm />}
+      {showAdd && (
+        <AddForm
+          newLabel={newLabel} setNewLabel={setNewLabel}
+          newHref={newHref} setNewHref={setNewHref}
+          newTab={newTab} setNewTab={setNewTab}
+          adding={adding} onAdd={() => addItem()} onCancel={cancelAdd}
+        />
+      )}
 
       {isLoading ? (
         <div className="card p-10 text-center">
@@ -294,9 +387,21 @@ export default function NavigationPage() {
         <div className="card p-10 text-center text-slate-400 text-sm">No navigation items found.</div>
       ) : (
         <div className="space-y-1">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <div key={item.id}>
-              <ItemRow item={item} token={accessToken!} onMutate={mutate} languages={languages} refreshTokens={refreshTokens} />
+              <ItemRow
+                item={item}
+                token={accessToken!}
+                onMutate={mutate}
+                languages={languages}
+                refreshTokens={refreshTokens}
+                isDragging={draggedIdx === idx}
+                isDragOver={dragOverIdx === idx}
+                onDragStart={() => setDraggedIdx(idx)}
+                onDragEnter={() => { if (draggedIdx !== null) setDragOverIdx(idx); }}
+                onDrop={() => { if (draggedIdx !== null) reorderTopLevel(draggedIdx, idx); }}
+                onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }}
+              />
               <button
                 onClick={() => { setShowAddChild(showAddChild === item.id ? null : item.id); setShowAdd(false); setNewLabel(""); setNewHref(""); }}
                 className="ml-9 text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1 mb-3"
@@ -305,7 +410,12 @@ export default function NavigationPage() {
               </button>
               {showAddChild === item.id && (
                 <div className="ml-9">
-                  <AddForm parentId={item.id} />
+                  <AddForm
+                    newLabel={newLabel} setNewLabel={setNewLabel}
+                    newHref={newHref} setNewHref={setNewHref}
+                    newTab={newTab} setNewTab={setNewTab}
+                    adding={adding} onAdd={() => addItem(item.id)} onCancel={cancelAdd}
+                  />
                 </div>
               )}
             </div>
