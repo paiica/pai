@@ -1,31 +1,37 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { TranslationsService } from "../translations/translations.service";
+import { localize, localizeMany } from "../../common/utils/localize";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { RegisterEventDto } from "./dto/register-event.dto";
+
+const EVENT_LOCALIZED_FIELDS = ["title", "subtitle", "summary", "description", "topics", "agenda"];
 
 @Injectable()
 export class EventsService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private translationsService: TranslationsService,
   ) {}
 
   // ─── Public ────────────────────────────────────────────────────────────
 
-  async findAllPublished() {
-    return this.prisma.event.findMany({
+  async findAllPublished(lang?: string) {
+    const events = await this.prisma.event.findMany({
       where: { status: "published" },
       orderBy: { start_at: "asc" },
       include: { _count: { select: { registrations: { where: { status: "registered" } } } } },
     });
+    return localizeMany(events, lang, EVENT_LOCALIZED_FIELDS);
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, lang?: string) {
     const event = await this.prisma.event.findUnique({ where: { slug } });
     if (!event || event.status !== "published") throw new NotFoundException("Event not found");
-    return event;
+    return localize(event, lang, EVENT_LOCALIZED_FIELDS);
   }
 
   // ─── Registration (free events — no Stripe) ───────────────────────────
@@ -114,7 +120,9 @@ export class EventsService {
   async adminCreate(dto: CreateEventDto) {
     const existing = await this.prisma.event.findUnique({ where: { slug: dto.slug } });
     if (existing) throw new BadRequestException("An event with this slug already exists");
-    return this.prisma.event.create({ data: dto as any });
+    const created = await this.prisma.event.create({ data: dto as any });
+    this.translationsService.translateToAllEnabledLocales("event", created);
+    return created;
   }
 
   async adminUpdate(id: string, dto: UpdateEventDto) {
@@ -123,7 +131,9 @@ export class EventsService {
       const existing = await this.prisma.event.findUnique({ where: { slug: dto.slug } });
       if (existing && existing.id !== id) throw new BadRequestException("An event with this slug already exists");
     }
-    return this.prisma.event.update({ where: { id }, data: dto as any });
+    const updated = await this.prisma.event.update({ where: { id }, data: dto as any });
+    this.translationsService.translateToAllEnabledLocales("event", updated);
+    return updated;
   }
 
   async adminDelete(id: string) {

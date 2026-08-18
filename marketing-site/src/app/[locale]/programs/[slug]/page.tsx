@@ -53,20 +53,20 @@ type Program = {
 
 const LEVEL_LABEL_KEYS: Record<string, string> = { beginner: "levelBeginner", intermediate: "levelIntermediate", advanced: "levelAdvanced" };
 
-async function getProgram(slug: string): Promise<Program | null> {
+async function getProgram(slug: string, locale: string): Promise<Program | null> {
   try {
-    const res = await fetch(`${API}/programs/${slug}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API}/programs/${slug}?lang=${locale}`, { next: { revalidate: 300 } });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
   } catch { return null; }
 }
 
-async function getRelatedPrograms(slugs: string[]): Promise<Program[]> {
+async function getRelatedPrograms(slugs: string[], locale: string): Promise<Program[]> {
   if (!slugs.length) return [];
   const results = await Promise.all(
     slugs.map((s) =>
-      fetch(`${API}/programs/${s}`, { next: { revalidate: 300 } })
+      fetch(`${API}/programs/${s}?lang=${locale}`, { next: { revalidate: 300 } })
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => j?.data ?? j ?? null)
         .catch(() => null)
@@ -79,9 +79,9 @@ function safeArray<T>(val: unknown, fallback: T[] = []): T[] {
   return Array.isArray(val) ? (val as T[]) : fallback;
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
-  const program = await getProgram(slug);
+export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const program = await getProgram(slug, locale);
   if (!program) return { title: "Not Found" };
   return {
     title: program.title,
@@ -94,9 +94,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ProgramDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const program = await getProgram(slug);
+export default async function ProgramDetailPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+  const { locale, slug } = await params;
+  const program = await getProgram(slug, locale);
   if (!program || program.status !== "published") notFound();
 
   const t  = await getTranslations("ProgramDetail");
@@ -123,7 +123,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const requiredCount = courses.filter((c) => c.is_required).length;
   const electiveCount = courses.length - requiredCount;
 
-  const relatedPrograms = await getRelatedPrograms(safeArray<string>(program.related_slugs));
+  const relatedPrograms = await getRelatedPrograms(safeArray<string>(program.related_slugs), locale);
 
   // Only jump to sections that actually have content, per the program's real data.
   const sections = [

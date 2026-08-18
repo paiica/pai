@@ -93,6 +93,7 @@ export default function EventsGrid({ events }: { events: EventListItem[] }) {
           {filtered.map((event) => {
             const price = Number(event.price);
             const start = new Date(event.start_at);
+            const isPast = new Date(event.end_at).getTime() < Date.now();
             const month = start.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
             const day = start.toLocaleDateString("en-US", { day: "numeric" });
             return (
@@ -101,14 +102,19 @@ export default function EventsGrid({ events }: { events: EventListItem[] }) {
                   {event.cover_image_url && (
                     <img src={event.cover_image_url} alt={event.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   )}
-                  {event.event_nature && (
-                    <span className="absolute top-4 left-4 text-xs font-bold px-3.5 py-1.5 rounded-full bg-white text-ink-900 shadow-md">
-                      {t(NATURE_LABEL_KEYS[event.event_nature] ?? "natureOther")}
-                    </span>
-                  )}
-                  {event.is_featured && (
-                    <span className="absolute top-4 right-4 text-xs font-bold px-3.5 py-1.5 rounded-full bg-teal-400 text-ink-900 shadow-md">{t("featuredBadge")}</span>
-                  )}
+                  <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
+                    {event.event_nature && (
+                      <span className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-white text-ink-900 shadow-md">
+                        {t(NATURE_LABEL_KEYS[event.event_nature] ?? "natureOther")}
+                      </span>
+                    )}
+                    {event.is_featured && !isPast && (
+                      <span className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-teal-400 text-ink-900 shadow-md">{t("featuredBadge")}</span>
+                    )}
+                  </div>
+                  <span className={`absolute top-4 right-4 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-md ${isPast ? "bg-ink-900/80 text-white" : "bg-teal-400 text-ink-900"}`}>
+                    {isPast ? t("passedBadge") : t("upcomingBadge")}
+                  </span>
                 </div>
                 <div className="relative px-6 pt-9 pb-6 flex-1 flex flex-col">
                   {/* Ticket-stub date block */}

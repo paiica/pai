@@ -393,6 +393,8 @@
     "modeOnline": "عبر الإنترنت",
     "noEventsMatchFilters": "لا توجد فعاليات مطابقة لهذه الفلاتر.",
     "featuredBadge": "مميز",
+    "upcomingBadge": "قادم",
+    "passedBadge": "منتهٍ",
     "viaPlatform": "عبر {platform}",
     "free": "مجاني"
   },

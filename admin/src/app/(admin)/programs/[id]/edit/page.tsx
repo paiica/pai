@@ -9,16 +9,27 @@ import {
   Loader2, Save, Plus, Trash2, X, ChevronLeft, ChevronRight, AlertCircle,
   GraduationCap, BookOpen, Users, DollarSign, ArrowUp, ArrowDown,
   Globe, Archive, EyeOff, Copy, Search, HelpCircle, Megaphone, Quote, Code2,
-  Eye, Check, Upload, Star, Wand2, Sparkles,
+  Eye, Check, Upload, Star, Wand2, Sparkles, Languages,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 import { uploadHeroImage, deleteOldUpload } from "@/components/HeroImageFrame";
 import CardImageUpload from "@/components/CardImageUpload";
 
 const LEVELS = ["beginner", "intermediate", "advanced"] as const;
-type Tab = "overview" | "curriculum" | "instructors" | "faqs" | "marketing" | "testimonials" | "certificate" | "enrollments" | "pricing";
+type Tab = "overview" | "curriculum" | "instructors" | "faqs" | "marketing" | "testimonials" | "certificate" | "enrollments" | "pricing" | "translations";
+type LanguageOpt = { code: string; name: string; native_name: string; is_rtl: boolean };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}</label>
+      {hint && <p className="text-[10px] text-slate-400 mb-1.5">{hint}</p>}
+      {children}
+    </div>
+  );
+}
 
 type FaqItem = { question: string; answer: string };
 type Testimonial = { name: string; role: string; company: string; quote: string; avatar_initials: string };
@@ -649,7 +660,22 @@ export default function EditProgramPage() {
   const router = useRouter();
   const programId = params.id as string;
   const token = useAuthStore((s) => s.accessToken)!;
+  const refreshTokens = useAuthStore((s) => s.refreshTokens);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+
+  const { data: languagesData } = useSWR<LanguageOpt[]>(
+    token ? ["/languages", token] : null,
+    ([url, t]: [string, string]) => api.get<any>(url, t).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
+  const nonEnglishLanguages = languages.filter((l) => l.code !== "en");
+
+  const [translationLocale, setTranslationLocale] = useState<string>("");
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [translationsInitialized, setTranslationsInitialized] = useState(false);
+  const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
+  const [retranslating, setRetranslating] = useState<string | null>(null);
+  const [translationJsonErrors, setTranslationJsonErrors] = useState<Record<string, string>>({});
 
   const { data: programRaw, isLoading, error, mutate } = useSWR(
     token && programId ? [`/admin/programs/${programId}`, token] : null,
@@ -753,11 +779,106 @@ export default function EditProgramPage() {
         enrollment_includes: Array.isArray(meta.enrollment_includes) ? meta.enrollment_includes : [],
         certificate_template_html: meta.certificate_template_html ?? "",
       });
+
+      if (!translationsInitialized) {
+        setTranslationDrafts(program.translations ?? {});
+        setTranslationsInitialized(true);
+      }
     }
   }, [program.id]);
 
+  useEffect(() => {
+    if (!translationLocale && nonEnglishLanguages.length > 0) setTranslationLocale(nonEnglishLanguages[0].code);
+  }, [nonEnglishLanguages, translationLocale]);
+
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   function setPricingField(k: string, v: any) { setPricingForm((f) => ({ ...f, [k]: v })); }
+
+  function getTranslatedField(locale: string, field: string): any {
+    return translationDrafts[locale]?.[field];
+  }
+  function setTranslatedField(locale: string, field: string, value: any) {
+    setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [field]: value } }));
+  }
+  function getTranslatedText(locale: string, field: string): string {
+    return getTranslatedField(locale, field) ?? "";
+  }
+  function getTranslatedStringList(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return Array.isArray(val) ? val.join("\n") : (val ?? "");
+  }
+  function setTranslatedStringList(locale: string, field: string, text: string) {
+    setTranslatedField(locale, field, text.split("\n"));
+  }
+  function getTranslatedJsonText(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return val !== undefined ? JSON.stringify(val, null, 2) : "";
+  }
+  function setTranslatedJsonText(locale: string, field: string, text: string) {
+    const key = `${locale}:${field}`;
+    try {
+      const parsed = text.trim() ? JSON.parse(text) : undefined;
+      setTranslatedField(locale, field, parsed);
+      setTranslationJsonErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    } catch {
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [`__raw_${field}`]: text } }));
+      setTranslationJsonErrors((prev) => ({ ...prev, [key]: "Invalid JSON — not saved until fixed" }));
+    }
+  }
+  function getTranslatedJsonTextValue(locale: string, field: string): string {
+    const raw = translationDrafts[locale]?.[`__raw_${field}`];
+    return raw !== undefined ? raw : getTranslatedJsonText(locale, field);
+  }
+
+  async function saveTranslation(locale: string) {
+    setSavingTranslation(locale);
+    try {
+      let tok = token;
+      const rawDraft = translationDrafts[locale] ?? {};
+      const fields = Object.fromEntries(Object.entries(rawDraft).filter(([k]) => !k.startsWith("__raw_")));
+      try {
+        await api.patch(`/translations/program/${programId}?locale=${locale}`, { fields }, tok);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          tok = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/program/${programId}?locale=${locale}`, { fields }, tok);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+    } catch {
+      toast.error("Failed to save translation");
+    } finally {
+      setSavingTranslation(null);
+    }
+  }
+
+  async function retranslate(locale: string) {
+    setRetranslating(locale);
+    try {
+      let tok = token;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/program/${programId}?locale=${locale}`, {}, tok);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          tok = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/program/${programId}?locale=${locale}`, {}, tok);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: updated?.translations?.[locale] ?? {} }));
+      setTranslationJsonErrors({});
+      toast.success("Translated with AI — review and save");
+    } catch {
+      toast.error("Translation failed");
+    } finally {
+      setRetranslating(null);
+    }
+  }
 
   async function uploadThumbnail(file: File) {
     setUploadingThumbnail(true);
@@ -1158,6 +1279,7 @@ export default function EditProgramPage() {
           ["certificate", "Certificate Design", Code2],
           ["enrollments", "Enrollments", Users],
           ["pricing", "Pricing", DollarSign],
+          ["translations", "Translations", Languages],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -1734,6 +1856,100 @@ export default function EditProgramPage() {
             {savingPricing ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Pricing & Certificate
           </button>
         </form>
+      )}
+
+      {/* Translations Tab */}
+      {activeTab === "translations" && (
+        <div className="space-y-4">
+          {nonEnglishLanguages.length === 0 ? (
+            <div className="card p-6 text-center text-slate-500 text-sm">
+              No additional languages are enabled yet. Add one in Site Settings → Languages.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+                {nonEnglishLanguages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setTranslationLocale(lang.code)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      translationLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {lang.native_name}
+                  </button>
+                ))}
+              </div>
+
+              {translationLocale && (() => {
+                const lang = nonEnglishLanguages.find((l) => l.code === translationLocale);
+                const jsonErr = (field: string) => translationJsonErrors[`${translationLocale}:${field}`];
+                return (
+                  <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+                      <button
+                        onClick={() => retranslate(translationLocale)}
+                        disabled={retranslating === translationLocale}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+                      >
+                        {retranslating === translationLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        Re-translate from English
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Auto-translated by AI when this program is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth. Testimonials are not translated.
+                    </p>
+                    <Field label="Title">
+                      <input className="input-base" value={getTranslatedText(translationLocale, "title")} onChange={(e) => setTranslatedField(translationLocale, "title", e.target.value)} />
+                    </Field>
+                    <Field label="Short Description">
+                      <textarea className="input-base h-16 resize-none" value={getTranslatedText(translationLocale, "short_description")} onChange={(e) => setTranslatedField(translationLocale, "short_description", e.target.value)} />
+                    </Field>
+                    <Field label="Description">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedText(translationLocale, "description")} onChange={(e) => setTranslatedField(translationLocale, "description", e.target.value)} />
+                    </Field>
+                    <Field label="Overview">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedText(translationLocale, "overview")} onChange={(e) => setTranslatedField(translationLocale, "overview", e.target.value)} />
+                    </Field>
+                    <Field label="Learning Outcomes" hint="One per line">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(translationLocale, "learning_outcomes")} onChange={(e) => setTranslatedStringList(translationLocale, "learning_outcomes", e.target.value)} />
+                    </Field>
+                    <Field label="Target Audience" hint="One per line">
+                      <textarea className="input-base h-28 resize-none" value={getTranslatedStringList(translationLocale, "target_audience")} onChange={(e) => setTranslatedStringList(translationLocale, "target_audience", e.target.value)} />
+                    </Field>
+                    <Field label="Prerequisites" hint="One per line">
+                      <textarea className="input-base h-24 resize-none" value={getTranslatedStringList(translationLocale, "prerequisites")} onChange={(e) => setTranslatedStringList(translationLocale, "prerequisites", e.target.value)} />
+                    </Field>
+                    <Field label="FAQs" hint="JSON — array of { question, answer }">
+                      <textarea
+                        className="input-base h-48 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(translationLocale, "faqs_json")}
+                        onChange={(e) => setTranslatedJsonText(translationLocale, "faqs_json", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr("faqs_json") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("faqs_json")}</p>}
+                    </Field>
+                    <Field label="Marketing Meta" hint="JSON — reviews_rating, reviews_count, social_proof, hero_badge_label, enrollment_includes[]">
+                      <textarea
+                        className="input-base h-40 resize-y font-mono text-xs"
+                        value={getTranslatedJsonTextValue(translationLocale, "marketing_meta")}
+                        onChange={(e) => setTranslatedJsonText(translationLocale, "marketing_meta", e.target.value)}
+                        dir="ltr"
+                      />
+                      {jsonErr("marketing_meta") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("marketing_meta")}</p>}
+                    </Field>
+                    <div className="flex justify-end">
+                      <button onClick={() => saveTranslation(translationLocale)} disabled={savingTranslation === translationLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                        {savingTranslation === translationLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
       )}
 
       {/* Generate with AI Modal */}

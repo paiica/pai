@@ -3,9 +3,10 @@ import { EventsService } from "./events.service";
 import { EventsController } from "./events.controller";
 import { AdminEventsController } from "./admin-events.controller";
 import { MailModule } from "../mail/mail.module";
+import { TranslationsModule } from "../translations/translations.module";
 
 @Module({
-  imports: [MailModule],
+  imports: [MailModule, TranslationsModule],
   providers: [EventsService],
   controllers: [EventsController, AdminEventsController],
   exports: [EventsService],

@@ -32,9 +32,9 @@ const PLATFORM_LABELS: Record<string, string> = {
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://paii.ca";
 
-async function getEvent(slug: string): Promise<EventDetail | null> {
+async function getEvent(slug: string, locale: string): Promise<EventDetail | null> {
   try {
-    const res = await fetch(`${API}/events/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/events/${slug}?lang=${locale}`, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const json = await res.json();
     const e = json?.data ?? json;
@@ -44,9 +44,9 @@ async function getEvent(slug: string): Promise<EventDetail | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
-  const event = await getEvent(slug);
+export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const event = await getEvent(slug, locale);
   if (!event) return { title: "Not Found" };
   return {
     title: event.title,
@@ -81,10 +81,10 @@ function embedVideoUrl(url: string) {
 
 export default async function EventDetailPage({
   params, searchParams,
-}: { params: Promise<{ slug: string }>; searchParams: Promise<{ registered?: string }> }) {
-  const { slug } = await params;
+}: { params: Promise<{ locale: string; slug: string }>; searchParams: Promise<{ registered?: string }> }) {
+  const { locale, slug } = await params;
   const { registered } = await searchParams;
-  const event = await getEvent(slug);
+  const event = await getEvent(slug, locale);
   if (!event) notFound();
 
   const price = Number(event.price);

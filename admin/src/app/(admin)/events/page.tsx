@@ -129,6 +129,7 @@ export default function AdminEventsPage() {
           {list.map((event: any) => {
             const start = new Date(event.start_at);
             const end = new Date(event.end_at);
+            const isPast = end.getTime() < Date.now();
             const regCount = event._count?.registrations ?? 0;
             return (
               <Link key={event.id} href={`/events/${event.id}`} className="card px-4 py-3 flex items-center gap-3 hover:shadow-md transition-shadow">
@@ -140,6 +141,12 @@ export default function AdminEventsPage() {
                     <span className="font-bold text-navy-900 text-sm truncate">{event.title}</span>
                     <span className={cn("inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full", STATUS_COLORS[event.status] ?? STATUS_COLORS.draft)}>
                       {event.status}
+                    </span>
+                    <span className={cn(
+                      "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                      isPast ? "bg-slate-100 text-slate-500" : "bg-blue-50 text-blue-600"
+                    )}>
+                      {isPast ? "Passed" : "Upcoming"}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">

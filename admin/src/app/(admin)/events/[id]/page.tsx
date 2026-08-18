@@ -1,15 +1,16 @@
 "use client";
 
 import { Fragment, useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   Save, Loader2, Mail, Plus, Trash2, Upload, Users, Calendar,
   GripVertical, ChevronDown, Briefcase, GraduationCap, MapPin, Receipt,
+  Eye, EyeOff, Sparkles,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 
 function fetcher(url: string, token: string) {
@@ -20,6 +21,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v
 
 type Speaker = { id: string; name: string; title: string; company: string; bio: string; photo_url: string };
 type AgendaItem = { id: string; day_label: string; time: string; title: string; description: string };
+type Language = { code: string; name: string; native_name: string; is_rtl: boolean };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}</label>
+      {hint && <p className="text-[10px] text-slate-400 mb-1.5">{hint}</p>}
+      {children}
+    </div>
+  );
+}
 
 function uid() {
   return Math.random().toString(36).slice(2);
@@ -80,17 +92,126 @@ function PhotoUpload({ url, onChange, token }: { url: string; onChange: (url: st
 
 export default function EventEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { accessToken } = useAuthStore();
+  const router = useRouter();
+  const { accessToken, refreshTokens } = useAuthStore();
 
   const { data: event, mutate } = useSWR(
     accessToken && id ? [`/admin/events/${id}`, accessToken] : null,
     ([url, token]) => fetcher(url, token),
   );
 
+  const { data: languagesData } = useSWR<Language[]>(
+    accessToken ? ["/languages", accessToken] : null,
+    ([url, token]: [string, string]) => api.get<any>(url, token).then((r: any) => r.data ?? r)
+  );
+  const languages = languagesData ?? [];
+
+  const [activeLocale, setActiveLocale] = useState("en");
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [translationsInitialized, setTranslationsInitialized] = useState(false);
+  const [savingTranslation, setSavingTranslation] = useState<string | null>(null);
+  const [retranslating, setRetranslating] = useState<string | null>(null);
+  const [translationJsonErrors, setTranslationJsonErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (event && !translationsInitialized) {
+      setTranslationDrafts(event.translations ?? {});
+      setTranslationsInitialized(true);
+    }
+  }, [event, translationsInitialized]);
+
+  function getTranslatedField(locale: string, field: string): any {
+    return translationDrafts[locale]?.[field];
+  }
+  function setTranslatedField(locale: string, field: string, value: any) {
+    setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [field]: value } }));
+  }
+  function getTranslatedText(locale: string, field: string): string {
+    return getTranslatedField(locale, field) ?? "";
+  }
+  function getTranslatedStringList(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return Array.isArray(val) ? val.join("\n") : (val ?? "");
+  }
+  function setTranslatedStringList(locale: string, field: string, text: string) {
+    setTranslatedField(locale, field, text.split("\n"));
+  }
+  function getTranslatedJsonText(locale: string, field: string): string {
+    const val = getTranslatedField(locale, field);
+    return val !== undefined ? JSON.stringify(val, null, 2) : "";
+  }
+  function setTranslatedJsonText(locale: string, field: string, text: string) {
+    const key = `${locale}:${field}`;
+    try {
+      const parsed = text.trim() ? JSON.parse(text) : undefined;
+      setTranslatedField(locale, field, parsed);
+      setTranslationJsonErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    } catch {
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: { ...prev[locale], [`__raw_${field}`]: text } }));
+      setTranslationJsonErrors((prev) => ({ ...prev, [key]: "Invalid JSON — not saved until fixed" }));
+    }
+  }
+  function getTranslatedJsonTextValue(locale: string, field: string): string {
+    const raw = translationDrafts[locale]?.[`__raw_${field}`];
+    return raw !== undefined ? raw : getTranslatedJsonText(locale, field);
+  }
+
+  async function saveTranslation(locale: string) {
+    setSavingTranslation(locale);
+    try {
+      let token = accessToken!;
+      const rawDraft = translationDrafts[locale] ?? {};
+      const fields = Object.fromEntries(Object.entries(rawDraft).filter(([k]) => !k.startsWith("__raw_")));
+      try {
+        await api.patch(`/translations/event/${id}?locale=${locale}`, { fields }, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          await api.patch(`/translations/event/${id}?locale=${locale}`, { fields }, token);
+        } else throw err;
+      }
+      toast.success("Translation saved");
+    } catch {
+      toast.error("Failed to save translation");
+    } finally {
+      setSavingTranslation(null);
+    }
+  }
+
+  async function retranslate(locale: string) {
+    setRetranslating(locale);
+    try {
+      let token = accessToken!;
+      let res: any;
+      try {
+        res = await api.post<any>(`/translations/event/${id}?locale=${locale}`, {}, token);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          const ok = await refreshTokens();
+          if (!ok) throw err;
+          token = useAuthStore.getState().accessToken!;
+          res = await api.post<any>(`/translations/event/${id}?locale=${locale}`, {}, token);
+        } else throw err;
+      }
+      const updated = res?.data ?? res;
+      setTranslationDrafts((prev) => ({ ...prev, [locale]: updated?.translations?.[locale] ?? {} }));
+      setTranslationJsonErrors({});
+      toast.success("Translated with AI — review and save");
+    } catch {
+      toast.error("Translation failed");
+    } finally {
+      setRetranslating(null);
+    }
+  }
+
   const [tab, setTab] = useState<"details" | "speakers" | "agenda" | "registrations">("details");
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
 
   // Details
@@ -195,6 +316,50 @@ export default function EventEditorPage() {
     }
   }
 
+  // Public listing only shows status === "published" — this is the actual
+  // "hide" mechanism (the Status dropdown in the Details tab does the same
+  // thing, but buried in a form field isn't discoverable as "hide").
+  async function toggleVisibility() {
+    const nextStatus = status === "published" ? "draft" : "published";
+    setTogglingVisibility(true);
+    try {
+      await api.put(`/admin/events/${id}`, {
+        title, slug, subtitle, summary, description,
+        cover_image_url: coverImage, promo_video_url: promoVideo,
+        event_nature: eventNature || undefined,
+        event_type: eventType, city, location_address: locationAddress, meeting_link: meetingLink,
+        meeting_platform: meetingPlatform || undefined,
+        timezone, start_at: new Date(startAt).toISOString(), end_at: new Date(endAt).toISOString(),
+        price: parseFloat(price) || 0,
+        capacity: capacity ? parseInt(capacity) : undefined,
+        status: nextStatus,
+        topics: topicsInput.split(",").map((t) => t.trim()).filter(Boolean),
+        is_featured: isFeatured,
+        speakers, agenda,
+      }, accessToken!);
+      setStatus(nextStatus);
+      toast.success(nextStatus === "draft" ? "Event hidden from the public site" : "Event published to the public site");
+      mutate();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to update event visibility");
+    } finally {
+      setTogglingVisibility(false);
+    }
+  }
+
+  async function deleteEvent() {
+    if (!confirm(`Permanently delete "${title}"? This cannot be undone. Registrations for this event will also be removed.`)) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/admin/events/${id}`, accessToken!);
+      toast.success("Event deleted");
+      router.push("/events");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to delete event");
+      setDeleting(false);
+    }
+  }
+
   function addSpeaker() {
     setSpeakers((prev) => [...prev, { id: uid(), name: "", title: "", company: "", bio: "", photo_url: "" }]);
   }
@@ -234,12 +399,100 @@ export default function EventEditorPage() {
           <button onClick={notifyStudents} disabled={notifying} className="btn-outline !py-2 !px-3 !text-xs disabled:opacity-60">
             {notifying ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />} Notify Students
           </button>
+          <button
+            onClick={toggleVisibility}
+            disabled={togglingVisibility}
+            title={status === "published" ? "Hide from the public site (sets status to Draft)" : "Publish to the public site"}
+            className="btn-outline !py-2 !px-3 !text-xs disabled:opacity-60"
+          >
+            {togglingVisibility ? <Loader2 size={12} className="animate-spin" /> : status === "published" ? <EyeOff size={12} /> : <Eye size={12} />}
+            {status === "published" ? "Hide" : "Show"}
+          </button>
           <button onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 !text-xs disabled:opacity-60">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+          </button>
+          <button
+            onClick={deleteEvent}
+            disabled={deleting}
+            title="Permanently delete this event"
+            className="btn-outline !py-2 !px-3 !text-xs !text-red-600 !border-red-200 hover:!bg-red-50 disabled:opacity-60"
+          >
+            {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Delete
           </button>
         </div>
       </div>
 
+      {/* Language tabs */}
+      {languages.length > 1 && (
+        <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+          {languages.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => setActiveLocale(lang.code)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                activeLocale === lang.code ? "bg-white text-navy-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {lang.code === "en" ? "English" : lang.native_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeLocale !== "en" && (() => {
+        const lang = languages.find((l) => l.code === activeLocale);
+        const jsonErr = (field: string) => translationJsonErrors[`${activeLocale}:${field}`];
+        return (
+          <div className="card p-5 space-y-4" dir={lang?.is_rtl ? "rtl" : "ltr"}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">{lang?.name} Translation</p>
+              <button
+                onClick={() => retranslate(activeLocale)}
+                disabled={retranslating === activeLocale}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-navy-200 text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-50"
+              >
+                {retranslating === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                Re-translate from English
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Auto-translated by AI when this event is saved or when {lang?.name} is enabled. Edit directly here, or re-translate to overwrite with a fresh AI pass — English stays the source of truth. Speaker names/bios are not translated.
+            </p>
+            <Field label="Title">
+              <input className="input-base" value={getTranslatedText(activeLocale, "title")} onChange={(e) => setTranslatedField(activeLocale, "title", e.target.value)} />
+            </Field>
+            <Field label="Subtitle">
+              <input className="input-base" value={getTranslatedText(activeLocale, "subtitle")} onChange={(e) => setTranslatedField(activeLocale, "subtitle", e.target.value)} />
+            </Field>
+            <Field label="Summary">
+              <textarea className="input-base h-20 resize-none" value={getTranslatedText(activeLocale, "summary")} onChange={(e) => setTranslatedField(activeLocale, "summary", e.target.value)} />
+            </Field>
+            <Field label="Description">
+              <textarea className="input-base h-36 resize-none" value={getTranslatedText(activeLocale, "description")} onChange={(e) => setTranslatedField(activeLocale, "description", e.target.value)} />
+            </Field>
+            <Field label="Topics" hint="One per line">
+              <textarea className="input-base h-24 resize-none" value={getTranslatedStringList(activeLocale, "topics")} onChange={(e) => setTranslatedStringList(activeLocale, "topics", e.target.value)} />
+            </Field>
+            <Field label="Agenda" hint="JSON — array of { day_label, time, title, description }">
+              <textarea
+                className="input-base h-48 resize-y font-mono text-xs"
+                value={getTranslatedJsonTextValue(activeLocale, "agenda")}
+                onChange={(e) => setTranslatedJsonText(activeLocale, "agenda", e.target.value)}
+                dir="ltr"
+              />
+              {jsonErr("agenda") && <p className="text-[11px] text-red-500 mt-1">{jsonErr("agenda")}</p>}
+            </Field>
+            <div className="flex justify-end">
+              <button onClick={() => saveTranslation(activeLocale)} disabled={savingTranslation === activeLocale} className="btn-primary !py-2 !px-4 !text-xs">
+                {savingTranslation === activeLocale ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Translation
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {activeLocale === "en" && (
+      <>
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
         {(["details", "speakers", "agenda", "registrations"] as const).map((t) => (
@@ -539,6 +792,8 @@ export default function EventEditorPage() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

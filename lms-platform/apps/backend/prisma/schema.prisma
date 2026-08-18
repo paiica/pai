@@ -2117,6 +2117,14 @@ model Event {
   agenda            Json?
   topics            String[]     @default([])
   is_featured       Boolean      @default(false)
+
+  // Per-locale translations, e.g. { "fr": { "title": "...", "summary": "...",
+  // "agenda": [...] } }. Same shape/mechanism as Certification.translations —
+  // see common/utils/localize.ts. Speaker bios are deliberately not
+  // translated (mirrors Certification/Program skipping testimonials, to
+  // avoid running real people's names through the AI translator).
+  translations      Json         @default("{}")
+
   created_at        DateTime     @default(now())
   updated_at        DateTime     @updatedAt
 
@@ -2517,6 +2525,11 @@ model Program {
   faqs_json         Json          @default("[]")   // [{question, answer}]
   testimonials      Json          @default("[]")   // [{quote, name, role, company, avatar_initials}]
   marketing_meta    Json          @default("{}")   // {reviews_rating, reviews_count, social_proof, hero_badge_label, enrollment_includes[], certificate_template_html}
+
+  // Per-locale translations, e.g. { "fr": { "title": "...", "description": "...",
+  // "faqs_json": [...], "marketing_meta": {...} } }. Same shape/mechanism as
+  // Certification.translations — see common/utils/localize.ts.
+  translations Json @default("{}")
 
   enrollment_type       String?    // e.g. "open", "cohort" — free text, kept flexible
   enrollment_start_date DateTime?

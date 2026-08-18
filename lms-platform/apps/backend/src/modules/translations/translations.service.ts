@@ -5,7 +5,7 @@ import { LanguagesService } from "../languages/languages.service";
 import { getSupportedLanguage } from "../languages/supported-languages";
 import { hasContent, mergeTranslated, stripNonTranslatable } from "../../common/utils/translate-json";
 
-export type EntityType = "page" | "blog_post" | "nav_item" | "page_block" | "certification" | "course";
+export type EntityType = "page" | "blog_post" | "nav_item" | "page_block" | "certification" | "course" | "program" | "event";
 
 // Everything needed to translate one row of a given entity type: how to look
 // it up, which English fields to translate (with JSON fields pre-stripped of
@@ -54,6 +54,25 @@ export class TranslationsService {
           title: row.title, subtitle: row.subtitle, description: row.description,
           content: row.content ? stripNonTranslatable(row.content) : undefined,
         };
+      case "program": {
+        // testimonials deliberately excluded — same reasoning as certification's
+        // testimonials: real people's names shouldn't be run through the AI translator.
+        const { certificate_template_html, ...marketingMetaTranslatable } = row.marketing_meta ?? {};
+        return {
+          title: row.title, short_description: row.short_description, description: row.description,
+          overview: row.overview,
+          learning_outcomes: row.learning_outcomes, target_audience: row.target_audience, prerequisites: row.prerequisites,
+          faqs_json: stripNonTranslatable(row.faqs_json),
+          marketing_meta: stripNonTranslatable(marketingMetaTranslatable),
+        };
+      }
+      case "event":
+        // speakers deliberately excluded — same reasoning as above (names/bios).
+        return {
+          title: row.title, subtitle: row.subtitle, summary: row.summary, description: row.description,
+          topics: row.topics,
+          agenda: row.agenda ? stripNonTranslatable(row.agenda) : undefined,
+        };
     }
   }
 
@@ -84,6 +103,20 @@ export class TranslationsService {
         if (translated.content) out.content = mergeTranslated(row.content, translated.content);
         return out;
       }
+      case "program": {
+        const out = { ...translated };
+        if (translated.faqs_json) out.faqs_json = mergeTranslated(row.faqs_json, translated.faqs_json);
+        if (translated.marketing_meta) {
+          const { certificate_template_html, ...rest } = row.marketing_meta ?? {};
+          out.marketing_meta = { ...(row.marketing_meta ?? {}), ...mergeTranslated(rest, translated.marketing_meta) };
+        }
+        return out;
+      }
+      case "event": {
+        const out = { ...translated };
+        if (translated.agenda) out.agenda = mergeTranslated(row.agenda, translated.agenda);
+        return out;
+      }
       default:
         return translated;
     }
@@ -97,6 +130,8 @@ export class TranslationsService {
       case "page_block": return this.prisma.pageBlock.findUnique({ where: { key: entityId } });
       case "certification": return this.prisma.certification.findUnique({ where: { id: entityId } });
       case "course": return this.prisma.course.findUnique({ where: { id: entityId } });
+      case "program": return this.prisma.program.findUnique({ where: { id: entityId } });
+      case "event": return this.prisma.event.findUnique({ where: { id: entityId } });
     }
   }
 
@@ -108,6 +143,8 @@ export class TranslationsService {
       case "page_block": return this.prisma.pageBlock.findMany();
       case "certification": return this.prisma.certification.findMany();
       case "course": return this.prisma.course.findMany();
+      case "program": return this.prisma.program.findMany();
+      case "event": return this.prisma.event.findMany();
     }
   }
 
@@ -120,6 +157,8 @@ export class TranslationsService {
       case "page_block": await this.prisma.pageBlock.update({ where: { key: row.key }, data: { translations: merged } }); return;
       case "certification": await this.prisma.certification.update({ where: { id: row.id }, data: { translations: merged } }); return;
       case "course": await this.prisma.course.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "program": await this.prisma.program.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "event": await this.prisma.event.update({ where: { id: row.id }, data: { translations: merged } }); return;
     }
   }
 
@@ -178,7 +217,7 @@ export class TranslationsService {
   // Skips rows that already have a non-empty translation for it (idempotent,
   // safe to re-run e.g. after a rate-limit interruption).
   async translateAllContentInto(locale: string): Promise<{ entityType: EntityType; translated: number; total: number }[]> {
-    const entityTypes: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course"];
+    const entityTypes: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course", "program", "event"];
     const results: { entityType: EntityType; translated: number; total: number }[] = [];
     for (const entityType of entityTypes) {
       const rows = await this.findAllRows(entityType);

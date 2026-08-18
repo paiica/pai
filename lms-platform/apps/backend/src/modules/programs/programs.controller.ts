@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
@@ -16,8 +16,8 @@ export class ProgramsController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all published programs" })
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query("lang") lang?: string) {
+    return this.service.findAll(lang);
   }
 
   @ApiBearerAuth()
@@ -63,7 +63,7 @@ export class ProgramsController {
   @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get a published program's landing-page data by slug" })
-  findBySlug(@Param("slug") slug: string) {
-    return this.service.findBySlug(slug);
+  findBySlug(@Param("slug") slug: string, @Query("lang") lang?: string) {
+    return this.service.findBySlug(slug, lang);
   }
 }

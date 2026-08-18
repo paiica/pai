@@ -3,6 +3,13 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { AiService } from "../ai/ai.service";
+import { TranslationsService } from "../translations/translations.service";
+import { localize, localizeMany } from "../../common/utils/localize";
+
+const PROGRAM_LOCALIZED_FIELDS = [
+  "title", "short_description", "description", "overview",
+  "learning_outcomes", "target_audience", "prerequisites", "faqs_json", "marketing_meta",
+];
 
 @Injectable()
 export class ProgramsService {
@@ -10,6 +17,7 @@ export class ProgramsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private aiService: AiService,
+    private translationsService: TranslationsService,
   ) {}
 
   // ─── Admin: CRUD ─────────────────────────────────────────────────────────
@@ -196,7 +204,7 @@ export class ProgramsService {
   async adminCreate(dto: Record<string, any>, adminUserId: string) {
     if (!dto.title?.trim()) throw new BadRequestException("Title is required");
     const slug = dto.slug?.trim() ? dto.slug.trim() : await this.generateSlug(dto.title);
-    return this.prisma.program.create({
+    const created = await this.prisma.program.create({
       data: {
         title: dto.title.trim(),
         slug,
@@ -226,6 +234,8 @@ export class ProgramsService {
         created_by: adminUserId,
       },
     });
+    this.translationsService.translateToAllEnabledLocales("program", created);
+    return created;
   }
 
   async adminUpdate(id: string, dto: Record<string, any>) {
@@ -246,7 +256,9 @@ export class ProgramsService {
       data.slug = await this.generateSlug(dto.slug.trim(), id);
     }
 
-    return this.prisma.program.update({ where: { id }, data });
+    const updated = await this.prisma.program.update({ where: { id }, data });
+    this.translationsService.translateToAllEnabledLocales("program", updated);
+    return updated;
   }
 
   async adminDelete(id: string) {
@@ -465,13 +477,14 @@ export class ProgramsService {
 
   // ─── Public catalog ──────────────────────────────────────────────────────
 
-  async findAll() {
+  async findAll(lang?: string) {
     const programs = await this.prisma.program.findMany({
       where: { status: "published" },
       orderBy: { sort_order: "asc" },
       include: { _count: { select: { courses: true, enrollments: true } } },
     });
-    return programs.map((p) => ({
+    const localized = localizeMany(programs, lang, PROGRAM_LOCALIZED_FIELDS);
+    return localized.map((p) => ({
       id: p.id, slug: p.slug, title: p.title, short_description: p.short_description,
       level: p.level, price: Number(p.price), currency: p.currency,
       duration_weeks: p.duration_weeks, estimated_hours: p.estimated_hours ? Number(p.estimated_hours) : null,
@@ -480,8 +493,8 @@ export class ProgramsService {
     }));
   }
 
-  async findBySlug(slug: string) {
-    const program = await this.prisma.program.findUnique({
+  async findBySlug(slug: string, lang?: string) {
+    const programRow = await this.prisma.program.findUnique({
       where: { slug },
       include: {
         courses: {
@@ -505,7 +518,8 @@ export class ProgramsService {
         },
       },
     });
-    if (!program || program.status !== "published") throw new NotFoundException("Program not found");
+    if (!programRow || programRow.status !== "published") throw new NotFoundException("Program not found");
+    const program = localize(programRow, lang, PROGRAM_LOCALIZED_FIELDS);
     return {
       ...program,
       price: Number(program.price),

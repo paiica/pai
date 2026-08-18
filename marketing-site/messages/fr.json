@@ -393,6 +393,8 @@
     "modeOnline": "En ligne",
     "noEventsMatchFilters": "Aucun événement ne correspond à ces filtres.",
     "featuredBadge": "En vedette",
+    "upcomingBadge": "À venir",
+    "passedBadge": "Terminé",
     "viaPlatform": "via {platform}",
     "free": "Gratuit"
   },

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { Public } from "../../common/decorators/public.decorator";
 import { EventsService } from "./events.service";
@@ -12,14 +12,14 @@ export class EventsController {
 
   @Get()
   @ApiOperation({ summary: "List published events" })
-  findAll() {
-    return this.service.findAllPublished();
+  findAll(@Query("lang") lang?: string) {
+    return this.service.findAllPublished(lang);
   }
 
   @Get(":slug")
   @ApiOperation({ summary: "Get a published event by slug" })
-  findOne(@Param("slug") slug: string) {
-    return this.service.findBySlug(slug);
+  findOne(@Param("slug") slug: string, @Query("lang") lang?: string) {
+    return this.service.findBySlug(slug, lang);
   }
 
   @Post(":id/register")
