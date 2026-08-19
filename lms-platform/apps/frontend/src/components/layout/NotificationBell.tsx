@@ -114,7 +114,7 @@ export default function NotificationBell() {
   if (!token) return null;
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative flex-shrink-0" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
@@ -131,7 +131,11 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+        // left-0 (not right-0) + a viewport-capped width — this bell sits
+        // near the left side of the topbar's icon row on mobile, not the
+        // screen's right edge, so a fixed w-80 right-anchored panel opened
+        // mostly off the left edge of the viewport there.
+        <div className="absolute left-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-700">Notifications</span>
             <div className="flex items-center gap-3">

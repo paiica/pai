@@ -84,10 +84,10 @@ export default function StudentTopBar() {
   }
 
   return (
-    <div className="w-full bg-white border-b border-slate-100 px-6 h-10 flex items-center justify-end gap-5 flex-shrink-0 sticky top-0 z-30">
+    <div className="w-full bg-white border-b border-slate-100 pl-14 pr-3 lg:px-6 h-10 flex items-center justify-end gap-2.5 sm:gap-5 flex-shrink-0 sticky top-0 z-30 overflow-x-auto">
 
       {/* Cart dropdown */}
-      <div className="relative" ref={cartRef}>
+      <div className="relative flex-shrink-0" ref={cartRef}>
         <button
           onClick={() => { setCartOpen(v => !v); setUserOpen(false); setLangOpen(false); }}
           aria-label={t("cart")}
@@ -105,7 +105,14 @@ export default function StudentTopBar() {
         </button>
 
         {cartOpen && (
-          <div className="absolute end-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+          // Anchored start-0 (not end-0) — the cart button sits near the
+          // left side of this packed icon row, not the screen's right edge,
+          // so opening the panel end-anchored (growing leftward, off a
+          // fixed w-80) pushed most of it past the left edge of the
+          // viewport on mobile. Opening it start-anchored (growing
+          // rightward) instead, with a width capped to the viewport, keeps
+          // it fully on-screen regardless of where the button lands.
+          <div className="absolute start-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">
                 {t("cart")} {items.length > 0 ? `(${items.length})` : ""}
@@ -169,12 +176,12 @@ export default function StudentTopBar() {
       <NotificationBell />
 
       {/* Divider */}
-      <span className="h-4 w-px bg-slate-200" />
+      <span className="hidden sm:inline-block h-4 w-px bg-slate-200 flex-shrink-0" />
 
       {/* Language switcher — hidden entirely when no additional language is
           enabled (or none have UI-chrome support yet) */}
       {showLanguageSwitcher && (
-        <div className="relative" ref={langRef}>
+        <div className="relative flex-shrink-0" ref={langRef}>
           <button
             onClick={() => { setLangOpen(v => !v); setCartOpen(false); setUserOpen(false); }}
             aria-label={t("language")}
@@ -206,13 +213,13 @@ export default function StudentTopBar() {
       )}
 
       {/* Divider */}
-      <span className="h-4 w-px bg-slate-200" />
+      <span className="hidden sm:inline-block h-4 w-px bg-slate-200 flex-shrink-0" />
 
       {/* User dropdown */}
-      <div className="relative" ref={userRef}>
+      <div className="relative flex-shrink-0" ref={userRef}>
         <button
           onClick={() => { setUserOpen(v => !v); setCartOpen(false); setLangOpen(false); }}
-          className="flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900 font-medium transition-colors max-w-[130px]"
+          className="flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900 font-medium transition-colors max-w-[70px] sm:max-w-[130px]"
         >
           <span className="truncate">{name}</span>
           <ChevronDown size={11} className="flex-shrink-0 text-slate-400" />
@@ -243,7 +250,7 @@ export default function StudentTopBar() {
       {/* Support */}
       <Link
         href="mailto:support@paii.ca"
-        className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded transition-colors"
+        className="flex-shrink-0 inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded transition-colors"
       >
         {t("support")}
       </Link>
