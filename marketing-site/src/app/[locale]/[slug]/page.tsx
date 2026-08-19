@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import PageBlocks from "@/components/blocks/PageBlocks";
 
 type CMSPage = PageHeroProps & {
   id: string;
@@ -13,6 +14,7 @@ type CMSPage = PageHeroProps & {
   meta_description: string;
   is_published: boolean;
   hero_enabled: boolean;
+  blocks: any[];
 };
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -62,10 +64,11 @@ export default async function CmsPage({ params }: { params: Promise<{ slug: stri
               className="prose prose-slate max-w-none text-sm leading-relaxed"
               dangerouslySetInnerHTML={{ __html: page.content }}
             />
-          ) : (
+          ) : !page.blocks?.length ? (
             <p className="text-slate-400 text-sm">This page has no content yet.</p>
-          )}
+          ) : null}
         </div>
+        <PageBlocks blocks={page.blocks} />
       </main>
       <Footer />
     </>

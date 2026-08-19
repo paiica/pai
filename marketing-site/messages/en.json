@@ -7,7 +7,14 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "viewAll": "View all",
-    "home": "Home"
+    "home": "Home",
+    "comingSoon": "Coming Soon",
+    "certFoundational": "Foundational",
+    "certAdvanced": "Advanced",
+    "certSpecialized": "Specialized",
+    "certExecutive": "Executive",
+    "certOther": "Other",
+    "certResources": "Certification Resources"
   },
   "TopBar": {
     "tagline": "Professional Artificial Intelligence Institute — AI Certification Programs",

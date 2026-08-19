@@ -80,7 +80,7 @@ export class CoursesService {
     const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       select: {
-        id: true, slug: true, acronym: true, title: true, level: true,
+        id: true, slug: true, acronym: true, title: true, level: true, status: true,
         price: true, badge_icon: true, description: true, duration_weeks: true,
         translations: true,
       },

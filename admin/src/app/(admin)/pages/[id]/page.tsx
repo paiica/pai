@@ -6,7 +6,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type, AlignLeft, AlignCenter, AlignRight, Image as ImageIcon, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type, AlignLeft, AlignCenter, AlignRight, Image as ImageIcon, Sparkles, Plus, Trash2, ChevronUp, ChevronDown, LayoutGrid, BarChart3, Megaphone, FileText, PanelTop, Fingerprint, ShieldCheck, Quote, Video, Award, GraduationCap, Newspaper, Images, LayoutList } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ const MonacoEditor = dynamic(
   { ssr: false, loading: () => <div className="bg-slate-900 rounded-xl animate-pulse" style={{ height: 560 }} /> },
 ) as any;
 
-const LMS_URL = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
+const SITE_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 type Page = {
   id: string;
@@ -39,6 +39,7 @@ type Page = {
   hero_overlay: boolean;
   hero_cta_label: string;
   hero_cta_href: string;
+  blocks: Block[];
   translations: Record<string, Record<string, any>>;
 };
 
@@ -65,6 +66,572 @@ function previewDoc(content: string) {
 </head>
 <body>${content}</body>
 </html>`;
+}
+
+// ── Composable content blocks — an ordered list of typed sections rendered
+// below the hero, distinct from the single free-form `content` HTML field.
+// icon/href/id/type keys are already in the shared stripNonTranslatable()
+// regex, so these translate automatically without backend changes per type.
+type StatItem = { value: string; label: string };
+type CardItem = { id: string; icon: string; title: string; description: string; href: string };
+type PillarItem = { icon: string; title: string; desc: string };
+type WhyPillarItem = { title: string; description: string };
+type TestimonialItem = { name: string; title: string; company: string; cert: string; avatar: string; rating: string; quote: string };
+type LogoItem = { image_url: string; alt: string; href: string; highlighted: boolean };
+type VideoItem = { url: string; label: string; description: string };
+type UpdateCardSpec = { badge1: string; badge2: string; title: string; description: string; cta_label: string; cta_href: string; image_url: string };
+type UpdateTabSpec = { label: string; card1: UpdateCardSpec; card2: UpdateCardSpec };
+
+type Block =
+  | { id: string; type: "stat_highlights"; stats: StatItem[] }
+  | { id: string; type: "cards_grid"; heading: string; cards: CardItem[] }
+  | { id: string; type: "cta_banner"; heading: string; subtext: string; button: { label: string; href: string } }
+  | { id: string; type: "rich_text"; html: string }
+  // ── Mirrors the homepage's global Page Blocks system's 12 rich section
+  // types, but scoped per-page instead of one shared global row per type.
+  // Forms here are intentionally leaner than the homepage's dedicated
+  // editors (e.g. Hero is single-slide, not a managed carousel).
+  | { id: string; type: "hero"; image_url: string; video_url: string; overlay: boolean; badge: string; headline: string; highlight: string; sub: string; cta_label: string; cta_href: string; cta2_label: string; cta2_href: string; stats: StatItem[] }
+  | { id: string; type: "identity"; badge: string; headline: string; highlight: string; body: string; stats: StatItem[]; pillars: PillarItem[] }
+  | { id: string; type: "why_pai"; badge: string; title: string; subtitle: string; stats: StatItem[]; pillars: WhyPillarItem[] }
+  | { id: string; type: "testimonials"; badge: string; title: string; subtitle: string; items: TestimonialItem[] }
+  | { id: string; type: "cta_rich"; badge: string; title: string; highlight: string; subtitle: string; cta_label: string; cta_href: string; cta2_label: string; cta2_href: string; trust_1: string; trust_2: string; trust_3: string }
+  | { id: string; type: "logos"; badge: string; title: string; items: LogoItem[] }
+  | { id: string; type: "video"; title: string; subtitle: string; videos: VideoItem[] }
+  | { id: string; type: "promo_banner"; image_url: string; title: string; description: string; cta_label: string; cta_href: string; overlay: boolean }
+  | { id: string; type: "updates"; badge: string; title: string; title_highlight: string; description: string; tabs: UpdateTabSpec[] }
+  | { id: string; type: "certifications_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
+  | { id: string; type: "courses_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
+  | { id: string; type: "blog_live"; badge: string; title: string };
+
+const BLOCK_TYPE_META: Record<Block["type"], { label: string; icon: any }> = {
+  stat_highlights: { label: "Stat Highlights", icon: BarChart3 },
+  cards_grid: { label: "Cards Grid", icon: LayoutGrid },
+  cta_banner: { label: "CTA Banner", icon: Megaphone },
+  rich_text: { label: "Rich Text", icon: FileText },
+  hero: { label: "Hero / Banner", icon: PanelTop },
+  identity: { label: "Identity", icon: Fingerprint },
+  why_pai: { label: "Why PAII", icon: ShieldCheck },
+  testimonials: { label: "Testimonials", icon: Quote },
+  cta_rich: { label: "Call to Action (Rich)", icon: Megaphone },
+  logos: { label: "Logo Strip / Partners", icon: Images },
+  video: { label: "Featured Video", icon: Video },
+  promo_banner: { label: "Promo Banner (Image)", icon: ImageIcon },
+  updates: { label: "Resource Updates (Tabs)", icon: LayoutList },
+  certifications_live: { label: "Certifications (Live)", icon: Award },
+  courses_live: { label: "Prep Courses (Live)", icon: GraduationCap },
+  blog_live: { label: "Latest Articles (Live)", icon: Newspaper },
+};
+
+function newBlockId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `b${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function makeBlock(type: Block["type"]): Block {
+  switch (type) {
+    case "stat_highlights":
+      return { id: newBlockId(), type, stats: [{ value: "", label: "" }] };
+    case "cards_grid":
+      return { id: newBlockId(), type, heading: "", cards: [{ id: newBlockId(), icon: "Sparkles", title: "", description: "", href: "" }] };
+    case "cta_banner":
+      return { id: newBlockId(), type, heading: "", subtext: "", button: { label: "", href: "" } };
+    case "rich_text":
+      return { id: newBlockId(), type, html: "" };
+    case "hero":
+      return { id: newBlockId(), type, image_url: "", video_url: "", overlay: true, badge: "", headline: "", highlight: "", sub: "", cta_label: "", cta_href: "", cta2_label: "", cta2_href: "", stats: [] };
+    case "identity":
+      return { id: newBlockId(), type, badge: "", headline: "", highlight: "", body: "", stats: [], pillars: [] };
+    case "why_pai":
+      return { id: newBlockId(), type, badge: "", title: "", subtitle: "", stats: [], pillars: [{ title: "", description: "" }] };
+    case "testimonials":
+      return { id: newBlockId(), type, badge: "", title: "", subtitle: "", items: [{ name: "", title: "", company: "", cert: "", avatar: "", rating: "5", quote: "" }] };
+    case "cta_rich":
+      return { id: newBlockId(), type, badge: "", title: "", highlight: "", subtitle: "", cta_label: "", cta_href: "", cta2_label: "", cta2_href: "", trust_1: "", trust_2: "", trust_3: "" };
+    case "logos":
+      return { id: newBlockId(), type, badge: "", title: "", items: [{ image_url: "", alt: "", href: "", highlighted: false }] };
+    case "video":
+      return { id: newBlockId(), type, title: "", subtitle: "", videos: [{ url: "", label: "", description: "" }] };
+    case "promo_banner":
+      return { id: newBlockId(), type, image_url: "", title: "", description: "", cta_label: "", cta_href: "", overlay: true };
+    case "updates":
+      return { id: newBlockId(), type, badge: "", title: "", title_highlight: "", description: "", tabs: [{ label: "Tab 1", card1: { badge1: "", badge2: "", title: "", description: "", cta_label: "", cta_href: "", image_url: "" }, card2: { badge1: "", badge2: "", title: "", description: "", cta_label: "", cta_href: "", image_url: "" } }] };
+    case "certifications_live":
+      return { id: newBlockId(), type, badge: "", title: "", title_highlight: "", description: "", cta_card_title: "", cta_card_desc: "", cta_card_label: "", cta_card_href: "" };
+    case "courses_live":
+      return { id: newBlockId(), type, badge: "", title: "", title_highlight: "", description: "", cta_card_title: "", cta_card_desc: "", cta_card_label: "", cta_card_href: "" };
+    case "blog_live":
+      return { id: newBlockId(), type, badge: "", title: "" };
+  }
+}
+
+function StatsFields({ stats, onChange, max = 4 }: { stats: StatItem[]; onChange: (stats: StatItem[]) => void; max?: number }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Stats <span className="font-normal normal-case">(up to {max}, optional)</span></p>
+      {stats.map((s, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input className="input-base !py-1.5 text-sm w-28" placeholder="3,200+" value={s.value}
+            onChange={(e) => onChange(stats.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} />
+          <input className="input-base !py-1.5 text-sm flex-1" placeholder="Certified professionals" value={s.label}
+            onChange={(e) => onChange(stats.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+          <button onClick={() => onChange(stats.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+        </div>
+      ))}
+      {stats.length < max && (
+        <button onClick={() => onChange([...stats, { value: "", label: "" }])} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+          <Plus size={11} /> Add stat
+        </button>
+      )}
+    </div>
+  );
+}
+
+function UpdateCardFields({ card, label, onChange }: { card: UpdateCardSpec; label: string; onChange: (patch: Partial<UpdateCardSpec>) => void }) {
+  return (
+    <div className="space-y-1.5 bg-white rounded-lg border border-slate-200 p-2.5">
+      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+      <div className="grid grid-cols-2 gap-1.5">
+        <input className="input-base !py-1 text-[11px]" placeholder="Badge 1" value={card.badge1} onChange={(e) => onChange({ badge1: e.target.value })} />
+        <input className="input-base !py-1 text-[11px]" placeholder="Badge 2" value={card.badge2} onChange={(e) => onChange({ badge2: e.target.value })} />
+      </div>
+      <input className="input-base !py-1 text-[11px]" placeholder="Title" value={card.title} onChange={(e) => onChange({ title: e.target.value })} />
+      <textarea className="input-base !py-1 text-[11px] resize-none h-10" placeholder="Description" value={card.description} onChange={(e) => onChange({ description: e.target.value })} />
+      <div className="grid grid-cols-2 gap-1.5">
+        <input className="input-base !py-1 text-[11px]" placeholder="CTA label" value={card.cta_label} onChange={(e) => onChange({ cta_label: e.target.value })} />
+        <input className="input-base !py-1 text-[11px]" placeholder="CTA link" value={card.cta_href} onChange={(e) => onChange({ cta_href: e.target.value })} />
+      </div>
+      <input className="input-base !py-1 text-[11px]" placeholder="Image URL (optional — gradient if blank)" value={card.image_url} onChange={(e) => onChange({ image_url: e.target.value })} />
+    </div>
+  );
+}
+
+function BlockEditorCard({
+  block, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
+}: {
+  block: Block; onChange: (patch: Partial<Block>) => void; onRemove: () => void;
+  onMoveUp: () => void; onMoveDown: () => void; isFirst: boolean; isLast: boolean;
+}) {
+  const meta = BLOCK_TYPE_META[block.type];
+  const Icon = meta.icon;
+
+  return (
+    <div className="card p-4 bg-white">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-navy-900 uppercase tracking-widest">
+          <Icon size={13} className="text-slate-400" /> {meta.label}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={onMoveUp} disabled={isFirst} title="Move up" className="p-1 text-slate-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed rounded"><ChevronUp size={14} /></button>
+          <button onClick={onMoveDown} disabled={isLast} title="Move down" className="p-1 text-slate-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed rounded"><ChevronDown size={14} /></button>
+          <button onClick={onRemove} title="Remove block" className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+        </div>
+      </div>
+
+      {block.type === "stat_highlights" && (
+        <div className="space-y-2">
+          {block.stats.map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input className="input-base !py-1.5 text-sm w-28" placeholder="92%" value={s.value}
+                onChange={(e) => onChange({ stats: block.stats.map((x, j) => j === i ? { ...x, value: e.target.value } : x) } as Partial<Block>)} />
+              <input className="input-base !py-1.5 text-sm flex-1" placeholder="Pass rate" value={s.label}
+                onChange={(e) => onChange({ stats: block.stats.map((x, j) => j === i ? { ...x, label: e.target.value } : x) } as Partial<Block>)} />
+              <button onClick={() => onChange({ stats: block.stats.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+            </div>
+          ))}
+          <button onClick={() => onChange({ stats: [...block.stats, { value: "", label: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+            <Plus size={11} /> Add stat
+          </button>
+        </div>
+      )}
+
+      {block.type === "cards_grid" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Section heading (optional)" value={block.heading}
+            onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)} />
+          {block.cards.map((c, i) => (
+            <div key={c.id} className="card p-3 space-y-2 bg-slate-50/60 border-slate-200">
+              <div className="flex gap-2">
+                <input className="input-base !py-1.5 text-xs w-32 flex-shrink-0" placeholder="Icon (lucide name)" value={c.icon}
+                  onChange={(e) => onChange({ cards: block.cards.map((x, j) => j === i ? { ...x, icon: e.target.value } : x) } as Partial<Block>)} />
+                <input className="input-base !py-1.5 text-sm flex-1" placeholder="Title" value={c.title}
+                  onChange={(e) => onChange({ cards: block.cards.map((x, j) => j === i ? { ...x, title: e.target.value } : x) } as Partial<Block>)} />
+                <button onClick={() => onChange({ cards: block.cards.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+              </div>
+              <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Description" value={c.description}
+                onChange={(e) => onChange({ cards: block.cards.map((x, j) => j === i ? { ...x, description: e.target.value } : x) } as Partial<Block>)} />
+              <input className="input-base !py-1.5 text-xs" placeholder="/link (optional)" value={c.href}
+                onChange={(e) => onChange({ cards: block.cards.map((x, j) => j === i ? { ...x, href: e.target.value } : x) } as Partial<Block>)} />
+            </div>
+          ))}
+          <button onClick={() => onChange({ cards: [...block.cards, { id: newBlockId(), icon: "Sparkles", title: "", description: "", href: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+            <Plus size={11} /> Add card
+          </button>
+        </div>
+      )}
+
+      {block.type === "cta_banner" && (
+        <div className="space-y-2">
+          <input className="input-base !py-1.5 text-sm" placeholder="Heading" value={block.heading} onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Subtext (optional)" value={block.subtext} onChange={(e) => onChange({ subtext: e.target.value } as Partial<Block>)} />
+          <div className="flex gap-2">
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="Button label" value={block.button.label}
+              onChange={(e) => onChange({ button: { ...block.button, label: e.target.value } } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="Button link" value={block.button.href}
+              onChange={(e) => onChange({ button: { ...block.button, href: e.target.value } } as Partial<Block>)} />
+          </div>
+        </div>
+      )}
+
+      {block.type === "rich_text" && (
+        <textarea className="input-base font-mono text-xs h-40 resize-y" placeholder="<p>Arbitrary HTML for this section…</p>" value={block.html}
+          onChange={(e) => onChange({ html: e.target.value } as Partial<Block>)} />
+      )}
+
+      {block.type === "hero" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-xs" placeholder="Background image URL" value={block.image_url}
+              onChange={(e) => onChange({ image_url: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-xs" placeholder="Background video URL (optional)" value={block.video_url}
+              onChange={(e) => onChange({ video_url: e.target.value } as Partial<Block>)} />
+          </div>
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 cursor-pointer w-fit">
+            <input type="checkbox" checked={block.overlay} onChange={(e) => onChange({ overlay: e.target.checked } as Partial<Block>)} className="rounded border-slate-300" />
+            Dark overlay
+          </label>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Headline" value={block.headline} onChange={(e) => onChange({ headline: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Highlight (gradient part)" value={block.highlight} onChange={(e) => onChange({ highlight: e.target.value } as Partial<Block>)} />
+          </div>
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Subtext" value={block.sub} onChange={(e) => onChange({ sub: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Primary button label" value={block.cta_label} onChange={(e) => onChange({ cta_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Primary button link" value={block.cta_href} onChange={(e) => onChange({ cta_href: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Secondary button label (optional)" value={block.cta2_label} onChange={(e) => onChange({ cta2_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Secondary button link (optional)" value={block.cta2_href} onChange={(e) => onChange({ cta2_href: e.target.value } as Partial<Block>)} />
+          </div>
+          <StatsFields stats={block.stats} onChange={(stats) => onChange({ stats } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "identity" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Headline" value={block.headline} onChange={(e) => onChange({ headline: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Highlight (gradient part)" value={block.highlight} onChange={(e) => onChange({ highlight: e.target.value } as Partial<Block>)} />
+          </div>
+          <textarea className="input-base !py-1.5 text-xs resize-none h-16" placeholder="Body" value={block.body} onChange={(e) => onChange({ body: e.target.value } as Partial<Block>)} />
+          <StatsFields stats={block.stats} onChange={(stats) => onChange({ stats } as Partial<Block>)} />
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pillars <span className="font-normal normal-case">(up to 4)</span></p>
+            {block.pillars.map((p, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <input className="input-base !py-1.5 text-sm w-14 text-center flex-shrink-0" placeholder="🌐" value={p.icon}
+                  onChange={(e) => onChange({ pillars: block.pillars.map((x, j) => j === i ? { ...x, icon: e.target.value } : x) } as Partial<Block>)} />
+                <div className="flex-1 space-y-1.5">
+                  <input className="input-base !py-1.5 text-sm" placeholder="Title" value={p.title}
+                    onChange={(e) => onChange({ pillars: block.pillars.map((x, j) => j === i ? { ...x, title: e.target.value } : x) } as Partial<Block>)} />
+                  <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Description" value={p.desc}
+                    onChange={(e) => onChange({ pillars: block.pillars.map((x, j) => j === i ? { ...x, desc: e.target.value } : x) } as Partial<Block>)} />
+                </div>
+                <button onClick={() => onChange({ pillars: block.pillars.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+            {block.pillars.length < 4 && (
+              <button onClick={() => onChange({ pillars: [...block.pillars, { icon: "", title: "", desc: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+                <Plus size={11} /> Add pillar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {block.type === "why_pai" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Subtitle" value={block.subtitle} onChange={(e) => onChange({ subtitle: e.target.value } as Partial<Block>)} />
+          <StatsFields stats={block.stats} onChange={(stats) => onChange({ stats } as Partial<Block>)} />
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pillars <span className="font-normal normal-case">(icon auto-assigned)</span></p>
+            {block.pillars.map((p, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <div className="flex-1 space-y-1.5">
+                  <input className="input-base !py-1.5 text-sm" placeholder="Title" value={p.title}
+                    onChange={(e) => onChange({ pillars: block.pillars.map((x, j) => j === i ? { ...x, title: e.target.value } : x) } as Partial<Block>)} />
+                  <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Description" value={p.description}
+                    onChange={(e) => onChange({ pillars: block.pillars.map((x, j) => j === i ? { ...x, description: e.target.value } : x) } as Partial<Block>)} />
+                </div>
+                <button onClick={() => onChange({ pillars: block.pillars.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+            <button onClick={() => onChange({ pillars: [...block.pillars, { title: "", description: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+              <Plus size={11} /> Add pillar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {block.type === "testimonials" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Subtitle" value={block.subtitle} onChange={(e) => onChange({ subtitle: e.target.value } as Partial<Block>)} />
+          <div className="space-y-2">
+            {block.items.map((t, i) => (
+              <div key={i} className="card p-3 space-y-2 bg-slate-50/60 border-slate-200">
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="input-base !py-1.5 text-xs" placeholder="Name" value={t.name}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, name: e.target.value } : x) } as Partial<Block>)} />
+                  <input className="input-base !py-1.5 text-xs" placeholder="Initials (avatar)" value={t.avatar}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, avatar: e.target.value } : x) } as Partial<Block>)} />
+                  <input className="input-base !py-1.5 text-xs" placeholder="Job title" value={t.title}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, title: e.target.value } : x) } as Partial<Block>)} />
+                  <input className="input-base !py-1.5 text-xs" placeholder="Company" value={t.company}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, company: e.target.value } : x) } as Partial<Block>)} />
+                  <input className="input-base !py-1.5 text-xs" placeholder="Certification (e.g. CAIP)" value={t.cert}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, cert: e.target.value } : x) } as Partial<Block>)} />
+                  <input className="input-base !py-1.5 text-xs" placeholder="Rating (1-5)" value={t.rating}
+                    onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, rating: e.target.value } : x) } as Partial<Block>)} />
+                </div>
+                <textarea className="input-base !py-1.5 text-xs resize-none h-16" placeholder="Quote" value={t.quote}
+                  onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, quote: e.target.value } : x) } as Partial<Block>)} />
+                <button onClick={() => onChange({ items: block.items.filter((_, j) => j !== i) } as Partial<Block>)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"><Trash2 size={12} /> Remove</button>
+              </div>
+            ))}
+            <button onClick={() => onChange({ items: [...block.items, { name: "", title: "", company: "", cert: "", avatar: "", rating: "5", quote: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+              <Plus size={11} /> Add testimonial
+            </button>
+          </div>
+        </div>
+      )}
+
+      {block.type === "cta_rich" && (
+        <div className="space-y-2">
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Highlight (gradient part)" value={block.highlight} onChange={(e) => onChange({ highlight: e.target.value } as Partial<Block>)} />
+          </div>
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Subtitle" value={block.subtitle} onChange={(e) => onChange({ subtitle: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Primary button label" value={block.cta_label} onChange={(e) => onChange({ cta_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Primary button link" value={block.cta_href} onChange={(e) => onChange({ cta_href: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Secondary button label" value={block.cta2_label} onChange={(e) => onChange({ cta2_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Secondary button link" value={block.cta2_href} onChange={(e) => onChange({ cta2_href: e.target.value } as Partial<Block>)} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <input className="input-base !py-1.5 text-xs" placeholder="Trust badge 1" value={block.trust_1} onChange={(e) => onChange({ trust_1: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-xs" placeholder="Trust badge 2" value={block.trust_2} onChange={(e) => onChange({ trust_2: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-xs" placeholder="Trust badge 3" value={block.trust_3} onChange={(e) => onChange({ trust_3: e.target.value } as Partial<Block>)} />
+          </div>
+        </div>
+      )}
+
+      {block.type === "logos" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Badge (optional)" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Title (optional)" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+          </div>
+          <div className="space-y-2">
+            {block.items.map((l, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input className="input-base !py-1.5 text-xs flex-1" placeholder="Logo image URL" value={l.image_url}
+                  onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, image_url: e.target.value } : x) } as Partial<Block>)} />
+                <input className="input-base !py-1.5 text-xs w-28" placeholder="Alt text" value={l.alt}
+                  onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, alt: e.target.value } : x) } as Partial<Block>)} />
+                <input className="input-base !py-1.5 text-xs w-28" placeholder="Link (optional)" value={l.href}
+                  onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, href: e.target.value } : x) } as Partial<Block>)} />
+                <label className="flex items-center gap-1 text-[10px] text-slate-500 flex-shrink-0" title="Highlight with accent border">
+                  <input type="checkbox" checked={l.highlighted} onChange={(e) => onChange({ items: block.items.map((x, j) => j === i ? { ...x, highlighted: e.target.checked } : x) } as Partial<Block>)} className="rounded border-slate-300" />
+                </label>
+                <button onClick={() => onChange({ items: block.items.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+            <button onClick={() => onChange({ items: [...block.items, { image_url: "", alt: "", href: "", highlighted: false }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+              <Plus size={11} /> Add logo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {block.type === "video" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Subtitle" value={block.subtitle} onChange={(e) => onChange({ subtitle: e.target.value } as Partial<Block>)} />
+          <div className="space-y-2">
+            {block.videos.map((v, i) => (
+              <div key={i} className="card p-3 space-y-2 bg-slate-50/60 border-slate-200">
+                <input className="input-base !py-1.5 text-xs" placeholder="YouTube / Vimeo / video file URL" value={v.url}
+                  onChange={(e) => onChange({ videos: block.videos.map((x, j) => j === i ? { ...x, url: e.target.value } : x) } as Partial<Block>)} />
+                <div className="flex gap-2">
+                  <input className="input-base !py-1.5 text-xs flex-1" placeholder="Label" value={v.label}
+                    onChange={(e) => onChange({ videos: block.videos.map((x, j) => j === i ? { ...x, label: e.target.value } : x) } as Partial<Block>)} />
+                  <button onClick={() => onChange({ videos: block.videos.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+                </div>
+                <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Description" value={v.description}
+                  onChange={(e) => onChange({ videos: block.videos.map((x, j) => j === i ? { ...x, description: e.target.value } : x) } as Partial<Block>)} />
+              </div>
+            ))}
+            <button onClick={() => onChange({ videos: [...block.videos, { url: "", label: "", description: "" }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+              <Plus size={11} /> Add video
+            </button>
+          </div>
+        </div>
+      )}
+
+      {block.type === "promo_banner" && (
+        <div className="space-y-2">
+          <input className="input-base !py-1.5 text-xs" placeholder="Background image URL" value={block.image_url} onChange={(e) => onChange({ image_url: e.target.value } as Partial<Block>)} />
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 cursor-pointer w-fit">
+            <input type="checkbox" checked={block.overlay} onChange={(e) => onChange({ overlay: e.target.checked } as Partial<Block>)} className="rounded border-slate-300" />
+            Dark overlay
+          </label>
+          <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Description" value={block.description} onChange={(e) => onChange({ description: e.target.value } as Partial<Block>)} />
+          <div className="flex gap-2">
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="Button label" value={block.cta_label} onChange={(e) => onChange({ cta_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="Button link" value={block.cta_href} onChange={(e) => onChange({ cta_href: e.target.value } as Partial<Block>)} />
+          </div>
+        </div>
+      )}
+
+      {block.type === "updates" && (
+        <div className="space-y-3">
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Title highlight" value={block.title_highlight} onChange={(e) => onChange({ title_highlight: e.target.value } as Partial<Block>)} />
+          </div>
+          <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Description" value={block.description} onChange={(e) => onChange({ description: e.target.value } as Partial<Block>)} />
+          <div className="space-y-3">
+            {block.tabs.map((tab, i) => (
+              <div key={i} className="card p-3 space-y-2 bg-slate-50/60 border-slate-200">
+                <div className="flex items-center gap-2">
+                  <input className="input-base !py-1.5 text-xs flex-1" placeholder="Tab label" value={tab.label}
+                    onChange={(e) => onChange({ tabs: block.tabs.map((x, j) => j === i ? { ...x, label: e.target.value } : x) } as Partial<Block>)} />
+                  <button onClick={() => onChange({ tabs: block.tabs.filter((_, j) => j !== i) } as Partial<Block>)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg flex-shrink-0"><Trash2 size={13} /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <UpdateCardFields card={tab.card1} label="Featured card"
+                    onChange={(patch) => onChange({ tabs: block.tabs.map((x, j) => j === i ? { ...x, card1: { ...x.card1, ...patch } } : x) } as Partial<Block>)} />
+                  <UpdateCardFields card={tab.card2} label="Secondary card"
+                    onChange={(patch) => onChange({ tabs: block.tabs.map((x, j) => j === i ? { ...x, card2: { ...x.card2, ...patch } } : x) } as Partial<Block>)} />
+                </div>
+              </div>
+            ))}
+            <button onClick={() => onChange({ tabs: [...block.tabs, { label: `Tab ${block.tabs.length + 1}`, card1: { badge1: "", badge2: "", title: "", description: "", cta_label: "", cta_href: "", image_url: "" }, card2: { badge1: "", badge2: "", title: "", description: "", cta_label: "", cta_href: "", image_url: "" } }] } as Partial<Block>)} className="text-xs text-slate-400 hover:text-navy-700 flex items-center gap-1">
+              <Plus size={11} /> Add tab
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(block.type === "certifications_live" || block.type === "courses_live") && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">
+            {block.type === "certifications_live"
+              ? "Certification cards are pulled live from the Certifications catalog — only the section text below is editable here."
+              : "Course cards are pulled live from the Prep Courses catalog — only the section text below is editable here."}
+          </p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input-base !py-1.5 text-sm" placeholder="Title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm" placeholder="Title highlight" value={block.title_highlight} onChange={(e) => onChange({ title_highlight: e.target.value } as Partial<Block>)} />
+          </div>
+          <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="Description" value={block.description} onChange={(e) => onChange({ description: e.target.value } as Partial<Block>)} />
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest pt-1">Trailing CTA card</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="CTA card title" value={block.cta_card_title} onChange={(e) => onChange({ cta_card_title: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-12" placeholder="CTA card description" value={block.cta_card_desc} onChange={(e) => onChange({ cta_card_desc: e.target.value } as Partial<Block>)} />
+          <div className="flex gap-2">
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="CTA card button label" value={block.cta_card_label} onChange={(e) => onChange({ cta_card_label: e.target.value } as Partial<Block>)} />
+            <input className="input-base !py-1.5 text-sm flex-1" placeholder="CTA card button link" value={block.cta_card_href} onChange={(e) => onChange({ cta_card_href: e.target.value } as Partial<Block>)} />
+          </div>
+        </div>
+      )}
+
+      {block.type === "blog_live" && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">Article cards are pulled live from the Blog — only the section text below is editable here.</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlocksEditor({ blocks, setBlocks }: { blocks: Block[]; setBlocks: (b: Block[]) => void }) {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
+  function updateBlock(id: string, patch: Partial<Block>) {
+    setBlocks(blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)));
+  }
+  function removeBlock(id: string) {
+    setBlocks(blocks.filter((b) => b.id !== id));
+  }
+  function moveBlock(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= blocks.length) return;
+    const next = [...blocks];
+    [next[index], next[target]] = [next[target], next[index]];
+    setBlocks(next);
+  }
+  function addBlock(type: Block["type"]) {
+    setBlocks([...blocks, makeBlock(type)]);
+    setShowAddMenu(false);
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs font-bold text-navy-900 uppercase tracking-widest">Content Blocks</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Composed sections rendered below the hero, above the free-form content below.</p>
+        </div>
+        <div className="relative">
+          <button onClick={() => setShowAddMenu((v) => !v)} className="btn-outline !py-1.5 !px-3 !text-xs">
+            <Plus size={12} /> Add Block
+          </button>
+          {showAddMenu && (
+            <div className="absolute end-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-20 overflow-hidden py-1">
+              {(Object.keys(BLOCK_TYPE_META) as Block["type"][]).map((type) => {
+                const meta = BLOCK_TYPE_META[type];
+                const Icon = meta.icon;
+                return (
+                  <button key={type} onClick={() => addBlock(type)} className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <Icon size={13} className="text-slate-400" /> {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {blocks.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-6">No blocks yet — add one above to compose this page's sections.</p>
+      ) : (
+        <div className="space-y-3">
+          {blocks.map((block, i) => (
+            <BlockEditorCard
+              key={block.id}
+              block={block}
+              onChange={(patch) => updateBlock(block.id, patch)}
+              onRemove={() => removeBlock(block.id)}
+              onMoveUp={() => moveBlock(i, -1)}
+              onMoveDown={() => moveBlock(i, 1)}
+              isFirst={i === 0}
+              isLast={i === blocks.length - 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PageEditorPage() {
@@ -168,6 +735,7 @@ export default function PageEditorPage() {
   const [slug,            setSlug]            = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [content,         setContent]         = useState("");
+  const [blocks,          setBlocks]          = useState<Block[]>([]);
   const [isPublished,     setIsPublished]     = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [initialized,     setInitialized]     = useState(false);
@@ -215,6 +783,7 @@ export default function PageEditorPage() {
       setSlug(page.slug);
       setMetaDescription(page.meta_description ?? "");
       setContent(page.content ?? "");
+      setBlocks(Array.isArray(page.blocks) ? page.blocks : []);
       setIsPublished(page.is_published);
       setHeroEnabled(page.hero_enabled ?? false);
       setHeroBadge(page.hero_badge ?? "");
@@ -301,7 +870,7 @@ export default function PageEditorPage() {
     setSaving(true);
     try {
       let token = accessToken!;
-      const payload = { title, slug, meta_description: metaDescription, content, is_published: isPublished, ...heroPayload() };
+      const payload = { title, slug, meta_description: metaDescription, content, blocks, is_published: isPublished, ...heroPayload() };
       try {
         await api.patch(`/pages/${id}`, payload, token);
       } catch (err) {
@@ -357,7 +926,7 @@ export default function PageEditorPage() {
           <div className="flex items-center gap-2 mt-0.5">
             <p className="text-slate-400 text-xs font-mono">/{slug}</p>
             <a
-              href={`${LMS_URL}/${slug}`}
+              href={`${SITE_URL}/${slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-navy-700 transition-colors"
@@ -662,6 +1231,8 @@ export default function PageEditorPage() {
             </div>
           )}
         </div>
+
+        <BlocksEditor blocks={blocks} setBlocks={setBlocks} />
 
         {/* Content Editor */}
         <div className="card p-5">

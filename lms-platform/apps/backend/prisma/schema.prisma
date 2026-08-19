@@ -1980,6 +1980,12 @@ model NavItem {
   sort_order   Int       @default(0)
   is_visible   Boolean   @default(true)
   open_new_tab Boolean   @default(false)
+  // Optional column heading for grouping a top-level item's children into a
+  // multi-column mega-menu (e.g. "Explore by Type", "Standards & Resources")
+  // — empty means ungrouped, rendered as a single flat dropdown list like
+  // before. Children sharing a label render together, columns ordered by
+  // each group's first child's sort_order.
+  group_label  String    @default("")
   parent_id    String?
   parent       NavItem?  @relation("NavItemChildren", fields: [parent_id], references: [id], onDelete: Cascade)
   children     NavItem[] @relation("NavItemChildren")
@@ -2027,9 +2033,19 @@ model Page {
   hero_subheadline_ar String @default("")
   hero_cta_label_ar   String @default("")
 
+  // Ordered array of composable content sections rendered below the hero,
+  // e.g. [{ id, type: "stat_highlights", stats: [{value,label}] }, { id,
+  // type: "cards_grid", heading, cards: [{id,icon,title,description,href}] },
+  // { id, type: "cta_banner", heading, subtext, button: {label,href} },
+  // { id, type: "rich_text", html }]. Rendered in order, in addition to the
+  // plain `content` field above (which stays as a simple intro/lead-in for
+  // pages that don't need composed sections). `icon`/`href`/`id`/`type` are
+  // skipped by the shared stripNonTranslatable() key regex automatically.
+  blocks Json @default("[]")
+
   // Per-locale translations, e.g. { "fr": { "title": "...", "content": "...",
-  // "meta_description": "...", "hero_badge": "...", ... } }. Supersedes the
-  // *_ar columns above.
+  // "meta_description": "...", "hero_badge": "...", "blocks": [...], ... } }.
+  // Supersedes the *_ar columns above.
   translations Json @default("{}")
 
   created_at       DateTime @default(now())

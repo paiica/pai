@@ -28,6 +28,7 @@ export class TranslationsService {
           title: row.title, content: row.content, meta_description: row.meta_description,
           hero_badge: row.hero_badge, hero_headline: row.hero_headline,
           hero_subheadline: row.hero_subheadline, hero_cta_label: row.hero_cta_label,
+          blocks: stripNonTranslatable(row.blocks),
         };
       case "blog_post":
         return { title: row.title, excerpt: row.excerpt, content: row.content };
@@ -117,6 +118,11 @@ export class TranslationsService {
         if (translated.agenda) out.agenda = mergeTranslated(row.agenda, translated.agenda);
         return out;
       }
+      case "page": {
+        const out = { ...translated };
+        if (translated.blocks) out.blocks = mergeTranslated(row.blocks, translated.blocks);
+        return out;
+      }
       default:
         return translated;
     }
@@ -149,7 +155,15 @@ export class TranslationsService {
   }
 
   private async writeTranslations(entityType: EntityType, row: any, locale: string, fields: Record<string, any>) {
-    const merged = { ...(row.translations ?? {}), [locale]: fields };
+    // Re-fetch the row's CURRENT translations right before merging, instead
+    // of trusting row.translations as passed in. translateToAllEnabledLocales
+    // kicks off every enabled locale's translateRow() concurrently against
+    // the same pre-save row snapshot — without this, whichever locale's
+    // write lands last would silently clobber every other locale's just-
+    // written translation instead of merging with it (confirmed live: French
+    // was consistently lost behind Arabic on multi-locale saves).
+    const current = await this.findRow(entityType, row.id ?? row.key);
+    const merged = { ...(current?.translations ?? row.translations ?? {}), [locale]: fields };
     switch (entityType) {
       case "page": await this.prisma.page.update({ where: { id: row.id }, data: { translations: merged } }); return;
       case "blog_post": await this.prisma.blogPost.update({ where: { id: row.id }, data: { translations: merged } }); return;
@@ -204,11 +218,16 @@ export class TranslationsService {
   // fails an admin's save.
   translateToAllEnabledLocales(entityType: EntityType, row: any): void {
     this.languagesService.getEnabledLocaleCodes()
-      .then((locales) => Promise.all(locales.map((locale) =>
-        this.translateRow(entityType, row, locale).catch((err) =>
-          this.logger.error(`Auto-translate failed for ${entityType} ${row.id ?? row.key} -> ${locale}: ${err?.message ?? err}`)
-        )
-      )))
+      .then(async (locales) => {
+        // Sequential, not Promise.all — each locale's write must land before
+        // the next one starts, or writeTranslations' fresh-fetch-then-merge
+        // still only narrows the clobber race instead of closing it outright.
+        for (const locale of locales) {
+          await this.translateRow(entityType, row, locale).catch((err) =>
+            this.logger.error(`Auto-translate failed for ${entityType} ${row.id ?? row.key} -> ${locale}: ${err?.message ?? err}`)
+          );
+        }
+      })
       .catch((err) => this.logger.error(`Auto-translate lookup failed for ${entityType}: ${err?.message ?? err}`));
   }
 

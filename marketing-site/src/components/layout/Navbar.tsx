@@ -1,8 +1,13 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import NavbarClient from "@/components/layout/NavbarClient";
 
-type NavChild = { id: string; label: string; href: string; open_new_tab: boolean };
+type NavChild = { id: string; label: string; href: string; open_new_tab: boolean; group_label: string };
 type NavItem  = { id: string; label: string; href: string; open_new_tab: boolean; children: NavChild[] };
+export type NavCertification = {
+  id: string; slug: string; acronym: string; title: string;
+  level: "pre_certificate" | "foundation" | "advanced" | "executive" | "specialist" | "other";
+  status: "active" | "coming_soon";
+};
 
 // Only used if /navigation/public fails or hasn't been seeded — the DB-backed
 // NavItem rows it normally returns are already translated via `translations`.
@@ -30,6 +35,17 @@ async function getNavItems(locale: string, fallback: NavItem[]): Promise<NavItem
   }
 }
 
+async function getCertifications(locale: string): Promise<NavCertification[]> {
+  try {
+    const res = await fetch(`${API}/courses/catalog?lang=${locale}`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json?.data ?? json ?? [];
+  } catch {
+    return [];
+  }
+}
+
 async function getSiteSettings(): Promise<Record<string, any> | null> {
   try {
     const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
@@ -51,10 +67,14 @@ async function getSiteSettings(): Promise<Record<string, any> | null> {
 export default async function Navbar() {
   const locale = await getLocale();
   const t = await getTranslations("Navbar");
-  const [navItems, settings] = await Promise.all([getNavItems(locale, getFallbackNav(t)), getSiteSettings()]);
+  const [navItems, certifications, settings] = await Promise.all([
+    getNavItems(locale, getFallbackNav(t)),
+    getCertifications(locale),
+    getSiteSettings(),
+  ]);
 
   const logoUrl = settings?.site_logo_url ?? null;
   const logoHeight = Math.max(16, parseInt(settings?.logo_height) || 22);
 
-  return <NavbarClient initialNavItems={navItems} logoUrl={logoUrl} logoHeight={logoHeight} />;
+  return <NavbarClient initialNavItems={navItems} certifications={certifications} logoUrl={logoUrl} logoHeight={logoHeight} />;
 }

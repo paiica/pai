@@ -54,13 +54,13 @@ export class NavigationService {
     return items;
   }
 
-  async create(dto: { label: string; href: string; sort_order?: number; parent_id?: string; open_new_tab?: boolean }) {
+  async create(dto: { label: string; href: string; sort_order?: number; parent_id?: string; open_new_tab?: boolean; group_label?: string }) {
     const created = await this.prisma.navItem.create({ data: dto });
     this.translationsService.translateToAllEnabledLocales("nav_item", created);
     return created;
   }
 
-  async update(id: string, dto: { label?: string; href?: string; sort_order?: number; is_visible?: boolean; open_new_tab?: boolean }) {
+  async update(id: string, dto: { label?: string; href?: string; sort_order?: number; is_visible?: boolean; open_new_tab?: boolean; group_label?: string }) {
     const updated = await this.prisma.navItem.update({ where: { id }, data: dto });
     if (dto.label !== undefined) this.translationsService.translateToAllEnabledLocales("nav_item", updated);
     return updated;

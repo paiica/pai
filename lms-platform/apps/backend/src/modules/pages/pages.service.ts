@@ -3,7 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { localize } from "../../common/utils/localize";
 import { TranslationsService } from "../translations/translations.service";
 
-const PAGE_LOCALIZED_FIELDS = ["title", "content", "meta_description", "hero_badge", "hero_headline", "hero_subheadline", "hero_cta_label"];
+const PAGE_LOCALIZED_FIELDS = ["title", "content", "meta_description", "hero_badge", "hero_headline", "hero_subheadline", "hero_cta_label", "blocks"];
 
 @Injectable()
 export class PagesService {
@@ -26,14 +26,14 @@ export class PagesService {
     slug: string; title: string; content?: string; meta_description?: string; is_published?: boolean;
     hero_enabled?: boolean; hero_badge?: string; hero_headline?: string; hero_subheadline?: string;
     hero_align?: string; hero_image_url?: string; hero_image_position?: string; hero_image_zoom?: number;
-    hero_overlay?: boolean; hero_cta_label?: string; hero_cta_href?: string;
+    hero_overlay?: boolean; hero_cta_label?: string; hero_cta_href?: string; blocks?: any[];
   }) {
     const created = await this.prisma.page.create({ data: { ...dto } });
     this.translationsService.translateToAllEnabledLocales("page", created);
     return created;
   }
 
-  async update(id: string, dto: { slug?: string; title?: string; content?: string; meta_description?: string; is_published?: boolean }) {
+  async update(id: string, dto: { slug?: string; title?: string; content?: string; meta_description?: string; is_published?: boolean; blocks?: any[] }) {
     const page = await this.prisma.page.findUnique({ where: { id } });
     if (!page) throw new NotFoundException("Page not found");
     const updated = await this.prisma.page.update({ where: { id }, data: dto });

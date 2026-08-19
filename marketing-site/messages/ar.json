@@ -7,7 +7,14 @@
     "openMenu": "فتح القائمة",
     "closeMenu": "إغلاق القائمة",
     "viewAll": "عرض الكل",
-    "home": "الرئيسية"
+    "home": "الرئيسية",
+    "comingSoon": "قريباً",
+    "certFoundational": "تأسيسية",
+    "certAdvanced": "متقدمة",
+    "certSpecialized": "متخصصة",
+    "certExecutive": "تنفيذية",
+    "certOther": "أخرى",
+    "certResources": "موارد الشهادات"
   },
   "TopBar": {
     "tagline": "المعهد المهني للذكاء الاصطناعي — برامج شهادات الذكاء الاصطناعي",
