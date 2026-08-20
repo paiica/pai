@@ -2063,7 +2063,7 @@ export default function CertEditorPage() {
           {certDesignMode === "html" && (<>
           <div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Paste the full HTML of the certificate design below. Use the variable placeholders shown below — they will be replaced with the student's actual data when the certificate is displayed.
+              Paste the full HTML of the certificate design below. Use the variable placeholders shown below — they will be replaced with the student's actual data when the certificate is displayed. Size the sheet for A4 landscape (<code className="font-mono">297mm x 210mm</code>, matching <code className="font-mono">@page {"{"} size: A4 landscape; margin: 0; {"}"}</code>) so PNG/PDF exports come out as a single full page on every device. Reference the PAII logo/seal via <code className="font-mono">{"{{LOGO_URL}}"}</code>/<code className="font-mono">{"{{SEAL_URL}}"}</code> instead of an external image URL — external images without CORS headers silently vanish from PNG exports.
             </p>
           </div>
 
@@ -2081,6 +2081,8 @@ export default function CertEditorPage() {
                 ["{{VERIFICATION_URL}}","Public verification link"],
                 ["{{QR_CODE_URL}}",     "QR code image src (verification)"],
                 ["{{EXAM_SCORE}}",      "Exam score percentage"],
+                ["{{LOGO_URL}}",        "PAII wordmark logo image src (same-origin, CORS-safe)"],
+                ["{{SEAL_URL}}",        "PAII official seal image src (same-origin, CORS-safe)"],
               ].map(([variable, desc]) => (
                 <button
                   key={variable}
@@ -2150,6 +2152,8 @@ export default function CertEditorPage() {
                     .replace(/\{\{EXAM_SCORE\}\}/g, "91.5")
                     .replace(/\{\{VERIFICATION_URL\}\}/g, "https://paii.ca/verify?id=PAII-SAMPLE")
                     .replace(/\{\{QR_CODE_URL\}\}/g, "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://paii.ca/verify?id=PAII-SAMPLE")
+                    .replace(/\{\{LOGO_URL\}\}/g, "/paii-icon.png")
+                    .replace(/\{\{SEAL_URL\}\}/g, "/paii-seal.png")
                   }
                   className="w-full"
                   style={{ height: "600px", border: "none" }}

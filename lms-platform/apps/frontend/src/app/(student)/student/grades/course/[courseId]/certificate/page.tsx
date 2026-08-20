@@ -20,12 +20,11 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
 }
 
-// ?cb= busts any CDN/browser cache entry for this URL that was populated
-// before the R2 bucket's CORS policy existed — Cloudflare's edge cache
-// doesn't vary by the Origin header, so a pre-CORS-fix cached response
-// (with no Access-Control-Allow-Origin header) could otherwise keep being
-// served to every client indefinitely regardless of what the bucket sends now.
-const PAII_LOGO_URL = "https://pub-0c606097bb0a40d79793d3b80d5cb8c0.r2.dev/Assests/paii-icon.png?cb=20260810";
+// Served from this app's own /public — not the R2 bucket, which has no CORS
+// headers and made html-to-image silently drop the logo from PNG exports
+// (it fetches images to inline as base64; a cross-origin fetch with no
+// Access-Control-Allow-Origin just fails and gets blanked out).
+const PAII_LOGO_URL = "/paii-icon.png";
 const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
 
 export default function CourseCertificatePage() {
@@ -99,12 +98,15 @@ export default function CourseCertificatePage() {
     if (!node) return;
     setDownloadingPng(true);
     try {
-      // imagePlaceholder: the PAII logo is hosted on a bucket with no CORS
-      // headers, so html-to-image can't fetch its bytes to inline them —
-      // without a placeholder that failure throws and aborts the whole
-      // export. With it, the logo just renders blank and everything else
-      // (text, borders, signature) still comes through.
-      const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true, backgroundColor: "#ffffff", imagePlaceholder: "" });
+      // imagePlaceholder: a defensive fallback for any future image that
+      // fails to inline (e.g. one an admin adds pointing at an external,
+      // non-CORS host) — renders blank instead of throwing and aborting the
+      // whole export. The PAII logo itself is same-origin (/paii-icon.png)
+      // so it always inlines successfully.
+      // style: strips the sheet's drop shadow for the capture only — a
+      // shadow makes sense as an on-screen mockup affordance but not on the
+      // actual downloaded document, and the print path never shows one.
+      const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true, backgroundColor: "#ffffff", imagePlaceholder: "", style: { boxShadow: "none" } });
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${cert.course_title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-certificate.png`;
@@ -128,18 +130,39 @@ export default function CourseCertificatePage() {
     const printArea = document.getElementById("certificate-document");
     if (!printArea) return;
     // margin:0 + no body padding — the sheet itself is sized to exactly
-    // 11in x 8.5in (border-box, so the teal padding/border are INSIDE that
-    // size, not added on top of it), matching @page exactly so it prints as
-    // a single landscape page instead of overflowing onto a second one.
+    // 297mm x 210mm / A4 landscape (border-box, so the teal padding/border
+    // are INSIDE that size, not added on top of it), matching @page exactly
+    // so it prints as a single landscape page instead of overflowing onto a
+    // second one. Using A4 (not US Letter) because most mobile browsers'
+    // print-to-PDF defaults to A4 regardless of what @page requests — a
+    // mismatched sheet size is what was pushing the bottom border onto a
+    // second page there.
     win.document.write(`<!DOCTYPE html><html><head><title>Certificate of Completion</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Mr+De+Haviland&display=swap" rel="stylesheet">
       <script src="https://cdn.tailwindcss.com"></script>
-      <style>*{box-sizing:border-box;} @page { size: letter landscape; margin: 0; } html,body { margin: 0; padding: 0; background: #fff; }</style>
+      <style>*{box-sizing:border-box;} @page { size: A4 landscape; margin: 0; } html,body { margin: 0; padding: 0; background: #fff; } #certificate-document { box-shadow: none !important; }</style>
       </head><body>${printArea.outerHTML}</body></html>`);
     win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 400);
+
+    function printNow() {
+      win!.focus();
+      win!.print();
+    }
+
+    // "load" fires once the popup's document AND its stylesheets (including
+    // the Google Fonts <link> and the Tailwind CDN <script>'s generated
+    // stylesheet) have been parsed and applied — document.fonts.ready +
+    // requestAnimationFrame turned out unreliable on a document created via
+    // document.write() and produced a blank print preview (printing before
+    // layout had committed at all, not just before fonts settled). The
+    // trailing delay gives font FILES a little extra margin.
+    if (win.document.readyState === "complete") {
+      setTimeout(printNow, 300);
+    } else {
+      win.addEventListener("load", () => setTimeout(printNow, 300));
+    }
   }
 
   return (
@@ -183,13 +206,13 @@ export default function CourseCertificatePage() {
           </div>
         </div>
 
-        {/* ── Certificate sheet — landscape letter, PAII teal frame + ribbon
+        {/* ── Certificate sheet — A4 landscape, PAII teal frame + ribbon
             accent, mirroring the accredited Certification credential design ── */}
         <div
           id="certificate-document"
           className="cert-sheet relative mx-auto"
           style={{
-            width: "11in", maxWidth: "100%", aspectRatio: "11 / 8.5",
+            width: "297mm", maxWidth: "100%", aspectRatio: "297 / 210",
             background: "#0d5f5a", padding: "13px",
             boxShadow: "0 18px 60px rgba(13,95,90,0.22)",
           }}
