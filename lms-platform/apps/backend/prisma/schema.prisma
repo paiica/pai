@@ -862,6 +862,113 @@ model CourseFAQ {
   @@schema("lms")
 }
 
+// General/category FAQs (About PAII Certifications, Eligibility, Registration
+// & Exams, Certification Results, Renewal, Verification, Study & Preparation,
+// Professional Development) — for the /faq resource page. Distinct from
+// Certification.faqs_json (per-cert exam-detail FAQs, in active use) and the
+// CourseFAQ model above (also per-cert, unused) — do not consolidate these,
+// they serve different scopes.
+model Faq {
+  id           String   @id @default(uuid())
+  category     String
+  question     String
+  answer       String
+  sort_order   Int      @default(0)
+  is_published Boolean  @default(true)
+  translations Json     @default("{}")
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("faqs")
+  @@schema("lms")
+}
+
+// AI Glossary — for the /glossary resource page, rendered via the
+// glossary_live page-block. Display order is always alphabetical by `term`
+// (no manual sort_order, unlike Faq's category-grouped order).
+model GlossaryTerm {
+  id            String   @id @default(uuid())
+  term          String
+  slug          String   @unique
+  category      String
+  definition    String
+  example       String   @default("")
+  related_terms String[] @default([])
+  is_published  Boolean  @default(true)
+  translations  Json     @default("{}")
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("glossary_terms")
+  @@schema("lms")
+}
+
+// Empty-by-default CMS scaffolding for the AI Tools Guide, Community, and
+// Careers-in-AI pages — deliberately built as admin-manageable structure
+// with no seeded rows, rather than fabricated tool pricing/events/roles.
+// `is_published` defaults to false so an empty collection never appears on
+// the live site until PAII adds a real row and publishes it.
+model AiToolListing {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  category        String
+  description     String   @default("")
+  website_url     String   @default("")
+  logo_url        String   @default("")
+  pricing_summary String   @default("")
+  sort_order      Int      @default(0)
+  is_published    Boolean  @default(false)
+  translations    Json     @default("{}")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("ai_tool_listings")
+  @@schema("lms")
+}
+
+// Lightweight community calendar entries (meetups, study groups, AMAs) —
+// distinct from the full Event model, which is PAII's own paid/registered
+// training webinars and shouldn't be conflated with informal community
+// listings.
+model CommunityEvent {
+  id           String    @id @default(uuid())
+  title        String
+  slug         String    @unique
+  description  String    @default("")
+  event_date   DateTime?
+  location     String    @default("")
+  link_url     String    @default("")
+  sort_order   Int       @default(0)
+  is_published Boolean   @default(false)
+  translations Json      @default("{}")
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@map("community_events")
+  @@schema("lms")
+}
+
+// Per-role career deep-dive pages for Careers in AI — role_related_certs
+// stores Certification.acronym values (real certs only, cross-checked at
+// content-entry time, not a foreign key since a role can reference several).
+model CareerProfile {
+  id                String   @id @default(uuid())
+  role_title        String
+  slug              String   @unique
+  summary           String   @default("")
+  responsibilities  String[] @default([])
+  related_cert_acronyms String[] @default([])
+  sort_order        Int      @default(0)
+  is_published      Boolean  @default(false)
+  translations      Json     @default("{}")
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@map("career_profiles")
+  @@schema("lms")
+}
+
 // ─────────────────────────────────────────────
 // STANDALONE COURSES (purchasable prep content)
 // ─────────────────────────────────────────────
@@ -2090,15 +2197,23 @@ model BlogPost {
 // rather than creating a duplicate row, so the admin list stays one row
 // per real person.
 model Lead {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  name       String   @default("")
-  interest   String   @default("") // which "What are you interested in?" option they picked
-  source     String   @default("") // e.g. "blog" — where the capture happened
-  page_url   String   @default("")
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id           String   @id @default(uuid())
+  email        String
+  name         String   @default("")
+  interest     String   @default("") // which "What are you interested in?" option they picked
+  source       String   @default("") // e.g. "blog" — where the capture happened
+  page_url     String   @default("")
+  organization String   @default("") // set by an inquiry form (Partners/Employers/Corporate); blank for simple lead-magnet captures
+  message      String   @default("") // set by an inquiry form (Partners/Employers/Corporate); blank for simple lead-magnet captures
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
+  // Not unique — email used to be a unique upsert key, but that meant a
+  // second genuine inquiry (a real message on the Employers/Corporate/
+  // Partners forms) silently overwrote and destroyed the first one's
+  // content. Every submission is now its own row; the index keeps the
+  // admin search-by-email fast without collapsing history.
+  @@index([email])
   @@map("leads")
   @@schema("lms")
 }

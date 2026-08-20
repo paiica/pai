@@ -6,11 +6,16 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type, AlignLeft, AlignCenter, AlignRight, Image as ImageIcon, Sparkles, Plus, Trash2, ChevronUp, ChevronDown, LayoutGrid, BarChart3, Megaphone, FileText, PanelTop, Fingerprint, ShieldCheck, Quote, Video, Award, GraduationCap, Newspaper, Images, LayoutList } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Loader2, Globe, EyeOff, Code2, Eye, ExternalLink, Type, AlignLeft, AlignCenter, AlignRight, Image as ImageIcon, Sparkles, Plus, Trash2, ChevronUp, ChevronDown, LayoutGrid, BarChart3, Megaphone, FileText, PanelTop, Fingerprint, ShieldCheck, Quote, Video, Award, GraduationCap, Newspaper, Images, LayoutList, BookOpen, Compass, Send, Wrench, CalendarDays, Briefcase } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { HeroImageFrame, deleteOldUpload, uploadHeroImage } from "@/components/HeroImageFrame";
+import FaqManager from "@/components/FaqManager";
+import GlossaryManager from "@/components/GlossaryManager";
+import AiToolsManager from "@/components/AiToolsManager";
+import CommunityEventsManager from "@/components/CommunityEventsManager";
+import CareerProfilesManager from "@/components/CareerProfilesManager";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MonacoEditor = dynamic(
@@ -102,7 +107,13 @@ type Block =
   | { id: string; type: "updates"; badge: string; title: string; title_highlight: string; description: string; tabs: UpdateTabSpec[] }
   | { id: string; type: "certifications_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
   | { id: string; type: "courses_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
-  | { id: string; type: "blog_live"; badge: string; title: string };
+  | { id: string; type: "blog_live"; badge: string; title: string }
+  | { id: string; type: "glossary_live"; badge: string; title: string }
+  | { id: string; type: "path_finder" }
+  | { id: string; type: "inquiry_form"; source: string; heading: string; subheading: string; interest_options: string }
+  | { id: string; type: "ai_tools_live"; badge: string; title: string }
+  | { id: string; type: "community_events_live"; badge: string; title: string }
+  | { id: string; type: "career_profiles_live"; badge: string; title: string };
 
 const BLOCK_TYPE_META: Record<Block["type"], { label: string; icon: any }> = {
   stat_highlights: { label: "Stat Highlights", icon: BarChart3 },
@@ -121,6 +132,12 @@ const BLOCK_TYPE_META: Record<Block["type"], { label: string; icon: any }> = {
   certifications_live: { label: "Certifications (Live)", icon: Award },
   courses_live: { label: "Prep Courses (Live)", icon: GraduationCap },
   blog_live: { label: "Latest Articles (Live)", icon: Newspaper },
+  glossary_live: { label: "Glossary Browser (Live)", icon: BookOpen },
+  path_finder: { label: "Certification Path Finder (Quiz)", icon: Compass },
+  inquiry_form: { label: "Inquiry Form", icon: Send },
+  ai_tools_live: { label: "AI Tools Directory (Live)", icon: Wrench },
+  community_events_live: { label: "Community Events (Live)", icon: CalendarDays },
+  career_profiles_live: { label: "Career Profiles (Live)", icon: Briefcase },
 };
 
 function newBlockId() {
@@ -160,6 +177,18 @@ function makeBlock(type: Block["type"]): Block {
     case "courses_live":
       return { id: newBlockId(), type, badge: "", title: "", title_highlight: "", description: "", cta_card_title: "", cta_card_desc: "", cta_card_label: "", cta_card_href: "" };
     case "blog_live":
+      return { id: newBlockId(), type, badge: "", title: "" };
+    case "glossary_live":
+      return { id: newBlockId(), type, badge: "", title: "" };
+    case "path_finder":
+      return { id: newBlockId(), type };
+    case "inquiry_form":
+      return { id: newBlockId(), type, source: "", heading: "", subheading: "", interest_options: "" };
+    case "ai_tools_live":
+      return { id: newBlockId(), type, badge: "", title: "" };
+    case "community_events_live":
+      return { id: newBlockId(), type, badge: "", title: "" };
+    case "career_profiles_live":
       return { id: newBlockId(), type, badge: "", title: "" };
   }
 }
@@ -558,6 +587,51 @@ function BlockEditorCard({
           <p className="text-[10px] text-slate-400 -mt-1">Article cards are pulled live from the Blog — only the section text below is editable here.</p>
           <input className="input-base !py-1.5 text-sm" placeholder="Badge" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
           <input className="input-base !py-1.5 text-sm" placeholder="Section title" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "glossary_live" && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">Terms are pulled live from Glossary Terms below — only the section heading text is editable here.</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge (optional)" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title (optional)" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "path_finder" && (
+        <p className="text-[10px] text-slate-400">The interactive certification quiz — no editable fields, it recommends live from the certification catalog.</p>
+      )}
+
+      {block.type === "inquiry_form" && (
+        <div className="space-y-2">
+          <input className="input-base !py-1.5 text-sm" placeholder="Source tag (e.g. partners)" value={block.source} onChange={(e) => onChange({ source: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Form heading" value={block.heading} onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)} />
+          <textarea className="input-base !py-1.5 text-xs resize-none h-14" placeholder="Form subheading" value={block.subheading} onChange={(e) => onChange({ subheading: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-xs" placeholder="Interest options, comma-separated" value={block.interest_options} onChange={(e) => onChange({ interest_options: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "ai_tools_live" && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">Tools are pulled live from the AI Tools Directory below — only the section heading text is editable here.</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge (optional)" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title (optional)" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "community_events_live" && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">Events are pulled live from Community Events below — only the section heading text is editable here.</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge (optional)" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title (optional)" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
+        </div>
+      )}
+
+      {block.type === "career_profiles_live" && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-400 -mt-1">Roles are pulled live from Career Profiles below — only the section heading text is editable here.</p>
+          <input className="input-base !py-1.5 text-sm" placeholder="Badge (optional)" value={block.badge} onChange={(e) => onChange({ badge: e.target.value } as Partial<Block>)} />
+          <input className="input-base !py-1.5 text-sm" placeholder="Section title (optional)" value={block.title} onChange={(e) => onChange({ title: e.target.value } as Partial<Block>)} />
         </div>
       )}
     </div>
@@ -1231,6 +1305,12 @@ export default function PageEditorPage() {
             </div>
           )}
         </div>
+
+        {slug === "faq" && <FaqManager />}
+        {slug === "glossary" && <GlossaryManager />}
+        {slug === "ai-tools-guide" && <AiToolsManager />}
+        {slug === "community" && <CommunityEventsManager />}
+        {slug === "careers-in-ai" && <CareerProfilesManager />}
 
         <BlocksEditor blocks={blocks} setBlocks={setBlocks} />
 

@@ -5,7 +5,7 @@ import { LanguagesService } from "../languages/languages.service";
 import { getSupportedLanguage } from "../languages/supported-languages";
 import { hasContent, mergeTranslated, stripNonTranslatable } from "../../common/utils/translate-json";
 
-export type EntityType = "page" | "blog_post" | "nav_item" | "page_block" | "certification" | "course" | "program" | "event";
+export type EntityType = "page" | "blog_post" | "nav_item" | "page_block" | "certification" | "course" | "program" | "event" | "faq" | "glossary_term" | "ai_tool_listing" | "community_event" | "career_profile";
 
 // Everything needed to translate one row of a given entity type: how to look
 // it up, which English fields to translate (with JSON fields pre-stripped of
@@ -74,6 +74,16 @@ export class TranslationsService {
           topics: row.topics,
           agenda: row.agenda ? stripNonTranslatable(row.agenda) : undefined,
         };
+      case "faq":
+        return { category: row.category, question: row.question, answer: row.answer };
+      case "glossary_term":
+        return { category: row.category, term: row.term, definition: row.definition, example: row.example };
+      case "ai_tool_listing":
+        return { category: row.category, name: row.name, description: row.description, pricing_summary: row.pricing_summary };
+      case "community_event":
+        return { title: row.title, description: row.description, location: row.location };
+      case "career_profile":
+        return { role_title: row.role_title, summary: row.summary, responsibilities: row.responsibilities };
     }
   }
 
@@ -138,6 +148,11 @@ export class TranslationsService {
       case "course": return this.prisma.course.findUnique({ where: { id: entityId } });
       case "program": return this.prisma.program.findUnique({ where: { id: entityId } });
       case "event": return this.prisma.event.findUnique({ where: { id: entityId } });
+      case "faq": return this.prisma.faq.findUnique({ where: { id: entityId } });
+      case "glossary_term": return this.prisma.glossaryTerm.findUnique({ where: { id: entityId } });
+      case "ai_tool_listing": return this.prisma.aiToolListing.findUnique({ where: { id: entityId } });
+      case "community_event": return this.prisma.communityEvent.findUnique({ where: { id: entityId } });
+      case "career_profile": return this.prisma.careerProfile.findUnique({ where: { id: entityId } });
     }
   }
 
@@ -151,6 +166,11 @@ export class TranslationsService {
       case "course": return this.prisma.course.findMany();
       case "program": return this.prisma.program.findMany();
       case "event": return this.prisma.event.findMany();
+      case "faq": return this.prisma.faq.findMany();
+      case "glossary_term": return this.prisma.glossaryTerm.findMany();
+      case "ai_tool_listing": return this.prisma.aiToolListing.findMany();
+      case "community_event": return this.prisma.communityEvent.findMany();
+      case "career_profile": return this.prisma.careerProfile.findMany();
     }
   }
 
@@ -173,6 +193,11 @@ export class TranslationsService {
       case "course": await this.prisma.course.update({ where: { id: row.id }, data: { translations: merged } }); return;
       case "program": await this.prisma.program.update({ where: { id: row.id }, data: { translations: merged } }); return;
       case "event": await this.prisma.event.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "faq": await this.prisma.faq.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "glossary_term": await this.prisma.glossaryTerm.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "ai_tool_listing": await this.prisma.aiToolListing.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "community_event": await this.prisma.communityEvent.update({ where: { id: row.id }, data: { translations: merged } }); return;
+      case "career_profile": await this.prisma.careerProfile.update({ where: { id: row.id }, data: { translations: merged } }); return;
     }
   }
 
@@ -236,7 +261,7 @@ export class TranslationsService {
   // Skips rows that already have a non-empty translation for it (idempotent,
   // safe to re-run e.g. after a rate-limit interruption).
   async translateAllContentInto(locale: string): Promise<{ entityType: EntityType; translated: number; total: number }[]> {
-    const entityTypes: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course", "program", "event"];
+    const entityTypes: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course", "program", "event", "faq", "glossary_term", "ai_tool_listing", "community_event", "career_profile"];
     const results: { entityType: EntityType; translated: number; total: number }[] = [];
     for (const entityType of entityTypes) {
       const rows = await this.findAllRows(entityType);

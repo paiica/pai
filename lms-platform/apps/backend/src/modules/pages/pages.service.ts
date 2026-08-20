@@ -16,6 +16,15 @@ export class PagesService {
     return this.prisma.page.findMany({ orderBy: { created_at: "desc" } });
   }
 
+  // Slugs + timestamps only, for the marketing-site's sitemap.xml — deliberately
+  // excludes content-heavy fields no sitemap generator needs.
+  getPublicSlugs() {
+    return this.prisma.page.findMany({
+      where: { is_published: true },
+      select: { slug: true, updated_at: true },
+    });
+  }
+
   async getBySlug(slug: string, lang?: string) {
     const page = await this.prisma.page.findUnique({ where: { slug } });
     if (!page || !page.is_published) throw new NotFoundException("Page not found");

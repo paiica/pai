@@ -13,6 +13,12 @@ import UpdatesSection from "@/components/sections/UpdatesSection";
 import CertificationsSection from "@/components/sections/CertificationsSection";
 import CoursesSection from "@/components/sections/CoursesSection";
 import BlogSection from "@/components/sections/BlogSection";
+import GlossaryLiveSection from "@/components/glossary/GlossaryLiveSection";
+import PathFinderQuiz from "@/components/path-finder/PathFinderQuiz";
+import InquiryForm from "@/components/InquiryForm";
+import AiToolsLiveSection from "@/components/ai-tools/AiToolsLiveSection";
+import CommunityEventsLiveSection from "@/components/community/CommunityEventsLiveSection";
+import CareerProfilesLiveSection from "@/components/careers/CareerProfilesLiveSection";
 
 type StatItem = { value: string; label: string };
 type CardItem = { id: string; icon: string; title: string; description: string; href: string };
@@ -39,7 +45,13 @@ type Block =
   | { id: string; type: "updates"; badge: string; title: string; title_highlight: string; description: string; tabs: { label: string; card1: UpdateCardSpec; card2: UpdateCardSpec }[] }
   | { id: string; type: "certifications_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
   | { id: string; type: "courses_live"; badge: string; title: string; title_highlight: string; description: string; cta_card_title: string; cta_card_desc: string; cta_card_label: string; cta_card_href: string }
-  | { id: string; type: "blog_live"; badge: string; title: string };
+  | { id: string; type: "blog_live"; badge: string; title: string }
+  | { id: string; type: "glossary_live"; badge: string; title: string }
+  | { id: string; type: "path_finder" }
+  | { id: string; type: "inquiry_form"; source: string; heading: string; subheading: string; interest_options: string }
+  | { id: string; type: "ai_tools_live"; badge: string; title: string }
+  | { id: string; type: "community_events_live"; badge: string; title: string }
+  | { id: string; type: "career_profiles_live"; badge: string; title: string };
 
 // Server-rendered — this whole module only ever runs on the server (no
 // interactivity, just Links), so importing every lucide-react icon by name
@@ -169,6 +181,27 @@ export default function PageBlocks({ blocks }: { blocks: Block[] }) {
             return <CoursesSection key={block.id} cmsContent={{ ...block }} />;
           case "blog_live":
             return <BlogSection key={block.id} cmsContent={{ badge: block.badge, title: block.title }} />;
+          case "glossary_live":
+            return <GlossaryLiveSection key={block.id} cmsContent={{ badge: block.badge, title: block.title }} />;
+          case "ai_tools_live":
+            return <AiToolsLiveSection key={block.id} cmsContent={{ badge: block.badge, title: block.title }} />;
+          case "community_events_live":
+            return <CommunityEventsLiveSection key={block.id} cmsContent={{ badge: block.badge, title: block.title }} />;
+          case "career_profiles_live":
+            return <CareerProfilesLiveSection key={block.id} cmsContent={{ badge: block.badge, title: block.title }} />;
+          case "path_finder":
+            return <PathFinderQuiz key={block.id} />;
+          case "inquiry_form":
+            return (
+              <div key={block.id} className="container-md py-6">
+                <InquiryForm
+                  source={block.source}
+                  heading={block.heading}
+                  subheading={block.subheading}
+                  interestOptions={block.interest_options.split(",").map((s) => s.trim()).filter(Boolean)}
+                />
+              </div>
+            );
 
           default: return null;
         }

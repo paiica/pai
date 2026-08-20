@@ -54,30 +54,34 @@ export default function SupportForm() {
     <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-4">
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-ink-900 mb-1.5">{t("nameLabel")}</label>
+          <label htmlFor="support-name" className="block text-xs font-semibold text-ink-900 mb-1.5">{t("nameLabel")}</label>
           <input
+            id="support-name"
             type="text" required value={name} onChange={(e) => setName(e.target.value)}
             placeholder="Jane Smith" className="input-base text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-ink-900 mb-1.5">{t("emailLabel")}</label>
+          <label htmlFor="support-email" className="block text-xs font-semibold text-ink-900 mb-1.5">{t("emailLabel")}</label>
           <input
+            id="support-email"
             type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com" className="input-base text-sm"
           />
         </div>
       </div>
       <div>
-        <label className="block text-xs font-semibold text-ink-900 mb-1.5">{t("subjectLabel")}</label>
+        <label htmlFor="support-subject" className="block text-xs font-semibold text-ink-900 mb-1.5">{t("subjectLabel")}</label>
         <input
+          id="support-subject"
           type="text" required value={subject} onChange={(e) => setSubject(e.target.value)}
           placeholder={t("subjectPlaceholder")} className="input-base text-sm"
         />
       </div>
       <div>
-        <label className="block text-xs font-semibold text-ink-900 mb-1.5">{t("messageLabel")}</label>
+        <label htmlFor="support-message" className="block text-xs font-semibold text-ink-900 mb-1.5">{t("messageLabel")}</label>
         <textarea
+          id="support-message"
           required rows={6} value={message} onChange={(e) => setMessage(e.target.value)}
           placeholder={t("messagePlaceholder")} className="input-base text-sm resize-none"
         />

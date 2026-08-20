@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { X, Check } from "lucide-react";
+import { usePathname } from "@/i18n/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const SEEN_KEY = "pai-lead-popup-seen";
@@ -18,8 +19,16 @@ const INTEREST_KEYS = [
 
 const BENEFIT_KEYS = ["benefitDiscoverSkills", "benefitExplorePrograms", "benefitReceiveOpportunities"];
 
-export default function LeadCapturePopup({ source }: { source: "blog" | "homepage" }) {
+// Mounted once, globally, in [locale]/layout.tsx — decides for itself
+// whether to show based on the current page and the admin-configured page
+// list (Settings → Lead Capture), rather than being conditionally rendered
+// per-page like the old homepage/blog-only toggles required. `source` (sent
+// with the captured lead) is derived from the pathname instead of being
+// passed in, since any page can now enable this.
+export default function LeadCapturePopup() {
   const t = useTranslations("LeadPopup");
+  const pathname = usePathname();
+  const [enabledPages, setEnabledPages] = useState<string[] | null>(null);
   const [visible, setVisible]   = useState(false);
   const [name, setName]         = useState("");
   const [email, setEmail]       = useState("");
@@ -28,10 +37,24 @@ export default function LeadCapturePopup({ source }: { source: "blog" | "homepag
   const [submitted, setSubmitted]   = useState(false);
 
   useEffect(() => {
+    fetch(`${API}/site-settings/public`)
+      .then((r) => r.json())
+      .then((json) => {
+        const raw = (json?.data ?? json)?.lead_popup_pages;
+        try { setEnabledPages(raw ? JSON.parse(raw) : []); }
+        catch { setEnabledPages([]); }
+      })
+      .catch(() => setEnabledPages([]));
+  }, []);
+
+  useEffect(() => {
+    if (!enabledPages || !enabledPages.includes(pathname)) return;
     if (localStorage.getItem(SEEN_KEY)) return;
     const timer = setTimeout(() => setVisible(true), 5000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [enabledPages, pathname]);
+
+  const source = pathname === "/" ? "homepage" : pathname.replace(/^\//, "") || "homepage";
 
   function dismiss() {
     localStorage.setItem(SEEN_KEY, "1");
@@ -128,22 +151,25 @@ export default function LeadCapturePopup({ source }: { source: "blog" | "homepag
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("firstNameLabel")}</label>
+                  <label htmlFor="lead-first-name" className="block text-xs font-bold text-ink-900 mb-1.5">{t("firstNameLabel")}</label>
                   <input
+                    id="lead-first-name"
                     type="text" required value={name} onChange={(e) => setName(e.target.value)}
                     placeholder={t("firstNamePlaceholder")} className="input-base text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("emailLabel")}</label>
+                  <label htmlFor="lead-email" className="block text-xs font-bold text-ink-900 mb-1.5">{t("emailLabel")}</label>
                   <input
+                    id="lead-email"
                     type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com" className="input-base text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-ink-900 mb-1.5">{t("interestLabel")}</label>
+                  <label htmlFor="lead-interest" className="block text-xs font-bold text-ink-900 mb-1.5">{t("interestLabel")}</label>
                   <select
+                    id="lead-interest"
                     required value={interest} onChange={(e) => setInterest(e.target.value)}
                     className="input-base text-sm"
                   >

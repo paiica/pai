@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
-const PUBLIC_KEYS = ["site_title", "site_description", "favicon_url", "site_logo_url", "logo_height", "google_analytics_id", "lead_popup_homepage_enabled", "lead_popup_blog_enabled"];
+const PUBLIC_KEYS = ["site_title", "site_description", "favicon_url", "site_logo_url", "logo_height", "google_analytics_id", "lead_popup_pages"];
 // Text-facing site_settings keys with per-locale sibling keys — `${key}_${locale}`
 // (not a schema change, SiteSetting is a plain key-value table) — that overlay
 // their English counterpart when a translated value has actually been set for

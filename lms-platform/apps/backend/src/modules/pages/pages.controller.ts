@@ -13,6 +13,13 @@ export class PagesController {
   constructor(private service: PagesService) {}
 
   @Public()
+  @Get("public")
+  @ApiOperation({ summary: "List published page slugs (no auth) — for sitemap generation" })
+  getPublicSlugs() {
+    return this.service.getPublicSlugs();
+  }
+
+  @Public()
   @Get("public/:slug")
   @ApiOperation({ summary: "Get a published page by slug (no auth)" })
   getBySlug(@Param("slug") slug: string, @Query("lang") lang?: string) {

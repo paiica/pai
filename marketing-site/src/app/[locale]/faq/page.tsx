@@ -1,14 +1,15 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { ArrowRight } from "lucide-react";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import PageBlocks from "@/components/blocks/PageBlocks";
+import CategorizedFaqAccordion from "@/components/faq/CategorizedFaqAccordion";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = PageHeroProps & { title: string; content: string; meta_description: string; hero_enabled: boolean };
+type CmsPage = PageHeroProps & { id?: string; title?: string; content?: string; meta_description?: string; hero_enabled: boolean; blocks?: any[] };
+type FaqGroup = { category: string; items: { id: string; question: string; answer: string }[] };
 
 async function getCmsPage(locale: string): Promise<CmsPage | null> {
   try {
@@ -21,18 +22,34 @@ async function getCmsPage(locale: string): Promise<CmsPage | null> {
   }
 }
 
+async function getFaqGroups(locale: string): Promise<FaqGroup[]> {
+  try {
+    const res = await fetch(`${API}/faqs/public?lang=${locale}`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.data ?? json ?? []) as FaqGroup[];
+  } catch {
+    return [];
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const cms = await getCmsPage(locale);
+  const title = cms?.title ?? "Certification FAQs | PAII";
+  const description = cms?.meta_description ?? "Answers to the most common questions about PAII AI certifications: eligibility, registration, exams, results, renewal, verification, and study prep.";
   return {
-    title: cms?.title ?? "Frequently Asked Questions",
-    description: cms?.meta_description ?? "Answers to the most common questions about PAII certifications, exams, enrollment, and credentials.",
+    title, description,
+    openGraph: { title, description },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
 type TFunc = (key: string) => string;
 
-function getFaqs(t: TFunc) {
+// Kept as a safety net for the (unlikely, once seeded) case of zero rows in
+// the database — never show a blank FAQ page.
+function getFallbackFaqs(t: TFunc) {
   return [
     {
       category: t("cat1Label"),
@@ -79,14 +96,35 @@ function getFaqs(t: TFunc) {
   ];
 }
 
+// Strips [label](/path) link syntax down to plain label text — FAQPage
+// structured data wants plain answer text, not the site's internal link markup.
+function stripLinks(text: string): string {
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+}
+
 export default async function FAQPage() {
   const locale = await getLocale();
   const t = await getTranslations("FaqPage");
-  const cms = await getCmsPage(locale);
-  const FAQS = getFaqs(t);
+  const [cms, faqGroups] = await Promise.all([getCmsPage(locale), getFaqGroups(locale)]);
+
+  const faqJsonLd = faqGroups.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqGroups.flatMap((g) => g.items).map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: stripLinks(item.answer) },
+    })),
+  } : null;
 
   return (
     <>
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
+        />
+      )}
       <Navbar />
       <main>
         {/* Hero — CMS-controlled if enabled, otherwise the original hardcoded copy */}
@@ -104,14 +142,13 @@ export default async function FAQPage() {
           </section>
         )}
 
-        {/* Content — CMS if available, otherwise hardcoded */}
-        {cms?.content ? (
-          <div dangerouslySetInnerHTML={{ __html: cms.content }} />
-        ) : (
-          <section className="section-padding bg-white">
-            <div className="container-md">
+        <section className="section-padding bg-white">
+          <div className="container-md">
+            {faqGroups.length > 0 ? (
+              <CategorizedFaqAccordion groups={faqGroups} />
+            ) : (
               <div className="space-y-12">
-                {FAQS.map((section) => (
+                {getFallbackFaqs(t).map((section) => (
                   <div key={section.category}>
                     <h2 className="text-lg font-display font-black text-ink-900 mb-5 pb-3 border-b border-sand-200">
                       {section.category}
@@ -127,20 +164,13 @@ export default async function FAQPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        </section>
 
-              <div className="mt-14 bg-ink-800 rounded-2xl p-7 text-center text-white">
-                <h3 className="font-display font-bold text-xl mb-2">{t("stillHaveQuestions")}</h3>
-                <p className="text-white text-sm mb-5">{t("teamRespondsBody")}</p>
-                <a href="mailto:info@paii.ca" className="btn-primary !py-3 !px-7 !text-sm">
-                  {t("contactUs")} <ArrowRight size={14} />
-                </a>
-              </div>
-            </div>
-          </section>
-        )}
+        <PageBlocks blocks={cms?.blocks ?? []} />
       </main>
       <Footer />
     </>
   );
 }
-

@@ -23,4 +23,14 @@ export class CaptureLeadDto {
   @IsString()
   @MaxLength(500)
   page_url?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  organization?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  message?: string;
 }

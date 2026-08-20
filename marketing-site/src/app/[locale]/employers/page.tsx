@@ -8,6 +8,7 @@ import {
   Building2, Users2, ArrowRight, CheckCircle2, ClipboardList, Award,
 } from "lucide-react";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import InquiryForm from "@/components/InquiryForm";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -252,6 +253,18 @@ export default async function EmployersPage() {
                     </Link>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Direct inquiry — supplements the CTAs above, doesn't replace them */}
+            <section className="section-padding bg-white">
+              <div className="container-md">
+                <InquiryForm
+                  source="employers"
+                  heading="Have a specific question?"
+                  subheading="Whether you're hiring, upskilling a team, or exploring the credential for yourself, tell us what you need and we'll follow up directly."
+                  interestOptions={["Hiring / talent verification", "Corporate upskilling", "Advisory board", "Something else"]}
+                />
               </div>
             </section>
           </>

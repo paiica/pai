@@ -542,6 +542,92 @@
     "teamRespondsBody": "يرد فريقنا خلال 24 ساعة في أيام العمل.",
     "contactUs": "تواصل معنا"
   },
+  "PathFinderPage": {
+    "questionCounter": "السؤال {current} من {total}",
+    "back": "رجوع",
+    "errorText": "تعذّر تحميل توصية في الوقت الحالي — تصفّح جميع الشهادات مباشرةً بدلاً من ذلك.",
+    "browseCertifications": "تصفّح الشهادات",
+    "recommendedForYou": "موصى به لك",
+    "comingSoon": "قريباً",
+    "viewCertification": "عرض الشهادة",
+    "studyGuide": "دليل الدراسة",
+    "careersInAi": "المسارات المهنية في الذكاء الاصطناعي",
+    "startOver": "البدء من جديد",
+    "questions": {
+      "persona": {
+        "prompt": "ما الذي يصفك بشكل أفضل؟",
+        "options": {
+          "student": "طالب",
+          "educator": "معلّم",
+          "business": "متخصص أعمال",
+          "data": "متخصص بيانات",
+          "tech": "متخصص تقني",
+          "practitioner": "ممارس ذكاء اصطناعي",
+          "manager": "مدير أو قائد فريق",
+          "careerChanger": "أُغيّر مساري المهني"
+        }
+      },
+      "experience": {
+        "prompt": "ما مستوى خبرتك الحالي في الذكاء الاصطناعي؟",
+        "options": {
+          "beginner": "مبتدئ",
+          "some": "بعض الخبرة",
+          "intermediate": "متوسط",
+          "advanced": "متقدم"
+        }
+      },
+      "goal": {
+        "prompt": "ما الذي تريد تحقيقه؟",
+        "options": {
+          "fundamentals": "بناء أساسيات الذكاء الاصطناعي",
+          "apply": "تطبيق الذكاء الاصطناعي في دوري المهني",
+          "teach": "تعليم الذكاء الاصطناعي للآخرين",
+          "tools": "استخدام أدوات الذكاء الاصطناعي يومياً",
+          "lead": "قيادة مبادرات الذكاء الاصطناعي في مؤسستي",
+          "build": "تطوير أو بناء حلول ذكاء اصطناعي",
+          "advance": "تطوير مسيرتي المهنية من خلال شهادة"
+        }
+      },
+      "interest": {
+        "prompt": "ما المجال الذي يثير اهتمامك أكثر؟",
+        "options": {
+          "fundamentals": "أساسيات الذكاء الاصطناعي",
+          "genai": "الذكاء الاصطناعي التوليدي",
+          "education": "التعليم في مجال الذكاء الاصطناعي",
+          "implementation": "تطبيق الذكاء الاصطناعي",
+          "data": "البيانات والتحليلات",
+          "leadership": "القيادة في مجال الذكاء الاصطناعي",
+          "responsible": "الذكاء الاصطناعي المسؤول",
+          "technology": "تقنية الذكاء الاصطناعي"
+        }
+      }
+    }
+  },
+  "InquiryForm": {
+    "contactName": "اسم جهة الاتصال",
+    "contactNamePlaceholder": "اسمك",
+    "organization": "المؤسسة",
+    "organizationPlaceholder": "اسم المؤسسة",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "you@example.com",
+    "interestedIn": "ما الذي يهمك؟",
+    "messageLabel": "الرسالة",
+    "optional": "(اختياري)",
+    "messagePlaceholder": "أخبرنا المزيد عمّا تفكر فيه",
+    "sendInquiry": "إرسال الطلب",
+    "thanksHeadline": "شكراً لتواصلك معنا",
+    "thanksBody": "سنتواصل معك عبر البريد الإلكتروني الذي قدمته."
+  },
+  "GlossaryBrowser": {
+    "searchPlaceholder": "ابحث عن مصطلح...",
+    "searchAriaLabel": "البحث في مسرد المصطلحات",
+    "noResults": "لا توجد مصطلحات مطابقة لـ \"{query}\".",
+    "example": "مثال:",
+    "related": "مصطلحات ذات صلة:"
+  },
+  "CommunityEvents": {
+    "join": "انضم"
+  },
   "LoginModal": {
     "loginFailed": "فشل تسجيل الدخول. يرجى التحقق من بياناتك.",
     "close": "إغلاق",

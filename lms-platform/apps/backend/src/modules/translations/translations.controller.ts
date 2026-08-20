@@ -6,7 +6,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { TranslationsService, EntityType } from "./translations.service";
 
-const VALID_ENTITY_TYPES: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course", "program", "event"];
+const VALID_ENTITY_TYPES: EntityType[] = ["page", "blog_post", "nav_item", "page_block", "certification", "course", "program", "event", "faq", "glossary_term", "ai_tool_listing", "community_event", "career_profile"];
 
 @ApiTags("Translations")
 @Controller("translations")

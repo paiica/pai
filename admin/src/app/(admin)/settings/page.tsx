@@ -244,14 +244,21 @@ export default function SiteSettingsPage() {
     accessToken ? ["/site-settings", accessToken] : null,
     ([url, t]: [string, string]) => fetcher(url, t)
   );
+  // Pages an admin can choose to show the lead-capture popup on — Homepage
+  // and Blog are fixed built-in surfaces, every CMS Page is fetched so newly
+  // created pages (e.g. the resource-hub pages) are selectable too, without
+  // any code change per page.
+  const { data: cmsPages } = useSWR(
+    accessToken ? ["/pages", accessToken] : null,
+    ([url, t]: [string, string]) => fetcher(url, t)
+  );
 
   const [siteTitle,  setSiteTitle]  = useState("");
   const [siteDesc,   setSiteDesc]   = useState("");
   const [faviconUrl, setFaviconUrl] = useState("");
   const [logoUrl,    setLogoUrl]    = useState("");
   const [logoHeight, setLogoHeight] = useState("48");
-  const [leadPopupHomepage, setLeadPopupHomepage] = useState(false);
-  const [leadPopupBlog, setLeadPopupBlog] = useState(true);
+  const [leadPopupPages, setLeadPopupPages] = useState<string[]>([]);
   const [saving,     setSaving]     = useState(false);
 
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
@@ -298,8 +305,8 @@ export default function SiteSettingsPage() {
       setFaviconUrl(data.favicon_url     ?? "");
       setLogoUrl(data.site_logo_url      ?? "");
       setLogoHeight(data.logo_height     ?? "48");
-      setLeadPopupHomepage(data.lead_popup_homepage_enabled === "true");
-      setLeadPopupBlog(data.lead_popup_blog_enabled !== "false");
+      try { setLeadPopupPages(data.lead_popup_pages ? JSON.parse(data.lead_popup_pages) : []); }
+      catch { setLeadPopupPages([]); }
     }
   }, [data]);
 
@@ -312,8 +319,7 @@ export default function SiteSettingsPage() {
       favicon_url:      faviconUrl,
       site_logo_url:    logoUrl,
       logo_height:      String(parseInt(logoHeight, 10) || 48),
-      lead_popup_homepage_enabled: String(leadPopupHomepage),
-      lead_popup_blog_enabled: String(leadPopupBlog),
+      lead_popup_pages: JSON.stringify(leadPopupPages),
     };
     try {
       let token = accessToken!;
@@ -446,39 +452,28 @@ export default function SiteSettingsPage() {
 
           {/* Lead Capture */}
           <div className="card p-6">
-            <div className="flex items-center gap-2 mb-5">
+            <div className="flex items-center gap-2 mb-1.5">
               <Magnet size={16} className="text-navy-600" />
               <h2 className="font-semibold text-navy-900">Lead Capture</h2>
             </div>
-            <div className="space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={leadPopupBlog}
-                  onChange={(e) => setLeadPopupBlog(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-navy-700 accent-navy-700 cursor-pointer"
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-slate-700">Show the subscribe popup on blog posts</span>
-                  <span className="block text-xs text-slate-400 mt-0.5">
-                    On by default. Turn off to stop showing it on every blog post.
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={leadPopupHomepage}
-                  onChange={(e) => setLeadPopupHomepage(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-navy-700 accent-navy-700 cursor-pointer"
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-slate-700">Show the subscribe popup on the homepage</span>
-                  <span className="block text-xs text-slate-400 mt-0.5">
-                    Off by default. Appears 5 seconds after a visitor lands, same timing as the blog popup.
-                  </span>
-                </span>
-              </label>
+            <p className="text-xs text-slate-400 mb-5">
+              Choose which pages show the subscribe popup. It appears 5 seconds after a visitor lands, once per visitor.
+            </p>
+            <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+              {([{ path: "/", label: "Homepage" }, { path: "/blog", label: "Blog (every post)" }] as { path: string; label: string }[])
+                .concat((cmsPages ?? []).map((p: any) => ({ path: `/${p.slug}`, label: p.title || p.slug })))
+                .map(({ path, label }) => (
+                  <label key={path} className="flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={leadPopupPages.includes(path)}
+                      onChange={(e) => setLeadPopupPages((prev) => e.target.checked ? [...prev, path] : prev.filter((p) => p !== path))}
+                      className="w-4 h-4 rounded border-slate-300 text-navy-700 accent-navy-700 cursor-pointer flex-shrink-0"
+                    />
+                    <span className="text-sm font-medium text-slate-700 truncate">{label}</span>
+                    <span className="text-xs text-slate-400 font-mono ml-auto flex-shrink-0">{path}</span>
+                  </label>
+                ))}
             </div>
             <p className="text-xs text-slate-400 mt-4">Captured emails show up under the Leads tab.</p>
           </div>

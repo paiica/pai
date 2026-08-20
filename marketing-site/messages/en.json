@@ -542,6 +542,92 @@
     "teamRespondsBody": "Our team responds within 24 hours on business days.",
     "contactUs": "Contact Us"
   },
+  "PathFinderPage": {
+    "questionCounter": "Question {current} of {total}",
+    "back": "Back",
+    "errorText": "We couldn't load a recommendation right now — browse every certification directly instead.",
+    "browseCertifications": "Browse Certifications",
+    "recommendedForYou": "Recommended for you",
+    "comingSoon": "Coming Soon",
+    "viewCertification": "View Certification",
+    "studyGuide": "Study Guide",
+    "careersInAi": "Careers in AI",
+    "startOver": "Start over",
+    "questions": {
+      "persona": {
+        "prompt": "What best describes you?",
+        "options": {
+          "student": "Student",
+          "educator": "Educator",
+          "business": "Business professional",
+          "data": "Data professional",
+          "tech": "Technology professional",
+          "practitioner": "AI practitioner",
+          "manager": "Manager or team leader",
+          "careerChanger": "Career changer"
+        }
+      },
+      "experience": {
+        "prompt": "What is your current AI experience?",
+        "options": {
+          "beginner": "Beginner",
+          "some": "Some experience",
+          "intermediate": "Intermediate",
+          "advanced": "Advanced"
+        }
+      },
+      "goal": {
+        "prompt": "What do you want to achieve?",
+        "options": {
+          "fundamentals": "Build AI fundamentals",
+          "apply": "Apply AI professionally in my role",
+          "teach": "Teach AI to others",
+          "tools": "Work with AI tools day to day",
+          "lead": "Lead AI initiatives at my organization",
+          "build": "Develop or build AI solutions",
+          "advance": "Advance my career with a credential"
+        }
+      },
+      "interest": {
+        "prompt": "What area interests you most?",
+        "options": {
+          "fundamentals": "AI fundamentals",
+          "genai": "Generative AI",
+          "education": "AI education",
+          "implementation": "AI implementation",
+          "data": "Data & analytics",
+          "leadership": "AI leadership",
+          "responsible": "Responsible AI",
+          "technology": "AI technology"
+        }
+      }
+    }
+  },
+  "InquiryForm": {
+    "contactName": "Contact name",
+    "contactNamePlaceholder": "Your name",
+    "organization": "Organization",
+    "organizationPlaceholder": "Organization name",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "interestedIn": "What are you interested in?",
+    "messageLabel": "Message",
+    "optional": "(optional)",
+    "messagePlaceholder": "Tell us a bit more about what you have in mind",
+    "sendInquiry": "Send Inquiry",
+    "thanksHeadline": "Thanks for reaching out",
+    "thanksBody": "We'll follow up at the email you provided."
+  },
+  "GlossaryBrowser": {
+    "searchPlaceholder": "Search terms...",
+    "searchAriaLabel": "Search glossary terms",
+    "noResults": "No terms match \"{query}\".",
+    "example": "Example:",
+    "related": "Related:"
+  },
+  "CommunityEvents": {
+    "join": "Join"
+  },
   "LoginModal": {
     "loginFailed": "Login failed. Please check your credentials.",
     "close": "Close",

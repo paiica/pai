@@ -542,6 +542,92 @@
     "teamRespondsBody": "Notre équipe répond sous 24 heures les jours ouvrables.",
     "contactUs": "Contactez-nous"
   },
+  "PathFinderPage": {
+    "questionCounter": "Question {current} sur {total}",
+    "back": "Retour",
+    "errorText": "Nous n'avons pas pu charger de recommandation pour le moment — parcourez directement toutes les certifications.",
+    "browseCertifications": "Parcourir les certifications",
+    "recommendedForYou": "Recommandé pour vous",
+    "comingSoon": "Bientôt disponible",
+    "viewCertification": "Voir la certification",
+    "studyGuide": "Guide d'étude",
+    "careersInAi": "Carrières en IA",
+    "startOver": "Recommencer",
+    "questions": {
+      "persona": {
+        "prompt": "Qu'est-ce qui vous décrit le mieux ?",
+        "options": {
+          "student": "Étudiant(e)",
+          "educator": "Éducateur(trice)",
+          "business": "Professionnel(le) des affaires",
+          "data": "Professionnel(le) des données",
+          "tech": "Professionnel(le) des technologies",
+          "practitioner": "Praticien(ne) de l'IA",
+          "manager": "Gestionnaire ou chef d'équipe",
+          "careerChanger": "En reconversion professionnelle"
+        }
+      },
+      "experience": {
+        "prompt": "Quel est votre niveau d'expérience actuel en IA ?",
+        "options": {
+          "beginner": "Débutant(e)",
+          "some": "Un peu d'expérience",
+          "intermediate": "Intermédiaire",
+          "advanced": "Avancé(e)"
+        }
+      },
+      "goal": {
+        "prompt": "Que souhaitez-vous accomplir ?",
+        "options": {
+          "fundamentals": "Acquérir les fondamentaux de l'IA",
+          "apply": "Appliquer l'IA dans mon rôle professionnel",
+          "teach": "Enseigner l'IA à d'autres",
+          "tools": "Utiliser des outils d'IA au quotidien",
+          "lead": "Diriger des initiatives d'IA dans mon organisation",
+          "build": "Développer ou concevoir des solutions d'IA",
+          "advance": "Faire progresser ma carrière grâce à une certification"
+        }
+      },
+      "interest": {
+        "prompt": "Quel domaine vous intéresse le plus ?",
+        "options": {
+          "fundamentals": "Fondamentaux de l'IA",
+          "genai": "IA générative",
+          "education": "Éducation en IA",
+          "implementation": "Mise en œuvre de l'IA",
+          "data": "Données et analytique",
+          "leadership": "Leadership en IA",
+          "responsible": "IA responsable",
+          "technology": "Technologie de l'IA"
+        }
+      }
+    }
+  },
+  "InquiryForm": {
+    "contactName": "Nom du contact",
+    "contactNamePlaceholder": "Votre nom",
+    "organization": "Organisation",
+    "organizationPlaceholder": "Nom de l'organisation",
+    "email": "Courriel",
+    "emailPlaceholder": "vous@exemple.com",
+    "interestedIn": "Qu'est-ce qui vous intéresse ?",
+    "messageLabel": "Message",
+    "optional": "(facultatif)",
+    "messagePlaceholder": "Dites-nous en un peu plus sur ce que vous avez en tête",
+    "sendInquiry": "Envoyer la demande",
+    "thanksHeadline": "Merci de nous avoir contactés",
+    "thanksBody": "Nous vous recontacterons à l'adresse courriel fournie."
+  },
+  "GlossaryBrowser": {
+    "searchPlaceholder": "Rechercher un terme...",
+    "searchAriaLabel": "Rechercher dans le glossaire",
+    "noResults": "Aucun terme ne correspond à « {query} ».",
+    "example": "Exemple :",
+    "related": "Voir aussi :"
+  },
+  "CommunityEvents": {
+    "join": "Participer"
+  },
   "LoginModal": {
     "loginFailed": "Échec de la connexion. Veuillez vérifier vos identifiants.",
     "close": "Fermer",

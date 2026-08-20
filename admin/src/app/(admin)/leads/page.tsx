@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Magnet, Search, Trash2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Magnet, Search, Trash2, ChevronLeft, ChevronRight, Loader2, MessageSquareText } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
 
@@ -14,6 +14,8 @@ interface Lead {
   interest: string;
   source: string;
   page_url: string;
+  organization: string;
+  message: string;
   created_at: string;
 }
 
@@ -67,7 +69,7 @@ export default function LeadsPage() {
     <div className="p-6 lg:p-8 max-w-[1100px]">
       <div className="mb-6">
         <h1 className="text-2xl font-display font-black text-navy-900">Leads</h1>
-        <p className="text-slate-500 text-sm mt-0.5">{total} email{total !== 1 ? "s" : ""} captured from the blog subscribe popup</p>
+        <p className="text-slate-500 text-sm mt-0.5">{total} email{total !== 1 ? "s" : ""} captured from lead-magnet popups and inquiry forms</p>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-2 mb-5 max-w-xs">
@@ -86,11 +88,13 @@ export default function LeadsPage() {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Organization</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Page</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Captured</th>
+              <th className="px-4 py-3 w-10" />
               <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
@@ -98,7 +102,7 @@ export default function LeadsPage() {
             {isLoading ? (
               [...Array(6)].map((_, i) => (
                 <tr key={i}>
-                  {[...Array(7)].map((_, j) => (
+                  {[...Array(9)].map((_, j) => (
                     <td key={j} className="px-4 py-3.5">
                       <div className="h-3.5 bg-slate-100 rounded animate-pulse" style={{ width: `${50 + (j * 13) % 40}%` }} />
                     </td>
@@ -107,7 +111,7 @@ export default function LeadsPage() {
               ))
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-16 text-center">
+                <td colSpan={9} className="px-4 py-16 text-center">
                   <Magnet size={28} className="text-slate-200 mx-auto mb-3" />
                   <p className="text-slate-400 text-sm">No leads captured yet.</p>
                 </td>
@@ -115,6 +119,7 @@ export default function LeadsPage() {
             ) : leads.map((lead) => (
               <tr key={lead.id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-4 py-3 text-navy-900">{lead.name || "—"}</td>
+                <td className="px-4 py-3 text-xs text-slate-600">{lead.organization || "—"}</td>
                 <td className="px-4 py-3 font-medium text-navy-900">{lead.email}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">{lead.interest || "—"}</td>
                 <td className="px-4 py-3">
@@ -128,6 +133,13 @@ export default function LeadsPage() {
                   ) : "—"}
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">{fmtDate(lead.created_at)}</td>
+                <td className="px-4 py-3">
+                  {lead.message?.trim() && (
+                    <span title={lead.message}>
+                      <MessageSquareText size={13} className="text-teal-500" />
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => handleDelete(lead.id)}

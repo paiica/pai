@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import "../globals.css";
 import { Providers } from "@/components/Providers";
 import ReferralCapture from "@/components/ReferralCapture";
+import LeadCapturePopup from "@/components/LeadCapturePopup";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -118,14 +119,33 @@ export default async function RootLayout({
   const settings = await getSiteSettings(locale);
   const gaId = settings.google_analytics_id;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://paii.ca";
+  const siteName = settings.site_title || "Professional Artificial Intelligence Institute";
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: siteName,
+    alternateName: "PAII",
+    url: siteUrl,
+    logo: `${siteUrl}/paii.logo.png`,
+    email: "info@paii.ca",
+    foundingDate: "2023",
+    address: { "@type": "PostalAddress", addressLocality: "Toronto", addressRegion: "ON", addressCountry: "CA" },
+  };
+
   return (
     <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} className={`${jakarta.variable} ${fraunces.variable} ${plexMono.variable}`}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd).replace(/</g, "\\u003c") }}
+        />
         <NextIntlClientProvider>
           <ReferralCapture />
           <Providers>
             {children}
           </Providers>
+          <LeadCapturePopup />
           {gaId && <GoogleAnalytics gaId={gaId} />}
         </NextIntlClientProvider>
       </body>

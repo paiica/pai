@@ -162,12 +162,16 @@ export class AiService {
       temperature: 0.3,
       // Without an explicit ceiling, some models' JSON mode truncates mid-object
       // on longer content and returns invalid/incomplete JSON rather than an
-      // error — confirmed live. Kept modest rather than generous: Groq's
-      // free/on-demand tier enforces a strict tokens-per-minute budget that
-      // counts requested max_tokens against it (confirmed live: 8000 TPM for
-      // gpt-oss-120b), so an overly large ceiling gets the *request* itself
-      // rejected before any content-length problem even comes up.
-      max_tokens: 4000,
+      // error — confirmed live. Groq's free/on-demand tier also enforces a
+      // hard tokens-per-minute budget per model (as low as 8000 TPM on the
+      // smallest fallback models, counting prompt + max_tokens together), so
+      // this can't be unbounded either — 4000 was too low for pages with
+      // large `blocks` arrays (confirmed live: truncated/invalid JSON), but
+      // 8000 overshot the smallest fallback model's entire TPM budget outright
+      // (confirmed live: immediate 413 even on a small 6-item FAQ payload).
+      // 6000 splits the difference — clears most large pages while leaving
+      // headroom under the tightest model's ceiling.
+      max_tokens: 6000,
     };
     if (useJsonMode) createParams.response_format = { type: "json_object" };
 

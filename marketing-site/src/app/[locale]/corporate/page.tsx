@@ -5,6 +5,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Building2, Users2, BarChart3, Award, CheckCircle2, ArrowRight, Mail, ClipboardList, MessageSquareText, UserPlus, LineChart } from "lucide-react";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import InquiryForm from "@/components/InquiryForm";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -258,6 +259,18 @@ export default async function CorporatePage() {
                 <a href="mailto:corporate@paii.ca" className="btn-primary !py-4 !px-8">
                   <Mail size={16} /> corporate@paii.ca
                 </a>
+              </div>
+            </section>
+
+            {/* Direct inquiry — supplements the CTAs above, doesn't replace them */}
+            <section className="section-padding bg-white">
+              <div className="container-md">
+                <InquiryForm
+                  source="corporate"
+                  heading="Request a proposal"
+                  subheading="Tell us about your team size and goals and we'll put together a custom quote."
+                  interestOptions={["Team plan", "Organization plan", "Enterprise plan", "Pilot / trial", "Something else"]}
+                />
               </div>
             </section>
           </>

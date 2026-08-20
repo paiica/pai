@@ -21,6 +21,11 @@ import { UploadsModule } from "./modules/uploads/uploads.module";
 import { SiteSettingsModule } from "./modules/site-settings/site-settings.module";
 import { PageBlocksModule } from "./modules/page-blocks/page-blocks.module";
 import { NavigationModule } from "./modules/navigation/navigation.module";
+import { FaqsModule } from "./modules/faqs/faqs.module";
+import { GlossaryModule } from "./modules/glossary/glossary.module";
+import { AiToolsModule } from "./modules/ai-tools/ai-tools.module";
+import { CommunityEventsModule } from "./modules/community-events/community-events.module";
+import { CareerProfilesModule } from "./modules/career-profiles/career-profiles.module";
 import { PagesModule } from "./modules/pages/pages.module";
 import { BlogPostsModule } from "./modules/blog-posts/blog-posts.module";
 import { PrepCoursesModule } from "./modules/prep-courses/prep-courses.module";
@@ -77,6 +82,11 @@ import { AppController } from "./app.controller";
     SiteSettingsModule,
     PageBlocksModule,
     NavigationModule,
+    FaqsModule,
+    GlossaryModule,
+    AiToolsModule,
+    CommunityEventsModule,
+    CareerProfilesModule,
     PagesModule,
     BlogPostsModule,
     PrepCoursesModule,

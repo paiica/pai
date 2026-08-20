@@ -73,6 +73,7 @@ export default function VerifyForm({ initialId }: { initialId: string }) {
           value={certId}
           onChange={(e) => setCertId(e.target.value)}
           placeholder="e.g. PAII-CAIP-2024-001234"
+          aria-label={t("enterUniqueId")}
           className="input-base font-mono"
         />
         <button

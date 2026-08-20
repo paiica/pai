@@ -7,21 +7,23 @@ import { CaptureLeadDto } from "./dto/capture-lead.dto";
 export class LeadsService {
   constructor(private prisma: PrismaService) {}
 
-  // Upserted by email so a repeat visit (or a resubmit after dismissing once)
-  // updates source/page_url on the existing row instead of piling up
-  // duplicates for the same person.
+  // A plain create, not an upsert — a second submission from the same email
+  // (e.g. someone filling both the Employers and Corporate inquiry forms, or
+  // just the lead-magnet popup twice) is a second genuine signal, not a
+  // duplicate to collapse. Upserting-by-email used to silently overwrite and
+  // destroy an earlier submission's message/organization.
   capture(dto: CaptureLeadDto) {
     const email = dto.email.trim().toLowerCase();
-    const fields = {
-      name: dto.name ?? "",
-      interest: dto.interest ?? "",
-      source: dto.source ?? "",
-      page_url: dto.page_url ?? "",
-    };
-    return this.prisma.lead.upsert({
-      where: { email },
-      create: { email, ...fields },
-      update: fields,
+    return this.prisma.lead.create({
+      data: {
+        email,
+        name: dto.name ?? "",
+        interest: dto.interest ?? "",
+        source: dto.source ?? "",
+        page_url: dto.page_url ?? "",
+        organization: dto.organization ?? "",
+        message: dto.message ?? "",
+      },
     });
   }
 

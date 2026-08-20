@@ -38,6 +38,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: page.title,
     description: page.meta_description || undefined,
+    openGraph: { title: page.title, description: page.meta_description || undefined },
+    twitter: { card: "summary_large_image", title: page.title, description: page.meta_description || undefined },
   };
 }
 

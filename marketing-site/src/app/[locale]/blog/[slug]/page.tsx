@@ -5,7 +5,6 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ShareButtons from "./ShareButtons";
-import LeadCapturePopup from "@/components/LeadCapturePopup";
 import { Calendar, Clock, ArrowLeft, Tag } from "lucide-react";
 
 type Post = {
@@ -27,20 +26,6 @@ async function getPost(slug: string, locale: string): Promise<Post | null> {
     return p?.slug ? p : null;
   } catch {
     return null;
-  }
-}
-
-// Defaults to on — the popup has always shown on blog posts, so an unset
-// setting (nobody's touched the toggle yet) must not silently disable it.
-async function getLeadPopupEnabled(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API}/site-settings/public`, { next: { revalidate: 60 } });
-    if (!res.ok) return true;
-    const json = await res.json();
-    const settings = json.data ?? json;
-    return settings?.lead_popup_blog_enabled !== "false";
-  } catch {
-    return true;
   }
 }
 
@@ -69,7 +54,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const locale = await getLocale();
   const t = await getTranslations("BlogPage");
   const { slug } = await params;
-  const [post, leadPopupEnabled] = await Promise.all([getPost(slug, locale), getLeadPopupEnabled()]);
+  const post = await getPost(slug, locale);
   if (!post) notFound();
 
   const postUrl = `${SITE_URL}/blog/${post.slug}`;
@@ -154,13 +139,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     <ArrowLeft size={12} /> {t("allPosts")}
                   </Link>
                 </div>
+                <div className="mt-5 pt-5 border-t border-sand-200">
+                  <p className="text-xs font-bold text-ink-900 uppercase tracking-widest mb-3">Keep Learning</p>
+                  <div className="space-y-2">
+                    <Link href="/glossary" className="block text-xs font-semibold text-ink-900 hover:underline">AI Glossary</Link>
+                    <Link href="/study-guides" className="block text-xs font-semibold text-ink-900 hover:underline">Study Guides & Exam Prep</Link>
+                    <Link href="/certifications" className="block text-xs font-semibold text-ink-900 hover:underline">All Certifications</Link>
+                  </div>
+                </div>
               </div>
             </aside>
           </div>
         </div>
       </main>
       <Footer />
-      {leadPopupEnabled && <LeadCapturePopup source="blog" />}
     </>
   );
 }

@@ -4,10 +4,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import VerifyForm from "./VerifyForm";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import PageBlocks from "@/components/blocks/PageBlocks";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string };
+type CmsPage = PageHeroProps & { hero_enabled: boolean; title?: string; meta_description?: string; blocks?: any[] };
 
 async function getCmsPage(locale: string): Promise<CmsPage | null> {
   try {
@@ -23,9 +24,12 @@ async function getCmsPage(locale: string): Promise<CmsPage | null> {
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const cms = await getCmsPage(locale);
+  const title = cms?.title || "Verify a PAII Credential";
+  const description = cms?.meta_description || "Verify the authenticity of a PAII certificate or credential.";
   return {
-    title: cms?.title || "Verify a PAII Credential",
-    description: cms?.meta_description || "Verify the authenticity of a PAII certificate or credential.",
+    title, description,
+    openGraph: { title, description },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -65,6 +69,8 @@ export default async function VerifyPage({
             <VerifyForm initialId={id || ""} />
           </div>
         </section>
+
+        <PageBlocks blocks={cms?.blocks ?? []} />
       </main>
       <Footer />
     </>
