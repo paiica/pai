@@ -628,6 +628,9 @@
   "CommunityEvents": {
     "join": "Join"
   },
+  "AiTools": {
+    "visitWebsite": "Visit {name} website"
+  },
   "LoginModal": {
     "loginFailed": "Login failed. Please check your credentials.",
     "close": "Close",

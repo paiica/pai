@@ -628,6 +628,9 @@
   "CommunityEvents": {
     "join": "انضم"
   },
+  "AiTools": {
+    "visitWebsite": "زيارة موقع {name}"
+  },
   "LoginModal": {
     "loginFailed": "فشل تسجيل الدخول. يرجى التحقق من بياناتك.",
     "close": "إغلاق",

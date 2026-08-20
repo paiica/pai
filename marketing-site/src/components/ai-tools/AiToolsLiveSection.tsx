@@ -1,4 +1,4 @@
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ExternalLink } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -10,6 +10,7 @@ type AiTool = { id: string; name: string; category: string; description: string;
 // listing (the collection starts empty by design, not seeded).
 export default async function AiToolsLiveSection({ cmsContent }: { cmsContent: { badge?: string; title?: string } }) {
   const locale = await getLocale();
+  const t = await getTranslations("AiTools");
   let tools: AiTool[] = [];
   try {
     const res = await fetch(`${API}/ai-tools/public?lang=${locale}`, { next: { revalidate: 120 } });
@@ -47,7 +48,7 @@ export default async function AiToolsLiveSection({ cmsContent }: { cmsContent: {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="font-display font-bold text-ink-900 text-sm">{tool.name}</p>
                     {tool.website_url && (
-                      <a href={tool.website_url} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${tool.name} website`} className="text-slate-400 hover:text-teal-600 flex-shrink-0">
+                      <a href={tool.website_url} target="_blank" rel="noopener noreferrer" aria-label={t("visitWebsite", { name: tool.name })} className="text-slate-400 hover:text-teal-600 flex-shrink-0">
                         <ExternalLink size={13} aria-hidden="true" />
                       </a>
                     )}

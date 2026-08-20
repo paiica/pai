@@ -628,6 +628,9 @@
   "CommunityEvents": {
     "join": "Participer"
   },
+  "AiTools": {
+    "visitWebsite": "Visiter le site de {name}"
+  },
   "LoginModal": {
     "loginFailed": "Échec de la connexion. Veuillez vérifier vos identifiants.",
     "close": "Fermer",
