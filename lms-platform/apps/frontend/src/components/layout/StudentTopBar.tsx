@@ -84,7 +84,7 @@ export default function StudentTopBar() {
   }
 
   return (
-    <div className="w-full bg-white border-b border-slate-100 pl-14 pr-3 lg:px-6 h-10 flex items-center justify-end gap-2.5 sm:gap-5 flex-shrink-0 sticky top-0 z-30 overflow-x-auto">
+    <div className="w-full bg-white border-b border-slate-100 pl-14 pr-3 lg:px-6 h-10 flex items-center justify-end gap-2.5 sm:gap-5 flex-shrink-0 sticky top-0 z-30">
 
       {/* Cart dropdown */}
       <div className="relative flex-shrink-0" ref={cartRef}>
