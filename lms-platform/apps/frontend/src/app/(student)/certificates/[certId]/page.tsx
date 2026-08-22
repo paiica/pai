@@ -993,7 +993,21 @@ function ensureFontLinkCrossOrigin(html: string): string {
   );
 }
 
-function renderTemplate(html: string, cert: any): string {
+// Design fields an admin controls once, centrally, in Settings > Certificate
+// Design — applied to every certificate (this page, the Program certificate,
+// and the course-completion certificate) instead of being duplicated inside
+// each certificate_template_html blob. Falls back to the same CORS-safe
+// same-origin defaults this app already shipped with if unset.
+type CertDesignSettings = {
+  certificate_logo_url?: string;
+  certificate_seal_url?: string;
+  certificate_signatory_name?: string;
+  certificate_signatory_full_title?: string;
+  certificate_signatory_role?: string;
+  certificate_default_template_html?: string;
+};
+
+function renderTemplate(html: string, cert: any, design: CertDesignSettings): string {
   const verifyUrl = cert.verification_url || `https://paii.ca/verify?id=${cert.certificate_number}`;
   const qrUrl     = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}`;
 
@@ -1007,26 +1021,30 @@ function renderTemplate(html: string, cert: any): string {
     .replace(/\{\{\s*EXAM_SCORE\s*\}\}/gi,       String(cert.exam_score ?? ""))
     .replace(/\{\{\s*VERIFICATION_URL\s*\}\}/gi, verifyUrl)
     .replace(/\{\{\s*QR_CODE_URL\s*\}\}/gi,      qrUrl)
-    // Root-relative — this app's own /public assets, not the R2 bucket (which
-    // has no CORS headers, so html-to-image's PNG export silently drops any
-    // image it can't fetch and inline as base64). Resolves correctly both in
-    // the iframe below (srcDoc inherits this page's origin as its base URL)
-    // and in the print popup (about:blank opened from this same origin).
-    .replace(/\{\{\s*LOGO_URL\s*\}\}/gi,         "/paii-icon.png")
-    .replace(/\{\{\s*SEAL_URL\s*\}\}/gi,         "/paii-seal.png");
+    .replace(/\{\{\s*SIGNATORY_NAME\s*\}\}/gi,       design.certificate_signatory_name ?? "")
+    .replace(/\{\{\s*SIGNATORY_FULL_TITLE\s*\}\}/gi, design.certificate_signatory_full_title ?? "")
+    .replace(/\{\{\s*SIGNATORY_ROLE\s*\}\}/gi,       design.certificate_signatory_role ?? "")
+    // Root-relative by default — this app's own /public assets, not the R2
+    // bucket (which has no CORS headers, so html-to-image's PNG export
+    // silently drops any image it can't fetch and inline as base64). An
+    // admin-set URL is used as-is; PNG export just may not include it if
+    // that host doesn't send CORS headers (print/PDF is unaffected either way).
+    .replace(/\{\{\s*LOGO_URL\s*\}\}/gi,         design.certificate_logo_url || "/paii-icon.png")
+    .replace(/\{\{\s*SEAL_URL\s*\}\}/gi,         design.certificate_seal_url || "/paii-seal.png");
 }
 
-function CertificateSection({ issuedCert }: { issuedCert: any }) {
+function CertificateSection({ issuedCert, design }: { issuedCert: any; design: CertDesignSettings }) {
   const [copied, setCopied] = useState(false);
   const [downloadingPng, setDownloadingPng] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const t = useTranslations("CertificateDetail");
 
   const templateHtml: string | undefined =
-    (issuedCert.certification?.marketing_meta as any)?.certificate_template_html;
+    (issuedCert.certification?.marketing_meta as any)?.certificate_template_html ||
+    design.certificate_default_template_html;
 
   const verifyUrl = issuedCert.verification_url || `https://paii.ca/verify?id=${issuedCert.certificate_number}`;
-  const rendered  = templateHtml ? renderTemplate(templateHtml, issuedCert) : null;
+  const rendered  = templateHtml ? renderTemplate(templateHtml, issuedCert, design) : null;
 
   function handleDownloadPdf() {
     if (!rendered) return;
@@ -1519,6 +1537,17 @@ export default function CertDetailPage() {
       .catch(() => {});
   }, []);
 
+  // Centrally-configured logo/seal/signatory/default-template — public, no
+  // auth needed (Settings > Certificate Design), same values every
+  // certificate on the site uses unless a Certification/Program overrides
+  // certificate_template_html itself.
+  const { data: designData } = useSWR(
+    "/site-settings/public",
+    (url) => api.get<any>(url),
+    { revalidateOnFocus: false },
+  );
+  const design: CertDesignSettings = designData?.data ?? designData ?? {};
+
   const { data: enrollmentsData, mutate: refetchEnrollments, isValidating: enrollmentsLoading } = useSWR(
     token ? ["/enrollments/my", token] : null,
     ([url, t]) => api.get<any>(url, t),
@@ -1843,7 +1872,7 @@ export default function CertDetailPage() {
         </div>
       )}
       {issuedCert && issuedCert.status !== "revoked" && enrollment?.status === "completed" && (
-        <CertificateSection issuedCert={issuedCert} />
+        <CertificateSection issuedCert={issuedCert} design={design} />
       )}
 
       {/* ── Document Upload (when requested by admin) ────────────────────── */}

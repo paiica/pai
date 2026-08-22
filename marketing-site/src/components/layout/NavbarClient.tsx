@@ -23,8 +23,12 @@ export default function NavbarClient({
   const t = useTranslations("Common");
   const [navItems]   = useState<NavItem[]>(initialNavItems);
   const certCategories = groupCertificationsByCategory(certifications);
-  const [mobileOpen,  setMobileOpen]  = useState(false);
-  const [openId,     setOpenId]     = useState<string | null>(null);
+  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [openId,      setOpenId]      = useState<string | null>(null);
+  // Separate from `openId` (desktop hover state) — mobile is tap-driven, not
+  // hover-driven, and a top-level item can be expanded here independent of
+  // whatever's hovered on desktop.
+  const [mobileOpenId, setMobileOpenId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled,   setScrolled]   = useState(false);
   const pathname   = usePathname();
@@ -36,7 +40,7 @@ export default function NavbarClient({
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  useEffect(() => { setMobileOpen(false); setOpenId(null); }, [pathname]);
+  useEffect(() => { setMobileOpen(false); setOpenId(null); setMobileOpenId(null); }, [pathname]);
 
   const openDropdown  = (id: string) => { if (closeTimer.current) clearTimeout(closeTimer.current); setOpenId(id); };
   const closeDropdown = ()           => { closeTimer.current = setTimeout(() => setOpenId(null), 120); };
@@ -185,104 +189,125 @@ export default function NavbarClient({
             </button>
           </div>
         </div>
-      {/* Mobile menu */}
+      {/* Mobile menu — a collapsed accordion of top-level sections (only one
+          open at a time), not everything flattened and expanded at once.
+          With ~50 certifications alone, showing every section's full content
+          simultaneously made the menu so long that anything past
+          Certifications was effectively unreachable without a long scroll —
+          which is what actually made it look like "only Certifications"
+          was there. */}
       {mobileOpen && (
-        <div className="lg:hidden bg-white border-t border-sand-200">
-          <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-0.5">
+        <div className="lg:hidden bg-white border-t border-sand-200 max-h-[calc(100vh-var(--header-height,88px))] overflow-y-auto">
+          <div className="max-w-[1400px] mx-auto px-4 py-2">
             {navItems.map((item) => {
               const isCertifications = item.href === "/certifications";
+              const hasContent = isCertifications ? certCategories.length > 0 : item.children.length > 0;
+              const isOpen = mobileOpenId === item.id;
+              const closeMenu = () => { setMobileOpen(false); setMobileOpenId(null); };
 
-              if (isCertifications && certCategories.length > 0) {
+              if (!hasContent) {
                 return (
-                  <div key={item.id}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ink-900 px-3 pt-2 pb-1">{item.label}</p>
-                    {certCategories.map((group) => (
-                      <div key={group.key} className="mb-1">
-                        <p className="text-[10px] font-semibold text-slate-400 px-3 pt-1 pb-0.5">{t(group.labelKey)}</p>
-                        {group.certs.map((cert) => (
-                          <Link
-                            key={cert.id}
-                            href={`/certifications/${cert.slug}`}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-teal-100 transition-colors"
-                          >
-                            <span className="text-sm font-semibold text-ink-900">{cert.title}</span>
-                            {cert.status === "coming_soon" && (
-                              <span className="flex-shrink-0 text-[8.5px] font-bold px-1.5 py-0.5 rounded-full bg-teal-500 text-white">
-                                {t("comingSoon")}
-                              </span>
-                            )}
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                    {item.children.length > 0 && (
-                      <>
-                        <p className="text-[10px] font-semibold text-slate-400 px-3 pt-2 pb-0.5">{t("certResources")}</p>
-                        {item.children.map((link) => (
-                          <Link key={link.id} href={link.href} target={link.open_new_tab ? "_blank" : undefined}
-                            className="block px-3 py-2 text-sm font-medium text-ink-900/80 hover:bg-teal-100 hover:text-ink-900 rounded-lg transition-colors">
-                            {link.label}
-                          </Link>
-                        ))}
-                      </>
-                    )}
-                    <Link href={item.href} className="block px-3 py-2 text-sm font-bold text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
-                      {t("viewAll")} →
-                    </Link>
-                  </div>
-                );
-              }
-
-              if (item.children.some((c) => c.group_label)) {
-                return (
-                  <div key={item.id}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ink-900 px-3 pt-2 pb-1">{item.label}</p>
-                    {groupChildren(item.children).map((group) => (
-                      <div key={group.label || "_"} className="mb-1">
-                        {group.label && <p className="text-[10px] font-semibold text-slate-400 px-3 pt-1 pb-0.5">{group.label}</p>}
-                        {group.children.map((child) => (
-                          <Link key={child.id} href={child.href} target={child.open_new_tab ? "_blank" : undefined}
-                            className="block px-3 py-2 text-sm font-medium text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    target={item.open_new_tab ? "_blank" : undefined}
+                    rel={item.open_new_tab ? "noopener noreferrer" : undefined}
+                    onClick={closeMenu}
+                    className="flex items-center justify-between px-3 py-3.5 text-[15px] font-bold text-ink-900 border-b border-sand-100 hover:bg-teal-100 transition-colors"
+                  >
+                    {item.label}
+                  </Link>
                 );
               }
 
               return (
-                <div key={item.id}>
-                  {item.children.length > 0 && (
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ink-900 px-3 pt-2 pb-1">{item.label}</p>
-                  )}
-                  {item.children.length > 0 ? item.children.map((child) => (
-                    <Link
-                      key={child.id}
-                      href={child.href}
-                      target={child.open_new_tab ? "_blank" : undefined}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-teal-100 transition-colors"
-                    >
-                      <div className="w-7 h-7 rounded-md bg-ink-900 text-white flex items-center justify-center text-[9px] font-black flex-shrink-0">
-                        {child.label.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="text-sm font-semibold text-ink-900">{child.label}</div>
-                    </Link>
-                  )) : (
-                    <Link
-                      href={item.href}
-                      target={item.open_new_tab ? "_blank" : undefined}
-                      className="block px-3 py-2.5 text-sm font-medium text-ink-900 hover:bg-teal-100 hover:text-ink-900 rounded-lg transition-colors"
-                    >
-                      {item.label}
-                    </Link>
+                <div key={item.id} className="border-b border-sand-100">
+                  <button
+                    type="button"
+                    onClick={() => setMobileOpenId(isOpen ? null : item.id)}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center justify-between px-3 py-3.5 text-[15px] font-bold text-ink-900 hover:bg-teal-100 transition-colors"
+                  >
+                    {item.label}
+                    <ChevronDown size={16} className={cn("text-ink-900/60 transition-transform flex-shrink-0", isOpen && "rotate-180")} />
+                  </button>
+
+                  {isOpen && (
+                    <div className="pb-3 space-y-0.5">
+                      {isCertifications ? (
+                        <>
+                          {certCategories.map((group) => (
+                            <div key={group.key} className="mb-1">
+                              <p className="text-[10px] font-semibold text-slate-400 px-3 pt-1 pb-0.5">{t(group.labelKey)}</p>
+                              {group.certs.map((cert) => (
+                                <Link
+                                  key={cert.id}
+                                  href={`/certifications/${cert.slug}`}
+                                  onClick={closeMenu}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-teal-100 transition-colors"
+                                >
+                                  <span className="text-sm font-semibold text-ink-900">{cert.title}</span>
+                                  {cert.status === "coming_soon" && (
+                                    <span className="flex-shrink-0 text-[8.5px] font-bold px-1.5 py-0.5 rounded-full bg-teal-500 text-white">
+                                      {t("comingSoon")}
+                                    </span>
+                                  )}
+                                </Link>
+                              ))}
+                            </div>
+                          ))}
+                          {item.children.length > 0 && (
+                            <>
+                              <p className="text-[10px] font-semibold text-slate-400 px-3 pt-2 pb-0.5">{t("certResources")}</p>
+                              {item.children.map((link) => (
+                                <Link key={link.id} href={link.href} target={link.open_new_tab ? "_blank" : undefined}
+                                  onClick={closeMenu}
+                                  className="block px-3 py-2 text-sm font-medium text-ink-900/80 hover:bg-teal-100 hover:text-ink-900 rounded-lg transition-colors">
+                                  {link.label}
+                                </Link>
+                              ))}
+                            </>
+                          )}
+                          <Link href={item.href} onClick={closeMenu} className="block px-3 py-2 text-sm font-bold text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
+                            {t("viewAll")} →
+                          </Link>
+                        </>
+                      ) : item.children.some((c) => c.group_label) ? (
+                        groupChildren(item.children).map((group) => (
+                          <div key={group.label || "_"} className="mb-1">
+                            {group.label && <p className="text-[10px] font-semibold text-slate-400 px-3 pt-1 pb-0.5">{group.label}</p>}
+                            {group.children.map((child) => (
+                              <Link key={child.id} href={child.href} target={child.open_new_tab ? "_blank" : undefined}
+                                onClick={closeMenu}
+                                className="block px-3 py-2 text-sm font-medium text-ink-900 hover:bg-teal-100 rounded-lg transition-colors">
+                                {child.label}
+                              </Link>
+                            ))}
+                          </div>
+                        ))
+                      ) : (
+                        item.children.map((child) => (
+                          <Link
+                            key={child.id}
+                            href={child.href}
+                            target={child.open_new_tab ? "_blank" : undefined}
+                            onClick={closeMenu}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-teal-100 transition-colors"
+                          >
+                            <div className="w-7 h-7 rounded-md bg-ink-900 text-white flex items-center justify-center text-[9px] font-black flex-shrink-0">
+                              {child.label.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="text-sm font-semibold text-ink-900">{child.label}</div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
               );
             })}
-            <div className="border-t border-sand-200 mt-2 pt-3">
-              <Link href="/certifications/caip"
+            <div className="pt-3 pb-2">
+              <Link href="/certifications/caip" onClick={() => { setMobileOpen(false); setMobileOpenId(null); }}
                 className="block text-center py-3 bg-ink-900 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors">
                 {t("getCertified")}
               </Link>

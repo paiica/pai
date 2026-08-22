@@ -16,6 +16,47 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
 }
 
+type CertDesignSettings = {
+  certificate_logo_url?: string;
+  certificate_seal_url?: string;
+  certificate_signatory_name?: string;
+  certificate_signatory_full_title?: string;
+  certificate_signatory_role?: string;
+  certificate_default_template_html?: string;
+};
+
+// Same token set/behavior as the accredited-certification certificate page's
+// renderTemplate() — programs have no acronym or exam score, so those tokens
+// just resolve empty rather than being unsupported.
+function ensureFontLinkCrossOrigin(html: string): string {
+  return html.replace(
+    /<link\s+([^>]*href="https:\/\/fonts\.googleapis\.com\/[^"]*"[^>]*)>/gi,
+    (match, attrs) => (attrs.includes("crossorigin") ? match : `<link ${attrs} crossorigin="anonymous">`),
+  );
+}
+
+function renderTemplate(html: string, cert: any, studentName: string, design: CertDesignSettings): string {
+  const verifyUrl = cert.verification_url || `https://paii.ca/verify?id=${cert.certificate_number}`;
+  const qrUrl     = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}`;
+
+  return ensureFontLinkCrossOrigin(html)
+    .replace(/\{\{\s*STUDENT_NAME\s*\}\}/gi,    studentName)
+    .replace(/\{\{\s*PROGRAM_TITLE\s*\}\}/gi,    cert.program?.title ?? "")
+    .replace(/\{\{\s*CERT_TITLE\s*\}\}/gi,       cert.program?.title ?? "")
+    .replace(/\{\{\s*CERT_ACRONYM\s*\}\}/gi,     "")
+    .replace(/\{\{\s*CERT_NUMBER\s*\}\}/gi,      cert.certificate_number ?? "")
+    .replace(/\{\{\s*ISSUE_DATE\s*\}\}/gi,       cert.issued_at ? formatDate(cert.issued_at) : "—")
+    .replace(/\{\{\s*EXPIRY_DATE\s*\}\}/gi,      cert.expires_at ? formatDate(cert.expires_at) : "—")
+    .replace(/\{\{\s*EXAM_SCORE\s*\}\}/gi,       "")
+    .replace(/\{\{\s*VERIFICATION_URL\s*\}\}/gi, verifyUrl)
+    .replace(/\{\{\s*QR_CODE_URL\s*\}\}/gi,      qrUrl)
+    .replace(/\{\{\s*SIGNATORY_NAME\s*\}\}/gi,       design.certificate_signatory_name ?? "")
+    .replace(/\{\{\s*SIGNATORY_FULL_TITLE\s*\}\}/gi, design.certificate_signatory_full_title ?? "")
+    .replace(/\{\{\s*SIGNATORY_ROLE\s*\}\}/gi,       design.certificate_signatory_role ?? "")
+    .replace(/\{\{\s*LOGO_URL\s*\}\}/gi,         design.certificate_logo_url || "/paii-icon.png")
+    .replace(/\{\{\s*SEAL_URL\s*\}\}/gi,         design.certificate_seal_url || "/paii-seal.png");
+}
+
 export default function ProgramCertificatePage() {
   const t = useTranslations("ProgramCertificate");
   const { id } = useParams<{ id: string }>();
@@ -26,6 +67,15 @@ export default function ProgramCertificatePage() {
     token && id ? [`/programs/${id}/certificate`, token] : null,
     ([url, t]) => fetcher(url, t),
   );
+
+  // Same centrally-configured design settings the accredited-certification
+  // and course-completion certificates use — Settings > Certificate Design.
+  const { data: designData } = useSWR(
+    "/site-settings/public",
+    (url) => api.get<any>(url),
+    { revalidateOnFocus: false },
+  );
+  const design: CertDesignSettings = designData?.data ?? designData ?? {};
 
   if (isLoading) {
     return (
@@ -47,16 +97,12 @@ export default function ProgramCertificatePage() {
   }
 
   const studentName = `${user?.profile?.first_name ?? ""} ${user?.profile?.last_name ?? ""}`.trim() || user?.email || t("studentFallback");
-  const templateHtml: string = cert.program?.marketing_meta?.certificate_template_html || "";
+  // Per-Program override, else the shared central default — same fallback
+  // rule as the accredited-certification page.
+  const templateHtml: string = cert.program?.marketing_meta?.certificate_template_html || design.certificate_default_template_html || "";
   const isRevoked = cert.status === "revoked";
 
-  const filledHtml = templateHtml
-    ? templateHtml
-        .replace(/\{\{STUDENT_NAME\}\}/g, studentName)
-        .replace(/\{\{PROGRAM_TITLE\}\}/g, cert.program?.title ?? "")
-        .replace(/\{\{CERT_NUMBER\}\}/g, cert.certificate_number)
-        .replace(/\{\{ISSUE_DATE\}\}/g, formatDate(cert.issued_at))
-    : "";
+  const filledHtml = templateHtml ? renderTemplate(templateHtml, cert, studentName, design) : "";
 
   return (
     <div className="min-h-screen bg-[#f7f8fa]">

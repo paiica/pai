@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, Users2, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
-  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet,
+  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet, Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -92,10 +92,11 @@ const PROGRAMS_NAV = [
 ];
 
 const DESIGN_NAV = [
-  { href: "/design/blocks",           label: "Page Blocks",     icon: LayoutTemplate },
-  { href: "/design/navigation",       label: "Navigation",      icon: Navigation     },
-  { href: "/design/footer",           label: "Footer",          icon: PanelBottom    },
-  { href: "/design/email-templates",  label: "Email Templates", icon: Mail           },
+  { href: "/design/blocks",              label: "Page Blocks",         icon: LayoutTemplate },
+  { href: "/design/navigation",          label: "Navigation",          icon: Navigation     },
+  { href: "/design/footer",              label: "Footer",              icon: PanelBottom    },
+  { href: "/design/email-templates",     label: "Email Templates",     icon: Mail           },
+  { href: "/design/certificate-template",label: "Certificate Template",icon: Palette        },
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────

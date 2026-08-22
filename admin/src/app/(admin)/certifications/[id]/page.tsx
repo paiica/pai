@@ -2063,7 +2063,7 @@ export default function CertEditorPage() {
           {certDesignMode === "html" && (<>
           <div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Paste the full HTML of the certificate design below. Use the variable placeholders shown below — they will be replaced with the student's actual data when the certificate is displayed. Size the sheet for A4 landscape (<code className="font-mono">297mm x 210mm</code>, matching <code className="font-mono">@page {"{"} size: A4 landscape; margin: 0; {"}"}</code>) so PNG/PDF exports come out as a single full page on every device. Reference the PAII logo/seal via <code className="font-mono">{"{{LOGO_URL}}"}</code>/<code className="font-mono">{"{{SEAL_URL}}"}</code> instead of an external image URL — external images without CORS headers silently vanish from PNG exports.
+              Optional — leave this blank and the certificate will use the shared default template configured in Design &rarr; <a href="/design/certificate-template" className="text-navy-600 hover:underline font-semibold">Certificate Template</a> (logo, seal, signature, and layout controlled centrally there). Only fill this in if this specific certification needs its own custom design. Paste the full HTML below and use the variable placeholders shown below — they will be replaced with the student's actual data when the certificate is displayed. Size the sheet for A4 landscape (<code className="font-mono">297mm x 210mm</code>, matching <code className="font-mono">@page {"{"} size: A4 landscape; margin: 0; {"}"}</code>) so PNG/PDF exports come out as a single full page on every device. Reference the logo/seal/signatory via <code className="font-mono">{"{{LOGO_URL}}"}</code>/<code className="font-mono">{"{{SEAL_URL}}"}</code>/<code className="font-mono">{"{{SIGNATORY_NAME}}"}</code> instead of hardcoding them, so they stay in sync with Certificate Design settings.
             </p>
           </div>
 
@@ -2081,8 +2081,11 @@ export default function CertEditorPage() {
                 ["{{VERIFICATION_URL}}","Public verification link"],
                 ["{{QR_CODE_URL}}",     "QR code image src (verification)"],
                 ["{{EXAM_SCORE}}",      "Exam score percentage"],
-                ["{{LOGO_URL}}",        "PAII wordmark logo image src (same-origin, CORS-safe)"],
-                ["{{SEAL_URL}}",        "PAII official seal image src (same-origin, CORS-safe)"],
+                ["{{LOGO_URL}}",        "Logo image src — from Certificate Design settings"],
+                ["{{SEAL_URL}}",        "Official seal image src — from Certificate Design settings"],
+                ["{{SIGNATORY_NAME}}",       "Signatory's cursive signature — from Certificate Design settings"],
+                ["{{SIGNATORY_FULL_TITLE}}", "Signatory's printed name — from Certificate Design settings"],
+                ["{{SIGNATORY_ROLE}}",       "Signatory's role — from Certificate Design settings"],
               ].map(([variable, desc]) => (
                 <button
                   key={variable}
@@ -2154,6 +2157,9 @@ export default function CertEditorPage() {
                     .replace(/\{\{QR_CODE_URL\}\}/g, "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://paii.ca/verify?id=PAII-SAMPLE")
                     .replace(/\{\{LOGO_URL\}\}/g, "/paii-icon.png")
                     .replace(/\{\{SEAL_URL\}\}/g, "/paii-seal.png")
+                    .replace(/\{\{SIGNATORY_NAME\}\}/g, "Zahid Hussain")
+                    .replace(/\{\{SIGNATORY_FULL_TITLE\}\}/g, "Dr. Zahid Hussain")
+                    .replace(/\{\{SIGNATORY_ROLE\}\}/g, "Managing Director")
                   }
                   className="w-full"
                   style={{ height: "600px", border: "none" }}

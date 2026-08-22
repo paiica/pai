@@ -20,9 +20,10 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
 }
 
-// Served from this app's own /public — not the R2 bucket, which has no CORS
-// headers and made html-to-image silently drop the logo from PNG exports
-// (it fetches images to inline as base64; a cross-origin fetch with no
+// Fallback if Settings > Certificate Design hasn't set a logo yet — served
+// from this app's own /public, not the R2 bucket, which has no CORS headers
+// and made html-to-image silently drop the logo from PNG exports (it fetches
+// images to inline as base64; a cross-origin fetch with no
 // Access-Control-Allow-Origin just fails and gets blanked out).
 const PAII_LOGO_URL = "/paii-icon.png";
 const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
@@ -38,6 +39,21 @@ export default function CourseCertificatePage() {
     token && courseId ? [`/prep-courses/my/course-grades/${courseId}/certificate`, token] : null,
     ([url, t]) => fetcher(url, t),
   );
+
+  // Same centrally-configured logo/signatory the other two certificate types
+  // use — Settings > Certificate Design — so changing the signatory once
+  // updates every certificate on the site instead of needing to be
+  // hand-edited in multiple hardcoded/stored places.
+  const { data: designData } = useSWR(
+    "/site-settings/public",
+    (url) => api.get<any>(url),
+    { revalidateOnFocus: false },
+  );
+  const design = designData?.data ?? designData ?? {};
+  const logoUrl = design.certificate_logo_url || PAII_LOGO_URL;
+  const signatoryName = design.certificate_signatory_name || "Zahid Hussain";
+  const signatoryFullTitle = design.certificate_signatory_full_title || "Dr. Zahid Hussain";
+  const signatoryRole = design.certificate_signatory_role || "Managing Director";
 
   if (isLoading) {
     return (
@@ -235,7 +251,7 @@ export default function CourseCertificatePage() {
             <div className="absolute inset-0 flex flex-col items-center text-center" style={{ padding: "0.5in 0.7in 0.4in", fontFamily: "'Archivo', sans-serif" }}>
               {/* Logo + wordmark */}
               <div className="flex items-center gap-3.5">
-                <img src={PAII_LOGO_URL} alt="PAII" crossOrigin="anonymous" style={{ height: 56, width: "auto", objectFit: "contain" }} />
+                <img src={logoUrl} alt="PAII" crossOrigin="anonymous" style={{ height: 56, width: "auto", objectFit: "contain" }} />
                 <div className="text-left leading-tight pl-3.5" style={{ borderLeft: "2px solid #d7e6e4" }}>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0d5f5a", letterSpacing: "0.01em" }}>Professional</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0d5f5a", letterSpacing: "0.01em" }}>AI Institute<span style={{ fontWeight: 500 }}>.</span></div>
@@ -268,11 +284,11 @@ export default function CourseCertificatePage() {
                   stretching to the very bottom edge. */}
               <div className="mt-auto w-full flex flex-col items-center" style={{ paddingTop: 24 }}>
                 <div style={{ fontFamily: "'Mr De Haviland', cursive", fontSize: 34, color: "#111111", lineHeight: 1, whiteSpace: "nowrap" }}>
-                  Zahid Hussain
+                  {signatoryName}
                 </div>
                 <div style={{ width: "100%", maxWidth: 220, height: 1, background: "#0d5f5a", marginTop: 6 }} />
                 <div className="mt-2" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", color: "#111111" }}>
-                  Dr. Zahid Hussain&nbsp;&nbsp;|&nbsp;&nbsp;<span style={{ fontWeight: 500, color: "#6b7180" }}>Founder &amp; Managing Director</span>
+                  {signatoryFullTitle}&nbsp;&nbsp;|&nbsp;&nbsp;<span style={{ fontWeight: 500, color: "#6b7180" }}>{signatoryRole}</span>
                 </div>
 
                 {/* footer strip */}
