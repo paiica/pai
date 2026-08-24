@@ -360,6 +360,22 @@ export class MailService {
     return this.send({ to: opts.to, subject: resolvedSubject, html });
   }
 
+  async sendRefundConfirmation(opts: {
+    to: string; firstName: string; itemName: string; amount: number; currency: string; accessRevoked: boolean;
+  }) {
+    const { subject, enabled, html: customHtml } = await this.tpl("refund");
+    if (!enabled) return { sent: false, reason: "This template is disabled" };
+    const resolvedSubject = (subject ?? "Your refund for {item} has been processed").replace("{item}", opts.itemName);
+    const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency.toUpperCase() }).format(opts.amount);
+    const html = customHtml
+      ? this.applyVars(customHtml, {
+          firstName: opts.firstName, itemName: opts.itemName, amount: formatted,
+          accessNote: opts.accessRevoked ? "Your access to this item has been removed." : "",
+        })
+      : await this.wrapper(this.refundBody(opts));
+    return this.send({ to: opts.to, subject: resolvedSubject, html });
+  }
+
   async sendCertificateRevoked(opts: {
     to: string; firstName: string; certTitle: string; certAcronym: string; certNumber: string;
   }) {
@@ -601,6 +617,8 @@ export class MailService {
         return this.sendExamFailed({ to, firstName: "John", certTitle: sampleCert.certTitle, score: 58, attemptsLeft: 1 });
       case "payment_failed":
         return this.sendPaymentFailed({ to, firstName: "John", itemName: sampleCert.certTitle });
+      case "refund":
+        return this.sendRefundConfirmation({ to, firstName: "John", itemName: sampleCert.certTitle, amount: 299, currency: "usd", accessRevoked: true });
       case "certificate_revoked":
         return this.sendCertificateRevoked({ to, firstName: "John", ...sampleCert });
       case "certificate_renewed":
@@ -696,6 +714,12 @@ export class MailService {
         defaultSubject: "Payment failed — {item}",
         variables: ["{{firstName}}", "{{itemName}}"],
         defaultBody: this.paymentFailedBody({ firstName: "John", itemName: sampleCert.certTitle }),
+      },
+      {
+        key: "refund", name: "Refund Processed",
+        defaultSubject: "Your refund for {item} has been processed",
+        variables: ["{{firstName}}", "{{itemName}}", "{{amount}}", "{{accessNote}}"],
+        defaultBody: this.refundBody({ firstName: "John", itemName: sampleCert.certTitle, amount: 299, currency: "usd", accessRevoked: true }),
       },
       {
         key: "certificate_revoked", name: "Certificate Revoked",
@@ -1049,6 +1073,25 @@ export class MailService {
         <a href="${this.frontendUrl}/cart" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px">Try Again →</a>
       </div>
       <p style="margin:0;font-size:13px;color:#94a3b8">If this issue persists, please contact your bank or reach out to us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>.</p>
+    `;
+  }
+
+  private refundBody(opts: { firstName: string; itemName: string; amount: number; currency: string; accessRevoked: boolean }): string {
+    const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency.toUpperCase() }).format(opts.amount);
+    const accessRow = opts.accessRevoked
+      ? `<tr><td style="font-size:13px;color:#64748b;padding:6px 0">Access</td><td style="font-size:13px;color:#dc2626;font-weight:700;text-align:right;padding:6px 0">Removed</td></tr>`
+      : "";
+    return `
+      <p style="margin:0 0 8px;font-size:24px;font-weight:900;color:#0f172a">Hi ${opts.firstName},</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6">Your refund has been processed. Depending on your bank, it may take 5–10 business days to appear on your statement.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:0 0 24px">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="font-size:13px;color:#64748b;padding:6px 0;border-bottom:1px solid #e2e8f0">Item</td><td style="font-size:13px;color:#0f172a;font-weight:600;text-align:right;padding:6px 0;border-bottom:1px solid #e2e8f0">${opts.itemName}</td></tr>
+          <tr><td style="font-size:13px;color:#64748b;padding:6px 0">Amount Refunded</td><td style="font-size:18px;color:#0f172a;font-weight:900;text-align:right;padding:6px 0">${formatted}</td></tr>
+          ${accessRow}
+        </table>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">Questions about this refund? Contact us at <a href="mailto:support@paii.ca" style="color:#3b82f6">support@paii.ca</a>.</p>
     `;
   }
 

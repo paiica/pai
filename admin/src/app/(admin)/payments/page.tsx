@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import toast from "react-hot-toast";
 import {
   ReceiptText, Search, ExternalLink, RefreshCw,
-  ChevronLeft, ChevronRight, Loader2, RotateCcw,
+  ChevronLeft, ChevronRight, Loader2, RotateCcw, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -197,9 +198,21 @@ export default function TransactionsPage() {
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{date}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {p.stripe_payment_intent_id && (
+                            <>
+                              <Link href={`/payments/${p.id}/invoice`}
+                                className="text-[11px] font-semibold text-slate-400 hover:text-navy-600 transition-colors" title="View invoice">
+                                Invoice
+                              </Link>
+                              <Link href={`/payments/${p.id}/receipt`}
+                                className="text-slate-400 hover:text-navy-600 transition-colors" title="View receipt">
+                                <FileText size={14} />
+                              </Link>
+                            </>
+                          )}
                           {p.stripe_receipt_url && (
                             <a href={p.stripe_receipt_url} target="_blank" rel="noopener noreferrer"
-                              className="text-slate-400 hover:text-navy-600 transition-colors" title="View receipt">
+                              className="text-slate-400 hover:text-navy-600 transition-colors" title="View original receipt on Stripe">
                               <ExternalLink size={14} />
                             </a>
                           )}

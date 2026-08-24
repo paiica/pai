@@ -1978,6 +1978,16 @@ model Payment {
   stripe_checkout_session_id String?
   stripe_charge_id           String?
   stripe_receipt_url         String?
+  card_brand                 String?
+  card_last4                 String?
+
+  // Lazily generated the first time a student opens the receipt/invoice page
+  // for this payment (see PaymentsService.getOrderDetail) rather than at
+  // webhook time, so historical payments get one too on first view.
+  invoice_number String? @unique
+  receipt_number String? @unique
+  tax_label      String?
+  tax_amount     Decimal? @db.Decimal(10, 2)
 
   description String?
   metadata    Json?

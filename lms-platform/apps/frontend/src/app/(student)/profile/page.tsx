@@ -519,6 +519,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
 // ── Education ─────────────────────────────────────────────────────────────────
 
 function EducationSubsection({ token, profile, mutate }: any) {
+  const t = useTranslations("Profile");
   const [entries, setEntries] = useState<EducationEntry[]>([]);
   const [saving,  setSaving]  = useState(false);
 
@@ -560,19 +561,19 @@ function EducationSubsection({ token, profile, mutate }: any) {
     try {
       await api.patch<any>("/users/me/profile", { education_entries: entries }, token);
       await mutate();
-      toast.success("Education saved");
+      toast.success(t("educationSaved"));
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(err.message ?? t("failedToSave"));
     } finally { setSaving(false); }
   }
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Education</SectionTitle>
+      <SectionTitle>{t("education")}</SectionTitle>
 
       {entries.length === 0 && (
         <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
-          No education entries yet. Add your degrees and qualifications.
+          {t("noEducationEntries")}
         </div>
       )}
 
@@ -591,7 +592,7 @@ function EducationSubsection({ token, profile, mutate }: any) {
         onClick={addEntry}
         className="flex items-center gap-2 text-sm font-semibold text-navy-700 hover:text-navy-900 border border-dashed border-navy-300 hover:border-navy-500 rounded-xl px-4 py-3 w-full justify-center transition-colors"
       >
-        <Plus size={15} /> Add Education Entry
+        <Plus size={15} /> {t("addEducationEntry")}
       </button>
 
       <SaveBar saving={saving} onSave={save} />
@@ -604,13 +605,14 @@ function EducationCard({ entry, onChange, onRemove }: {
   onChange: (f: keyof EducationEntry, v: any) => void;
   onRemove: () => void;
 }) {
+  const t = useTranslations("Profile");
   const [open, setOpen] = useState(true);
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer" onClick={() => setOpen(v => !v)}>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-navy-900 truncate">{entry.institution || "New Education Entry"}</p>
+          <p className="text-sm font-semibold text-navy-900 truncate">{entry.institution || t("newEducationEntry")}</p>
           {entry.degree && <p className="text-xs text-slate-500">{entry.degree}{entry.field_of_study ? ` · ${entry.field_of_study}` : ""}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -621,32 +623,32 @@ function EducationCard({ entry, onChange, onRemove }: {
 
       {open && (
         <div className="p-4 space-y-4">
-          <Field label="Institution / University" required>
-            <input className="input-base" placeholder="e.g. University of Toronto" value={entry.institution} onChange={(e) => onChange("institution", e.target.value)} />
+          <Field label={t("institutionUniversity")} required>
+            <input className="input-base" placeholder={t("institutionPlaceholder")} value={entry.institution} onChange={(e) => onChange("institution", e.target.value)} />
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Degree">
+            <Field label={t("degree")}>
               <select className="input-base" value={entry.degree} onChange={(e) => onChange("degree", e.target.value)}>
-                <option value="">Select…</option>
+                <option value="">{t("select")}</option>
                 {["High School Diploma","Associate's Degree","Bachelor's Degree","Master's Degree","MBA","Ph.D.","Professional Certificate","Other"].map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Field of Study">
-              <input className="input-base" placeholder="e.g. Computer Science" value={entry.field_of_study} onChange={(e) => onChange("field_of_study", e.target.value)} />
+            <Field label={t("fieldOfStudy")}>
+              <input className="input-base" placeholder={t("fieldOfStudyPlaceholder")} value={entry.field_of_study} onChange={(e) => onChange("field_of_study", e.target.value)} />
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-4 items-end">
-            <Field label="Start Year">
+            <Field label={t("startYear")}>
               <input className="input-base" type="number" min="1950" max="2030" placeholder="2018" value={entry.start_year} onChange={(e) => onChange("start_year", e.target.value)} />
             </Field>
-            <Field label="End Year">
+            <Field label={t("endYear")}>
               <input className="input-base" type="number" min="1950" max="2030" placeholder="2022" value={entry.end_year} disabled={entry.is_current} onChange={(e) => onChange("end_year", e.target.value)} />
             </Field>
             <label className="flex items-center gap-2 text-sm text-slate-600 pb-2 cursor-pointer">
               <input type="checkbox" checked={entry.is_current} onChange={(e) => { onChange("is_current", e.target.checked); if (e.target.checked) onChange("end_year", ""); }} className="rounded" />
-              Currently enrolled
+              {t("currentlyEnrolled")}
             </label>
           </div>
         </div>
@@ -660,13 +662,14 @@ function ExperienceCard({ entry, onChange, onRemove }: {
   onChange: (f: keyof ExperienceEntry, v: any) => void;
   onRemove: () => void;
 }) {
+  const t = useTranslations("Profile");
   const [open, setOpen] = useState(true);
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer" onClick={() => setOpen(v => !v)}>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-navy-900 truncate">{entry.title || "New Experience"}</p>
+          <p className="text-sm font-semibold text-navy-900 truncate">{entry.title || t("newExperience")}</p>
           {entry.company && <p className="text-xs text-slate-500">{entry.company}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -678,30 +681,30 @@ function ExperienceCard({ entry, onChange, onRemove }: {
       {open && (
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Job Title" required>
-              <input className="input-base" placeholder="e.g. Product Manager" value={entry.title} onChange={(e) => onChange("title", e.target.value)} />
+            <Field label={t("jobTitle")} required>
+              <input className="input-base" placeholder={t("jobTitlePlaceholder")} value={entry.title} onChange={(e) => onChange("title", e.target.value)} />
             </Field>
-            <Field label="Company" required>
-              <input className="input-base" placeholder="e.g. Accenture" value={entry.company} onChange={(e) => onChange("company", e.target.value)} />
+            <Field label={t("company")} required>
+              <input className="input-base" placeholder={t("companyPlaceholder")} value={entry.company} onChange={(e) => onChange("company", e.target.value)} />
             </Field>
           </div>
-          <Field label="Location">
-            <input className="input-base" placeholder="e.g. Toronto, ON" value={entry.location} onChange={(e) => onChange("location", e.target.value)} />
+          <Field label={t("location")}>
+            <input className="input-base" placeholder={t("locationPlaceholder")} value={entry.location} onChange={(e) => onChange("location", e.target.value)} />
           </Field>
           <div className="grid grid-cols-3 gap-4 items-end">
-            <Field label="Start Date">
+            <Field label={t("startDate")}>
               <input className="input-base" type="month" value={entry.start_date} onChange={(e) => onChange("start_date", e.target.value)} />
             </Field>
-            <Field label="End Date">
+            <Field label={t("endDate")}>
               <input className="input-base" type="month" value={entry.end_date} disabled={entry.is_current} onChange={(e) => onChange("end_date", e.target.value)} />
             </Field>
             <label className="flex items-center gap-2 text-sm text-slate-600 pb-2 cursor-pointer">
               <input type="checkbox" checked={entry.is_current} onChange={(e) => { onChange("is_current", e.target.checked); if (e.target.checked) onChange("end_date", ""); }} className="rounded" />
-              Current role
+              {t("currentRole")}
             </label>
           </div>
-          <Field label="Description">
-            <textarea className="input-base h-20 resize-none" placeholder="Describe your responsibilities and achievements…" value={entry.description} onChange={(e) => onChange("description", e.target.value)} />
+          <Field label={t("descriptionLabel")}>
+            <textarea className="input-base h-20 resize-none" placeholder={t("descriptionPlaceholder")} value={entry.description} onChange={(e) => onChange("description", e.target.value)} />
           </Field>
         </div>
       )}
@@ -712,6 +715,7 @@ function ExperienceCard({ entry, onChange, onRemove }: {
 // ── Security ──────────────────────────────────────────────────────────────────
 
 function SecuritySection({ token }: { token: string }) {
+  const t = useTranslations("Profile");
   const [currentPw, setCurrentPw] = useState("");
   const [newPw,     setNewPw]     = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -720,25 +724,25 @@ function SecuritySection({ token }: { token: string }) {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (newPw !== confirmPw) { toast.error("Passwords do not match"); return; }
-    if (newPw.length < 8)   { toast.error("Password must be at least 8 characters"); return; }
+    if (newPw !== confirmPw) { toast.error(t("passwordsDoNotMatch")); return; }
+    if (newPw.length < 8)   { toast.error(t("passwordTooShort")); return; }
     setSaving(true);
     try {
       await api.patch<any>("/users/me/password", { current_password: currentPw, new_password: newPw }, token);
-      toast.success("Password changed successfully");
+      toast.success(t("passwordChangedSuccessfully"));
       setCurrentPw(""); setNewPw(""); setConfirmPw("");
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to change password");
+      toast.error(err.message ?? t("failedToChangePassword"));
     } finally { setSaving(false); }
   }
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Login + Security</SectionTitle>
+      <SectionTitle>{t("loginSecurity")}</SectionTitle>
       <form onSubmit={changePassword} className="space-y-4">
         <div className="bg-slate-50 rounded-xl p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Lock size={14} /> Change Password</h3>
-          <Field label="Current Password">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Lock size={14} /> {t("changePassword")}</h3>
+          <Field label={t("currentPassword")}>
             <div className="relative">
               <input type={showPw ? "text" : "password"} value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} className="input-base pr-10" required autoComplete="current-password" />
               <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -746,18 +750,18 @@ function SecuritySection({ token }: { token: string }) {
               </button>
             </div>
           </Field>
-          <Field label="New Password" hint="Minimum 8 characters.">
+          <Field label={t("newPassword")} hint={t("newPasswordHint")}>
             <input type={showPw ? "text" : "password"} value={newPw} onChange={(e) => setNewPw(e.target.value)} className="input-base" required autoComplete="new-password" minLength={8} />
           </Field>
-          <Field label="Confirm New Password">
+          <Field label={t("confirmNewPassword")}>
             <input type={showPw ? "text" : "password"} value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className={`input-base ${confirmPw && newPw !== confirmPw ? "border-red-300 focus:ring-red-200" : ""}`} required autoComplete="new-password" />
-            {confirmPw && newPw !== confirmPw && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
+            {confirmPw && newPw !== confirmPw && <p className="text-xs text-red-500 mt-1">{t("passwordsDoNotMatch")}</p>}
           </Field>
         </div>
         <div className="flex justify-end">
           <button type="submit" disabled={saving || !currentPw || !newPw || newPw !== confirmPw} className="btn-primary !py-2 !px-5 !text-sm disabled:opacity-60">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-            Change Password
+            {t("changePassword")}
           </button>
         </div>
       </form>
@@ -785,6 +789,7 @@ const NOTIF_TYPE_LINK: Record<string, string> = {
 };
 
 function CommsSection({ token, profile, mutate }: any) {
+  const t = useTranslations("Profile");
   const router = useRouter();
   const [emailNotif,      setEmailNotif]      = useState(true);
   const [marketingEmails, setMarketingEmails] = useState(false);
@@ -806,9 +811,9 @@ function CommsSection({ token, profile, mutate }: any) {
     try {
       await api.patch<any>("/users/me/profile", { email_notifications: emailNotif, marketing_emails: marketingEmails }, token);
       await mutate();
-      toast.success("Preferences saved");
+      toast.success(t("preferencesSaved"));
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(err.message ?? t("failedToSave"));
     } finally { setSaving(false); }
   }
 
@@ -837,7 +842,7 @@ function CommsSection({ token, profile, mutate }: any) {
   }
 
   async function clearAll() {
-    if (!confirm("Clear all notifications? This can't be undone.")) return;
+    if (!confirm(t("clearAllConfirm"))) return;
     try {
       await api.delete("/notifications", token);
       mutateNotifs();
@@ -851,11 +856,11 @@ function CommsSection({ token, profile, mutate }: any) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Communication Preferences</SectionTitle>
+      <SectionTitle>{t("communicationPreferences")}</SectionTitle>
       <div className="space-y-3">
         {[
-          { label: "Account Notifications", desc: "Application updates, enrollment confirmations, exam results", value: emailNotif, set: setEmailNotif },
-          { label: "Marketing Emails",       desc: "New certifications, promotions, and PAII news",              value: marketingEmails, set: setMarketingEmails },
+          { label: t("accountNotifications"), desc: t("accountNotificationsDesc"), value: emailNotif, set: setEmailNotif },
+          { label: t("marketingEmails"),       desc: t("marketingEmailsDesc"),              value: marketingEmails, set: setMarketingEmails },
         ].map(({ label, desc, value, set }) => (
           <div key={label} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
             <div>
@@ -872,16 +877,16 @@ function CommsSection({ token, profile, mutate }: any) {
 
       <div className="pt-2">
         <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-          <h2 className="text-base font-display font-bold text-navy-900">Recent Notifications</h2>
+          <h2 className="text-base font-display font-bold text-navy-900">{t("recentNotifications")}</h2>
           <div className="flex items-center gap-4">
             {hasUnread && (
               <button onClick={markAllRead} className="text-xs font-semibold text-navy-600 hover:underline">
-                Mark all read
+                {t("markAllRead")}
               </button>
             )}
             {notifList.length > 0 && (
               <button onClick={clearAll} className="text-xs font-semibold text-slate-400 hover:text-red-600 hover:underline">
-                Clear all
+                {t("clearAll")}
               </button>
             )}
           </div>
@@ -894,7 +899,7 @@ function CommsSection({ token, profile, mutate }: any) {
         ) : notifList.length === 0 ? (
           <div className="p-6 text-center border border-slate-200 rounded-xl">
             <Bell size={24} className="mx-auto mb-2 text-slate-300" />
-            <p className="text-sm text-slate-400">No notifications yet</p>
+            <p className="text-sm text-slate-400">{t("noNotificationsYet")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -920,7 +925,7 @@ function CommsSection({ token, profile, mutate }: any) {
             })}
             {notifList.length > 10 && (
               <Link href="/notifications" className="block text-center text-xs font-semibold text-navy-600 hover:underline pt-2">
-                View all {notifList.length} notifications
+                {t("viewAllNotifications", { count: notifList.length })}
               </Link>
             )}
           </div>
@@ -933,6 +938,7 @@ function CommsSection({ token, profile, mutate }: any) {
 // ── Payment ───────────────────────────────────────────────────────────────────
 
 function PaymentSection() {
+  const t = useTranslations("Profile");
   const token = useAuthStore((s) => s.accessToken) ?? "";
   const [loading, setLoading] = useState(false);
 
@@ -945,7 +951,7 @@ function PaymentSection() {
         window.location.href = data.portal_url;
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to open billing portal");
+      toast.error(err.message ?? t("failedToOpenBillingPortal"));
     } finally {
       setLoading(false);
     }
@@ -953,16 +959,16 @@ function PaymentSection() {
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Payment Methods</SectionTitle>
+      <SectionTitle>{t("paymentMethods")}</SectionTitle>
       <div className="bg-white border border-slate-200 rounded-2xl p-6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
             <CreditCard size={22} className="text-indigo-600" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Manage Payment Methods</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-1">{t("managePaymentMethods")}</h3>
             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-              Add or update your credit/debit cards securely through Stripe. Your card information is encrypted and never stored on our servers.
+              {t("managePaymentMethodsDesc")}
             </p>
             <button
               onClick={openBillingPortal}
@@ -970,13 +976,13 @@ function PaymentSection() {
               className="btn-primary !text-sm !py-2.5 disabled:opacity-60"
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
-              Manage Cards via Stripe
+              {t("manageCardsViaStripe")}
             </button>
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400">
           <Lock size={11} className="text-emerald-500" />
-          Secured by Stripe — PCI DSS compliant
+          {t("securedByStripe")}
         </div>
       </div>
     </div>
@@ -986,10 +992,11 @@ function PaymentSection() {
 // ── Orders ────────────────────────────────────────────────────────────────────
 
 function OrdersSection() {
+  const t = useTranslations("Profile");
   const token = useAuthStore((s) => s.accessToken) ?? "";
   const { data, isLoading } = useSWR(
     token ? ["/payments/my-orders", token] : null,
-    ([url, t]) => api.get<any>(url, t),
+    ([url, tok]) => api.get<any>(url, tok),
     { revalidateOnFocus: false },
   );
   const orders: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
@@ -1002,16 +1009,16 @@ function OrdersSection() {
     partially_refunded: "bg-orange-100 text-orange-700",
   };
   const statusLabel: Record<string, string> = {
-    succeeded:          "Paid",
-    pending:            "Pending",
-    failed:             "Failed",
-    refunded:           "Refunded",
-    partially_refunded: "Partial Refund",
+    succeeded:          t("statusPaid"),
+    pending:            t("statusPending"),
+    failed:             t("statusFailed"),
+    refunded:           t("statusRefunded"),
+    partially_refunded: t("statusPartialRefund"),
   };
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Order History</SectionTitle>
+      <SectionTitle>{t("orderHistory")}</SectionTitle>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -1020,8 +1027,8 @@ function OrdersSection() {
       ) : orders.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <FileText size={36} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">No orders yet</p>
-          <p className="text-xs mt-1 text-slate-300">Your order history will appear here after your first enrollment.</p>
+          <p className="text-sm font-medium">{t("noOrdersYet")}</p>
+          <p className="text-xs mt-1 text-slate-300">{t("orderHistoryEmptyHint")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1036,14 +1043,14 @@ function OrdersSection() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{o.description || "Enrollment"}</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{o.description || t("enrollment")}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <p className="text-xs text-slate-400 flex items-center gap-1">
                     <Calendar size={10} />
                     {new Date(o.date).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}
                   </p>
                   <span className="text-xs font-bold text-slate-700">
-                    {o.amount === 0 ? "Free" : `$${Number(o.amount).toFixed(2)} ${o.currency?.toUpperCase()}`}
+                    {o.amount === 0 ? t("free") : `$${Number(o.amount).toFixed(2)} ${o.currency?.toUpperCase()}`}
                   </span>
                 </div>
               </div>
@@ -1051,21 +1058,38 @@ function OrdersSection() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 {o.amount === 0 ? (
                   <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                    Enrolled
+                    {t("enrolled")}
                   </span>
                 ) : (
                   <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusColor[o.status] ?? "bg-slate-100 text-slate-600"}`}>
                     {statusLabel[o.status] ?? o.status}
                   </span>
                 )}
+                {o.source === "payment" && (
+                  <>
+                    <Link
+                      href={`/orders/${o.id}/invoice`}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      {t("invoice")}
+                    </Link>
+                    <Link
+                      href={`/orders/${o.id}/receipt`}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-300 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <FileText size={11} /> {t("receipt")}
+                    </Link>
+                  </>
+                )}
                 {o.stripe_receipt_url && (
                   <a
                     href={o.stripe_receipt_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-300 px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-600 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                    title="View original receipt on Stripe"
                   >
-                    <ExternalLink size={11} /> Receipt
+                    <ExternalLink size={11} /> Stripe
                   </a>
                 )}
               </div>

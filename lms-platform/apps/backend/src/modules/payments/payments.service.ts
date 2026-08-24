@@ -1,7 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createHash } from "crypto";
 import Stripe from "stripe";
-import { PaymentType, PaymentStatus } from "@prisma/client";
+import { PaymentType, PaymentStatus, Payment } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { MailService } from "../mail/mail.service";
@@ -873,7 +874,19 @@ export class PaymentsService {
       }
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
-        this.logger.log(`Charge refunded: ${charge.id}`);
+        await this.handleChargeRefunded(charge);
+        break;
+      }
+      case "refund.updated": {
+        // Fires when a refund's status changes after creation — most
+        // importantly when a pending refund (e.g. a bank-debit refund that
+        // takes days to settle) is canceled or fails, which silently leaves
+        // our DB saying "refunded" when the customer was never actually
+        // paid back and still holds the charge.
+        const refund = event.data.object as Stripe.Refund;
+        if (refund.status === "canceled" || refund.status === "failed") {
+          await this.handleRefundReversed(refund);
+        }
         break;
       }
       case "checkout.session.expired":
@@ -1475,6 +1488,8 @@ export class PaymentsService {
         status: p.status,
         date: p.succeeded_at ?? p.created_at,
         stripe_receipt_url: p.stripe_receipt_url,
+        invoice_number: p.invoice_number,
+        receipt_number: p.receipt_number,
         source: "payment",
       })),
       ...freeCourses.map((e: any) => ({
@@ -1500,6 +1515,102 @@ export class PaymentsService {
     ];
 
     return orders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  // Deterministic so the same payment always gets the same document numbers
+  // even though they're generated lazily on first view rather than at
+  // webhook time (needed to backfill historical payments that predate this
+  // feature, without a sequential-counter table).
+  private deriveDocumentNumbers(paymentId: string, createdAt: Date) {
+    const hash = createHash("sha256").update(paymentId).digest("hex");
+    let digits = "";
+    for (const c of hash) {
+      if (digits.length >= 12) break;
+      if (c >= "0" && c <= "9") digits += c;
+    }
+    while (digits.length < 12) digits += "0";
+    const receipt_number = `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
+    const ymd = createdAt.toISOString().slice(0, 10).replace(/-/g, "");
+    const invoice_number = `PAII-${ymd}-${hash.slice(0, 6).toUpperCase()}`;
+    return { invoice_number, receipt_number };
+  }
+
+  async getOrderDetail(userId: string, paymentId: string) {
+    const payment = await this.prisma.payment.findFirst({ where: { id: paymentId, user_id: userId } });
+    if (!payment) throw new NotFoundException("Order not found");
+    return this.buildOrderDocument(payment);
+  }
+
+  // Admin counterpart — same document, but any payment regardless of who
+  // it belongs to (used by the admin Payments table's Invoice/Receipt links).
+  async adminGetOrderDetail(paymentId: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException("Payment not found");
+    return this.buildOrderDocument(payment);
+  }
+
+  private async buildOrderDocument(payment: Payment) {
+    let { invoice_number, receipt_number } = payment;
+    if (!invoice_number || !receipt_number) {
+      const derived = this.deriveDocumentNumbers(payment.id, payment.created_at);
+      invoice_number = invoice_number ?? derived.invoice_number;
+      receipt_number = receipt_number ?? derived.receipt_number;
+      await this.prisma.payment.update({ where: { id: payment.id }, data: { invoice_number, receipt_number } });
+    }
+
+    const [user, billing] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: payment.user_id }, include: { profile: true } }),
+      this.settings.getAll(),
+    ]);
+
+    const addresses = Array.isArray(user?.profile?.addresses) ? (user!.profile!.addresses as any[]) : [];
+    const primaryAddress = addresses[0] ?? null;
+
+    const amount = Number(payment.amount);
+    const taxAmount = payment.tax_amount != null ? Number(payment.tax_amount) : 0;
+    const subtotal = amount - taxAmount;
+
+    return {
+      id: payment.id,
+      invoice_number,
+      receipt_number,
+      description: payment.description ?? "Payment",
+      currency: payment.currency,
+      status: payment.status,
+      date: payment.succeeded_at ?? payment.created_at,
+      subtotal,
+      tax_label: payment.tax_label,
+      tax_amount: taxAmount,
+      amount,
+      card_brand: payment.card_brand,
+      card_last4: payment.card_last4,
+      stripe_receipt_url: payment.stripe_receipt_url,
+      bill_to: {
+        name: user?.profile ? `${user.profile.first_name} ${user.profile.last_name}`.trim() : (user?.email ?? ""),
+        email: user?.email ?? "",
+        address: primaryAddress
+          ? {
+              line1: primaryAddress.line1 ?? "",
+              line2: primaryAddress.line2 ?? "",
+              city: primaryAddress.city ?? "",
+              state: primaryAddress.state ?? "",
+              zip: primaryAddress.zip ?? "",
+              country: primaryAddress.country ?? "",
+            }
+          : null,
+      },
+      company: {
+        name: billing.billing_company_name || "Professional Artificial Intelligence Institute (PAII)",
+        support_email: billing.billing_support_email || "info@paii.ca",
+        address: billing.billing_company_address || "",
+        tax_id: billing.billing_tax_id || "",
+        // The actual uploaded logo (Settings → General) takes priority — it's
+        // what the student sees everywhere else in the product. The
+        // certificate-specific override only wins if no general logo was
+        // ever uploaded.
+        logo_url: billing.site_logo_url || billing.certificate_logo_url || "",
+      },
+    };
   }
 
   async createBillingPortalSession(userId: string) {
@@ -1617,12 +1728,30 @@ export class PaymentsService {
       reason: (reason as any) ?? "requested_by_customer",
     });
 
+    return this.processRefund(payment, {
+      refundId: refund.id,
+      refundedAmount: Number(payment.amount),
+      fullyRefunded: true,
+      reason,
+    });
+  }
+
+  // A refund can reach us two ways: an admin clicking "Issue Refund" here
+  // (which calls Stripe itself, above), or someone refunding directly from
+  // the Stripe dashboard — which never touches our API at all and only
+  // shows up as a `charge.refunded` webhook event (see handleChargeRefunded
+  // below). Both paths converge here so the DB update, commission void,
+  // access revocation, and student email happen exactly once either way.
+  private async processRefund(
+    payment: Payment,
+    opts: { refundId: string; refundedAmount: number; fullyRefunded: boolean; reason?: string },
+  ) {
     const updated = await this.prisma.payment.update({
-      where: { id: paymentId },
+      where: { id: payment.id },
       data: {
-        status: PaymentStatus.refunded,
-        stripe_refund_id: refund.id,
-        refund_amount: payment.amount,
+        status: opts.fullyRefunded ? PaymentStatus.refunded : PaymentStatus.partially_refunded,
+        stripe_refund_id: opts.refundId,
+        refund_amount: opts.refundedAmount,
         refunded_at: new Date(),
       },
     });
@@ -1630,7 +1759,7 @@ export class PaymentsService {
     // Void any commission this payment generated — a refunded sale
     // shouldn't leave the referring rep with a payable/paid commission.
     const commission = await this.prisma.affiliateCommission.findUnique({
-      where: { stripe_payment_intent_id: payment.stripe_payment_intent_id },
+      where: { stripe_payment_intent_id: payment.stripe_payment_intent_id! },
     });
     if (commission && commission.status !== "voided") {
       await this.prisma.affiliateCommission.update({
@@ -1638,12 +1767,244 @@ export class PaymentsService {
         data: {
           status: "voided",
           voided_at: new Date(),
-          void_reason: reason ? `Payment refunded: ${reason}` : "Payment refunded",
+          void_reason: opts.reason ? `Payment refunded: ${opts.reason}` : "Payment refunded",
         },
       });
-      this.logger.log(`Voided commission ${commission.id} — underlying payment ${paymentId} was refunded`);
+      this.logger.log(`Voided commission ${commission.id} — underlying payment ${payment.id} was refunded`);
+    }
+
+    // Revoke whatever access this payment granted, then let the student know.
+    // Best-effort: a failure here must not undo the Stripe refund that
+    // already happened, so errors are logged rather than thrown. Only a
+    // *full* refund revokes access — a partial refund (e.g. a goodwill
+    // partial credit) shouldn't silently take away something the student
+    // still partly paid for.
+    let itemName = payment.description ?? "your purchase";
+    let accessRevoked = false;
+    if (opts.fullyRefunded) {
+      try {
+        const result = await this.revokeAccessForRefund(payment);
+        itemName = result.itemName;
+        accessRevoked = result.accessRevoked;
+      } catch (e: any) {
+        this.logger.error(`Refund ${payment.id}: failed to revoke access — ${e.message}`);
+      }
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: payment.user_id }, include: { profile: true } });
+    if (user) {
+      this.mail.sendRefundConfirmation({
+        to: user.email,
+        firstName: user.profile?.first_name ?? "there",
+        itemName,
+        amount: opts.refundedAmount,
+        currency: payment.currency,
+        accessRevoked,
+      }).catch(() => {});
     }
 
     return updated;
+  }
+
+  // Handles a refund issued directly from the Stripe dashboard (or any
+  // non-admin-panel source) — the charge is already refunded on Stripe's
+  // side by the time this fires, so unlike adminRefund this never calls
+  // stripe.refunds.create(), only mirrors the result into our DB.
+  private async handleChargeRefunded(charge: Stripe.Charge) {
+    const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+    if (!paymentIntentId) {
+      this.logger.warn(`charge.refunded ${charge.id} has no payment_intent, nothing to reconcile`);
+      return;
+    }
+
+    const payment = await this.prisma.payment.findUnique({ where: { stripe_payment_intent_id: paymentIntentId } });
+    if (!payment) {
+      this.logger.warn(`charge.refunded ${charge.id}: no Payment row for payment_intent ${paymentIntentId}`);
+      return;
+    }
+
+    const latestRefund = charge.refunds?.data?.[0];
+    const refundId = latestRefund?.id ?? charge.id;
+
+    // Idempotency — Stripe can redeliver the same webhook event.
+    if (payment.stripe_refund_id === refundId || payment.status === PaymentStatus.refunded) {
+      this.logger.log(`charge.refunded ${charge.id}: payment ${payment.id} already reconciled, skipping`);
+      return;
+    }
+
+    const refundedAmount = charge.amount_refunded / 100;
+    const fullyRefunded = charge.refunded === true;
+    this.logger.log(`Charge refunded outside the admin panel: ${charge.id} → payment ${payment.id}, ${fullyRefunded ? "full" : "partial"} refund of ${refundedAmount} ${payment.currency}`);
+
+    await this.processRefund(payment, {
+      refundId,
+      refundedAmount,
+      fullyRefunded,
+      reason: latestRefund?.reason ?? undefined,
+    });
+  }
+
+  // The inverse of handleChargeRefunded — a refund that already succeeded
+  // (and was synced into our DB) later gets canceled or fails on Stripe's
+  // side, e.g. a bank-debit refund pending for days that the merchant
+  // cancels before it settles. Reverts the Payment row and, where it's
+  // safely reversible, restores what was revoked.
+  private async handleRefundReversed(refund: Stripe.Refund) {
+    const payment = await this.prisma.payment.findFirst({ where: { stripe_refund_id: refund.id } });
+    if (!payment) {
+      this.logger.warn(`refund.updated (${refund.status}) ${refund.id}: no Payment row references this refund, nothing to reconcile`);
+      return;
+    }
+    if (payment.status === PaymentStatus.succeeded) {
+      this.logger.log(`refund.updated (${refund.status}) ${refund.id}: payment ${payment.id} already back to succeeded, skipping`);
+      return;
+    }
+
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PaymentStatus.succeeded, refund_amount: null, refunded_at: null, stripe_refund_id: null },
+    });
+    this.logger.log(`Refund ${refund.status} on Stripe: payment ${payment.id} reverted to succeeded`);
+
+    try {
+      await this.restoreAccessAfterReversedRefund(payment);
+    } catch (e: any) {
+      this.logger.error(`Refund ${refund.status} ${refund.id}: failed to restore access for payment ${payment.id} — ${e.message}`);
+    }
+  }
+
+  // Best-effort inverse of revokeAccessForRefund. Un-suspends enrollments
+  // and un-revokes certificates that this exact payment's refund had
+  // touched — matched by the "Payment refunded" revocation_reason so a
+  // certificate revoked for an unrelated reason (e.g. academic integrity)
+  // is never accidentally reactivated. A deleted CourseEnrollment cannot be
+  // restored (its lesson progress is gone), so that case only logs.
+  private async restoreAccessAfterReversedRefund(payment: Payment) {
+    const pi = payment.stripe_payment_intent_id;
+    if (!pi) return;
+
+    const application = await this.prisma.application.findFirst({ where: { stripe_payment_intent_id: pi } });
+    if (application) {
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { application_id: application.id },
+        include: { certificate: true },
+      });
+      if (enrollment) {
+        if (enrollment.status === "suspended") {
+          await this.prisma.enrollment.update({ where: { id: enrollment.id }, data: { status: "active" } });
+        }
+        if (enrollment.certificate?.status === "revoked" && enrollment.certificate.revocation_reason === "Payment refunded") {
+          await this.prisma.certificate.update({
+            where: { id: enrollment.certificate.id },
+            data: { status: "active", revoked_at: null, revocation_reason: null },
+          });
+        }
+        this.logger.log(`Restored access for payment ${payment.id}: enrollment ${enrollment.id}`);
+        return;
+      }
+      if (application.status === "rejected") {
+        await this.prisma.application.update({ where: { id: application.id }, data: { status: "pending_review" } });
+        this.logger.log(`Restored access for payment ${payment.id}: application ${application.id} back to pending_review`);
+      }
+      return;
+    }
+
+    const courseEnrollment = await this.prisma.courseEnrollment.findFirst({ where: { stripe_payment_intent_id: pi } });
+    if (!courseEnrollment) {
+      this.logger.warn(`Payment ${payment.id}: its course enrollment was already removed by the earlier refund and cannot be restored automatically (lesson progress is gone) — re-enroll the student manually if needed`);
+    }
+    // If it's still there, nothing was ever revoked for a course purchase
+    // (course access has no status field to suspend), so there's nothing to restore.
+
+    const programEnrollment = await this.prisma.programEnrollment.findFirst({ where: { stripe_payment_intent_id: pi } });
+    if (programEnrollment?.status === "suspended") {
+      await this.prisma.programEnrollment.update({ where: { id: programEnrollment.id }, data: { status: "active" } });
+      this.logger.log(`Restored access for payment ${payment.id}: program enrollment ${programEnrollment.id}`);
+    }
+  }
+
+  // Looks up whatever the payment granted (by stripe_payment_intent_id,
+  // the only reliable join key stored across these entities — see
+  // handleCheckoutCompleted) and revokes it. Returns a human-readable item
+  // name for the refund email even when nothing could be auto-revoked.
+  private async revokeAccessForRefund(payment: Payment): Promise<{ itemName: string; accessRevoked: boolean }> {
+    const pi = payment.stripe_payment_intent_id!;
+
+    // Certification purchase — Application → Enrollment → Certificate
+    const application = await this.prisma.application.findFirst({ where: { stripe_payment_intent_id: pi } });
+    if (application) {
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { application_id: application.id },
+        include: { certification: true, certificate: true },
+      });
+      if (enrollment) {
+        if (enrollment.status !== "suspended") {
+          await this.prisma.enrollment.update({ where: { id: enrollment.id }, data: { status: "suspended" } });
+        }
+        if (enrollment.certificate && enrollment.certificate.status === "active") {
+          await this.prisma.certificate.update({
+            where: { id: enrollment.certificate.id },
+            data: { status: "revoked", revoked_at: new Date(), revocation_reason: "Payment refunded" },
+          });
+        }
+        this.logger.log(`Refund ${payment.id}: suspended enrollment ${enrollment.id}${enrollment.certificate ? " and revoked its certificate" : ""}`);
+        return { itemName: `${enrollment.certification.acronym} — ${enrollment.certification.title}`, accessRevoked: true };
+      }
+      // No enrollment yet (application never got past review) — just close out the application.
+      if (!["rejected", "withdrawn"].includes(application.status)) {
+        await this.prisma.application.update({ where: { id: application.id }, data: { status: "rejected" } });
+      }
+      const cert = await this.prisma.certification.findUnique({ where: { id: application.certification_id } });
+      this.logger.log(`Refund ${payment.id}: rejected application ${application.id} (no enrollment existed yet)`);
+      return { itemName: cert ? `${cert.acronym} — ${cert.title}` : "your certification application", accessRevoked: true };
+    }
+
+    // Course purchase — CourseEnrollment (no status field on this model, so
+    // "revoked" means removing the row; cascades to its lesson_progress and
+    // assignment_submissions, mirroring the existing academic-integrity
+    // reset flow in CertificatesService.resetToStep).
+    const courseEnrollment = await this.prisma.courseEnrollment.findFirst({
+      where: { stripe_payment_intent_id: pi },
+      include: { course: true },
+    });
+    if (courseEnrollment) {
+      const title = courseEnrollment.course.title;
+      await this.prisma.courseEnrollment.delete({ where: { id: courseEnrollment.id } });
+      this.logger.log(`Refund ${payment.id}: removed course enrollment ${courseEnrollment.id} (${title})`);
+      return { itemName: title, accessRevoked: true };
+    }
+
+    // Program purchase — ProgramEnrollment
+    const programEnrollment = await this.prisma.programEnrollment.findFirst({
+      where: { stripe_payment_intent_id: pi },
+      include: { program: true },
+    });
+    if (programEnrollment) {
+      if (programEnrollment.status !== "suspended") {
+        await this.prisma.programEnrollment.update({ where: { id: programEnrollment.id }, data: { status: "suspended" } });
+      }
+      this.logger.log(`Refund ${payment.id}: suspended program enrollment ${programEnrollment.id}`);
+      return { itemName: `Program: ${programEnrollment.program.title}`, accessRevoked: true };
+    }
+
+    // Certificate renewal — no automatic reversal (rolling back the expiry
+    // date correctly needs to know what it was before renewal, which isn't
+    // stored); flag for manual review instead of guessing.
+    const renewedCert = await this.prisma.certificate.findFirst({ where: { renewal_stripe_payment_intent_id: pi } });
+    if (renewedCert) {
+      this.logger.warn(`Refund ${payment.id}: certificate ${renewedCert.id} was renewed by this payment — renewal was NOT auto-reverted, review its expiry date manually`);
+      return { itemName: `${renewedCert.certification_acronym} certificate renewal`, accessRevoked: false };
+    }
+
+    // Retake fee — Enrollment.paid_retakes was incremented directly with no
+    // stripe_payment_intent_id stored back on the row, so there's no
+    // reliable join key back to which enrollment gained the retake.
+    if (payment.type === PaymentType.retake_fee) {
+      this.logger.warn(`Refund ${payment.id}: retake fee — no reliable link back to the enrollment, paid_retakes was NOT auto-decremented, review manually`);
+      return { itemName: payment.description ?? "exam retake", accessRevoked: false };
+    }
+
+    this.logger.warn(`Refund ${payment.id}: could not find any enrollment/application/course/program row to revoke — nothing auto-revoked`);
+    return { itemName: payment.description ?? "your purchase", accessRevoked: false };
   }
 }

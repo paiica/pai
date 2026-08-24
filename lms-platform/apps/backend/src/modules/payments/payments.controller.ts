@@ -115,6 +115,14 @@ export class PaymentsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get("orders/:id")
+  @ApiOperation({ summary: "Get full billing detail for one order (for receipt/invoice PDFs)" })
+  getOrderDetail(@CurrentUser("id") userId: string, @Param("id") id: string) {
+    return this.paymentsService.getOrderDetail(userId, id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post("billing-portal")
   @ApiOperation({ summary: "Create Stripe billing portal session for card management" })
   billingPortal(@CurrentUser("id") userId: string) {
@@ -146,6 +154,15 @@ export class PaymentsController {
   @ApiOperation({ summary: "Payment revenue stats (admin)" })
   adminStats() {
     return this.paymentsService.adminStats();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.admin, Role.super_admin)
+  @Get("admin/:id/order-detail")
+  @ApiOperation({ summary: "Get full billing detail for any payment (admin) — for the Invoice/Receipt links on the Transactions table" })
+  adminGetOrderDetail(@Param("id") id: string) {
+    return this.paymentsService.adminGetOrderDetail(id);
   }
 
   @ApiBearerAuth()

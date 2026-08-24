@@ -11,6 +11,10 @@ const PUBLIC_KEYS = [
   "certificate_logo_url", "certificate_seal_url",
   "certificate_signatory_name", "certificate_signatory_full_title", "certificate_signatory_role",
   "certificate_default_template_html",
+  // Billing identity shown on student-facing receipt/invoice PDFs (see
+  // PaymentsService.getOrderDetail). Address/tax ID are deliberately left
+  // blank until an admin sets real registered values — never fabricated.
+  "billing_company_name", "billing_support_email", "billing_company_address", "billing_tax_id",
 ];
 // Text-facing site_settings keys with per-locale sibling keys — `${key}_${locale}`
 // (not a schema change, SiteSetting is a plain key-value table) — that overlay

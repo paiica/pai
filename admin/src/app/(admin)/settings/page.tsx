@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import toast from "react-hot-toast";
-import { Save, Loader2, Settings, Globe, ImageIcon, Upload, Magnet, Languages as LanguagesIcon, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, Loader2, Settings, Globe, ImageIcon, Upload, Magnet, Languages as LanguagesIcon, Plus, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api, ApiError } from "@/lib/api";
 
@@ -261,6 +261,11 @@ export default function SiteSettingsPage() {
   const [leadPopupPages, setLeadPopupPages] = useState<string[]>([]);
   const [saving,     setSaving]     = useState(false);
 
+  const [billingName,    setBillingName]    = useState("");
+  const [billingEmail,   setBillingEmail]   = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [billingTaxId,   setBillingTaxId]   = useState("");
+
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingLogo,    setUploadingLogo]    = useState(false);
   const faviconFileRef = useRef<HTMLInputElement>(null);
@@ -307,6 +312,10 @@ export default function SiteSettingsPage() {
       setLogoHeight(data.logo_height     ?? "48");
       try { setLeadPopupPages(data.lead_popup_pages ? JSON.parse(data.lead_popup_pages) : []); }
       catch { setLeadPopupPages([]); }
+      setBillingName(data.billing_company_name       ?? "");
+      setBillingEmail(data.billing_support_email      ?? "");
+      setBillingAddress(data.billing_company_address  ?? "");
+      setBillingTaxId(data.billing_tax_id             ?? "");
     }
   }, [data]);
 
@@ -320,6 +329,10 @@ export default function SiteSettingsPage() {
       site_logo_url:    logoUrl,
       logo_height:      String(parseInt(logoHeight, 10) || 48),
       lead_popup_pages: JSON.stringify(leadPopupPages),
+      billing_company_name:    billingName,
+      billing_support_email:   billingEmail,
+      billing_company_address: billingAddress,
+      billing_tax_id:          billingTaxId,
     };
     try {
       let token = accessToken!;
@@ -446,6 +459,41 @@ export default function SiteSettingsPage() {
                 <textarea value={siteDesc} onChange={(e) => setSiteDesc(e.target.value)}
                   placeholder="The leading AI certification body..." className="input-base h-24 resize-none" />
                 <p className="text-xs text-slate-400 mt-1.5">Meta description shown in search results (160 chars recommended).</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Billing & Invoice Info */}
+          <div className="card p-6">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Receipt size={16} className="text-navy-600" />
+              <h2 className="font-semibold text-navy-900">Billing &amp; Invoice Info</h2>
+            </div>
+            <p className="text-xs text-slate-400 mb-5">
+              Shown on the receipt/invoice PDFs students can download from Profile → Orders. Leave the address and tax ID blank until you have the real registered values — they're simply omitted from the document rather than left blank-looking.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Legal / Business Name</label>
+                <input type="text" value={billingName} onChange={(e) => setBillingName(e.target.value)}
+                  placeholder="Professional Artificial Intelligence Institute (PAII)" className="input-base" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Billing Support Email</label>
+                <input type="email" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)}
+                  placeholder="info@paii.ca" className="input-base" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Registered Business Address</label>
+                <textarea value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)}
+                  placeholder={"123 Example Street\nSuite 400\nToronto, ON M5V 2T6\nCanada"}
+                  className="input-base h-24 resize-none" />
+                <p className="text-xs text-slate-400 mt-1.5">One line per address line — shown exactly as entered.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tax / Business Number</label>
+                <input type="text" value={billingTaxId} onChange={(e) => setBillingTaxId(e.target.value)}
+                  placeholder="e.g. GST/HST 123456789 RT0001" className="input-base" />
               </div>
             </div>
           </div>
