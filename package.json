@@ -6,6 +6,7 @@
     "marketing-site",
     "admin",
     "professors",
+    "org-portal",
     "lms-platform/apps/frontend",
     "lms-platform/apps/backend",
     "lms-platform/apps/paiiexams",
