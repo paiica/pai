@@ -197,7 +197,12 @@ export default async function EventDetailPage({
           {/* Sidebar — register form */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
-              <EventRegisterForm eventId={event.id} price={price} alreadyRegistered={registered === "1"} />
+              <EventRegisterForm
+                eventId={event.id}
+                price={price}
+                alreadyRegistered={registered === "1"}
+                hasEnded={new Date(event.end_at) < new Date()}
+              />
               <div className="rounded-2xl border border-sand-200 p-4 space-y-2.5 text-sm text-ink-500">
                 <div className="flex items-center gap-2"><Calendar size={14} className="text-sand-400 flex-shrink-0" /> {formatDateTime(event.start_at, event.end_at, event.timezone)}</div>
                 {event.event_type !== "online" && (

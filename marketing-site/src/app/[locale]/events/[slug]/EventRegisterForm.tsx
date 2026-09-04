@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
-import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, CalendarX } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -125,8 +125,8 @@ function SectionToggle({ label, open, onClick }: { label: string; open: boolean;
 }
 
 export default function EventRegisterForm({
-  eventId, price, alreadyRegistered,
-}: { eventId: string; price: number; alreadyRegistered: boolean }) {
+  eventId, price, alreadyRegistered, hasEnded,
+}: { eventId: string; price: number; alreadyRegistered: boolean; hasEnded: boolean }) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadyRegistered);
@@ -207,6 +207,16 @@ export default function EventRegisterForm({
         <CheckCircle2 size={28} className="text-teal-600 mx-auto mb-2" />
         <p className="font-display font-bold text-ink-900">You're registered!</p>
         <p className="text-sm text-ink-500 mt-1">Check your email for confirmation and details.</p>
+      </div>
+    );
+  }
+
+  if (hasEnded) {
+    return (
+      <div className="rounded-2xl border border-sand-300 bg-sand-50 p-6 text-center">
+        <CalendarX size={28} className="text-sand-400 mx-auto mb-2" />
+        <p className="font-display font-bold text-ink-900">This event has ended</p>
+        <p className="text-sm text-ink-500 mt-1">Registration is closed. Check our events page for what's coming up next.</p>
       </div>
     );
   }

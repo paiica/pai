@@ -727,6 +727,7 @@ export class PaymentsService {
   async createEventCheckoutSession(dto: EventCheckoutDto) {
     const event = await this.prisma.event.findUnique({ where: { id: dto.event_id } });
     if (!event || event.status !== "published") throw new NotFoundException("Event not found");
+    if (event.end_at < new Date()) throw new BadRequestException("This event has already ended");
 
     let price = Number(event.price);
     if (price <= 0) throw new BadRequestException("This event is free — register directly instead of checking out");

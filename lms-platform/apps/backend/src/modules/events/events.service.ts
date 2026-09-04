@@ -39,6 +39,7 @@ export class EventsService {
   async registerFree(eventId: string, dto: RegisterEventDto) {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event || event.status !== "published") throw new NotFoundException("Event not found");
+    if (event.end_at < new Date()) throw new BadRequestException("This event has already ended");
     if (Number(event.price) > 0) throw new BadRequestException("This event requires payment to register");
 
     if (event.capacity != null) {
