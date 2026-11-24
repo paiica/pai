@@ -9,10 +9,14 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { MailModule } from "../mail/mail.module";
+import { AuditLogModule } from "../audit-log/audit-log.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
     MailModule,
+    AuditLogModule,
+    NotificationsModule,
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

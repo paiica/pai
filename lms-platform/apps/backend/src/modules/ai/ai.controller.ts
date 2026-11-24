@@ -161,6 +161,22 @@ export class AiController {
     return this.aiService.generateProgram(body);
   }
 
+  @Post("generate-lab-exercise")
+  @HttpCode(HttpStatus.OK)
+  generateLabExercise(
+    @Body() body: {
+      topic: string;
+      learning_objective?: string;
+      difficulty?: string;
+    },
+  ) {
+    return this.aiService.generateLabExercise({
+      topic: body.topic,
+      learningObjective: body.learning_objective,
+      difficulty: body.difficulty,
+    });
+  }
+
   @Post("improve-question")
   @HttpCode(HttpStatus.OK)
   improveQuestion(

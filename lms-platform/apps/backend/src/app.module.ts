@@ -38,6 +38,11 @@ import { AffiliateModule } from "./modules/affiliate/affiliate.module";
 import { EventsModule } from "./modules/events/events.module";
 import { CartModule } from "./modules/cart/cart.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { InstitutionsModule } from "./modules/institutions/institutions.module";
+import { RevenueModule } from "./modules/revenue/revenue.module";
+import { AuditLogModule } from "./modules/audit-log/audit-log.module";
+import { AdminOverviewModule } from "./modules/admin-overview/admin-overview.module";
+import { SsoModule } from "./modules/sso/sso.module";
 import { LeadsModule } from "./modules/leads/leads.module";
 import { SupportModule } from "./modules/support/support.module";
 import { ProfessorStudentsModule } from "./modules/professor-students/professor-students.module";
@@ -101,6 +106,11 @@ import { AppController } from "./app.controller";
     EventsModule,
     CartModule,
     OrganizationsModule,
+    InstitutionsModule,
+    RevenueModule,
+    AuditLogModule,
+    AdminOverviewModule,
+    SsoModule,
     LeadsModule,
     SupportModule,
     ProfessorStudentsModule,

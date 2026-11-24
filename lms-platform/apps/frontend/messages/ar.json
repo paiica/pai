@@ -8,8 +8,10 @@
     "courses": "الدورات",
     "myLearning": "تعلّمي",
     "myCourses": "دوراتي",
+    "labs": "المختبرات",
     "onlineTools": "الأدوات عبر الإنترنت",
     "programs": "البرامج",
+    "university": "جامعتي",
     "grades": "الدرجات",
     "account": "الحساب",
     "profile": "الملف الشخصي",
@@ -264,7 +266,12 @@
     "submit": "تسجيل الدخول",
     "noAccount": "ليس لديك حساب؟",
     "createAccount": "إنشاء حساب",
-    "backToMainWebsite": "← العودة إلى الموقع الرئيسي"
+    "backToMainWebsite": "← العودة إلى الموقع الرئيسي",
+    "ssoToggle": "تسجيل الدخول عبر مؤسستك",
+    "ssoCodeLabel": "رمز المؤسسة",
+    "ssoCodePlaceholder": "مثال: UNFC",
+    "ssoContinue": "متابعة",
+    "ssoNotAvailable": "تسجيل الدخول الموحد غير مفعّل لرمز المؤسسة هذا."
   },
   "Register": {
     "heading": "إنشاء حساب",
@@ -1102,5 +1109,19 @@
     "enrolled": "مسجَّل",
     "receipt": "الإيصال",
     "invoice": "الفاتورة"
+  },
+  "Labs": {
+    "heading": "المختبرات",
+    "subheading": "تدريب عملي من كل دورة أنت مسجَّل فيها — اكتب كودًا حقيقيًا واحصل على ملاحظات فورية.",
+    "playgroundTitle": "افتح ساحة التجربة",
+    "playgroundSubtitle": "بيئة تجريبية فارغة غير مرتبطة بأي دورة — فقط لتجربة الأفكار.",
+    "completed": "مكتمل",
+    "inProgress": "قيد التقدم",
+    "exercisesProgress": "{passed}/{total} تمارين ناجحة",
+    "review": "مراجعة",
+    "continueLab": "متابعة",
+    "startLab": "ابدأ المختبر",
+    "noLabsHeading": "لا توجد مختبرات بعد",
+    "noLabsBody": "ستظهر المختبرات هنا بمجرد تسجيلك في دورة تتضمن أحدها."
   }
 }

@@ -217,6 +217,13 @@ export class PrepCoursesController {
   }
 
   @OptionalAuth()
+  @Get("institution/:institutionId")
+  @ApiOperation({ summary: "An institution's course catalog — public courses to anyone, private courses only to that institution's active members" })
+  findByInstitution(@Param("institutionId") institutionId: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string) {
+    return this.service.findByInstitution(institutionId, userId, role, lang);
+  }
+
+  @OptionalAuth()
   @Get(":slug")
   @ApiOperation({ summary: "Get prep course by slug — publicly listed courses are open to anyone; private/unlisted courses require the caller to teach it, be invited to it, or be an admin" })
   findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string) {

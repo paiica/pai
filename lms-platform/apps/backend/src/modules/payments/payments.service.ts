@@ -1,14 +1,18 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash } from "crypto";
 import Stripe from "stripe";
-import { PaymentType, PaymentStatus, Payment } from "@prisma/client";
+import { PaymentType, PaymentStatus, Payment, Package, Role } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { PromoCodesService } from "../promo-codes/promo-codes.service";
 import { MailService } from "../mail/mail.service";
 import { SiteSettingsService } from "../site-settings/site-settings.service";
 import { CertificatesService } from "../certificates/certificates.service";
 import { PrepCoursesService } from "../prep-courses/prep-courses.service";
+import { RevenueService } from "../revenue/revenue.service";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { InstitutionsService } from "../institutions/institutions.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { EventCheckoutDto } from "./dto/checkout.dto";
 
 @Injectable()
@@ -26,6 +30,10 @@ export class PaymentsService {
     private settings: SiteSettingsService,
     private certificatesService: CertificatesService,
     private prepCourses: PrepCoursesService,
+    private revenue: RevenueService,
+    private auditLog: AuditLogService,
+    private institutions: InstitutionsService,
+    private notifications: NotificationsService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
     this.envStripe = stripeKey && stripeKey.length > 10
@@ -120,12 +128,24 @@ export class PaymentsService {
 
   // ─── Course checkout (direct enrollment) ────────────────────────────────────
 
-  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string, extraMetadata?: Record<string, string>) {
+  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string, extraMetadata?: Record<string, string>, role?: Role) {
     const courses = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM lms.courses WHERE id = $1 AND status = 'active'`, courseId
     );
     const course = courses[0];
     if (!course) throw new NotFoundException("Course not found");
+
+    // canViewPrivateCourse gates the course DETAIL page (findBySlug) but,
+    // until now, nothing gated actually enrolling — a student with no
+    // relationship to a private/unlisted course (no institution membership,
+    // no invitation, doesn't teach it) could still call this endpoint
+    // directly with its id and enroll for free or pay for it. Mirror
+    // findBySlug's exact same is_listed gate here so viewing and enrolling
+    // require the same access.
+    if (!course.is_listed) {
+      const canEnroll = await this.prepCourses.canViewPrivateCourse(courseId, userId, role, course.institution_id, course.visibility);
+      if (!canEnroll) throw new ForbiddenException("You don't have access to this course");
+    }
 
     // Check not already enrolled
     const existing = await this.prisma.$queryRawUnsafe<any[]>(
@@ -722,6 +742,617 @@ export class PaymentsService {
     } catch (err) { this.stripeError(err); }
   }
 
+  // ─── Lab Playground cloud sandbox subscription (Playground only — course ──────
+  // lesson labs that require E2B stay unrestricted, since those are already
+  // paid for via course enrollment) ──────────────────────────────────────────
+  // A real, auto-renewing Stripe Subscription — not a one-time charge. The
+  // student pays once at checkout, then Stripe auto-charges the same card
+  // every 30 days until they cancel. Access is granted/extended by
+  // invoice.payment_succeeded (fires for both the first invoice and every
+  // renewal), not by checkout.session.completed — see handleWebhook.
+
+  private static readonly LAB_SANDBOX_MONTHLY_PRICE_USD = 200;
+
+  private async getOrCreateStripeCustomer(stripe: Stripe, email: string): Promise<string> {
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    if (customers.data.length > 0) return customers.data[0].id;
+    const customer = await stripe.customers.create({ email });
+    return customer.id;
+  }
+
+  async createLabSandboxCheckoutSession(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const existing = await this.prisma.labSandboxAccess.findUnique({ where: { user_id: userId } });
+    if (existing?.status === "active" && existing.stripe_subscription_id) {
+      throw new BadRequestException("You already have an active Cloud Sandbox subscription.");
+    }
+
+    const frontendUrl = this.config.get("frontendUrl");
+    const returnUrl = `${frontendUrl}/labs/playground?sandbox_unlocked=1&session_id={CHECKOUT_SESSION_ID}`;
+
+    const labStripeClient = await this.resolveStripe();
+    if (!labStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const customerId = await this.getOrCreateStripeCustomer(labStripeClient.stripe, user.email);
+      const session = await this.startCheckout(labStripeClient.stripe, {
+        mode: "subscription",
+        ui_mode: "embedded",
+        customer: customerId,
+        metadata: {
+          user_id: userId,
+          checkout_type: "lab_sandbox",
+        },
+        subscription_data: {
+          metadata: { user_id: userId, checkout_type: "lab_sandbox" },
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: PaymentsService.LAB_SANDBOX_MONTHLY_PRICE_USD * 100,
+            recurring: { interval: "month" },
+            product_data: {
+              name: "Cloud Sandbox — Playground",
+              description: "Run heavier frameworks (PyTorch, TensorFlow, OpenCV) and long-running code in a full cloud sandbox. Billed monthly, cancel anytime.",
+            },
+          },
+          quantity: 1,
+        }],
+        return_url: returnUrl,
+      });
+      return {
+        client_secret: session.client_secret,
+        publishable_key: labStripeClient.publishableKey,
+        session_id: session.id,
+      };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  async cancelLabSandboxSubscription(userId: string) {
+    const access = await this.prisma.labSandboxAccess.findUnique({ where: { user_id: userId } });
+    if (!access?.stripe_subscription_id) throw new BadRequestException("No Cloud Sandbox subscription found.");
+
+    const labStripeClient = await this.resolveStripe();
+    if (!labStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      await labStripeClient.stripe.subscriptions.update(access.stripe_subscription_id, { cancel_at_period_end: true });
+    } catch (err) { this.stripeError(err); }
+
+    const updated = await this.prisma.labSandboxAccess.update({
+      where: { user_id: userId },
+      data: { cancel_at_period_end: true },
+    });
+    return { cancelAtPeriodEnd: true, expiresAt: updated.expires_at };
+  }
+
+  async resumeLabSandboxSubscription(userId: string) {
+    const access = await this.prisma.labSandboxAccess.findUnique({ where: { user_id: userId } });
+    if (!access?.stripe_subscription_id) throw new BadRequestException("No Cloud Sandbox subscription found.");
+
+    const labStripeClient = await this.resolveStripe();
+    if (!labStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      await labStripeClient.stripe.subscriptions.update(access.stripe_subscription_id, { cancel_at_period_end: false });
+    } catch (err) { this.stripeError(err); }
+
+    const updated = await this.prisma.labSandboxAccess.update({
+      where: { user_id: userId },
+      data: { cancel_at_period_end: false },
+    });
+    return { cancelAtPeriodEnd: false, expiresAt: updated.expires_at };
+  }
+
+  private async handleLabSandboxInvoicePaid(invoice: Stripe.Invoice) {
+    const subscriptionId = invoice.subscription as string | null;
+    if (!subscriptionId) return;
+
+    const labStripeClient = await this.resolveStripe();
+    if (!labStripeClient) return;
+
+    const subscription = await labStripeClient.stripe.subscriptions.retrieve(subscriptionId);
+    if (subscription.metadata?.checkout_type !== "lab_sandbox") return;
+    const userId = subscription.metadata.user_id;
+    if (!userId) return;
+
+    const paymentIntentId = invoice.payment_intent as string | null;
+    if (paymentIntentId) {
+      const existingPayment = await this.prisma.payment.findFirst({ where: { stripe_payment_intent_id: paymentIntentId } });
+      if (existingPayment) {
+        this.logger.log(`Webhook idempotency: invoice payment ${paymentIntentId} already processed, skipping`);
+        return;
+      }
+    }
+
+    const periodEnd = new Date(subscription.current_period_end * 1000);
+    await this.prisma.labSandboxAccess.upsert({
+      where: { user_id: userId },
+      create: {
+        user_id: userId,
+        expires_at: periodEnd,
+        status: "active",
+        stripe_customer_id: subscription.customer as string,
+        stripe_subscription_id: subscription.id,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      },
+      update: {
+        expires_at: periodEnd,
+        status: "active",
+        stripe_customer_id: subscription.customer as string,
+        stripe_subscription_id: subscription.id,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      },
+    });
+    this.logger.log(`Lab sandbox subscription active for user ${userId}, period ends ${periodEnd.toISOString()}`);
+
+    const amount = invoice.amount_paid ? invoice.amount_paid / 100 : 0;
+    if (amount > 0 && paymentIntentId) {
+      const description = invoice.billing_reason === "subscription_create"
+        ? "Cloud Sandbox — Playground (first month)"
+        : "Cloud Sandbox — Playground (monthly renewal)";
+      await this.prisma.payment.upsert({
+        where: { stripe_payment_intent_id: paymentIntentId },
+        create: {
+          user_id: userId,
+          type: PaymentType.lab_sandbox,
+          status: PaymentStatus.succeeded,
+          amount,
+          currency: invoice.currency ?? "usd",
+          stripe_payment_intent_id: paymentIntentId,
+          stripe_receipt_url: invoice.hosted_invoice_url ?? null,
+          description,
+          succeeded_at: new Date(),
+        },
+        update: {
+          status: PaymentStatus.succeeded,
+          stripe_receipt_url: invoice.hosted_invoice_url ?? null,
+          description,
+          succeeded_at: new Date(),
+        },
+      });
+
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+      if (user) {
+        await this.mail.sendPurchaseConfirmation({
+          to: user.email,
+          firstName: user.profile?.first_name ?? "there",
+          itemName: description,
+          amount,
+          currency: invoice.currency ?? "usd",
+          receiptUrl: invoice.hosted_invoice_url ?? null,
+        }).catch(() => {});
+      }
+    }
+  }
+
+  private async handleLabSandboxSubscriptionUpdated(subscription: Stripe.Subscription) {
+    if (subscription.metadata?.checkout_type !== "lab_sandbox") return;
+    const userId = subscription.metadata.user_id;
+    if (!userId) return;
+
+    await this.prisma.labSandboxAccess.updateMany({
+      where: { user_id: userId, stripe_subscription_id: subscription.id },
+      data: {
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        status: subscription.status === "active" || subscription.status === "trialing" ? "active" : subscription.status,
+        expires_at: new Date(subscription.current_period_end * 1000),
+      },
+    });
+  }
+
+  private async handleLabSandboxSubscriptionDeleted(subscription: Stripe.Subscription) {
+    if (subscription.metadata?.checkout_type !== "lab_sandbox") return;
+    const userId = subscription.metadata.user_id;
+    if (!userId) return;
+
+    // Revoke immediately — Stripe only fires this once the subscription is
+    // truly over (either an immediate cancellation, or the period-end
+    // cancellation the student scheduled via cancelLabSandboxSubscription
+    // has now actually arrived), so there's no remaining paid time to honor.
+    await this.prisma.labSandboxAccess.updateMany({
+      where: { user_id: userId, stripe_subscription_id: subscription.id },
+      data: { status: "canceled", expires_at: new Date(), cancel_at_period_end: false },
+    });
+    this.logger.log(`Lab sandbox subscription ended for user ${userId}`);
+  }
+
+  // ─── Institution subscription billing (academia.paii.ca packages) ─────────────
+  // Real, auto-renewing Stripe Subscription per institution — same shape as
+  // the Lab Sandbox subscription above (mode "subscription", access driven
+  // by invoice.payment_succeeded, cancel_at_period_end for graceful
+  // cancellation). Price comes from the chosen Package, never hard-coded.
+
+  // Shared by both the fresh-checkout and in-place-switch paths — neither
+  // should let an institution land on a plan smaller than what it's already
+  // using (a downgrade would silently leave them over their new limits with
+  // nothing after this point that catches it).
+  private async assertUsageFitsPackage(institutionId: string, pkg: Package) {
+    const usage = await this.institutions.getUsageCounts(institutionId);
+    const overLimit: string[] = [];
+    if (pkg.student_limit != null && usage.student_count > pkg.student_limit) {
+      overLimit.push(`${usage.student_count} students (limit ${pkg.student_limit})`);
+    }
+    if (pkg.professor_limit != null && usage.staff_count > pkg.professor_limit) {
+      overLimit.push(`${usage.staff_count} professors (limit ${pkg.professor_limit})`);
+    }
+    if (pkg.course_limit != null && usage.course_count > pkg.course_limit) {
+      overLimit.push(`${usage.course_count} courses (limit ${pkg.course_limit})`);
+    }
+    if (overLimit.length > 0) {
+      throw new BadRequestException(`Can't switch to the ${pkg.name} plan — you currently have ${overLimit.join(", ")}. Reduce usage first or choose a larger plan.`);
+    }
+  }
+
+  async createInstitutionSubscriptionCheckoutSession(institutionId: string, packageId: string, actingUserEmail: string) {
+    const institution = await this.prisma.institution.findUnique({ where: { id: institutionId } });
+    if (!institution) throw new NotFoundException("Institution not found");
+
+    const pkg = await this.prisma.package.findUnique({ where: { id: packageId } });
+    if (!pkg || !pkg.is_active) throw new NotFoundException("Package not found");
+    if (pkg.monthly_price === null) throw new BadRequestException("This package requires a custom contract — contact your PAII account manager.");
+    await this.assertUsageFitsPackage(institutionId, pkg);
+
+    const existing = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (existing?.status === "active" && existing.stripe_subscription_id) {
+      throw new BadRequestException("This institution already has an active subscription. Cancel it first to switch packages.");
+    }
+
+    const academiaUrl = this.config.get<string>("ACADEMIA_URL", "http://localhost:3008");
+    const returnUrl = `${academiaUrl}/billing?subscribed=1&session_id={CHECKOUT_SESSION_ID}`;
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      const customerId = await this.getOrCreateStripeCustomer(stripeClient.stripe, institution.contact_email || actingUserEmail);
+      const session = await this.startCheckout(stripeClient.stripe, {
+        mode: "subscription",
+        ui_mode: "embedded",
+        customer: customerId,
+        metadata: {
+          institution_id: institutionId,
+          package_id: packageId,
+          checkout_type: "institution_subscription",
+        },
+        subscription_data: {
+          metadata: { institution_id: institutionId, package_id: packageId, checkout_type: "institution_subscription" },
+        },
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(Number(pkg.monthly_price) * 100),
+            recurring: { interval: "month" },
+            product_data: {
+              name: `${pkg.name} Plan — ${institution.name}`,
+              description: "PAII Academic Cloud subscription. Billed monthly, cancel anytime.",
+            },
+          },
+          quantity: 1,
+        }],
+        return_url: returnUrl,
+      });
+      return {
+        client_secret: session.client_secret,
+        publishable_key: stripeClient.publishableKey,
+        session_id: session.id,
+      };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  async cancelInstitutionSubscription(institutionId: string, actorUserId?: string) {
+    const sub = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (!sub?.stripe_subscription_id) throw new BadRequestException("No self-service subscription found — this institution's billing is managed by PAII staff.");
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      await stripeClient.stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true });
+    } catch (err) { this.stripeError(err); }
+
+    const updated = await this.prisma.institutionSubscription.update({
+      where: { institution_id: institutionId },
+      data: { cancel_at_period_end: true },
+    });
+    await this.auditLog.log({ userId: actorUserId, action: "institution.subscription_cancel_scheduled", entityType: "Institution", entityId: institutionId });
+    return { cancelAtPeriodEnd: true, currentPeriodEnd: updated.current_period_end };
+  }
+
+  async resumeInstitutionSubscription(institutionId: string, actorUserId?: string) {
+    const sub = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (!sub?.stripe_subscription_id) throw new BadRequestException("No self-service subscription found — this institution's billing is managed by PAII staff.");
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+    try {
+      await stripeClient.stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: false });
+    } catch (err) { this.stripeError(err); }
+
+    const updated = await this.prisma.institutionSubscription.update({
+      where: { institution_id: institutionId },
+      data: { cancel_at_period_end: false },
+    });
+    await this.auditLog.log({ userId: actorUserId, action: "institution.subscription_resumed", entityType: "Institution", entityId: institutionId });
+    return { cancelAtPeriodEnd: false, currentPeriodEnd: updated.current_period_end };
+  }
+
+  // Switches an already-subscribed institution to a different package by
+  // updating the existing Stripe subscription's price in place, rather than
+  // routing through createInstitutionSubscriptionCheckoutSession (which
+  // deliberately blocks a second checkout while one is already active) — a
+  // payment method is already on file, so a brand-new checkout session would
+  // just be friction. proration_behavior "always_invoice" bills/credits the
+  // difference immediately and fires the same invoice.payment_succeeded
+  // webhook the initial subscribe flow already relies on, so no new webhook
+  // handling is needed; the DB row is also updated synchronously here
+  // (matching cancel/resume above) so the UI doesn't wait on the webhook.
+  // Read-only — Stripe's invoice preview doesn't create or charge anything,
+  // just simulates what changeInstitutionSubscription below would actually
+  // bill/credit, so the admin sees the real number before committing instead
+  // of a generic "you'll be charged a prorated difference" confirm dialog.
+  async previewInstitutionSubscriptionChange(institutionId: string, newPackageId: string) {
+    const sub = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (!sub?.stripe_subscription_id) throw new BadRequestException("No self-service subscription found — this institution's billing is managed by PAII staff.");
+    if (sub.status !== "active") throw new BadRequestException("Subscription must be active to change plans.");
+    if (sub.package_id === newPackageId) throw new BadRequestException("This institution is already on that plan.");
+
+    const pkg = await this.prisma.package.findUnique({ where: { id: newPackageId } });
+    if (!pkg || !pkg.is_active) throw new NotFoundException("Package not found");
+    if (pkg.monthly_price === null) throw new BadRequestException("This package requires a custom contract — contact your PAII account manager.");
+    await this.assertUsageFitsPackage(institutionId, pkg);
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    try {
+      const stripeSub = await stripeClient.stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+      const item = stripeSub.items.data[0];
+      if (!item) throw new BadRequestException("Could not locate the subscription's billing line item.");
+      const productId = item.price.product as string;
+
+      const preview = await stripeClient.stripe.invoices.createPreview({
+        subscription: sub.stripe_subscription_id,
+        subscription_details: {
+          items: [{
+            id: item.id,
+            price_data: { currency: "usd", unit_amount: Math.round(Number(pkg.monthly_price) * 100), recurring: { interval: "month" }, product: productId },
+          }],
+          proration_behavior: "always_invoice",
+        },
+      });
+
+      return { amount_due: preview.amount_due / 100, currency: preview.currency, package_id: newPackageId };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  async changeInstitutionSubscription(institutionId: string, newPackageId: string, actorUserId?: string) {
+    const sub = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (!sub?.stripe_subscription_id) throw new BadRequestException("No self-service subscription found — this institution's billing is managed by PAII staff.");
+    if (sub.status !== "active") throw new BadRequestException("Subscription must be active to change plans.");
+    if (sub.package_id === newPackageId) throw new BadRequestException("This institution is already on that plan.");
+
+    const pkg = await this.prisma.package.findUnique({ where: { id: newPackageId } });
+    if (!pkg || !pkg.is_active) throw new NotFoundException("Package not found");
+    if (pkg.monthly_price === null) throw new BadRequestException("This package requires a custom contract — contact your PAII account manager.");
+    await this.assertUsageFitsPackage(institutionId, pkg);
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    try {
+      const stripeSub = await stripeClient.stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+      const item = stripeSub.items.data[0];
+      if (!item) throw new BadRequestException("Could not locate the subscription's billing line item.");
+
+      // Unlike Checkout Session line items, a Subscription item's inline
+      // price_data can't create a Product on the fly (`product_data` isn't a
+      // valid field here — only `product`, an existing Product ID). Reusing
+      // the Product Stripe already created for this subscription (when it
+      // was first set up via Checkout) avoids introducing a persisted
+      // Stripe Product mapping just for this; the tradeoff is Stripe's own
+      // invoice/dashboard line item keeps showing the plan name from
+      // whenever the subscription was first created, not the new package's
+      // name — cosmetic only, since our own DB (not Stripe's product name)
+      // is what actually drives limits, UI, and revenue reporting.
+      const productId = item.price.product as string;
+
+      const updated = await stripeClient.stripe.subscriptions.update(sub.stripe_subscription_id, {
+        items: [{
+          id: item.id,
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(Number(pkg.monthly_price) * 100),
+            recurring: { interval: "month" },
+            product: productId,
+          },
+        }],
+        proration_behavior: "always_invoice",
+        metadata: { institution_id: institutionId, package_id: newPackageId, checkout_type: "institution_subscription" },
+      });
+
+      await this.prisma.institutionSubscription.update({
+        where: { institution_id: institutionId },
+        data: {
+          package_id: newPackageId,
+          current_period_end: new Date(updated.current_period_end * 1000),
+          cancel_at_period_end: updated.cancel_at_period_end,
+        },
+      });
+      await this.auditLog.log({ userId: actorUserId, action: "institution.subscription_plan_changed", entityType: "Institution", entityId: institutionId, oldValue: { package_id: sub.package_id }, newValue: { package_id: newPackageId } });
+      return { success: true, package_id: newPackageId };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  // Lets an institution admin update their card on file or view Stripe's own
+  // invoice history without a dedicated UI for either — same idea as the
+  // individual-user createBillingPortalSession above, keyed by the
+  // institution's Stripe customer instead of a user's email-matched one.
+  async createInstitutionBillingPortalSession(institutionId: string) {
+    const sub = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    if (!sub?.stripe_customer_id) throw new BadRequestException("No self-service subscription found — this institution's billing is managed by PAII staff.");
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    const academiaUrl = this.config.get<string>("ACADEMIA_URL", "http://localhost:3008");
+    try {
+      const session = await stripeClient.stripe.billingPortal.sessions.create({
+        customer: sub.stripe_customer_id,
+        return_url: `${academiaUrl}/billing`,
+      });
+      return { portal_url: session.url };
+    } catch (err) { this.stripeError(err); }
+  }
+
+  private async handleInstitutionSubscriptionInvoicePaid(invoice: Stripe.Invoice) {
+    const subscriptionId = invoice.subscription as string | null;
+    if (!subscriptionId) return;
+
+    const stripeClient = await this.resolveStripe();
+    if (!stripeClient) return;
+
+    const subscription = await stripeClient.stripe.subscriptions.retrieve(subscriptionId);
+    if (subscription.metadata?.checkout_type !== "institution_subscription") return;
+    const institutionId = subscription.metadata.institution_id;
+    const packageId = subscription.metadata.package_id;
+    if (!institutionId || !packageId) return;
+
+    const paymentIntentId = invoice.payment_intent as string | null;
+    if (paymentIntentId) {
+      const existingPayment = await this.prisma.payment.findFirst({ where: { stripe_payment_intent_id: paymentIntentId } });
+      if (existingPayment) {
+        this.logger.log(`Webhook idempotency: invoice payment ${paymentIntentId} already processed, skipping`);
+        return;
+      }
+    }
+
+    const periodEnd = new Date(subscription.current_period_end * 1000);
+    await this.prisma.institutionSubscription.upsert({
+      where: { institution_id: institutionId },
+      create: {
+        institution_id: institutionId,
+        package_id: packageId,
+        current_period_end: periodEnd,
+        status: "active",
+        stripe_customer_id: subscription.customer as string,
+        stripe_subscription_id: subscription.id,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      },
+      update: {
+        package_id: packageId,
+        current_period_end: periodEnd,
+        status: "active",
+        stripe_customer_id: subscription.customer as string,
+        stripe_subscription_id: subscription.id,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      },
+    });
+    this.logger.log(`Institution subscription active for ${institutionId}, period ends ${periodEnd.toISOString()}`);
+    if (invoice.billing_reason === "subscription_create") {
+      await this.auditLog.log({ action: "institution.subscription_created", entityType: "Institution", entityId: institutionId, newValue: { package_id: packageId } });
+    }
+
+    const amount = invoice.amount_paid ? invoice.amount_paid / 100 : 0;
+    if (amount > 0 && paymentIntentId) {
+      const [institution, pkg, ownerMembership] = await Promise.all([
+        this.prisma.institution.findUnique({ where: { id: institutionId } }),
+        this.prisma.package.findUnique({ where: { id: packageId } }),
+        // Payment.user_id is required and there's no per-institution "buyer"
+        // the way an individual purchase has — attribute to the
+        // institution's owner (its billing contact), same idea as
+        // Organization purchases being tied to whichever admin bought seats.
+        this.prisma.institutionMembership.findFirst({
+          where: { institution_id: institutionId, role: "owner" },
+          orderBy: { created_at: "asc" },
+        }),
+      ]);
+      if (ownerMembership) {
+        const description = invoice.billing_reason === "subscription_create"
+          ? `Institution Subscription — ${institution?.name ?? institutionId} (${pkg?.name ?? "plan"}, first month)`
+          : `Institution Subscription — ${institution?.name ?? institutionId} (${pkg?.name ?? "plan"}, monthly renewal)`;
+        await this.prisma.payment.upsert({
+          where: { stripe_payment_intent_id: paymentIntentId },
+          create: {
+            user_id: ownerMembership.user_id,
+            type: PaymentType.institution_subscription,
+            status: PaymentStatus.succeeded,
+            amount,
+            currency: invoice.currency ?? "usd",
+            stripe_payment_intent_id: paymentIntentId,
+            stripe_receipt_url: invoice.hosted_invoice_url ?? null,
+            description,
+            succeeded_at: new Date(),
+          },
+          update: {
+            status: PaymentStatus.succeeded,
+            stripe_receipt_url: invoice.hosted_invoice_url ?? null,
+            description,
+            succeeded_at: new Date(),
+          },
+        });
+      } else {
+        this.logger.warn(`Institution ${institutionId} has no owner membership — skipped Payment record for invoice ${paymentIntentId}`);
+      }
+    }
+  }
+
+  private async handleInstitutionSubscriptionUpdated(subscription: Stripe.Subscription) {
+    if (subscription.metadata?.checkout_type !== "institution_subscription") return;
+    const institutionId = subscription.metadata.institution_id;
+    if (!institutionId) return;
+
+    const previous = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: institutionId } });
+    const nextStatus = subscription.status === "active" || subscription.status === "trialing" ? "active" : subscription.status === "past_due" ? "past_due" : "canceled";
+
+    await this.prisma.institutionSubscription.updateMany({
+      where: { institution_id: institutionId, stripe_subscription_id: subscription.id },
+      data: {
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        status: nextStatus,
+        current_period_end: new Date(subscription.current_period_end * 1000),
+      },
+    });
+
+    // Only on the actual transition into past_due — not on every unrelated
+    // webhook update while it's already past_due — so the owner gets
+    // exactly one heads-up per failed renewal charge, not a duplicate every
+    // time Stripe sends a follow-up update event.
+    if (nextStatus === "past_due" && previous?.status !== "past_due") {
+      const [institution, ownerMembership, adminMemberships] = await Promise.all([
+        this.prisma.institution.findUnique({ where: { id: institutionId } }),
+        this.prisma.institutionMembership.findFirst({ where: { institution_id: institutionId, role: "owner" }, include: { user: { include: { profile: true } } } }),
+        this.prisma.institutionMembership.findMany({ where: { institution_id: institutionId, role: { in: ["owner", "admin"] }, status: "active" }, select: { user_id: true } }),
+      ]);
+      if (ownerMembership && institution) {
+        await this.mail.sendPaymentFailed({
+          to: ownerMembership.user.email,
+          firstName: ownerMembership.user.profile?.first_name ?? "there",
+          itemName: `${institution.name} — Academic Cloud subscription`,
+        }).catch(() => {});
+      }
+      if (institution) {
+        for (const m of adminMemberships) {
+          await this.notifications.create(
+            m.user_id, "institution_subscription_past_due",
+            "Payment failed",
+            `${institution.name}'s subscription payment failed. Update the payment method to avoid losing access.`,
+          ).catch(() => {});
+        }
+      }
+    }
+  }
+
+  private async handleInstitutionSubscriptionDeleted(subscription: Stripe.Subscription) {
+    if (subscription.metadata?.checkout_type !== "institution_subscription") return;
+    const institutionId = subscription.metadata.institution_id;
+    if (!institutionId) return;
+
+    await this.prisma.institutionSubscription.updateMany({
+      where: { institution_id: institutionId, stripe_subscription_id: subscription.id },
+      data: { status: "canceled", cancel_at_period_end: false },
+    });
+    await this.auditLog.log({ action: "institution.subscription_ended", entityType: "Institution", entityId: institutionId });
+    this.logger.log(`Institution subscription ended for ${institutionId}`);
+  }
+
   // ─── Event checkout (guest — no account required) ────────────────────────────
 
   async createEventCheckoutSession(dto: EventCheckoutDto) {
@@ -899,6 +1530,29 @@ export class PaymentsService {
         await this.handleCheckoutExpired(session);
         break;
       }
+      case "invoice.payment_succeeded": {
+        // Fires for every successful subscription charge — the first one
+        // (right after checkout.session.completed) and every 30-day
+        // renewal. This, not checkout.session.completed, is what grants/
+        // extends subscription access — see handle*InvoicePaid (each is a
+        // no-op if the invoice's checkout_type metadata doesn't match it).
+        const invoice = event.data.object as Stripe.Invoice;
+        await this.handleLabSandboxInvoicePaid(invoice);
+        await this.handleInstitutionSubscriptionInvoicePaid(invoice);
+        break;
+      }
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.handleLabSandboxSubscriptionUpdated(subscription);
+        await this.handleInstitutionSubscriptionUpdated(subscription);
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.handleLabSandboxSubscriptionDeleted(subscription);
+        await this.handleInstitutionSubscriptionDeleted(subscription);
+        break;
+      }
       case "charge.failed":
       case "payment_intent.payment_failed": {
         const obj = event.data.object as Stripe.Charge | Stripe.PaymentIntent;
@@ -1039,6 +1693,11 @@ export class PaymentsService {
       return;
     }
 
+    // Lab Sandbox is subscription-mode checkout — granting/extending access
+    // and recording the Payment happens entirely via invoice.payment_succeeded
+    // (which fires for this same first invoice too), not here. Nothing to do.
+    if (checkout_type === "lab_sandbox") return;
+
     if (!user_id) return;
 
     // Idempotency guard — skip if this Stripe session was already processed
@@ -1074,6 +1733,13 @@ export class PaymentsService {
       const rows = await this.prisma.$queryRawUnsafe<any[]>(`SELECT title FROM lms.courses WHERE id = $1`, course_id);
       description = rows[0] ? `Course: ${rows[0].title}` : "Course Enrollment";
       await this.prisma.cartItem.deleteMany({ where: { user_id, course_id } });
+
+      // No-op for the vast majority of courses (independent-professor or
+      // PAII-authored, no institution_id) — only computes/records a split
+      // when the course is institution-attributed.
+      await this.revenue.recordSaleIfApplicable(course_id, amount, paymentIntentId).catch((e) => {
+        this.logger.error(`Failed to record revenue share for course ${course_id}: ${e.message}`);
+      });
 
       // Paid acceptance of a professor's course invitation — the invite
       // endpoint couldn't enroll synchronously (unlike the free path), so

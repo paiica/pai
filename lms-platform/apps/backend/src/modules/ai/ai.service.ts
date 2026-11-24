@@ -1296,6 +1296,106 @@ Explain concepts and theories clearly, give concrete real-world examples, and ch
     return { reply: raw };
   }
 
+  // A nudge toward the fix, not the fix itself — mirrors chatWithAiProfessor's
+  // framing/length but is pointed at a specific exercise instead of general
+  // lesson content, and explicitly told never to hand over working code.
+  async getLabHint(params: {
+    lessonTitle: string;
+    exercisePrompt: string;
+    studentCode: string;
+    attempts: number;
+  }) {
+    const { client, model } = await this.getClientAndModel();
+    const { lessonTitle, exercisePrompt, studentCode, attempts } = params;
+
+    const systemPrompt = `You are a patient coding mentor helping a student stuck on a practice exercise in the lesson "${lessonTitle}".
+
+The exercise asks for:
+"""
+${exercisePrompt || "(no prompt provided)"}
+"""
+
+Here is the student's current code, which is not yet passing:
+\`\`\`python
+${studentCode || "(empty)"}
+\`\`\`
+
+This is attempt number ${attempts + 1}. Give ONE short, encouraging hint that nudges them toward the fix — point at the specific line, concept, or edge case they're likely missing. Never write the corrected code or the full solution, even if asked. Keep it to 2-4 sentences.`;
+
+    let raw = "";
+    try {
+      const res = await client.chat.completions.create({
+        model,
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Give me a hint." }],
+        temperature: 0.6,
+        max_tokens: 300,
+      });
+      raw = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    if (!raw.trim()) throw new BadRequestException("The AI didn't return a hint. Please try again.");
+    return { hint: raw };
+  }
+
+  // Drafts a full lab (markdown explanation + starter-code exercise with
+  // hidden tests) from a professor's topic/objective — never auto-published,
+  // just pre-fills the admin course builder's lab editor for review/editing.
+  // Test code is taught the same __check__(name, condition) convention
+  // LabsService's harness wraps around it (see labs.service.ts), so
+  // generated exercises are gradable without any translation step.
+  async generateLabExercise(params: {
+    topic: string;
+    learningObjective?: string;
+    difficulty?: string;
+  }) {
+    const { client, model } = await this.getClientAndModel();
+    const { topic, learningObjective, difficulty } = params;
+
+    const userPrompt = `Create a short, hands-on Python coding lab for the topic: "${topic}".
+${learningObjective ? `Learning objective: ${learningObjective}` : ""}
+${difficulty ? `Difficulty: ${difficulty}` : ""}
+
+Return a JSON object: { "cells": [ ... ] } where each cell is one of:
+- { "type": "markdown", "content": "<brief explanation/context, 2-4 sentences>" }
+- { "type": "exercise", "content": "<starter code with a function stub the student completes>", "prompt": "<clear instructions for what the student must implement>", "test_code": "<Python code that calls __check__(name, condition) at least 2-3 times to verify the student's function>" }
+
+Rules for test_code:
+- Only call the already-defined __check__(name, condition) function — do not define it yourself, do not use assert, do not import a testing framework.
+- Reference only names the starter code's function signature defines (e.g. if the starter code defines "def add(a, b):", tests should call add(...)).
+- Cover at least one normal case and one edge case.
+
+Structure: 1-2 markdown cells for context, followed by exactly one exercise cell. Keep the starter code short (a function signature plus a "# your code here" placeholder body), not a worked solution.`;
+
+    let content = "";
+    try {
+      const res = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: "You are an expert programming instructor designing autograded practice exercises. Output only valid JSON." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+      });
+      content = res.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const msg = err?.message ?? err?.error?.message ?? "AI request failed";
+      throw new BadRequestException(`AI error: ${msg}`);
+    }
+
+    try {
+      const parsed = JSON.parse(content);
+      const cells = Array.isArray(parsed.cells) ? parsed.cells : [];
+      if (!cells.length) throw new Error("empty");
+      return { cells };
+    } catch {
+      throw new BadRequestException("AI returned an unexpected format. Please try again.");
+    }
+  }
+
   async improveQuestion(params: { question: object; action: string; cert_name?: string }) {
     const { client, model } = await this.getClientAndModel();
     const { question, action, cert_name } = params;

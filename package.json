@@ -7,6 +7,7 @@
     "admin",
     "professors",
     "org-portal",
+    "academia",
     "lms-platform/apps/frontend",
     "lms-platform/apps/backend",
     "lms-platform/apps/paiiexams",

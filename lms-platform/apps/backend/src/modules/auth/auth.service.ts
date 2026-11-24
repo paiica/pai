@@ -16,6 +16,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { JwtPayload } from "./strategies/jwt.strategy";
@@ -43,6 +45,8 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private mail: MailService,
+    private auditLog: AuditLogService,
+    private notifications: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto, ipAddress?: string) {
@@ -134,6 +138,42 @@ export class AuthService {
       }
     }
 
+    // Auto-grant institutional student membership when the registration
+    // email matches a verified InstitutionDomain — mirrors spec section 7
+    // exactly (domain match ⇒ auto-active membership, no invite needed).
+    // Students only: professor institution membership is always invite-based
+    // (see InstitutionsService.inviteProfessor), never auto-granted by domain.
+    if (!isSalesRep && !isProfessor && emailDomain) {
+      const matchedDomain = await this.prisma.institutionDomain.findUnique({ where: { domain: emailDomain } });
+      if (matchedDomain) {
+        // Soft capacity check only — a full institution never blocks the
+        // registration itself (the student still gets a normal PAII
+        // account), it just doesn't get auto-linked to the institution.
+        // No subscription at all = no configured limit = unlimited.
+        const subscription = await this.prisma.institutionSubscription.findUnique({
+          where: { institution_id: matchedDomain.institution_id },
+          include: { package: true },
+        });
+        let underLimit = true;
+        if (subscription?.package.student_limit != null) {
+          const currentCount = await this.prisma.institutionMembership.count({
+            where: { institution_id: matchedDomain.institution_id, role: "student", status: "active" },
+          });
+          underLimit = currentCount < subscription.package.student_limit;
+        }
+        if (underLimit) {
+          await this.prisma.institutionMembership.upsert({
+            where: { user_id_institution_id: { user_id: user.id, institution_id: matchedDomain.institution_id } },
+            create: { user_id: user.id, institution_id: matchedDomain.institution_id, role: "student", status: "active" },
+            update: {},
+          });
+          await this.auditLog.log({ userId: user.id, action: "institution.student_joined", entityType: "Institution", entityId: matchedDomain.institution_id, newValue: { email: user.email, via: "domain_match" } });
+        } else {
+          this.logger.warn(`Institution ${matchedDomain.institution_id} at student capacity — ${user.email} registered without institution membership`);
+        }
+      }
+    }
+
     if (!skipVerification) {
       const verifyBaseUrl = this.getBaseUrlForRole(isSalesRep ? "sales_rep" : isProfessor ? "professor" : "student");
       await this.mail.sendVerificationEmail(user.email, dto.first_name, emailVerifyToken!, verifyBaseUrl);
@@ -176,6 +216,37 @@ export class AuthService {
     const passwordValid = await bcrypt.compare(dto.password, user.password_hash);
     if (!passwordValid) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // First login after an institution admin's invite (owner/professor
+    // provisioned via requirePasswordReset) — flip to active now that
+    // they've actually set a password and signed in. Fetched before the
+    // update so we know exactly which institutions this login just joined
+    // (updateMany itself only returns a count, not the affected rows).
+    const justJoined = await this.prisma.institutionMembership.findMany({
+      where: { user_id: user.id, status: "invited" },
+      select: { institution_id: true },
+    });
+    if (justJoined.length > 0) {
+      await this.prisma.institutionMembership.updateMany({
+        where: { user_id: user.id, status: "invited" },
+        data: { status: "active" },
+      });
+      const name = user.profile ? `${user.profile.first_name} ${user.profile.last_name}`.trim() : user.email;
+      for (const { institution_id } of justJoined) {
+        const [institution, recipients] = await Promise.all([
+          this.prisma.institution.findUnique({ where: { id: institution_id }, select: { name: true } }),
+          this.prisma.institutionMembership.findMany({ where: { institution_id, role: { in: ["owner", "admin"] }, status: "active", user_id: { not: user.id } }, select: { user_id: true } }),
+        ]);
+        if (!institution) continue;
+        for (const r of recipients) {
+          await this.notifications.create(
+            r.user_id, "institution_invite_accepted",
+            "New team member joined",
+            `${name} (${user.email}) accepted your invite and joined ${institution.name}.`,
+          ).catch(() => {});
+        }
+      }
     }
 
     const tokens = await this.generateTokenPair(user.id, user.email, user.role, ipAddress, userAgent, dto.device_info);
@@ -556,6 +627,44 @@ export class AuthService {
     if (!user || !user.is_active) throw new UnauthorizedException("User not found or deactivated");
 
     const tokens = await this.generateTokenPair(user.id, user.email, user.role);
+    return { ...tokens, user: this.sanitizeUser(user) };
+  }
+
+  // ── SSO ticket handoff ──────────────────────────────────────────────────────
+  // Same "short-lived signed JWT, no server-side session storage needed"
+  // pattern as generateExamToken/exchangeExamToken above. SsoService issues
+  // one of these right after a successful OIDC callback and redirects the
+  // browser to the frontend with it in the query string — a single-use,
+  // 60-second-lived ticket is safe to put there (unlike a real access
+  // token), and the frontend immediately exchanges it for real tokens via
+  // this method so nothing long-lived ever appears in browser history.
+  async issueSsoTicket(userId: string): Promise<{ ticket: string }> {
+    const ticket = this.jwtService.sign(
+      { sub: userId, type: "sso_ticket" },
+      { secret: this.config.get<string>("jwt.accessSecret"), expiresIn: "60s" as any },
+    );
+    return { ticket };
+  }
+
+  async exchangeSsoTicket(ticket: string) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(ticket, {
+        secret: this.config.get<string>("jwt.accessSecret"),
+      });
+    } catch {
+      throw new UnauthorizedException("Invalid or expired SSO ticket");
+    }
+    if (payload.type !== "sso_ticket") throw new UnauthorizedException("Invalid token type");
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { profile: true },
+    });
+    if (!user || !user.is_active) throw new UnauthorizedException("User not found or deactivated");
+
+    const tokens = await this.generateTokenPair(user.id, user.email, user.role);
+    this.logger.log(`SSO login completed: ${user.email}`);
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 

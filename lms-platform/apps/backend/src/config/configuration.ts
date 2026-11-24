@@ -3,6 +3,10 @@ export default () => ({
   port: parseInt(process.env.PORT || "4000", 10),
   apiPrefix: process.env.API_PREFIX || "api/v1",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3001",
+  // The backend's own publicly-reachable base URL — needed as an absolute
+  // redirect_uri for OIDC SSO (the identity provider redirects the user's
+  // browser directly here). Nothing before this needed to self-reference.
+  apiBaseUrl: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || "4000"}/${process.env.API_PREFIX || "api/v1"}`,
 
   database: {
     url: process.env.DATABASE_URL,

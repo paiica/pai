@@ -17,6 +17,7 @@ import { ProgramsService } from "../programs/programs.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 import { localize, localizeMany } from "../../common/utils/localize";
 import { TranslationsService } from "../translations/translations.service";
+import { AuditLogService } from "../audit-log/audit-log.service";
 
 @Injectable()
 export class PrepCoursesService {
@@ -31,6 +32,7 @@ export class PrepCoursesService {
     private aiService: AiService,
     private programs: ProgramsService,
     private translationsService: TranslationsService,
+    private auditLog: AuditLogService,
   ) {}
 
   // ─── Auth helpers ────────────────────────────────────────────────────
@@ -41,7 +43,39 @@ export class PrepCoursesService {
       `SELECT id FROM lms.course_teachers WHERE course_id = $1 AND user_id = $2`,
       courseId, userId,
     );
-    if (!rows.length) throw new ForbiddenException("You are not assigned to this course");
+    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { institution_id: true } });
+
+    if (rows.length) {
+      // A CourseTeacher row is the historical record of "this person once
+      // taught this course" — it's never deleted on suspension (attribution
+      // should survive), so it alone isn't proof of CURRENT access. For an
+      // institution-attributed course, suspending someone's institution
+      // membership (institutions.service.ts's removeProfessor) is meant to
+      // cut off course access too — re-check their membership is still
+      // active, the same live re-check every other institution-scoped
+      // permission in this codebase already does, rather than trusting a
+      // row that was true whenever they were first assigned.
+      if (!course?.institution_id) return; // independent course — CourseTeacher is the only access model that applies
+      const membership = await this.prisma.institutionMembership.findUnique({
+        where: { user_id_institution_id: { user_id: userId, institution_id: course.institution_id } },
+      });
+      if (membership?.status === "active") return;
+      throw new ForbiddenException("Your access to this institution has been suspended");
+    }
+
+    // Not a listed co-instructor — but an institution owner/admin also gets
+    // full administrative reach into every course belonging to their own
+    // institution (not just courses they personally teach). This is what
+    // lets the academia app reuse every module/lesson/quiz/publish method in
+    // this service unchanged, via its own institution-scoped routes.
+    if (course?.institution_id) {
+      const membership = await this.prisma.institutionMembership.findUnique({
+        where: { user_id_institution_id: { user_id: userId, institution_id: course.institution_id } },
+      });
+      if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return;
+    }
+
+    throw new ForbiddenException("You are not assigned to this course");
   }
 
   async assertModuleCourseAccess(moduleId: string, userId: string, role: Role) {
@@ -167,6 +201,18 @@ export class PrepCoursesService {
       orderBy: { sort_order: "asc" },
       select: { id: true, title: true, sublesson_kind: true, available_via_link: true, open_behavior: true },
     });
+
+    // An "exercise" lab cell's test_code is the answer key — LabsService
+    // always grades exercises server-side specifically so this never has to
+    // be shipped to the browser (Pyodide labs execute in-page, so anything
+    // sent here would otherwise be readable straight out of the network
+    // tab). Strip it regardless of lesson type; a no-op unless lab_cells_json
+    // actually contains exercise cells.
+    if (Array.isArray(lesson.lab_cells_json)) {
+      lesson.lab_cells_json = lesson.lab_cells_json.map((cell: any) =>
+        cell?.type === "exercise" ? { ...cell, test_code: undefined } : cell,
+      );
+    }
 
     return lesson;
   }
@@ -1114,6 +1160,7 @@ export class PrepCoursesService {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
+        inst.name AS institution_name, inst.slug AS institution_slug,
         (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
         (SELECT COUNT(*) FROM lms.course_enrollments e WHERE e.course_id = c.id)::int AS enrollment_count,
         (
@@ -1126,6 +1173,7 @@ export class PrepCoursesService {
         ) AS instructors
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
+      LEFT JOIN lms.institutions inst ON inst.id = c.institution_id
       WHERE c.status = 'active' AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
@@ -1137,13 +1185,51 @@ export class PrepCoursesService {
       SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.compare_at_price, c.level,
              c.duration_hours, c.thumbnail_url, c.is_featured,
              c.title_ar, c.subtitle_ar, c.description_ar,
+             inst.name AS institution_name, inst.slug AS institution_slug,
              (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
              cert.acronym AS cert_acronym, cert.title AS cert_title
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
+      LEFT JOIN lms.institutions inst ON inst.id = c.institution_id
       WHERE c.status = 'active' AND c.is_featured = true AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
+    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
+  }
+
+  // An institution's course catalog, as seen by a given caller: every
+  // public course it owns, plus its private courses IF the caller has an
+  // active membership there — private courses stay completely invisible
+  // (not even a locked placeholder) to anyone outside the institution,
+  // never shown then blocked. Powers the student portal's "My University"
+  // catalog page (academia.paii.ca Phase 1).
+  async findByInstitution(institutionId: string, userId?: string, role?: Role, lang?: string) {
+    let hasMembership = false;
+    if (userId && role !== Role.admin && role !== Role.super_admin) {
+      const membership = await this.prisma.institutionMembership.findUnique({
+        where: { user_id_institution_id: { user_id: userId, institution_id: institutionId } },
+        select: { status: true },
+      });
+      hasMembership = membership?.status === "active";
+    } else if (role === Role.admin || role === Role.super_admin) {
+      hasMembership = true;
+    }
+
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT c.*,
+        cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
+        (SELECT COUNT(*) FROM lms.modules m WHERE m.course_id = c.id)::int AS module_count,
+        (SELECT COUNT(*) FROM lms.course_enrollments e WHERE e.course_id = c.id)::int AS enrollment_count
+      FROM lms.courses c
+      LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
+      WHERE c.institution_id = $1
+        AND c.status = 'active'
+        AND (
+          (c.visibility = 'private' AND $2::boolean)
+          OR (c.visibility = 'public' AND c.is_listed = true)
+        )
+      ORDER BY c.created_at DESC
+    `, institutionId, hasMembership);
     return localizeMany(rows, lang, ["title", "subtitle", "description"]);
   }
 
@@ -1153,6 +1239,7 @@ export class PrepCoursesService {
         c.price::float AS price,
         c.duration_hours::float AS duration_hours,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
+        inst.name AS institution_name, inst.slug AS institution_slug,
         (
           SELECT json_agg(json_build_object(
             'id', m.id, 'title', m.title, 'sort_order', m.sort_order,
@@ -1189,13 +1276,14 @@ export class PrepCoursesService {
         ) AS documents
       FROM lms.courses c
       LEFT JOIN lms.certifications cert ON cert.id = c.certification_id
+      LEFT JOIN lms.institutions inst ON inst.id = c.institution_id
       WHERE c.slug = $1
     `, slug);
     if (!rows.length) throw new NotFoundException("Course not found");
     const course = rows[0];
 
     if (!course.is_listed) {
-      const hasAccess = await this.canViewPrivateCourse(course.id, userId, role);
+      const hasAccess = await this.canViewPrivateCourse(course.id, userId, role, course.institution_id, course.visibility);
       if (!hasAccess) throw new NotFoundException("Course not found");
     }
     const localized = localize(course, lang, ["title", "subtitle", "description"]);
@@ -1209,19 +1297,26 @@ export class PrepCoursesService {
   // Private/unlisted courses are only viewable by an admin, someone who
   // teaches it, a student who's been invited to it (any invitation
   // status — a rejected invitation should still let them look back at what
-  // they turned down, they just can't accept it again from here), or a
+  // they turned down, they just can't accept it again from here), a
   // student enrolled in a Program that bundles it (covers capstone/
   // internship courses, which are kept unlisted and scoped to that
-  // program's own students — see ProgramCourse.special_type).
-  private async canViewPrivateCourse(courseId: string, userId?: string, role?: Role): Promise<boolean> {
+  // program's own students — see ProgramCourse.special_type), or — for a
+  // course attributed to an institution with visibility "private" — a
+  // student with an active InstitutionMembership at that institution
+  // (academia.paii.ca: a UNFC-private course is visible to any active UNFC
+  // student, not just individually-invited ones).
+  async canViewPrivateCourse(courseId: string, userId?: string, role?: Role, institutionId?: string | null, visibility?: string): Promise<boolean> {
     if (!userId) return false;
     if (role === Role.admin || role === Role.super_admin) return true;
-    const [teaches, invited, programEnrolled] = await Promise.all([
+    const [teaches, invited, programEnrolled, institutionMember] = await Promise.all([
       this.prisma.courseTeacher.findFirst({ where: { course_id: courseId, user_id: userId }, select: { id: true } }),
       this.prisma.courseInvitation.findFirst({ where: { course_id: courseId, student_id: userId }, select: { id: true } }),
       this.prisma.programEnrollment.findFirst({ where: { user_id: userId, program: { courses: { some: { course_id: courseId } } } }, select: { id: true } }),
+      institutionId && visibility === "private"
+        ? this.prisma.institutionMembership.findUnique({ where: { user_id_institution_id: { user_id: userId, institution_id: institutionId } }, select: { status: true } })
+        : Promise.resolve(null),
     ]);
-    return !!teaches || !!invited || !!programEnrolled;
+    return !!teaches || !!invited || !!programEnrolled || institutionMember?.status === "active";
   }
 
   // ─── Admin ───────────────────────────────────────────────────────────
@@ -1280,6 +1375,7 @@ export class PrepCoursesService {
         this.mail.sendCourseApproved({ to: creator.email, firstName: creator.profile?.first_name || "there", courseTitle: course.title }).catch(() => {});
       }
     }
+    await this.auditLog.log({ userId: adminUserId, action: "course.approved", entityType: "Course", entityId: courseId, newValue: { title: course.title } });
     return updated;
   }
 
@@ -1301,6 +1397,7 @@ export class PrepCoursesService {
         this.mail.sendCourseRejected({ to: creator.email, firstName: creator.profile?.first_name || "there", courseTitle: course.title, reason: reason.trim() }).catch(() => {});
       }
     }
+    await this.auditLog.log({ userId: adminUserId, action: "course.rejected", entityType: "Course", entityId: courseId, newValue: { title: course.title, reason: reason.trim() } });
     return updated;
   }
 
@@ -1452,7 +1549,7 @@ export class PrepCoursesService {
       'title', 'subtitle', 'description', 'price', 'compare_at_price', 'status', 'thumbnail_url',
       'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
       'sort_order', 'slug', 'total_lessons', 'is_featured', 'is_listed', 'ai_professor_enabled', 'content',
-      'passing_score',
+      'passing_score', 'term_id',
     ];
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -2217,9 +2314,55 @@ export class PrepCoursesService {
   // A professor assigned to this course (via CourseTeacher) can edit the
   // same fields an admin can — title, subtitle, description, price, level,
   // status, content, etc. — not just the module/lesson tree.
+  // adminUpdate's field whitelist is shared with the real PAII-staff editor
+  // (AdminPrepCoursesController, @Roles(Role.super_admin)) and includes
+  // is_listed — the ONLY gate the public marketplace actually checks
+  // (findAll's WHERE clause is just `is_listed = true`, no independent
+  // approval_status re-check). Passing dto through unfiltered meant any
+  // professor or institution admin could set is_listed/is_featured directly
+  // via a routine course-metadata edit, self-publishing an unreviewed
+  // course straight into the public catalog and bypassing
+  // adminApproveCourse (the intended sole path) entirely. Strip every
+  // PAII-curation field here — none of them are legitimate for a
+  // professor/institution admin to set themselves, regardless of what a
+  // client sends.
+  private static readonly ADMIN_ONLY_COURSE_FIELDS = ["is_listed", "is_featured", "certification_id", "approval_status", "reviewed_by", "reviewed_at"];
+
   async profUpdateCourse(courseId: string, dto: Record<string, any>, userId: string, role: Role) {
     await this.assertTeacherAccess(courseId, userId, role);
-    return this.adminUpdate(courseId, dto);
+    const safeDto = { ...dto };
+    for (const field of PrepCoursesService.ADMIN_ONLY_COURSE_FIELDS) delete safeDto[field];
+
+    // Reassigning a term is only meaningful for an institution course, and
+    // — same rule as at creation time (profCreateCourse) — the term must
+    // actually belong to that same institution, or an empty string/null to
+    // clear it back to unscoped.
+    if ("term_id" in safeDto && safeDto.term_id) {
+      const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { institution_id: true } });
+      if (!course?.institution_id) throw new BadRequestException("Only institution-attributed courses can be assigned a term");
+      const term = await this.prisma.academicTerm.findFirst({ where: { id: safeDto.term_id, institution_id: course.institution_id } });
+      if (!term) throw new BadRequestException("This term doesn't belong to this course's institution");
+    }
+
+    return this.adminUpdate(courseId, safeDto);
+  }
+
+  // No professor/institution-facing delete existed before — only PAII staff
+  // could remove a course at all (adminDelete, which force-deletes even
+  // with real enrollments). This is deliberately more conservative: block
+  // entirely if anyone is enrolled, so a mis-click can't wipe out real
+  // students' access/progress — archiving (already an existing status
+  // value) is the correct move for a course that's actually in use.
+  // Enrollment count is already confirmed zero by the time adminDelete
+  // runs, so its own unconditional enrollment-delete step is a no-op here.
+  async profDeleteCourse(courseId: string, userId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, userId, role);
+    const enrollmentCount = await this.prisma.courseEnrollment.count({ where: { course_id: courseId } });
+    if (enrollmentCount > 0) {
+      throw new BadRequestException(`This course has ${enrollmentCount} enrolled student${enrollmentCount === 1 ? "" : "s"} — archive it instead (set Status to Archived) rather than deleting, so they don't lose access.`);
+    }
+    await this.auditLog.log({ userId, action: "course.deleted", entityType: "Course", entityId: courseId });
+    return this.adminDelete(courseId);
   }
 
   // Full module/lesson tree with rich per-lesson fields (video_url, content_body,
@@ -2242,8 +2385,49 @@ export class PrepCoursesService {
   // "private" gate, kept separate so approval only controls public catalog
   // visibility, never enrollment eligibility (see schema.prisma comment on
   // Course.is_listed for why these can't share one field).
-  async profCreateCourse(userId: string, dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string }) {
+  async profCreateCourse(userId: string, dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string; institution_id?: string; visibility?: "private" | "public"; term_id?: string }) {
     if (!dto.title?.trim()) throw new BadRequestException("Title is required");
+
+    // Institution attribution requires an active membership there — never
+    // trust institution_id from the client without this check (spec:
+    // "A professor not associated with UNFC cannot create a UNFC private
+    // course," enforced server-side, not just hidden in the UI).
+    if (dto.institution_id) {
+      const membership = await this.prisma.institutionMembership.findUnique({
+        where: { user_id_institution_id: { user_id: userId, institution_id: dto.institution_id } },
+      });
+      const allowedRoles = ["professor", "admin", "owner"];
+      if (!membership || membership.status !== "active" || !allowedRoles.includes(membership.role)) {
+        throw new ForbiddenException("You don't have an active professor membership at this institution");
+      }
+
+      // A term (if given) must actually belong to this same institution —
+      // never trust term_id from the client to scope a course into an
+      // unrelated institution's term.
+      if (dto.term_id) {
+        const term = await this.prisma.academicTerm.findFirst({ where: { id: dto.term_id, institution_id: dto.institution_id } });
+        if (!term) throw new BadRequestException("This term doesn't belong to your institution");
+      }
+
+      // Course creation costs PAII real resources — require an active,
+      // non-expired subscription (see InstitutionsService.assertActiveSubscription,
+      // duplicated inline here rather than injecting InstitutionsService to
+      // avoid a new cross-module dependency for one small check).
+      const subscription = await this.prisma.institutionSubscription.findUnique({ where: { institution_id: dto.institution_id } });
+      const expired = subscription?.current_period_end != null && subscription.current_period_end < new Date();
+      if (!subscription || subscription.status !== "active" || expired) {
+        throw new BadRequestException("This institution doesn't have an active subscription. Ask your institution admin to subscribe to a package first.");
+      }
+      if (subscription.package_id) {
+        const pkg = await this.prisma.package.findUnique({ where: { id: subscription.package_id } });
+        if (pkg?.course_limit != null) {
+          const courseCount = await this.prisma.course.count({ where: { institution_id: dto.institution_id } });
+          if (courseCount >= pkg.course_limit) {
+            throw new BadRequestException(`Your institution's ${pkg.name} plan allows up to ${pkg.course_limit} courses. Upgrade your package to create more.`);
+          }
+        }
+      }
+    }
 
     const base = dto.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     let slug = base || "course";
@@ -2252,6 +2436,13 @@ export class PrepCoursesService {
       const existing = await this.prisma.course.findUnique({ where: { slug: candidate }, select: { id: true } });
       if (!existing) { slug = candidate; break; }
     }
+
+    // Institution courses default to private (spec section 12: no approval
+    // needed, immediately usable by the institution's own students) unless
+    // the professor explicitly chose public (spec section 14/15: still
+    // institution-attributed, but goes through the normal public-listing
+    // approval flow like any other public course).
+    const visibility = dto.institution_id ? (dto.visibility ?? "private") : "public";
 
     const course = await this.prisma.course.create({
       data: {
@@ -2266,10 +2457,115 @@ export class PrepCoursesService {
         approval_status: "none",
         created_by: userId,
         created_by_role: Role.professor,
+        institution_id: dto.institution_id ?? null,
+        term_id: dto.institution_id ? (dto.term_id ?? null) : null,
+        visibility: visibility as any,
         instructors: { create: { user_id: userId, is_lead: true } },
       },
     });
+    if (dto.institution_id) {
+      await this.auditLog.log({ userId, action: "course.created", entityType: "Course", entityId: course.id, newValue: { title: course.title, institution_id: dto.institution_id, visibility } });
+    }
     return course;
+  }
+
+  // ─── Institution admin course management (academia app) ───────────────
+  // These wrap profCreateCourse and the CourseTeacher relation rather than
+  // duplicating their logic — an institution admin acts ON BEHALF OF a real
+  // professor at their institution, never as the course's own creator/lead
+  // instructor (their global Role is typically "student", so attributing
+  // the course to them would leave it with no real teacher who could ever
+  // see it in the professors app).
+
+  private async assertInstitutionAdmin(institutionId: string, userId: string) {
+    const membership = await this.prisma.institutionMembership.findUnique({
+      where: { user_id_institution_id: { user_id: userId, institution_id: institutionId } },
+    });
+    if (!membership || membership.status !== "active" || !["owner", "admin"].includes(membership.role)) {
+      throw new ForbiddenException("You don't have an active admin membership at this institution");
+    }
+  }
+
+  private async assertActiveProfessorAt(institutionId: string, userId: string) {
+    const membership = await this.prisma.institutionMembership.findUnique({
+      where: { user_id_institution_id: { user_id: userId, institution_id: institutionId } },
+    });
+    if (!membership || membership.status !== "active" || membership.role !== "professor") {
+      throw new BadRequestException("This person isn't an active professor at this institution");
+    }
+  }
+
+  async institutionCreateCourse(callerUserId: string, dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string; institution_id: string; visibility?: "private" | "public"; term_id?: string; instructor_user_id: string }) {
+    if (!dto.instructor_user_id) throw new BadRequestException("An instructor must be selected");
+    await this.assertInstitutionAdmin(dto.institution_id, callerUserId);
+    await this.assertActiveProfessorAt(dto.institution_id, dto.instructor_user_id);
+    return this.profCreateCourse(dto.instructor_user_id, dto);
+  }
+
+  async institutionAddCourseInstructor(courseId: string, instructorUserId: string, callerUserId: string, role: Role) {
+    if (!instructorUserId) throw new BadRequestException("An instructor must be selected");
+    await this.assertTeacherAccess(courseId, callerUserId, role);
+    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { institution_id: true } });
+    if (!course?.institution_id) throw new BadRequestException("This course isn't attributed to an institution");
+    await this.assertActiveProfessorAt(course.institution_id, instructorUserId);
+
+    await this.prisma.courseTeacher.upsert({
+      where: { course_id_user_id: { course_id: courseId, user_id: instructorUserId } },
+      create: { course_id: courseId, user_id: instructorUserId, is_lead: false },
+      update: {},
+    });
+    await this.auditLog.log({ userId: callerUserId, action: "course.instructor_added", entityType: "Course", entityId: courseId, newValue: { user_id: instructorUserId } });
+    return { added: true };
+  }
+
+  async institutionRemoveCourseInstructor(courseId: string, instructorUserId: string, callerUserId: string, role: Role) {
+    await this.assertTeacherAccess(courseId, callerUserId, role);
+    const teacherCount = await this.prisma.courseTeacher.count({ where: { course_id: courseId } });
+    if (teacherCount <= 1) throw new BadRequestException("A course must have at least one instructor");
+    await this.prisma.courseTeacher.deleteMany({ where: { course_id: courseId, user_id: instructorUserId } });
+    await this.auditLog.log({ userId: callerUserId, action: "course.instructor_removed", entityType: "Course", entityId: courseId, oldValue: { user_id: instructorUserId } });
+    return { removed: true };
+  }
+
+  // Bulk-enrolls every active member of a cohort into a course in one
+  // action, auto-accepted (no per-student invite/consent step) — cohort
+  // membership already implies institutional enrollment consent, the same
+  // way a real registrar adds a whole class roster to a course. Only
+  // allowed for free courses: a priced course still has to go through the
+  // existing per-student invite+Stripe-checkout path so payment isn't
+  // silently bypassed by an administrative bulk action.
+  async institutionEnrollCohort(courseId: string, cohortId: string, callerUserId: string, role: Role) {
+    if (!cohortId) throw new BadRequestException("A cohort must be selected");
+    await this.assertTeacherAccess(courseId, callerUserId, role);
+
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course?.institution_id) throw new BadRequestException("This course isn't attributed to an institution");
+    if (Number(course.price) > 0) throw new BadRequestException("This course has a price — enroll students individually through the paid invite flow instead.");
+
+    const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+    if (!cohort || cohort.institution_id !== course.institution_id) throw new BadRequestException("This cohort doesn't belong to the same institution as the course");
+
+    const leadTeacher = await this.prisma.courseTeacher.findFirst({ where: { course_id: courseId, is_lead: true } });
+    const professorId = leadTeacher?.user_id ?? callerUserId;
+
+    const members = await this.prisma.cohortMembership.findMany({ where: { cohort_id: cohortId }, select: { user_id: true } });
+    const existingEnrollments = await this.prisma.courseEnrollment.findMany({ where: { course_id: courseId, user_id: { in: members.map((m) => m.user_id) } }, select: { user_id: true } });
+    const alreadyEnrolled = new Set(existingEnrollments.map((e) => e.user_id));
+    const toEnroll = members.filter((m) => !alreadyEnrolled.has(m.user_id));
+
+    let enrolledCount = 0;
+    for (const member of toEnroll) {
+      const enrollment = await this.prisma.courseEnrollment.create({ data: { user_id: member.user_id, course_id: courseId } });
+      await this.prisma.courseInvitation.create({
+        data: {
+          professor_id: professorId, student_id: member.user_id, course_id: courseId,
+          status: "accepted", responded_at: new Date(), enrollment_id: enrollment.id,
+        },
+      });
+      enrolledCount++;
+    }
+    await this.auditLog.log({ userId: callerUserId, action: "course.cohort_enrolled", entityType: "Course", entityId: courseId, newValue: { cohort_id: cohortId, enrolled_count: enrolledCount } });
+    return { enrolled_count: enrolledCount, skipped_already_enrolled: members.length - toEnroll.length };
   }
 
   async profSubmitForApproval(courseId: string, userId: string, role: Role) {
@@ -2278,10 +2574,12 @@ export class PrepCoursesService {
     if (course.approval_status !== "none" && course.approval_status !== "rejected") {
       throw new BadRequestException(`This course is already ${course.approval_status === "pending" ? "pending review" : "approved"}.`);
     }
-    return this.prisma.course.update({
+    const updated = await this.prisma.course.update({
       where: { id: courseId },
       data: { approval_status: "pending", submitted_at: new Date(), rejection_reason: null },
     });
+    await this.auditLog.log({ userId, action: "course.submitted_for_approval", entityType: "Course", entityId: courseId, newValue: { title: course.title } });
+    return updated;
   }
 
   // ─── Quiz questions (course builder) ──────────────────────────────────

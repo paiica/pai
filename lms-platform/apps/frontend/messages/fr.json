@@ -8,8 +8,10 @@
     "courses": "Cours",
     "myLearning": "Mon apprentissage",
     "myCourses": "Mes cours",
+    "labs": "Laboratoires",
     "onlineTools": "Outils en ligne",
     "programs": "Programmes",
+    "university": "Mon université",
     "grades": "Notes",
     "account": "Compte",
     "profile": "Profil",
@@ -264,7 +266,12 @@
     "submit": "Se connecter",
     "noAccount": "Vous n'avez pas de compte ?",
     "createAccount": "Créer un compte",
-    "backToMainWebsite": "← Retour au site principal"
+    "backToMainWebsite": "← Retour au site principal",
+    "ssoToggle": "Se connecter via votre établissement",
+    "ssoCodeLabel": "Code de l'établissement",
+    "ssoCodePlaceholder": "ex. UNFC",
+    "ssoContinue": "Continuer",
+    "ssoNotAvailable": "La connexion unique n'est pas activée pour ce code d'établissement."
   },
   "Register": {
     "heading": "Créer un compte",
@@ -1102,5 +1109,19 @@
     "enrolled": "Inscrit",
     "receipt": "Reçu",
     "invoice": "Facture"
+  },
+  "Labs": {
+    "heading": "Laboratoires",
+    "subheading": "Pratique concrète issue de chaque cours auquel vous êtes inscrit — écrivez du vrai code et obtenez un retour instantané.",
+    "playgroundTitle": "Ouvrir le bac à sable",
+    "playgroundSubtitle": "Un espace vierge, sans lien avec un cours — pour simplement essayer des choses.",
+    "completed": "Terminé",
+    "inProgress": "En cours",
+    "exercisesProgress": "{passed}/{total} exercices réussis",
+    "review": "Revoir",
+    "continueLab": "Continuer",
+    "startLab": "Démarrer le labo",
+    "noLabsHeading": "Aucun laboratoire pour le moment",
+    "noLabsBody": "Les laboratoires apparaîtront ici dès que vous serez inscrit à un cours qui en propose un."
   }
 }

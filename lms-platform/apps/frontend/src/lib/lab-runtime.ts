@@ -23,8 +23,10 @@ export type CellOutput = {
 // A lesson's own code cells fully determine which runtime it needs — no
 // per-lesson field to keep in sync. If an admin later adds a `torch` cell
 // to a currently-light lesson, it starts requiring E2B automatically.
+// Exercise cells count too — their starter code runs the same way a plain
+// code cell's does (grading itself always happens server-side regardless).
 export function detectLabRuntime(cells: { type: string; content: string }[]): LabRuntime {
-  const allCode = cells.filter((c) => c.type === "code").map((c) => c.content).join("\n");
+  const allCode = cells.filter((c) => c.type === "code" || c.type === "exercise").map((c) => c.content).join("\n");
   const needsHeavy = HEAVY_PACKAGE_PATTERNS.some((re) => re.test(allCode));
   return needsHeavy ? "e2b" : "pyodide";
 }
@@ -46,7 +48,7 @@ const STDLIB_MODULES = new Set([
 ]);
 
 function detectImportedModules(cells: { type: string; content: string }[]): string[] {
-  const allCode = cells.filter((c) => c.type === "code").map((c) => c.content).join("\n");
+  const allCode = cells.filter((c) => c.type === "code" || c.type === "exercise").map((c) => c.content).join("\n");
   const names = new Set<string>();
   for (const m of allCode.matchAll(/^\s*(?:import|from)\s+([a-zA-Z_][\w]*)/gm)) names.add(m[1]);
   return [...names];

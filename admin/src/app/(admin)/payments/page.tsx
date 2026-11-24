@@ -32,6 +32,7 @@ const TYPE_LABELS: Record<string, string> = {
   retake_fee:       "Retake Fee",
   renewal_fee:      "Renewal Fee",
   corporate_bundle: "Corporate Bundle",
+  lab_sandbox:      "Lab Cloud Sandbox",
 };
 
 export default function TransactionsPage() {
@@ -131,6 +132,7 @@ export default function TransactionsPage() {
           <option value="retake_fee">Retake Fee</option>
           <option value="renewal_fee">Renewal Fee</option>
           <option value="corporate_bundle">Corporate Bundle</option>
+          <option value="lab_sandbox">Lab Cloud Sandbox</option>
         </select>
 
         {(searchQ || status || type) && (

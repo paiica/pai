@@ -22,7 +22,32 @@ function LoginContent() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
 
+  const [showSso, setShowSso] = useState(false);
+  const [ssoCode, setSsoCode] = useState("");
+  const [ssoError, setSsoError] = useState("");
+  const [ssoLoading, setSsoLoading] = useState(false);
+
   const isVerificationError = needsVerification;
+
+  async function handleSsoContinue(e: React.FormEvent) {
+    e.preventDefault();
+    setSsoError("");
+    setSsoLoading(true);
+    try {
+      const res = await api.get<any>(`/sso/lookup?code=${encodeURIComponent(ssoCode.trim())}`);
+      const info: { available: boolean; institution_id?: string } = res?.data ?? res;
+      if (!info.available || !info.institution_id) {
+        setSsoError(t("ssoNotAvailable"));
+        setSsoLoading(false);
+        return;
+      }
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+      window.location.href = `${apiUrl}/sso/${info.institution_id}/start`;
+    } catch {
+      setSsoError(t("genericError"));
+      setSsoLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -137,6 +162,46 @@ function LoginContent() {
           {isLoading ? <Loader2 size={18} className="animate-spin" /> : t("submit")}
         </button>
       </form>
+
+      <div className="mt-5 pt-5 border-t border-slate-100">
+        {!showSso ? (
+          <button
+            type="button"
+            onClick={() => setShowSso(true)}
+            className="w-full text-center text-sm font-semibold text-navy-700 hover:text-navy-900"
+          >
+            {t("ssoToggle")}
+          </button>
+        ) : (
+          <form onSubmit={handleSsoContinue} className="space-y-3">
+            <label htmlFor="sso-code" className="block text-xs font-semibold text-slate-700">
+              {t("ssoCodeLabel")}
+            </label>
+            <input
+              id="sso-code"
+              type="text"
+              value={ssoCode}
+              onChange={(e) => setSsoCode(e.target.value)}
+              placeholder={t("ssoCodePlaceholder")}
+              required
+              className="input-base uppercase"
+              autoCapitalize="characters"
+            />
+            {ssoError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
+                {ssoError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={ssoLoading}
+              className="w-full btn-outline !py-2.5 justify-center disabled:opacity-60"
+            >
+              {ssoLoading ? <Loader2 size={16} className="animate-spin" /> : t("ssoContinue")}
+            </button>
+          </form>
+        )}
+      </div>
 
       <div className="mt-5 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
         {t("noAccount")}{" "}

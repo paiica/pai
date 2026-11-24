@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   ClipboardList, CheckCircle2, XCircle, Loader2, Eye, X,
@@ -444,7 +445,9 @@ function ApplicationDrawer({
 
 export default function ApplicationsPage() {
   const { accessToken } = useAuthStore();
-  const [filter,        setFilter]        = useState<string>("");
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") ?? "";
+  const [filter,        setFilter]        = useState<string>(initialStatus);
   const [selected,      setSelected]      = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [checkedIds,    setCheckedIds]    = useState<Set<string>>(new Set());

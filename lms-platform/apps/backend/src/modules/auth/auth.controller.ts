@@ -144,6 +144,14 @@ export class AuthController {
   }
 
   @Public()
+  @Post("sso/exchange")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Exchange a one-time SSO ticket (from an institution OIDC login) for a real user JWT pair" })
+  async exchangeSsoTicket(@Body("ticket") ticket: string) {
+    return this.authService.exchangeSsoTicket(ticket);
+  }
+
+  @Public()
   @Post("verify-exam-link")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Verify unique student exam link, start/resume attempt (paiiexams /join)" })

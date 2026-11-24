@@ -10,6 +10,7 @@ type CourseListItem = {
   price: string | number; compare_at_price?: string | number | null;
   level?: string | null; cert_acronym?: string | null;
   module_count?: number; duration_hours?: number; thumbnail_url?: string | null;
+  institution_name?: string | null; institution_slug?: string | null;
 };
 
 const LEVEL_LABEL_KEYS: Record<string, string> = {
@@ -138,9 +139,17 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
                       </span>
                     )}
                   </div>
-                  <h3 className="font-display font-black text-ink-900 text-xl leading-snug mb-3">
+                  <h3 className={`font-display font-black text-ink-900 text-xl leading-snug ${course.institution_name ? "mb-1" : "mb-3"}`}>
                     {course.title}
                   </h3>
+                  {course.institution_name && (
+                    <Link
+                      href={course.institution_slug ? `/institutions/${course.institution_slug}` : "/institutions"}
+                      className="inline-block text-xs font-semibold text-teal-700 hover:text-teal-600 mb-3 w-fit"
+                    >
+                      {t("byInstitution", { name: course.institution_name })}
+                    </Link>
+                  )}
                   {course.subtitle && (
                     <p className="text-sm text-ink-900/70 leading-relaxed mb-5 flex-1 line-clamp-2">
                       {course.subtitle}

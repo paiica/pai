@@ -5,11 +5,13 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Request } from "express";
-import { Role } from "@prisma/client";
+import { Role, InstitutionRole } from "@prisma/client";
 import { PaymentsService } from "./payments.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
+import { InstitutionRoleGuard } from "../../common/guards/institution-role.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { InstitutionRoles } from "../../common/decorators/institution-roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { SkipThrottle } from "@nestjs/throttler";
@@ -37,9 +39,10 @@ export class PaymentsController {
   @ApiOperation({ summary: "Buy a prep course (direct enrollment after payment)" })
   courseCheckout(
     @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
     @Body() dto: CourseCheckoutDto,
   ) {
-    return this.paymentsService.createCourseCheckoutSession(userId, dto.course_id, dto.promo_code);
+    return this.paymentsService.createCourseCheckoutSession(userId, dto.course_id, dto.promo_code, undefined, role);
   }
 
   @ApiBearerAuth()
@@ -127,6 +130,97 @@ export class PaymentsController {
   @ApiOperation({ summary: "Create Stripe billing portal session for card management" })
   billingPortal(@CurrentUser("id") userId: string) {
     return this.paymentsService.createBillingPortalSession(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("lab-sandbox-checkout")
+  @ApiOperation({ summary: "Subscribe to the Labs Playground's cloud sandbox ($200/month, auto-renews)" })
+  labSandboxCheckout(@CurrentUser("id") userId: string) {
+    return this.paymentsService.createLabSandboxCheckoutSession(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("lab-sandbox-subscription/cancel")
+  @ApiOperation({ summary: "Stop auto-renewal of the Cloud Sandbox subscription (access continues until period end)" })
+  cancelLabSandboxSubscription(@CurrentUser("id") userId: string) {
+    return this.paymentsService.cancelLabSandboxSubscription(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("lab-sandbox-subscription/resume")
+  @ApiOperation({ summary: "Undo a scheduled cancellation before the current period ends" })
+  resumeLabSandboxSubscription(@CurrentUser("id") userId: string) {
+    return this.paymentsService.resumeLabSandboxSubscription(userId);
+  }
+
+  // ── Institution subscription billing (academia app) ────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Post("institutions/:institutionId/subscribe")
+  @ApiOperation({ summary: "Institution admin: subscribe to a package ($/month, auto-renews)" })
+  subscribeInstitution(
+    @Param("institutionId") institutionId: string,
+    @CurrentUser("email") userEmail: string,
+    @Body() dto: { package_id: string },
+  ) {
+    return this.paymentsService.createInstitutionSubscriptionCheckoutSession(institutionId, dto.package_id, userEmail);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Post("institutions/:institutionId/subscription/cancel")
+  @ApiOperation({ summary: "Institution admin: stop auto-renewal (access continues until period end)" })
+  cancelInstitutionSubscription(@CurrentUser("id") userId: string, @Param("institutionId") institutionId: string) {
+    return this.paymentsService.cancelInstitutionSubscription(institutionId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Post("institutions/:institutionId/subscription/resume")
+  @ApiOperation({ summary: "Institution admin: undo a scheduled cancellation" })
+  resumeInstitutionSubscription(@CurrentUser("id") userId: string, @Param("institutionId") institutionId: string) {
+    return this.paymentsService.resumeInstitutionSubscription(institutionId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Get("institutions/:institutionId/subscription/preview")
+  @ApiOperation({ summary: "Institution admin: preview the prorated charge/credit for switching plans (read-only, no charge)" })
+  previewInstitutionSubscriptionChange(
+    @Param("institutionId") institutionId: string,
+    @Query("package_id") packageId: string,
+  ) {
+    return this.paymentsService.previewInstitutionSubscriptionChange(institutionId, packageId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Post("institutions/:institutionId/subscription/change")
+  @ApiOperation({ summary: "Institution admin: switch to a different package (prorated immediately, no new checkout needed)" })
+  changeInstitutionSubscription(
+    @CurrentUser("id") userId: string,
+    @Param("institutionId") institutionId: string,
+    @Body() dto: { package_id: string },
+  ) {
+    return this.paymentsService.changeInstitutionSubscription(institutionId, dto.package_id, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, InstitutionRoleGuard)
+  @InstitutionRoles(InstitutionRole.owner, InstitutionRole.admin)
+  @Post("institutions/:institutionId/billing-portal")
+  @ApiOperation({ summary: "Institution admin: Stripe billing portal session (update card, view Stripe invoices)" })
+  createInstitutionBillingPortal(@Param("institutionId") institutionId: string) {
+    return this.paymentsService.createInstitutionBillingPortalSession(institutionId);
   }
 
   @Public()

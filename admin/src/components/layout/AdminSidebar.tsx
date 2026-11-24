@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Users, Users2, BookOpen, Award, GraduationCap,
   ClipboardList, LogOut, Settings,
-  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet, Palette,
+  Paintbrush, LayoutTemplate, Navigation, ChevronDown, PanelBottom, FileText, Rss, Tag, Wrench, CalendarDays, Key, CreditCard, BarChart3, ReceiptText, Mail, ListChecks, UserCheck, DollarSign, TrendingUp, ChevronsLeft, ChevronsRight, Presentation, Building2, Magnet, Palette, Package, PieChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -62,6 +62,10 @@ const SALES_NAV = [
   { href: "/commissions",   label: "Commissions",  icon: DollarSign },
   { href: "/promo-codes",   label: "Promo Codes",  icon: Tag        },
   { href: "/organizations", label: "Organizations",icon: Building2  },
+  { href: "/institutions",  label: "Institutions", icon: GraduationCap },
+  { href: "/packages",      label: "Packages",     icon: Package        },
+  { href: "/revenue",       label: "Revenue Share",icon: PieChart       },
+  { href: "/audit-log",     label: "Audit Log",    icon: ListChecks     },
 ];
 
 const PAYMENTS_NAV = [
@@ -128,7 +132,7 @@ export default function AdminSidebar() {
   const [programsOpen, setProgramsOpen] = useState(pathname.startsWith("/programs"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
   const [paymentsOpen, setPaymentsOpen] = useState(pathname.startsWith("/payments"));
-  const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations"));
+  const [salesOpen,    setSalesOpen]    = useState(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations") || pathname.startsWith("/institutions") || pathname.startsWith("/packages") || pathname.startsWith("/revenue") || pathname.startsWith("/audit-log"));
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -223,7 +227,7 @@ export default function AdminSidebar() {
             <button
               onClick={collapsed ? toggleCollapsed : () => setSalesOpen(!salesOpen)}
               title={collapsed ? "Sales" : undefined}
-              className={groupBtnCls(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations"))}
+              className={groupBtnCls(pathname.startsWith("/affiliates") || pathname.startsWith("/commissions") || pathname.startsWith("/promo-codes") || pathname.startsWith("/organizations") || pathname.startsWith("/institutions") || pathname.startsWith("/packages") || pathname.startsWith("/revenue") || pathname.startsWith("/audit-log"))}
             >
               <TrendingUp size={17} className="flex-shrink-0" />
               {!collapsed && <><span className="flex-1 text-left">Sales</span><ChevronDown size={14} className={cn("transition-transform", salesOpen && "rotate-180")} /></>}

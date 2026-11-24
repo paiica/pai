@@ -44,7 +44,7 @@ export class ProfPrepCoursesController {
   @Post()
   @ApiOperation({ summary: "Create a new course — private until submitted and approved" })
   createCourse(
-    @Body() dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string },
+    @Body() dto: { title: string; subtitle?: string; description?: string; price?: number; level?: string; institution_id?: string; visibility?: "private" | "public" },
     @CurrentUser("id") userId: string,
   ) {
     return this.service.profCreateCourse(userId, dto);
@@ -79,6 +79,16 @@ export class ProfPrepCoursesController {
     @CurrentUser("role") role: Role,
   ) {
     return this.service.profUpdateCourse(courseId, dto, userId, role);
+  }
+
+  @Delete(":courseId")
+  @ApiOperation({ summary: "Delete a course — blocked if it has any enrollments (archive instead)" })
+  deleteCourse(
+    @Param("courseId", ParseUUIDPipe) courseId: string,
+    @CurrentUser("id") userId: string,
+    @CurrentUser("role") role: Role,
+  ) {
+    return this.service.profDeleteCourse(courseId, userId, role);
   }
 
   @Get(":courseId/modules")

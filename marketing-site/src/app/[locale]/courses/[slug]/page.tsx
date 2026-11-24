@@ -40,6 +40,7 @@ type Course = {
   description?: string; price: number; compare_at_price?: number | null; level?: string; status: string;
   duration_hours: number; thumbnail_url?: string;
   cert_acronym?: string; cert_title?: string; cert_slug?: string;
+  institution_name?: string; institution_slug?: string;
   modules?: Module[]; instructors?: Instructor[];
   content?: CourseContent;
   documents?: CourseDocument[];
@@ -192,6 +193,14 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-navy-900 leading-tight mb-3">
                   {course.title}
                 </h1>
+                {course.institution_name && (
+                  <Link
+                    href={course.institution_slug ? `/institutions/${course.institution_slug}` : "/institutions"}
+                    className="inline-block text-sm font-semibold text-teal-700 hover:text-teal-600 mb-4"
+                  >
+                    {t("byInstitution", { name: course.institution_name })}
+                  </Link>
+                )}
                 {course.subtitle && (
                   <p className="text-lg text-navy-800 leading-relaxed mb-5">{course.subtitle}</p>
                 )}

@@ -6,12 +6,148 @@ import useSWR from "swr";
 import {
   Users, BookOpen, Award, Clock, CheckCircle2, XCircle, Loader2,
   ChevronDown, DollarSign, UserCheck, UserX, TrendingUp, AlertCircle,
+  GraduationCap, FileText,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 type DashboardView = "lms" | "sales";
+
+// ── Needs Attention + What's New ──────────────────────────────────────────────
+
+interface NeedsAttentionItem {
+  key: string; label: string; description: string; count: number; href: string;
+}
+interface OverviewData {
+  needs_attention: NeedsAttentionItem[];
+  needs_attention_total: number;
+  whats_new: {
+    since_days: number;
+    new_students_count: number;
+    new_students: { id: string; name: string; email: string; created_at: string }[];
+    new_applications_count: number;
+    new_applications: { id: string; full_name: string; email: string; status: string; certification: string | null; created_at: string }[];
+  };
+}
+
+const APP_STATUS_LABEL: Record<string, string> = {
+  pending_payment: "Awaiting payment", payment_submitted: "Payment to verify",
+  pending_review: "Pending review", approved: "Approved", rejected: "Rejected", withdrawn: "Withdrawn",
+};
+
+function AttentionOverview() {
+  const { accessToken } = useAuthStore();
+  const { data, isLoading } = useSWR(
+    accessToken ? "/admin/overview" : null,
+    (url) => api.get<OverviewData>(url, accessToken!),
+    { refreshInterval: 60000 },
+  );
+  const overview = (data as any)?.data ?? data;
+
+  if (isLoading || !overview) {
+    return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-slate-300" size={24} /></div>;
+  }
+
+  const { needs_attention, needs_attention_total, whats_new } = overview as OverviewData;
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display font-bold text-navy-900 text-base">Needs Your Attention</h2>
+            {needs_attention_total > 0 && <span className="badge bg-amber-100 text-amber-700">{needs_attention_total}</span>}
+          </div>
+          {needs_attention_total === 0 && (
+            <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+              <CheckCircle2 size={13} /> All caught up
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {needs_attention.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={`rounded-xl p-4 border transition-colors ${
+                item.count > 0 ? "border-amber-200 bg-amber-50/60 hover:bg-amber-50" : "border-slate-100 hover:bg-slate-50"
+              }`}
+              title={item.description}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold text-slate-600 leading-snug">{item.label}</p>
+                <span className={`text-lg font-display font-black shrink-0 ${item.count > 0 ? "text-amber-600" : "text-slate-300"}`}>
+                  {item.count}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="card">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <GraduationCap size={15} className="text-navy-400" />
+              <h3 className="font-semibold text-navy-900 text-sm">New Students</h3>
+              <span className="text-xs text-slate-400">last {whats_new.since_days}d</span>
+            </div>
+            <span className="badge bg-navy-50 text-navy-700">{whats_new.new_students_count}</span>
+          </div>
+          {whats_new.new_students.length === 0 ? (
+            <p className="p-6 text-sm text-slate-400 text-center">No new student signups in this window.</p>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {whats_new.new_students.map((s) => (
+                <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-navy-900 truncate">{s.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{s.email}</p>
+                  </div>
+                  <p className="text-xs text-slate-400 shrink-0">{formatDateTime(s.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="p-3 border-t border-slate-100 text-center">
+            <Link href="/users" className="text-xs font-semibold text-navy-600 hover:text-navy-800">View all users →</Link>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText size={15} className="text-navy-400" />
+              <h3 className="font-semibold text-navy-900 text-sm">New Applications</h3>
+              <span className="text-xs text-slate-400">last {whats_new.since_days}d</span>
+            </div>
+            <span className="badge bg-navy-50 text-navy-700">{whats_new.new_applications_count}</span>
+          </div>
+          {whats_new.new_applications.length === 0 ? (
+            <p className="p-6 text-sm text-slate-400 text-center">No new applications in this window.</p>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {whats_new.new_applications.map((a) => (
+                <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-navy-900 truncate">{a.full_name}</p>
+                    <p className="text-xs text-slate-400 truncate">{a.certification ?? ""} · {APP_STATUS_LABEL[a.status] ?? a.status}</p>
+                  </div>
+                  <p className="text-xs text-slate-400 shrink-0">{formatDateTime(a.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="p-3 border-t border-slate-100 text-center">
+            <Link href="/applications" className="text-xs font-semibold text-navy-600 hover:text-navy-800">View all applications →</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Sales Dashboard ───────────────────────────────────────────────────────────
 
@@ -153,6 +289,8 @@ function LMSDashboard() {
 
   return (
     <div className="space-y-6">
+      <AttentionOverview />
+
       <div className="card">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">

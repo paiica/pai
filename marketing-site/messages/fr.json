@@ -96,6 +96,7 @@
     "launchPricing": "Prix de lancement",
     "limitedTime": "Disponible pour une durée limitée",
     "viewCourse": "Voir le cours",
+    "byInstitution": "Par {name}",
     "moduleCount": "{count, plural, one {# module} other {# modules}}",
     "breadcrumb": "Cours",
     "prepCoursesBadge": "Cours de préparation",
@@ -334,6 +335,7 @@
     "maintenanceDetailsComingSoon": "Détails de maintien à venir."
   },
   "CourseDetail": {
+    "byInstitution": "Par {name}",
     "whatYoullLearn": "Ce que vous apprendrez",
     "howItWorks": "Comment ça fonctionne",
     "curriculumLabel": "Curriculum",

@@ -90,7 +90,15 @@ const SUBLESSON_KIND_LABEL: Record<SublessonKind, string> = {
   case_study: "Case Study", how_to: "How-To", resource: "Resource", other: "Other",
 };
 
-type LabCell = { type: "markdown" | "code"; content: string; runnable?: boolean; skip_reason?: string };
+type LabCell = {
+  type: "markdown" | "code" | "exercise";
+  content: string;
+  runnable?: boolean;
+  skip_reason?: string;
+  // Exercise-only — `content` doubles as the starter code shown to students.
+  prompt?: string;
+  test_code?: string;
+};
 
 type LessonResource = { id: string; title: string; url: string; file_name?: string; file_type?: string };
 
@@ -339,8 +347,79 @@ const HEAVY_LAB_PACKAGE_PATTERNS = [
   /\bnltk\b/,
 ];
 function detectLabRuntime(cells: LabCell[]): "pyodide" | "e2b" {
-  const allCode = cells.filter((c) => c.type === "code").map((c) => c.content).join("\n");
+  const allCode = cells.filter((c) => c.type === "code" || c.type === "exercise").map((c) => c.content).join("\n");
   return HEAVY_LAB_PACKAGE_PATTERNS.some((re) => re.test(allCode)) ? "e2b" : "pyodide";
+}
+
+// Inline panel for drafting a lab with AI from a topic/objective — never
+// auto-inserts without review; the professor/admin still has to look at
+// what came back (in the normal cell editor below) before saving. Kept as
+// a lightweight expandable strip rather than a modal since it's an
+// occasional-use accelerator, not the primary authoring path.
+function AiLabGenerator({ token, onGenerated }: { token: string; onGenerated: (cells: LabCell[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [topic, setTopic] = useState("");
+  const [objective, setObjective] = useState("");
+  const [difficulty, setDifficulty] = useState("beginner");
+  const [generating, setGenerating] = useState(false);
+
+  async function generate() {
+    if (!topic.trim()) { toast.error("Describe what the exercise should cover"); return; }
+    setGenerating(true);
+    try {
+      const res: any = await api.post("/ai/generate-lab-exercise", {
+        topic, learning_objective: objective || undefined, difficulty,
+      }, token);
+      const data = res.data ?? res;
+      const generated: LabCell[] = Array.isArray(data.cells) ? data.cells : [];
+      if (!generated.length) throw new Error("No cells returned");
+      onGenerated(generated);
+      toast.success("Draft added below — review before saving");
+      setOpen(false);
+      setTopic(""); setObjective("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to generate a lab draft");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-xs font-semibold text-navy-700 hover:text-navy-900">
+        <Sparkles size={13} /> Generate with AI
+      </button>
+    );
+  }
+
+  return (
+    <div className="border border-navy-200 rounded-xl p-3 space-y-2 bg-navy-50/40">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-navy-800"><Sparkles size={13} /> Generate a draft exercise</div>
+      <input
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        placeholder="Topic (e.g. list comprehensions, binary search)"
+        className="input-base !py-1.5 !text-xs w-full"
+      />
+      <input
+        value={objective}
+        onChange={(e) => setObjective(e.target.value)}
+        placeholder="Learning objective (optional)"
+        className="input-base !py-1.5 !text-xs w-full"
+      />
+      <div className="flex items-center gap-2">
+        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="input-base !py-1.5 !text-xs !w-auto">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+        <button onClick={generate} disabled={generating} className="btn-primary !py-1.5 !px-3 !text-xs flex items-center gap-1.5 disabled:opacity-50">
+          {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Generate
+        </button>
+        <button onClick={() => setOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+      </div>
+    </div>
+  );
 }
 
 // Notebook-style editor for a lesson's runnable in-browser lab cells
@@ -349,13 +428,20 @@ function detectLabRuntime(cells: LabCell[]): "pyodide" | "e2b" {
 // here are interchangeable with the ones prisma/build-lab-cells-*.ts scripts
 // generate from source notebooks — same {type, content, runnable, skip_reason}
 // shape, rendered by the student-facing LabPanel component either way.
-function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cells: LabCell[]) => void }) {
+// Exercise cells additionally carry `prompt` (shown to students) and
+// `test_code` (never sent to students — LabsService strips it server-side
+// and always grades exercises in its own sandbox, see labs.service.ts).
+function LabCellsEditor({ cells, onChange, token }: { cells: LabCell[]; onChange: (cells: LabCell[]) => void; token: string }) {
   const runtime = useMemo(() => detectLabRuntime(cells), [cells]);
   function updateCell(i: number, patch: Partial<LabCell>) {
     onChange(cells.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   }
-  function addCell(type: "markdown" | "code") {
-    onChange([...cells, { type, content: "", ...(type === "code" ? { runnable: true } : {}) }]);
+  function addCell(type: "markdown" | "code" | "exercise") {
+    onChange([...cells, {
+      type, content: "",
+      ...(type === "code" ? { runnable: true } : {}),
+      ...(type === "exercise" ? { prompt: "", test_code: "" } : {}),
+    }]);
   }
   function removeCell(i: number) {
     onChange(cells.filter((_, idx) => idx !== i));
@@ -370,20 +456,24 @@ function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cell
 
   return (
     <div className="space-y-3">
-      <div className={cn(
-        "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg w-fit",
-        runtime === "pyodide" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-      )}>
-        {runtime === "pyodide"
-          ? "This lab will run in the student's browser — free, no cloud sandbox"
-          : "This lab needs the cloud sandbox (imports a heavy framework like PyTorch/TensorFlow/OpenCV)"}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className={cn(
+          "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg w-fit",
+          runtime === "pyodide" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+        )}>
+          {runtime === "pyodide"
+            ? "This lab will run in the student's browser — free, no cloud sandbox"
+            : "This lab needs the cloud sandbox (imports a heavy framework like PyTorch/TensorFlow/OpenCV)"}
+        </div>
+        <AiLabGenerator token={token} onGenerated={(generated) => onChange([...cells, ...generated])} />
       </div>
       {cells.map((cell, i) => (
-        <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
+        <div key={i} className={cn("border rounded-xl p-3 space-y-2", cell.type === "exercise" ? "border-navy-200 bg-navy-50/30" : "border-slate-200 bg-slate-50")}>
           <div className="flex items-center justify-between">
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
               <button onClick={() => updateCell(i, { type: "markdown" })} className={cn("px-3 py-1 transition-colors", cell.type === "markdown" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}>Markdown</button>
               <button onClick={() => updateCell(i, { type: "code" })} className={cn("px-3 py-1 border-l border-slate-200 transition-colors", cell.type === "code" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}>Code</button>
+              <button onClick={() => updateCell(i, { type: "exercise" })} className={cn("px-3 py-1 border-l border-slate-200 transition-colors flex items-center gap-1", cell.type === "exercise" ? "bg-navy-700 text-white" : "bg-white text-slate-600 hover:bg-slate-50")}><Sparkles size={11} /> Exercise</button>
             </div>
             <div className="flex items-center gap-0.5">
               <button onClick={() => moveCell(i, -1)} disabled={i === 0} className="p-1 text-slate-400 hover:text-navy-700 disabled:opacity-30" title="Move up"><ChevronUp size={14} /></button>
@@ -391,26 +481,61 @@ function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cell
               <button onClick={() => removeCell(i)} className="p-1 text-red-400 hover:text-red-600" title="Delete cell"><Trash2 size={14} /></button>
             </div>
           </div>
-          {cell.type === "code" ? (
-            <div className="rounded-lg overflow-hidden border border-slate-200">
-              <MonacoEditor
-                height="160px"
-                language="python"
-                theme="vs-dark"
-                value={cell.content}
-                onChange={(v) => updateCell(i, { content: v ?? "" })}
-                options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
-              />
-            </div>
-          ) : (
+
+          {cell.type === "exercise" && (
+            <textarea
+              value={cell.prompt ?? ""}
+              onChange={(e) => updateCell(i, { prompt: e.target.value })}
+              className="w-full h-16 text-sm border border-navy-200 rounded-lg p-2 resize-y bg-white"
+              placeholder="Instructions shown to the student (what should they implement?)…"
+            />
+          )}
+
+          {cell.type === "markdown" ? (
             <textarea
               value={cell.content}
               onChange={(e) => updateCell(i, { content: e.target.value })}
               className="w-full h-24 text-sm border border-slate-200 rounded-lg p-2 font-mono resize-y bg-white"
               placeholder="Markdown notes for this cell…"
             />
+          ) : (
+            <div>
+              {cell.type === "exercise" && <p className="text-[11px] font-semibold text-slate-500 mb-1">Starter code (shown &amp; editable by the student)</p>}
+              <div className="rounded-lg overflow-hidden border border-slate-200">
+                <MonacoEditor
+                  height="160px"
+                  language="python"
+                  theme="vs-dark"
+                  value={cell.content}
+                  onChange={(v) => updateCell(i, { content: v ?? "" })}
+                  options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
+                />
+              </div>
+            </div>
           )}
-          {cell.type === "code" && (
+
+          {cell.type === "exercise" && (
+            <div>
+              <p className="text-[11px] font-semibold text-slate-500 mb-1">
+                Hidden tests — only call <code className="bg-slate-100 px-1 rounded">__check__(name, condition)</code>, never shown to students
+              </p>
+              <div className="rounded-lg overflow-hidden border border-slate-200">
+                <MonacoEditor
+                  height="120px"
+                  language="python"
+                  theme="vs-dark"
+                  value={cell.test_code ?? ""}
+                  onChange={(v) => updateCell(i, { test_code: v ?? "" })}
+                  options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Example: <code className="bg-slate-100 px-1 rounded">__check__("handles zero", my_func(0) == 0)</code>
+              </p>
+            </div>
+          )}
+
+          {(cell.type === "code" || cell.type === "exercise") && (
             <div className="flex items-center gap-2 text-xs">
               <label className="flex items-center gap-1.5 text-slate-600">
                 <input
@@ -435,6 +560,7 @@ function LabCellsEditor({ cells, onChange }: { cells: LabCell[]; onChange: (cell
       <div className="flex gap-2">
         <button onClick={() => addCell("markdown")} className="btn-outline !py-1.5 !px-3 !text-xs">+ Markdown Cell</button>
         <button onClick={() => addCell("code")} className="btn-outline !py-1.5 !px-3 !text-xs">+ Code Cell</button>
+        <button onClick={() => addCell("exercise")} className="btn-outline !py-1.5 !px-3 !text-xs flex items-center gap-1"><Sparkles size={12} /> + Exercise Cell</button>
       </div>
     </div>
   );
@@ -611,7 +737,7 @@ function ReadingEditor({ lesson, courseId, moduleId, token, onSaved, sublessons 
         </label>
         {labEnabled && (
           <div className="mt-3">
-            <LabCellsEditor cells={cells} onChange={setCells} />
+            <LabCellsEditor cells={cells} onChange={setCells} token={token} />
           </div>
         )}
       </div>

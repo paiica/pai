@@ -38,6 +38,12 @@ describe("AuthService — refresh token uniqueness", () => {
           });
         })(),
       },
+      // No pending institution invites for this test's user — findMany
+      // returning [] short-circuits the invite-accepted notification path.
+      institutionMembership: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     } as any;
 
     // Deterministic on payload content only — mirrors a real JWT signed at the
@@ -52,8 +58,10 @@ describe("AuthService — refresh token uniqueness", () => {
 
     const config = { get: jest.fn().mockReturnValue("secret") } as any;
     const mail = {} as any;
+    const auditLog = { log: jest.fn().mockResolvedValue(undefined) } as any;
+    const notifications = { create: jest.fn().mockResolvedValue(undefined) } as any;
 
-    return new AuthService(prisma, jwtService, config, mail);
+    return new AuthService(prisma, jwtService, config, mail, auditLog, notifications);
   }
 
   it("gives two same-instant logins distinct refresh tokens instead of colliding", async () => {

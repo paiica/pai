@@ -522,35 +522,41 @@ export default function UsersPage() {
         </select>
       </div>
 
-      {/* Table — this has ~12 columns, so on anything narrower than a wide
-          desktop monitor it needs to scroll horizontally rather than
-          silently clip columns with no way to reach them. */}
-      <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      {/* Table — ~16 columns, so on anything narrower than a wide desktop
+          monitor it needs to scroll horizontally rather than silently clip
+          columns with no way to reach them. The scroll region is height-
+          bounded (rather than letting the table push the whole page down)
+          so the horizontal scrollbar sits right under the visible rows,
+          not below a potentially 25-row-tall table. The checkbox, expand,
+          and User (name/email) columns are pinned with `sticky left-*` so
+          scrolling right to see Phone/Country/Occupation/etc. never hides
+          who the row is about — that was the actual bug being reported. */}
+      <div className="card overflow-auto max-h-[70vh]">
+      <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/60">
-                <th className="px-4 py-3 w-10">
+              <tr className="border-b border-slate-100">
+                <th className="sticky top-0 left-0 z-20 bg-slate-50 px-4 py-3 w-12 border-b border-slate-100">
                   <Checkbox
                     checked={allSelected}
                     indeterminate={someSelected}
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th className="w-8" />
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">PAII ID</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Phone</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Country</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">City</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Occupation</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Job Title</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden 2xl:table-cell">Education</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Date of Birth</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Registered</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Last Login</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                <th className="px-4 py-3 w-10" />
+                <th className="sticky top-0 left-12 z-20 bg-slate-50 w-10 border-b border-slate-100" />
+                <th className="sticky top-0 left-[88px] z-20 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.12)]">User</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-100">PAII ID</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">Role</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell border-b border-slate-100">Phone</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell border-b border-slate-100">Country</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell border-b border-slate-100">City</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Occupation</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Job Title</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden 2xl:table-cell border-b border-slate-100">Education</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Date of Birth</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-100">Registered</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Last Login</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">Status</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-3 w-10 border-b border-slate-100" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -578,22 +584,25 @@ export default function UsersPage() {
                 <Fragment key={u.id}>
                   <tr
                     onClick={() => setExpandedId(isExpanded ? null : u.id)}
-                    className={`transition-colors cursor-pointer ${
+                    className={`group transition-colors cursor-pointer ${
                       isSelected ? "bg-navy-50" : "hover:bg-slate-50/60"
                     } ${!u.is_active ? "opacity-50" : ""}`}
                   >
-                    {/* Checkbox */}
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    {/* Checkbox — pinned so it stays visible while scrolling right */}
+                    <td
+                      className={`sticky left-0 z-10 w-12 px-4 py-3 border-b border-slate-50 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Checkbox checked={isSelected} onChange={() => toggleOne(u.id)} />
                     </td>
 
-                    {/* Expand toggle */}
-                    <td className="pl-2">
+                    {/* Expand toggle — pinned */}
+                    <td className={`sticky left-12 z-10 w-10 pl-2 border-b border-slate-50 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
                       <ChevronDown size={14} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </td>
 
-                    {/* User */}
-                    <td className="px-4 py-3">
+                    {/* User — pinned (this is the column that was getting hidden by horizontal scroll) */}
+                    <td className={`sticky left-[88px] z-10 px-4 py-3 border-b border-slate-50 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.08)] ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-navy-800 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0">
                           {initial(u)}

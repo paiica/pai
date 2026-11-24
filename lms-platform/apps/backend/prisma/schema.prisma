@@ -23,6 +23,47 @@ enum Role {
   @@schema("lms")
 }
 
+enum InstitutionStatus {
+  active
+  suspended
+
+  @@schema("lms")
+}
+
+// Scoped per-institution, deliberately separate from the global `Role`
+// enum above — a user's global Role still gates which app they can log
+// into (e.g. `professor` = can use the professors app at all); this enum
+// gates what they can do *within one specific institution*. The same
+// person can be `professor` in one institution and `admin` in another,
+// which a single global role value could never express.
+enum InstitutionRole {
+  owner
+  admin
+  professor
+  student
+
+  @@schema("lms")
+}
+
+enum InstitutionMembershipStatus {
+  invited
+  active
+  suspended
+
+  @@schema("lms")
+}
+
+// Separate from CourseApprovalStatus/is_listed — visibility controls who
+// can ever discover the course at all (institution-only vs. everyone);
+// approval_status/is_listed (existing fields) separately control public
+// marketplace listing once a course is already `public`.
+enum CourseVisibility {
+  private
+  public
+
+  @@schema("lms")
+}
+
 enum LabSessionStatus {
   starting
   running
@@ -215,6 +256,8 @@ enum PaymentType {
   corporate_bundle
   event_registration
   program
+  lab_sandbox
+  institution_subscription
 
   @@schema("lms")
 }
@@ -288,6 +331,8 @@ enum NotificationType {
   course_rejected
   certification_recommendation_received
   program_recommendation_received
+  institution_invite_accepted
+  institution_subscription_past_due
 
   @@schema("lms")
 }
@@ -426,6 +471,11 @@ model User {
   program_recommendations_sent     ProgramRecommendation[] @relation("ProgramRecommendationsSent")
   program_recommendations_received ProgramRecommendation[] @relation("ProgramRecommendationsReceived")
   lab_sessions             LabSession[]
+  lab_progress             LabProgress[]
+  lab_sandbox_access       LabSandboxAccess?
+  institution_memberships  InstitutionMembership[]
+  revenue_transactions_as_professor RevenueTransaction[] @relation("RevenueTransactionProfessor")
+  cohort_memberships CohortMembership[]
 
   @@index([email])
   @@map("users")
@@ -741,6 +791,7 @@ model Lesson {
   uploaded_files          UploadedFile[]
   notes                   LessonNote[]
   lab_sessions            LabSession[]
+  lab_progress            LabProgress[]
 
   @@index([module_id, sort_order])
   @@index([parent_lesson_id])
@@ -797,8 +848,11 @@ model LabSession {
   id                 String            @id @default(uuid())
   user_id            String
   user               User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  lesson_id          String
-  lesson             Lesson            @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  // Null = a standalone "Playground" sandbox, not tied to any lesson/course
+  // — a student experimenting on their own rather than working a specific
+  // lab. Idle-timeout/hard-cap/cleanup all apply identically either way.
+  lesson_id          String?
+  lesson             Lesson?           @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
 
   provider           String            @default("e2b")
   external_sandbox_id String?
@@ -812,6 +866,74 @@ model LabSession {
   @@index([user_id, status])
   @@index([status, last_active_at])
   @@map("lab_sessions")
+  @@schema("lms")
+}
+
+// Persistent, per-student-per-lesson lab state — separate from LabSession
+// (which is purely ephemeral sandbox lifecycle bookkeeping and never
+// survives a reload). This is what makes a lab resumable: current code per
+// cell, and pass/fail state for any "exercise" cells the lesson defines
+// (see Lesson.lab_cells_json — an exercise cell adds prompt/test_code
+// fields on top of the existing {type, content, runnable} shape).
+model LabProgress {
+  id        String @id @default(uuid())
+  user_id   String
+  user      User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  lesson_id String
+  lesson    Lesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+
+  // { [cellIndex: string]: string } — student's current code per cell,
+  // autosaved so leaving and returning to a lab doesn't lose their work.
+  cell_code Json @default("{}")
+
+  // { [cellIndex: string]: { passed: boolean, attempts: number } } — one
+  // entry per "exercise" cell the lesson defines. Presence of an entry
+  // means the student has attempted that exercise at least once.
+  exercise_state Json @default("{}")
+
+  // True once every exercise cell in the lesson has passed (lessons with
+  // no exercise cells are never auto-completed this way — plain code/
+  // markdown-only labs still rely on the normal "mark lesson complete"
+  // action). Drives LessonProgress.completed via PrepCoursesService.
+  completed    Boolean   @default(false)
+  completed_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([user_id, lesson_id])
+  @@index([user_id])
+  @@map("lab_progress")
+  @@schema("lms")
+}
+
+// Grants access to the standalone Playground's cloud E2B sandbox option —
+// paid, since course-lesson labs that structurally require E2B (e.g. a
+// PyTorch lesson) are already covered by course enrollment and stay
+// unrestricted. One row per user, backed by a real Stripe Subscription
+// (mode: "subscription", $200/month) — expires_at tracks the subscription's
+// current_period_end and is advanced by the invoice.payment_succeeded
+// webhook on every renewal, not by a one-time purchase.
+model LabSandboxAccess {
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  expires_at DateTime
+
+  // "active" | "past_due" | "canceled" — mirrors the Stripe Subscription's
+  // own status (collapsing "trialing" into "active" since no trial is
+  // offered). Access is gated on expires_at, not directly on this field —
+  // status is for UI display (e.g. showing a past-due warning) and for
+  // customer.subscription.deleted knowing whether to revoke immediately.
+  status                 String   @default("active")
+  cancel_at_period_end   Boolean  @default(false)
+  stripe_customer_id     String?
+  stripe_subscription_id String?  @unique
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("lab_sandbox_access")
   @@schema("lms")
 }
 
@@ -1042,6 +1164,22 @@ model Course {
   reviewed_by      String?
   reviewer         User?    @relation("CourseReviewedBy", fields: [reviewed_by], references: [id])
 
+  // Institution attribution — null for every course today (PAII-authored or
+  // an independent professor's course). When set, `visibility: private`
+  // restricts discovery to that institution's active members (see
+  // prep-courses.service.ts's canViewPrivateCourse), on top of the existing
+  // approval_status/is_listed gates which still separately govern public
+  // marketplace listing once a course is `public`.
+  institution_id String?
+  institution     Institution?     @relation(fields: [institution_id], references: [id], onDelete: SetNull)
+  visibility      CourseVisibility @default(public)
+  // Optional — scopes a specific offering of this course to one of the
+  // institution's terms (e.g. re-running "Data Analytics" every Fall).
+  // Null for independent-professor/PAII courses and for institution
+  // courses not tied to a specific term.
+  term_id String?
+  term    AcademicTerm? @relation(fields: [term_id], references: [id], onDelete: SetNull)
+
   modules          Module[]
   instructors      CourseTeacher[]
   enrollments      CourseEnrollment[]
@@ -1052,6 +1190,8 @@ model Course {
   documents        CourseDocument[]
   cart_items       CartItem[]
   invitations      CourseInvitation[]
+  revenue_share_rule   RevenueShareRule?
+  revenue_transactions RevenueTransaction[]
 
   // Prerequisites/co-requisites — self-referential. `prerequisites` = rows
   // where this course is the one being gated ("this course requires X");
@@ -1065,6 +1205,7 @@ model Course {
 
   @@index([slug])
   @@index([status])
+  @@index([institution_id])
   @@map("courses")
   @@schema("lms")
 }
@@ -2385,6 +2526,326 @@ model PromoRedemption {
 
   @@index([promo_id, user_id])
   @@map("promo_redemptions")
+  @@schema("lms")
+}
+
+// ─────────────────────────────────────────────
+// INSTITUTIONS (academia.paii.ca — universities/colleges)
+// ─────────────────────────────────────────────
+// Deliberately separate from Organization below: Organization is a B2B
+// buyer of per-seat certification/program access for its employees, with
+// no course-authoring or branding of its own. Institution is the opposite
+// shape — a tenant that OWNS professors and courses under its own brand.
+// Always provisioned by PAII staff (sales-negotiated), same as Organization.
+
+model Institution {
+  id            String            @id @default(uuid())
+  name          String
+  code          String            @unique
+  // Public storefront URL segment (/institutions/[slug]) — auto-generated
+  // from name at creation, same collision-avoidance pattern as Course.slug.
+  slug          String            @unique
+  status        InstitutionStatus @default(active)
+  logo_url      String?
+  description   String?
+  website       String?
+  contact_email String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  domains              InstitutionDomain[]
+  memberships          InstitutionMembership[]
+  courses              Course[]
+  subscription         InstitutionSubscription?
+  revenue_share_rule   RevenueShareRule?
+  revenue_transactions RevenueTransaction[]
+  academic_terms       AcademicTerm[]
+  cohorts              Cohort[]
+  sso_config           InstitutionSsoConfig?
+
+  @@map("institutions")
+  @@schema("lms")
+}
+
+enum PackageTier {
+  starter
+  professional
+  enterprise
+
+  @@schema("lms")
+}
+
+enum InstitutionSubscriptionStatus {
+  active
+  past_due
+  canceled
+
+  @@schema("lms")
+}
+
+// Admin-configurable pricing tiers (spec: "Do not hard-code prices — use
+// database configuration"). Seeded with example Starter/Professional/
+// Enterprise rows on first use; PAII staff edits name/price/limits/features
+// via the admin app, no code deploy required.
+model Package {
+  id                String      @id @default(uuid())
+  name              String
+  tier              PackageTier
+  // Null = "Contact us" / custom pricing (matches Enterprise; also matches
+  // Organization.price_per_seat's "null disables self-service" precedent).
+  monthly_price     Decimal?    @db.Decimal(10, 2)
+  // Null = unlimited.
+  student_limit     Int?
+  professor_limit   Int?
+  course_limit      Int?
+  features          String[]    @default([])
+  is_active         Boolean     @default(true)
+  sort_order        Int         @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  subscriptions InstitutionSubscription[]
+
+  @@map("packages")
+  @@schema("lms")
+}
+
+// One row per institution (an institution has at most one active plan at a
+// time). A real Stripe Subscription when self-service billed (mirrors the
+// LabSandboxAccess pattern: mode "subscription", access driven by
+// invoice.payment_succeeded, cancel_at_period_end for graceful cancellation)
+// — or stripe_subscription_id left null for a PAII-staff-managed comped/
+// enterprise contract (spec: "design for manual enterprise billing as well
+// as Stripe billing").
+model InstitutionSubscription {
+  id             String      @id @default(uuid())
+  institution_id String      @unique
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  package_id     String
+  package        Package     @relation(fields: [package_id], references: [id])
+
+  status               InstitutionSubscriptionStatus @default(active)
+  cancel_at_period_end Boolean                       @default(false)
+  // Null = no expiration enforced (manual/comped subscriptions, same
+  // convention as Organization.subscription_expires_at).
+  current_period_end   DateTime?
+
+  stripe_customer_id     String?
+  stripe_subscription_id String? @unique
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("institution_subscriptions")
+  @@schema("lms")
+}
+
+enum RevenueShareStatus {
+  pending
+  paid
+  voided
+
+  @@schema("lms")
+}
+
+// Override rows only — the global default split lives in SiteSettings
+// (revenue_share_default_*_pct keys), avoiding the need to enforce a
+// singleton "global" row here. Resolution order at sale time: course
+// override > institution override > global default > 100% PAII if nothing
+// is configured at all (spec: "validate the total is 100%", enforced in
+// InstitutionsService/RevenueService, not by a DB constraint).
+model RevenueShareRule {
+  id             String       @id @default(uuid())
+  institution_id String?      @unique
+  institution    Institution? @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  course_id      String?      @unique
+  course         Course?      @relation(fields: [course_id], references: [id], onDelete: Cascade)
+
+  institution_percentage Decimal @db.Decimal(5, 2)
+  professor_percentage   Decimal @db.Decimal(5, 2)
+  paii_percentage        Decimal @db.Decimal(5, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("revenue_share_rules")
+  @@schema("lms")
+}
+
+// One row per paid-course sale where the course is institution-attributed —
+// a snapshot of the split actually applied (not recomputed later even if
+// the rule changes), same "amount is frozen at sale time" principle as
+// AffiliateCommission. institution_status/professor_status are tracked
+// separately since PAII pays each party independently and manually (same
+// admin-payout precedent as AffiliateCommission — no automated transfer).
+model RevenueTransaction {
+  id                    String  @id @default(uuid())
+  course_id             String
+  course                Course  @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  institution_id        String
+  institution           Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  professor_user_id     String?
+  professor             User?   @relation("RevenueTransactionProfessor", fields: [professor_user_id], references: [id], onDelete: SetNull)
+
+  stripe_payment_intent_id String?
+
+  sale_amount            Decimal @db.Decimal(10, 2)
+  institution_amount     Decimal @db.Decimal(10, 2)
+  professor_amount       Decimal @db.Decimal(10, 2)
+  paii_amount            Decimal @db.Decimal(10, 2)
+  institution_percentage Decimal @db.Decimal(5, 2)
+  professor_percentage   Decimal @db.Decimal(5, 2)
+  paii_percentage        Decimal @db.Decimal(5, 2)
+
+  institution_status RevenueShareStatus @default(pending)
+  professor_status   RevenueShareStatus @default(pending)
+
+  created_at DateTime @default(now())
+
+  @@index([institution_id])
+  @@index([course_id])
+  @@map("revenue_transactions")
+  @@schema("lms")
+}
+
+model InstitutionDomain {
+  id             String      @id @default(uuid())
+  institution_id String
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  domain         String      @unique
+
+  // "email_domain" (staff-verified, adminAddDomain sets verified_at
+  // immediately) or "dns" (institution self-service — verification_token is
+  // the value the admin must publish in a TXT record before verified_at
+  // gets set, see InstitutionsService.verifyDomainDns).
+  verification_method String    @default("email_domain")
+  verified_at          DateTime?
+  verification_token  String?
+
+  created_at DateTime @default(now())
+
+  @@index([institution_id])
+  @@map("institution_domains")
+  @@schema("lms")
+}
+
+// A user can hold different roles at different institutions (e.g.
+// `professor` at one, `admin` at another) — this is why institution
+// membership is its own row per [user, institution] pair rather than a
+// single institution_id/role field on User.
+model InstitutionMembership {
+  id             String                      @id @default(uuid())
+  user_id        String
+  user           User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  institution_id String
+  institution    Institution                 @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  role           InstitutionRole
+  status         InstitutionMembershipStatus @default(active)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([user_id, institution_id])
+  @@index([institution_id, role])
+  @@map("institution_memberships")
+  @@schema("lms")
+}
+
+// One OIDC connection per institution, self-configured by the institution
+// admin (like a Slack/Notion Enterprise "connect your SSO" flow) — unlike
+// domain verification, this doesn't grant access to "anyone who claims a
+// domain," only to people who can actually authenticate through the
+// institution's OWN identity provider, which they already control. That's
+// why this is institution self-service rather than PAII-staff-gated.
+// client_secret is stored in plain text, matching this codebase's existing
+// convention for third-party API secrets (e.g. stripe_secret_key in
+// SiteSettings) — no secret-encryption-at-rest layer exists anywhere in
+// this app yet to be consistent with.
+model InstitutionSsoConfig {
+  id             String      @id @default(uuid())
+  institution_id String      @unique
+  institution    Institution @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+
+  provider      String  @default("custom") // "google" | "azure_ad" | "okta" | "custom"
+  issuer_url    String
+  client_id     String
+  client_secret String
+  is_enabled    Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("institution_sso_configs")
+  @@schema("lms")
+}
+
+enum AcademicTermStatus {
+  upcoming
+  active
+  completed
+
+  @@schema("lms")
+}
+
+// An institution's own semester/term calendar (e.g. "Fall 2026") — purely
+// organizational (start/end dates + status), used to scope Cohorts and
+// optionally a Course offering to a specific term.
+model AcademicTerm {
+  id             String             @id @default(uuid())
+  institution_id String
+  institution    Institution        @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  name           String
+  start_date     DateTime
+  end_date       DateTime
+  status         AcademicTermStatus @default(upcoming)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  cohorts Cohort[]
+  courses Course[]
+
+  @@index([institution_id])
+  @@map("academic_terms")
+  @@schema("lms")
+}
+
+// A group of students moving through an institution together (e.g. "Fall
+// 2026 — Computer Science Intake"). Optionally tied to the term they
+// started in — kept separate from AcademicTerm since a cohort typically
+// spans multiple terms as students progress, while a term is just one
+// semester's calendar window.
+model Cohort {
+  id             String        @id @default(uuid())
+  institution_id String
+  institution    Institution   @relation(fields: [institution_id], references: [id], onDelete: Cascade)
+  term_id        String?
+  term           AcademicTerm? @relation(fields: [term_id], references: [id], onDelete: SetNull)
+  name           String
+  description    String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  memberships CohortMembership[]
+
+  @@index([institution_id])
+  @@map("cohorts")
+  @@schema("lms")
+}
+
+model CohortMembership {
+  id        String   @id @default(uuid())
+  cohort_id String
+  cohort    Cohort   @relation(fields: [cohort_id], references: [id], onDelete: Cascade)
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  joined_at DateTime @default(now())
+
+  @@unique([cohort_id, user_id])
+  @@map("cohort_memberships")
   @@schema("lms")
 }
 

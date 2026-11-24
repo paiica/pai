@@ -96,6 +96,7 @@
     "launchPricing": "سعر الإطلاق",
     "limitedTime": "متاح لفترة محدودة",
     "viewCourse": "عرض الدورة",
+    "byInstitution": "بواسطة {name}",
     "moduleCount": "{count, plural, one {# وحدة} other {# وحدات}}",
     "breadcrumb": "الدورات",
     "prepCoursesBadge": "دورات تحضيرية",
@@ -334,6 +335,7 @@
     "maintenanceDetailsComingSoon": "تفاصيل الحفاظ على الشهادة قريباً."
   },
   "CourseDetail": {
+    "byInstitution": "بواسطة {name}",
     "whatYoullLearn": "ما ستتعلمه",
     "howItWorks": "كيف يعمل",
     "curriculumLabel": "المنهج",

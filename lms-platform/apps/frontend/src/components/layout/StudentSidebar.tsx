@@ -8,7 +8,7 @@ import useSWR from "swr";
 import {
   LayoutDashboard, BookOpen, Award, GraduationCap,
   User, LogOut, FileText, BarChart2, ChevronLeft, ChevronRight, ExternalLink, Shield,
-  Wrench, ChevronDown, Lock, Bell, CreditCard, Menu, X,
+  Wrench, ChevronDown, Lock, Bell, CreditCard, Menu, X, FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -20,6 +20,7 @@ const TOP_ITEMS = [
 ] as const;
 
 const LEARNING_ITEMS = [
+  { href: "/labs",     labelKey: "labs",        icon: FlaskConical },
   { href: "/tools",    labelKey: "onlineTools", icon: Wrench },
 ] as const;
 
@@ -59,6 +60,37 @@ function ProgramsNavItem({ collapsed, token }: { collapsed: boolean; token: stri
     >
       <GraduationCap size={18} className="flex-shrink-0" />
       {!collapsed && <span>{t("programs")}</span>}
+    </Link>
+  );
+}
+
+// Only shown once the student has an active InstitutionMembership at any
+// institution — most students have none, so this stays hidden by default.
+function UniversityNavItem({ collapsed, token }: { collapsed: boolean; token: string | null }) {
+  const pathname = usePathname();
+  const t = useTranslations("Sidebar");
+
+  const { data: memberships } = useSWR(
+    token ? ["/me/institution-memberships", token] : null,
+    ([url, t]) => fetcher(url, t),
+    { revalidateOnFocus: false },
+  );
+
+  if (!Array.isArray(memberships) || memberships.length === 0) return null;
+
+  const href = "/university";
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "sidebar-link",
+        pathname === href || pathname.startsWith(href + "/") ? "sidebar-link-active" : "",
+        collapsed ? "justify-center !px-2" : "pl-5"
+      )}
+      title={collapsed ? t("university") : undefined}
+    >
+      <GraduationCap size={18} className="flex-shrink-0" />
+      {!collapsed && <span>{t("university")}</span>}
     </Link>
   );
 }
@@ -404,6 +436,7 @@ export default function StudentSidebar() {
           </Link>
         ))}
         {(collapsed || learningOpen) && <ProgramsNavItem collapsed={collapsed} token={token} />}
+        {(collapsed || learningOpen) && <UniversityNavItem collapsed={collapsed} token={token} />}
 
         {/* Other items */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}

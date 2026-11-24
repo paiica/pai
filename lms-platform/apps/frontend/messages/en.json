@@ -8,8 +8,10 @@
     "courses": "Courses",
     "myLearning": "My Learning",
     "myCourses": "My Courses",
+    "labs": "Labs",
     "onlineTools": "Online Tools",
     "programs": "Programs",
+    "university": "My University",
     "grades": "Grades",
     "account": "Account",
     "profile": "Profile",
@@ -264,7 +266,12 @@
     "submit": "Sign In",
     "noAccount": "Don't have an account?",
     "createAccount": "Create account",
-    "backToMainWebsite": "← Back to main website"
+    "backToMainWebsite": "← Back to main website",
+    "ssoToggle": "Sign in with your institution",
+    "ssoCodeLabel": "Institution code",
+    "ssoCodePlaceholder": "e.g. UNFC",
+    "ssoContinue": "Continue",
+    "ssoNotAvailable": "SSO isn't enabled for this institution code."
   },
   "Register": {
     "heading": "Create Account",
@@ -1102,5 +1109,19 @@
     "enrolled": "Enrolled",
     "receipt": "Receipt",
     "invoice": "Invoice"
+  },
+  "Labs": {
+    "heading": "Labs",
+    "subheading": "Hands-on practice from every course you're enrolled in — write real code and get instant feedback.",
+    "playgroundTitle": "Open Playground",
+    "playgroundSubtitle": "A blank sandbox, not tied to any course — just try things out.",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "exercisesProgress": "{passed}/{total} exercises passed",
+    "review": "Review",
+    "continueLab": "Continue",
+    "startLab": "Start lab",
+    "noLabsHeading": "No labs yet",
+    "noLabsBody": "Labs will show up here once you're enrolled in a course that includes one."
   }
 }
