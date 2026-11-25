@@ -93,10 +93,6 @@ function primaryAddress(u: User): AddressEntry | null {
   return Array.isArray(u.addresses) && u.addresses.length > 0 ? u.addresses[0] : null;
 }
 
-function cityOf(u: User): string {
-  return primaryAddress(u)?.city || "—";
-}
-
 function formatFullAddress(u: User): string {
   const a = primaryAddress(u);
   if (!a) return "No address on file.";
@@ -522,57 +518,52 @@ export default function UsersPage() {
         </select>
       </div>
 
-      {/* Table — ~16 columns, so on anything narrower than a wide desktop
-          monitor it needs to scroll horizontally rather than silently clip
-          columns with no way to reach them. The scroll region is height-
-          bounded (rather than letting the table push the whole page down)
-          so the horizontal scrollbar sits right under the visible rows,
-          not below a potentially 25-row-tall table. The checkbox, expand,
-          and User (name/email) columns are pinned with `sticky left-*` so
-          scrolling right to see Phone/Country/Occupation/etc. never hides
-          who the row is about — that was the actual bug being reported. */}
-      <div className="card overflow-auto max-h-[70vh]">
+      {/* Table — pared down to the fields an admin actually scans a roster
+          by (identity, role, activity, status); everything else (phone,
+          location, occupation, job title, DOB) lives one click away in the
+          expandable detail row below, alongside address/work/education
+          history, rather than all 16 fields fighting for space in one row.
+          Fewer columns means each one can be legibly sized instead of
+          shrunk to fit — that was the actual "not designed right" problem.
+          The scroll region is still height-bounded (so the horizontal
+          scrollbar, on narrow screens, sits right under the visible rows)
+          and the checkbox/expand/User columns stay pinned so scrolling
+          right never hides who the row is about. */}
+      <div className="card overflow-auto max-h-[75vh]">
       <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="sticky top-0 left-0 z-20 bg-slate-50 px-4 py-3 w-12 border-b border-slate-100">
+              <tr className="border-b border-slate-200">
+                <th className="sticky top-0 left-0 z-20 bg-slate-50 px-4 py-4 w-12 border-b border-slate-200">
                   <Checkbox
                     checked={allSelected}
                     indeterminate={someSelected}
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th className="sticky top-0 left-12 z-20 bg-slate-50 w-10 border-b border-slate-100" />
-                <th className="sticky top-0 left-[88px] z-20 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.12)]">User</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-100">PAII ID</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">Role</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell border-b border-slate-100">Phone</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell border-b border-slate-100">Country</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell border-b border-slate-100">City</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Occupation</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Job Title</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden 2xl:table-cell border-b border-slate-100">Education</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Date of Birth</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-100">Registered</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell border-b border-slate-100">Last Login</th>
-                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-100">Status</th>
-                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-3 w-10 border-b border-slate-100" />
+                <th className="sticky top-0 left-12 z-20 bg-slate-50 w-10 border-b border-slate-200" />
+                <th className="sticky top-0 left-[88px] z-20 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-200 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.12)]">User</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-200">PAII ID</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-200">Role</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide hidden sm:table-cell border-b border-slate-200">Registered</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell border-b border-slate-200">Last Login</th>
+                <th className="sticky top-0 z-10 bg-slate-50 text-left px-4 py-4 text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-200">Status</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-4 w-10 border-b border-slate-200" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(16)].map((_, j) => (
-                      <td key={j} className="px-4 py-3.5">
-                        <div className="h-3.5 bg-slate-100 rounded animate-pulse" style={{ width: `${55 + (j * 17) % 40}%` }} />
+                    {[...Array(9)].map((_, j) => (
+                      <td key={j} className="px-4 py-4">
+                        <div className="h-4 bg-slate-100 rounded animate-pulse" style={{ width: `${55 + (j * 17) % 40}%` }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="px-4 py-16 text-center">
+                  <td colSpan={9} className="px-4 py-16 text-center">
                     <Users size={28} className="text-slate-200 mx-auto mb-3" />
                     <p className="text-slate-400 text-sm">No users found.</p>
                   </td>
@@ -590,43 +581,43 @@ export default function UsersPage() {
                   >
                     {/* Checkbox — pinned so it stays visible while scrolling right */}
                     <td
-                      className={`sticky left-0 z-10 w-12 px-4 py-3 border-b border-slate-50 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}
+                      className={`sticky left-0 z-10 w-12 px-4 py-4 border-b border-slate-100 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Checkbox checked={isSelected} onChange={() => toggleOne(u.id)} />
                     </td>
 
                     {/* Expand toggle — pinned */}
-                    <td className={`sticky left-12 z-10 w-10 pl-2 border-b border-slate-50 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                    <td className={`sticky left-12 z-10 w-10 pl-2 border-b border-slate-100 ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
+                      <ChevronDown size={16} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </td>
 
                     {/* User — pinned (this is the column that was getting hidden by horizontal scroll) */}
-                    <td className={`sticky left-[88px] z-10 px-4 py-3 border-b border-slate-50 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.08)] ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-navy-800 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0">
+                    <td className={`sticky left-[88px] z-10 px-4 py-4 border-b border-slate-100 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.08)] ${isSelected ? "bg-navy-50" : "bg-white group-hover:bg-slate-50/60"}`}>
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 bg-navy-800 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0">
                           {initial(u)}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-semibold text-navy-900 text-sm truncate max-w-[160px]">{fullName(u)}</div>
-                          <div className="text-xs text-slate-400 truncate max-w-[160px]">{u.email}</div>
+                          <div className="font-bold text-navy-900 text-[15px] truncate max-w-[220px]">{fullName(u)}</div>
+                          <div className="text-sm text-slate-400 truncate max-w-[220px]">{u.email}</div>
                         </div>
                       </div>
                     </td>
 
                     {/* PAII ID */}
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs font-mono text-slate-600">{u.pai_id ?? "—"}</span>
+                    <td className="px-4 py-4 hidden sm:table-cell">
+                      <span className="text-sm font-mono text-slate-600">{u.pai_id ?? "—"}</span>
                     </td>
 
                     {/* Role */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className={`badge ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`badge !text-xs !py-1 !px-3 ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}>
                           {ROLE_LABELS[u.role] ?? u.role}
                         </span>
                         {u.role === "admin" && (
-                          <ShieldCheck size={13} className="text-purple-400" />
+                          <ShieldCheck size={14} className="text-purple-400" />
                         )}
                         {u.has_affiliate && u.role !== "sales_rep" && (
                           <span className="badge bg-teal-100 text-teal-700">Sales Rep</span>
@@ -648,34 +639,25 @@ export default function UsersPage() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{u.phone || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{u.country || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{cityOf(u)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">{u.industry || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">{jobSummary(u)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden 2xl:table-cell">{educationSummary(u)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">
-                      {u.date_of_birth ? new Date(u.date_of_birth).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden sm:table-cell">{fmtDate(u.created_at)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 hidden xl:table-cell">{fmtDate(u.last_login_at)}</td>
+                    <td className="px-4 py-4 text-sm text-slate-500 hidden sm:table-cell">{fmtDate(u.created_at)}</td>
+                    <td className="px-4 py-4 text-sm text-slate-500 hidden md:table-cell">{fmtDate(u.last_login_at)}</td>
 
                     {/* Status */}
-                    <td className="px-4 py-3">
-                      <span className={`badge ${u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                    <td className="px-4 py-4">
+                      <span className={`badge !text-xs !py-1 !px-3 ${u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                         {u.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
 
                     {/* Row actions */}
-                    <td className="px-4 py-3 relative" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-4 relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         data-menu
                         onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}
                         aria-label="Row actions"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
                       >
-                        <MoreHorizontal size={15} />
+                        <MoreHorizontal size={16} />
                       </button>
                       {openMenu === u.id && (
                         <div data-menu className="absolute right-4 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-20 py-1.5 text-sm">
@@ -726,41 +708,49 @@ export default function UsersPage() {
                   {isExpanded && (
                     <tr className="bg-slate-50/60">
                       <td colSpan={2}></td>
-                      <td colSpan={14} className="px-4 py-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
+                      <td colSpan={7} className="px-4 py-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-5">
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={10} /> Full Address</p>
-                            <p className="text-slate-700 text-xs leading-relaxed">{formatFullAddress(u)}</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><MapPin size={12} /> Contact</p>
+                            <p className="text-slate-700 text-sm leading-relaxed">{u.phone || "No phone on file."}</p>
+                            <p className="text-slate-700 text-sm leading-relaxed mt-1">{formatFullAddress(u)}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Briefcase size={10} /> Work History</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Briefcase size={12} /> Work History</p>
                             {Array.isArray(u.experience_entries) && u.experience_entries.length > 0 ? (
                               <ul className="space-y-1.5">
                                 {u.experience_entries.map((exp, i) => (
-                                  <li key={i} className="text-slate-700 text-xs">
+                                  <li key={i} className="text-slate-700 text-sm">
                                     <span className="font-semibold">{exp.title || "—"}</span>
                                     {exp.company && <> · {exp.company}</>}
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-slate-700 text-xs">{jobSummary(u)}{u.company ? ` · ${u.company}` : ""}</p>
+                              <p className="text-slate-700 text-sm">{jobSummary(u)}{u.company ? ` · ${u.company}` : ""}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap size={10} /> Education History</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><GraduationCap size={12} /> Education History</p>
                             {Array.isArray(u.education_entries) && u.education_entries.length > 0 ? (
                               <ul className="space-y-1.5">
                                 {u.education_entries.map((ed, i) => (
-                                  <li key={i} className="text-slate-700 text-xs">
+                                  <li key={i} className="text-slate-700 text-sm">
                                     <span className="font-semibold">{ed.institution || "—"}</span>
                                     {ed.degree && <> · {ed.degree}</>}
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-slate-700 text-xs">{educationSummary(u)}</p>
+                              <p className="text-slate-700 text-sm">{educationSummary(u)}</p>
                             )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><UserCheck size={12} /> Details</p>
+                            <p className="text-slate-700 text-sm leading-relaxed">{u.industry || "No occupation on file."}</p>
+                            <p className="text-slate-700 text-sm leading-relaxed mt-1">
+                              {u.date_of_birth ? `Born ${new Date(u.date_of_birth).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}` : "No date of birth on file."}
+                            </p>
                           </div>
                         </div>
                       </td>
