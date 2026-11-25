@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { ShoppingCart, User, LogOut, ExternalLink, ChevronDown, Globe } from "lucide-react";
+import { ShoppingCart, User, LogOut, ExternalLink, ChevronDown, Globe, DollarSign } from "lucide-react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { useAuth } from "@/contexts/auth-context";
@@ -38,8 +38,12 @@ export default function TopBar({
   // not to be enabled — matches the "no languages enabled -> no dropdown"
   // requirement even during the brief loading window.
   const [enabledLocales, setEnabledLocales] = useState<string[]>(["en"]);
+  const [currencies, setCurrencies]   = useState<{ code: string; symbol: string; name: string; is_default: boolean }[]>([]);
+  const [currency, setCurrencyState]  = useState<string | null>(null);
+  const [currOpen,  setCurrOpen]      = useState(false);
   const menuRef                     = useRef<HTMLDivElement>(null);
   const langRef                     = useRef<HTMLDivElement>(null);
+  const currRef                     = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`${API}/languages`)
@@ -55,7 +59,35 @@ export default function TopBar({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch(`${API}/currencies`)
+      .then((r) => r.json())
+      .then((json) => {
+        const list = json?.data ?? json ?? [];
+        setCurrencies(list);
+        // The cookie is the source of truth read server-side (see
+        // paii_currency in layout/page fetches) — mirror it here only to
+        // render the right selection; never override what's already set.
+        const cookieMatch = document.cookie.match(/(?:^|; )paii_currency=([^;]+)/);
+        const fromCookie = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+        const defaultCode = list.find((c: any) => c.is_default)?.code ?? "USD";
+        setCurrencyState(fromCookie && list.some((c: any) => c.code === fromCookie) ? fromCookie : defaultCode);
+      })
+      .catch(() => {});
+  }, []);
+
   const showLanguageSwitcher = enabledLocales.length > 1;
+  const showCurrencySwitcher = currencies.length > 1;
+
+  function switchCurrency(code: string) {
+    setCurrOpen(false);
+    setCurrencyState(code);
+    // Non-httpOnly on purpose — read back both here (client) and by every
+    // server component that fetches priced content, with a year-long
+    // lifetime so the choice sticks across visits like the locale does.
+    document.cookie = `paii_currency=${code}; path=/; max-age=31536000`;
+    router.refresh();
+  }
 
   function switchLocale(next: string) {
     setLangOpen(false);
@@ -80,6 +112,9 @@ export default function TopBar({
       }
       if (langRef.current && !langRef.current.contains(e.target as Node)) {
         setLangOpen(false);
+      }
+      if (currRef.current && !currRef.current.contains(e.target as Node)) {
+        setCurrOpen(false);
       }
     }
     document.addEventListener("mousedown", onClick);
@@ -155,6 +190,35 @@ export default function TopBar({
                         className={`w-full text-start px-3.5 py-2 text-sm transition-colors ${locale === code ? "text-ink-900 font-semibold bg-sand-50" : "text-ink-900 hover:bg-sand-50"}`}
                       >
                         {t(LOCALE_LABEL_KEYS[code] ?? code)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Currency switcher — hidden entirely when only one currency is
+                active, same convention as the language switcher above */}
+            {showCurrencySwitcher && (
+              <div className="relative" ref={currRef}>
+                <button
+                  onClick={() => setCurrOpen((v) => !v)}
+                  aria-label="Currency"
+                  className="flex items-center gap-1.5 text-white/60 hover:text-white text-[13px] font-medium transition-colors"
+                >
+                  <DollarSign size={15} />
+                  <span className="hidden sm:inline">{currency ?? "USD"}</span>
+                  <ChevronDown size={12} className={`transition-transform ${currOpen ? "rotate-180" : ""}`} />
+                </button>
+                {currOpen && (
+                  <div className="absolute end-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-sand-200 py-1.5 z-50">
+                    {currencies.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => switchCurrency(c.code)}
+                        className={`w-full text-start px-3.5 py-2 text-sm transition-colors ${currency === c.code ? "text-ink-900 font-semibold bg-sand-50" : "text-ink-900 hover:bg-sand-50"}`}
+                      >
+                        {c.code} <span className="text-slate-400">— {c.name}</span>
                       </button>
                     ))}
                   </div>

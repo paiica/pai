@@ -42,6 +42,7 @@ import { InstitutionsModule } from "./modules/institutions/institutions.module";
 import { RevenueModule } from "./modules/revenue/revenue.module";
 import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { AdminOverviewModule } from "./modules/admin-overview/admin-overview.module";
+import { CurrencyModule } from "./modules/currency/currency.module";
 import { SsoModule } from "./modules/sso/sso.module";
 import { LeadsModule } from "./modules/leads/leads.module";
 import { SupportModule } from "./modules/support/support.module";
@@ -110,6 +111,7 @@ import { AppController } from "./app.controller";
     RevenueModule,
     AuditLogModule,
     AdminOverviewModule,
+    CurrencyModule,
     SsoModule,
     LeadsModule,
     SupportModule,

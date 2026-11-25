@@ -564,6 +564,7 @@
     "completeEnrollment": "Complete Enrollment",
     "proceedToCheckout": "Proceed to Checkout",
     "multipleItemsNote": "Multiple paid items are processed one at a time. You'll complete a payment for each.",
+    "currencyNote": "Prices above are shown in USD for reference — you'll be charged in {currency} at checkout, the amount shown next to each price.",
     "trustSsl": "Secure SSL checkout",
     "trustVerified": "Verified PAII credentials",
     "trustInstant": "Instant access on enrollment",

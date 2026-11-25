@@ -12,9 +12,10 @@ import { AiModule } from "../ai/ai.module";
 import { ProgramsModule } from "../programs/programs.module";
 import { TranslationsModule } from "../translations/translations.module";
 import { AuditLogModule } from "../audit-log/audit-log.module";
+import { CurrencyModule } from "../currency/currency.module";
 
 @Module({
-  imports: [NotificationsModule, MailModule, ContentImportModule, UploadsModule, AiModule, ProgramsModule, TranslationsModule, AuditLogModule],
+  imports: [NotificationsModule, MailModule, ContentImportModule, UploadsModule, AiModule, ProgramsModule, TranslationsModule, AuditLogModule, CurrencyModule],
   providers: [PrepCoursesService],
   controllers: [PrepCoursesController, AdminPrepCoursesController, ProfPrepCoursesController, InstitutionCoursesController],
   exports: [PrepCoursesService],

@@ -30,7 +30,7 @@ export class PaymentsController {
     @CurrentUser("id") userId: string,
     @Body() dto: CreateCheckoutDto,
   ) {
-    return this.paymentsService.createCheckoutSession(userId, dto.certification_slug, dto.application_id);
+    return this.paymentsService.createCheckoutSession(userId, dto.certification_slug, dto.application_id, dto.currency);
   }
 
   @ApiBearerAuth()
@@ -42,7 +42,7 @@ export class PaymentsController {
     @CurrentUser("role") role: Role,
     @Body() dto: CourseCheckoutDto,
   ) {
-    return this.paymentsService.createCourseCheckoutSession(userId, dto.course_id, dto.promo_code, undefined, role);
+    return this.paymentsService.createCourseCheckoutSession(userId, dto.course_id, dto.promo_code, undefined, role, dto.currency);
   }
 
   @ApiBearerAuth()
@@ -53,7 +53,7 @@ export class PaymentsController {
     @CurrentUser("id") userId: string,
     @Body() dto: CertificationCheckoutDto,
   ) {
-    return this.paymentsService.createCertificationCheckoutSession(userId, dto.certification_slug, dto.promo_code);
+    return this.paymentsService.createCertificationCheckoutSession(userId, dto.certification_slug, dto.promo_code, dto.currency);
   }
 
   @ApiBearerAuth()
@@ -64,7 +64,7 @@ export class PaymentsController {
     @CurrentUser("id") userId: string,
     @Body() dto: ProgramCheckoutDto,
   ) {
-    return this.paymentsService.createProgramCheckoutSession(userId, dto.program_id, dto.promo_code);
+    return this.paymentsService.createProgramCheckoutSession(userId, dto.program_id, dto.promo_code, dto.currency);
   }
 
   @ApiBearerAuth()
@@ -86,7 +86,7 @@ export class PaymentsController {
     @CurrentUser("id") userId: string,
     @Body() dto: RetakeCheckoutDto,
   ) {
-    return this.paymentsService.createRetakeCheckoutSession(userId, dto.enrollment_id);
+    return this.paymentsService.createRetakeCheckoutSession(userId, dto.enrollment_id, dto.currency);
   }
 
   @ApiBearerAuth()

@@ -18,15 +18,15 @@ export class PrepCoursesController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all active prep courses" })
-  findAll(@Query("lang") lang?: string) {
-    return this.service.findAll(lang);
+  findAll(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findAll(lang, currency);
   }
 
   @Public()
   @Get("featured")
   @ApiOperation({ summary: "List featured prep courses for homepage" })
-  findFeatured(@Query("lang") lang?: string) {
-    return this.service.findFeatured(lang);
+  findFeatured(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findFeatured(lang, currency);
   }
 
   @ApiBearerAuth()
@@ -219,14 +219,14 @@ export class PrepCoursesController {
   @OptionalAuth()
   @Get("institution/:institutionId")
   @ApiOperation({ summary: "An institution's course catalog — public courses to anyone, private courses only to that institution's active members" })
-  findByInstitution(@Param("institutionId") institutionId: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string) {
-    return this.service.findByInstitution(institutionId, userId, role, lang);
+  findByInstitution(@Param("institutionId") institutionId: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findByInstitution(institutionId, userId, role, lang, currency);
   }
 
   @OptionalAuth()
   @Get(":slug")
   @ApiOperation({ summary: "Get prep course by slug — publicly listed courses are open to anyone; private/unlisted courses require the caller to teach it, be invited to it, or be an admin" })
-  findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string) {
-    return this.service.findBySlug(slug, userId, role, lang);
+  findOne(@Param("slug") slug: string, @CurrentUser("id") userId?: string, @CurrentUser("role") role?: Role, @Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findBySlug(slug, userId, role, lang, currency);
   }
 }

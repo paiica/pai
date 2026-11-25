@@ -18,6 +18,7 @@ import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } fro
 import { localize, localizeMany } from "../../common/utils/localize";
 import { TranslationsService } from "../translations/translations.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { CurrencyService } from "../currency/currency.service";
 
 @Injectable()
 export class PrepCoursesService {
@@ -33,7 +34,22 @@ export class PrepCoursesService {
     private programs: ProgramsService,
     private translationsService: TranslationsService,
     private auditLog: AuditLogService,
+    private currencyService: CurrencyService,
   ) {}
+
+  // Attaches a resolved `{currency_code, symbol, price, compare_at_price,
+  // is_converted}` to a row (or every row in a list) carrying `price`/
+  // `compare_at_price`/`regional_prices` — the raw base-currency fields stay
+  // on the row untouched (existing callers like the builder/admin UI still
+  // need them), this just adds what the storefront actually displays.
+  private async attachResolvedPrice<T extends { price: any; compare_at_price?: any; regional_prices?: any }>(row: T, currency?: string): Promise<T & { resolved_price: Awaited<ReturnType<CurrencyService["resolvePrice"]>> }> {
+    const resolved_price = await this.currencyService.resolvePrice(Number(row.price), row.compare_at_price != null ? Number(row.compare_at_price) : null, row.regional_prices, currency);
+    return { ...row, resolved_price };
+  }
+
+  private async attachResolvedPriceMany<T extends { price: any; compare_at_price?: any; regional_prices?: any }>(rows: T[], currency?: string) {
+    return Promise.all(rows.map((r) => this.attachResolvedPrice(r, currency)));
+  }
 
   // ─── Auth helpers ────────────────────────────────────────────────────
 
@@ -1156,7 +1172,7 @@ export class PrepCoursesService {
     );
   }
 
-  async findAll(lang?: string) {
+  async findAll(lang?: string, currency?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         cert.acronym AS cert_acronym, cert.title AS cert_title, cert.slug AS cert_slug,
@@ -1177,12 +1193,12 @@ export class PrepCoursesService {
       WHERE c.status = 'active' AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
-    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
+    return this.attachResolvedPriceMany(localizeMany(rows, lang, ["title", "subtitle", "description"]), currency);
   }
 
-  async findFeatured(lang?: string) {
+  async findFeatured(lang?: string, currency?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.compare_at_price, c.level,
+      SELECT c.id, c.slug, c.title, c.subtitle, c.description, c.price, c.compare_at_price, c.regional_prices, c.level,
              c.duration_hours, c.thumbnail_url, c.is_featured,
              c.title_ar, c.subtitle_ar, c.description_ar,
              inst.name AS institution_name, inst.slug AS institution_slug,
@@ -1194,7 +1210,7 @@ export class PrepCoursesService {
       WHERE c.status = 'active' AND c.is_featured = true AND c.is_listed = true
       ORDER BY c.sort_order ASC, c.created_at DESC
     `);
-    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
+    return this.attachResolvedPriceMany(localizeMany(rows, lang, ["title", "subtitle", "description"]), currency);
   }
 
   // An institution's course catalog, as seen by a given caller: every
@@ -1203,7 +1219,7 @@ export class PrepCoursesService {
   // (not even a locked placeholder) to anyone outside the institution,
   // never shown then blocked. Powers the student portal's "My University"
   // catalog page (academia.paii.ca Phase 1).
-  async findByInstitution(institutionId: string, userId?: string, role?: Role, lang?: string) {
+  async findByInstitution(institutionId: string, userId?: string, role?: Role, lang?: string, currency?: string) {
     let hasMembership = false;
     if (userId && role !== Role.admin && role !== Role.super_admin) {
       const membership = await this.prisma.institutionMembership.findUnique({
@@ -1230,10 +1246,10 @@ export class PrepCoursesService {
         )
       ORDER BY c.created_at DESC
     `, institutionId, hasMembership);
-    return localizeMany(rows, lang, ["title", "subtitle", "description"]);
+    return this.attachResolvedPriceMany(localizeMany(rows, lang, ["title", "subtitle", "description"]), currency);
   }
 
-  async findBySlug(slug: string, userId?: string, role?: Role, lang?: string) {
+  async findBySlug(slug: string, userId?: string, role?: Role, lang?: string, currency?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.*,
         c.price::float AS price,
@@ -1291,7 +1307,7 @@ export class PrepCoursesService {
     if (translatedContent && Object.keys(translatedContent).length) {
       localized.content = { ...(course.content ?? {}), ...translatedContent };
     }
-    return localized;
+    return this.attachResolvedPrice(localized, currency);
   }
 
   // Private/unlisted courses are only viewable by an admin, someone who
@@ -1549,7 +1565,7 @@ export class PrepCoursesService {
       'title', 'subtitle', 'description', 'price', 'compare_at_price', 'status', 'thumbnail_url',
       'preview_video_url', 'level', 'duration_hours', 'pdu_value', 'certification_id',
       'sort_order', 'slug', 'total_lessons', 'is_featured', 'is_listed', 'ai_professor_enabled', 'content',
-      'passing_score', 'term_id',
+      'passing_score', 'term_id', 'regional_prices',
     ];
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -1567,7 +1583,7 @@ export class PrepCoursesService {
         sets.push(`"${key}" = $${p}::int`);
       } else if (key === 'is_featured' || key === 'is_listed' || key === 'ai_professor_enabled') {
         sets.push(`"${key}" = $${p}::boolean`);
-      } else if (key === 'content') {
+      } else if (key === 'content' || key === 'regional_prices') {
         sets.push(`"${key}" = $${p}::jsonb`);
         vals.push(JSON.stringify(dto[key]));
         p++;
@@ -2326,7 +2342,7 @@ export class PrepCoursesService {
   // PAII-curation field here — none of them are legitimate for a
   // professor/institution admin to set themselves, regardless of what a
   // client sends.
-  private static readonly ADMIN_ONLY_COURSE_FIELDS = ["is_listed", "is_featured", "certification_id", "approval_status", "reviewed_by", "reviewed_at"];
+  private static readonly ADMIN_ONLY_COURSE_FIELDS = ["is_listed", "is_featured", "certification_id", "approval_status", "reviewed_by", "reviewed_at", "regional_prices"];
 
   async profUpdateCourse(courseId: string, dto: Record<string, any>, userId: string, role: Role) {
     await this.assertTeacherAccess(courseId, userId, role);

@@ -18,6 +18,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { renderBlockItems, wrapLessonContent, ImportPlan, stripHtmlExcerpt } from "../content-import/rise-html-blocks";
 import { localize, localizeMany } from "../../common/utils/localize";
 import { TranslationsService } from "../translations/translations.service";
+import { CurrencyService } from "../currency/currency.service";
 
 const CERT_LOCALIZED_FIELDS = [
   "title", "description", "long_description", "learning_outcomes", "target_audience", "skills",
@@ -34,7 +35,17 @@ export class CoursesService {
     private aiService: AiService,
     private notificationsService: NotificationsService,
     private translationsService: TranslationsService,
+    private currencyService: CurrencyService,
   ) {}
+
+  private async attachResolvedPrice<T extends { price: any; regional_prices?: any }>(row: T, currency?: string) {
+    const resolved_price = await this.currencyService.resolvePrice(Number(row.price), null, row.regional_prices, currency);
+    return { ...row, resolved_price };
+  }
+
+  private async attachResolvedPriceMany<T extends { price: any; regional_prices?: any }>(rows: T[], currency?: string) {
+    return Promise.all(rows.map((r) => this.attachResolvedPrice(r, currency)));
+  }
 
   // ─── Public ──────────────────────────────────────────────────────────
 
@@ -50,7 +61,7 @@ export class CoursesService {
     return rest;
   }
 
-  async findAll(status?: CertificationStatus, lang?: string) {
+  async findAll(status?: CertificationStatus, lang?: string, currency?: string) {
     const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       include: {
@@ -70,26 +81,28 @@ export class CoursesService {
       },
       orderBy: { sort_order: "asc" },
     });
-    return localizeMany(certs.map((c) => this.omitInternalFields(c)), lang, CERT_LOCALIZED_FIELDS);
+    const localized = localizeMany(certs.map((c) => this.omitInternalFields(c)), lang, CERT_LOCALIZED_FIELDS);
+    return this.attachResolvedPriceMany(localized as any, currency);
   }
 
   // Lightweight list for browse/catalog UIs (e.g. the student portal's
   // Online Tools page) that only need card-level fields — no nested
   // modules/lessons/instructors, and no internal-only pricing fields.
-  async findCatalogList(status?: CertificationStatus, lang?: string) {
+  async findCatalogList(status?: CertificationStatus, lang?: string, currency?: string) {
     const certs = await this.prisma.certification.findMany({
       where: status ? { status } : { status: { in: [CertificationStatus.active, CertificationStatus.coming_soon] } },
       select: {
         id: true, slug: true, acronym: true, title: true, level: true, status: true,
-        price: true, badge_icon: true, description: true, duration_weeks: true,
+        price: true, regional_prices: true, badge_icon: true, description: true, duration_weeks: true,
         translations: true,
       },
       orderBy: { sort_order: "asc" },
     });
-    return localizeMany(certs, lang, ["title", "description"]);
+    const localized = localizeMany(certs, lang, ["title", "description"]);
+    return this.attachResolvedPriceMany(localized as any, currency);
   }
 
-  async findBySlug(slug: string, lang?: string) {
+  async findBySlug(slug: string, lang?: string, currency?: string) {
     const cert = await this.prisma.certification.findUnique({
       where: { slug },
       include: {
@@ -116,7 +129,8 @@ export class CoursesService {
       },
     });
     if (!cert) throw new NotFoundException("Certification not found");
-    return localize(this.omitInternalFields(cert), lang, CERT_LOCALIZED_FIELDS);
+    const localized = localize(this.omitInternalFields(cert), lang, CERT_LOCALIZED_FIELDS);
+    return this.attachResolvedPrice(localized as any, currency);
   }
 
   // Public lesson access (gated by enrollment)
@@ -955,16 +969,17 @@ export class CoursesService {
     return created;
   }
 
-  async findFeaturedCertifications(lang?: string) {
+  async findFeaturedCertifications(lang?: string, currency?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT c.id, c.slug, c.acronym, c.title, c.level::text, c.status::text,
-             c.badge_icon, c.price, c.description, c.sort_order, c.is_flagship,
+             c.badge_icon, c.price, c.regional_prices, c.description, c.sort_order, c.is_flagship,
              c.marketing_meta, c.translations
       FROM lms.certifications c
       WHERE c.status IN ('active', 'coming_soon') AND c.is_featured = true
       ORDER BY c.sort_order ASC
     `);
-    return localizeMany(rows, lang, ["title", "description"]);
+    const localized = localizeMany(rows, lang, ["title", "description"]);
+    return this.attachResolvedPriceMany(localized as any, currency);
   }
 
   // Persists the exact display order for the homepage's Featured

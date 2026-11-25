@@ -8,6 +8,11 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsUUID()
   application_id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
 }
 
 export class CourseCheckoutDto {
@@ -18,6 +23,11 @@ export class CourseCheckoutDto {
   @IsString()
   @MaxLength(60)
   promo_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
 }
 
 export class CertificationCheckoutDto {
@@ -29,6 +39,11 @@ export class CertificationCheckoutDto {
   @IsString()
   @MaxLength(60)
   promo_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
 }
 
 export class ProgramCheckoutDto {
@@ -39,6 +54,11 @@ export class ProgramCheckoutDto {
   @IsString()
   @MaxLength(60)
   promo_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
 }
 
 export class EventCheckoutDto {
@@ -107,6 +127,11 @@ export class RenewalCheckoutDto {
 export class RetakeCheckoutDto {
   @IsUUID()
   enrollment_id: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  currency?: string;
 }
 
 export class ReactivationCheckoutDto {

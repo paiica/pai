@@ -12,6 +12,7 @@ import EnrollButton from "@/components/EnrollButton";
 import CourseTabs from "./CourseTabs";
 import CourseStickyEnrollBar from "./CourseStickyEnrollBar";
 import InstructorCard from "@/components/InstructorCard";
+import { getCurrencyCookie, type ResolvedPrice } from "@/lib/currency";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 const LMS = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
@@ -44,6 +45,7 @@ type Course = {
   modules?: Module[]; instructors?: Instructor[];
   content?: CourseContent;
   documents?: CourseDocument[];
+  resolved_price?: ResolvedPrice;
 };
 
 const GRADIENTS = [
@@ -73,9 +75,9 @@ function safeArray<T>(val: unknown, fallback: T[] = []): T[] {
   return Array.isArray(val) ? (val as T[]) : fallback;
 }
 
-async function getCourse(slug: string, locale: string): Promise<Course | null> {
+async function getCourse(slug: string, locale: string, currency?: string): Promise<Course | null> {
   try {
-    const res = await fetch(`${API}/prep-courses/${slug}?lang=${locale}`, { cache: "no-store" });
+    const res = await fetch(`${API}/prep-courses/${slug}?lang=${locale}${currency ? `&currency=${currency}` : ""}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
@@ -114,7 +116,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const locale = await getLocale();
   const { slug } = await params;
-  const course = await getCourse(slug, locale);
+  const currency = await getCurrencyCookie();
+  const course = await getCourse(slug, locale, currency);
   if (!course || course.status === "archived") notFound();
 
   const t  = await getTranslations("CourseDetail");
@@ -122,9 +125,12 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
 
   const lmsEnrollUrl = `${LMS}/tools/course/${course.slug}`;
   const grad = getGradient(course.slug);
-  const price = Number(course.price);
-  const compareAtPrice = course.compare_at_price != null ? Number(course.compare_at_price) : null;
+  const resolved = course.resolved_price;
+  const price = resolved ? resolved.price : Number(course.price);
+  const compareAtPrice = resolved ? resolved.compare_at_price : (course.compare_at_price != null ? Number(course.compare_at_price) : null);
   const isLaunchPricing = compareAtPrice != null && compareAtPrice > price;
+  const currencySymbol = resolved?.symbol ?? "$";
+  const currencyCode = resolved?.currency_code ?? "USD";
   const modules = safeArray<Module>(course.modules);
   const instructors = safeArray<Instructor>(course.instructors);
   const documents = safeArray<CourseDocument>(course.documents);
@@ -234,11 +240,16 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
                 )}
                 <div className="flex items-baseline gap-2.5 mb-0.5">
                   {isLaunchPricing && (
-                    <span className="text-lg font-mono text-ink-900/40 line-through">${compareAtPrice!.toLocaleString()}</span>
+                    <span className="text-lg font-mono text-ink-900/40 line-through">{currencySymbol}{compareAtPrice!.toLocaleString()}</span>
                   )}
                   <span className="text-4xl font-display font-black text-ink-900">
-                    {price === 0 ? t("free") : `$${price.toLocaleString()}`}
+                    {price === 0 ? t("free") : `${currencySymbol}${price.toLocaleString()}`}
                   </span>
+                  {price > 0 && (
+                    <span className="text-xs font-semibold text-ink-900/50">
+                      {currencyCode}{resolved?.is_converted ? " · approx." : ""}
+                    </span>
+                  )}
                 </div>
                 <div className="text-ink-900 text-sm mb-5">
                   {price > 0 ? t("oneTimeFeeLifetime") : t("noCreditCardRequired")}

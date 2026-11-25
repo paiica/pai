@@ -5,6 +5,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { AiService } from "../ai/ai.service";
 import { TranslationsService } from "../translations/translations.service";
 import { localize, localizeMany } from "../../common/utils/localize";
+import { CurrencyService } from "../currency/currency.service";
 
 const PROGRAM_LOCALIZED_FIELDS = [
   "title", "short_description", "description", "overview",
@@ -18,6 +19,7 @@ export class ProgramsService {
     private notifications: NotificationsService,
     private aiService: AiService,
     private translationsService: TranslationsService,
+    private currencyService: CurrencyService,
   ) {}
 
   // ─── Admin: CRUD ─────────────────────────────────────────────────────────
@@ -249,7 +251,7 @@ export class ProgramsService {
       "thumbnail_url", "price", "currency", "is_featured", "faqs_json", "enrollment_type",
       "enrollment_start_date", "enrollment_end_date", "max_learners", "access_duration_days",
       "allow_individual_course_purchase", "director_user_id", "certificate_title", "certificate_description",
-      "testimonials", "marketing_meta", "related_slugs",
+      "testimonials", "marketing_meta", "related_slugs", "regional_prices",
     ];
     for (const f of fields) if (dto[f] !== undefined) data[f] = dto[f];
     if (dto.slug !== undefined && dto.slug.trim() && dto.slug.trim() !== program.slug) {
@@ -477,23 +479,24 @@ export class ProgramsService {
 
   // ─── Public catalog ──────────────────────────────────────────────────────
 
-  async findAll(lang?: string) {
+  async findAll(lang?: string, currency?: string) {
     const programs = await this.prisma.program.findMany({
       where: { status: "published" },
       orderBy: { sort_order: "asc" },
       include: { _count: { select: { courses: true, enrollments: true } } },
     });
     const localized = localizeMany(programs, lang, PROGRAM_LOCALIZED_FIELDS);
-    return localized.map((p) => ({
+    return Promise.all(localized.map(async (p) => ({
       id: p.id, slug: p.slug, title: p.title, short_description: p.short_description,
       level: p.level, price: Number(p.price), currency: p.currency,
+      resolved_price: await this.currencyService.resolvePrice(Number(p.price), null, p.regional_prices, currency),
       duration_weeks: p.duration_weeks, estimated_hours: p.estimated_hours ? Number(p.estimated_hours) : null,
       thumbnail_url: p.thumbnail_url, is_featured: p.is_featured,
       course_count: p._count.courses,
-    }));
+    })));
   }
 
-  async findBySlug(slug: string, lang?: string) {
+  async findBySlug(slug: string, lang?: string, currency?: string) {
     const programRow = await this.prisma.program.findUnique({
       where: { slug },
       include: {
@@ -523,6 +526,7 @@ export class ProgramsService {
     return {
       ...program,
       price: Number(program.price),
+      resolved_price: await this.currencyService.resolvePrice(Number(program.price), null, program.regional_prices, currency),
       estimated_hours: program.estimated_hours ? Number(program.estimated_hours) : null,
       courses: program.courses.map((pc) => ({
         id: pc.id, sort_order: pc.sort_order, is_required: pc.is_required,

@@ -74,8 +74,9 @@ const PAYMENTS_NAV = [
 ];
 
 const SETTINGS_NAV = [
-  { href: "/settings",      label: "General", icon: Settings },
-  { href: "/settings/apis", label: "APIs",    icon: Key      },
+  { href: "/settings",          label: "General",  icon: Settings     },
+  { href: "/settings/apis",     label: "APIs",     icon: Key          },
+  { href: "/settings/currency", label: "Currency", icon: DollarSign   },
 ];
 
 const COURSE_NAV = [

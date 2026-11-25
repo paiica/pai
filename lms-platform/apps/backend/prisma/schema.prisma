@@ -585,6 +585,8 @@ model Certification {
   badge_image_url      String?
   price                Decimal             @db.Decimal(10, 2)
   stripe_price_id      String?
+  // Per-currency price overrides, same shape/convention as Course.regional_prices.
+  regional_prices      Json                @default("{}")
 
   description          String
   long_description     String
@@ -1118,6 +1120,11 @@ model Course {
   // Crossed-out "was" price shown next to `price` for a promo (e.g. Launch
   // Pricing) — null means no promo, the card just shows `price` plain.
   compare_at_price     Decimal?     @db.Decimal(10, 2)
+  // Per-currency price overrides, e.g. { "CAD": { "price": 259, "compare_at_price": 299 } }.
+  // `price`/`compare_at_price` above are always in the platform's default
+  // currency (USD) — a currency with no entry here is simply FX-converted
+  // from that base price at checkout/display time (see CurrencyService).
+  regional_prices      Json         @default("{}")
   status               CourseStatus @default(draft)
   thumbnail_url        String?
   preview_video_url    String?
@@ -2007,6 +2014,34 @@ model SiteSetting {
   updated_at DateTime @updatedAt
 
   @@map("site_settings")
+  @@schema("lms")
+}
+
+// Every price everywhere else in the schema (Course.price, Certification.price,
+// Program.price, etc.) is stored in the platform's default/base currency — the
+// one row here with is_default:true, which must always be "USD" today since
+// every Stripe checkout session elsewhere in the codebase is created with a
+// literal unit price in that base currency when no other currency is
+// requested. Exactly one row should ever have is_default:true; enforced in
+// CurrencyService, not at the database level.
+model Currency {
+  id                 String    @id @default(uuid())
+  code               String    @unique // ISO 4217, e.g. "USD", "CAD"
+  symbol             String    // e.g. "$", "CA$"
+  name               String    // e.g. "US Dollar"
+  is_active          Boolean   @default(true)
+  is_default         Boolean   @default(false)
+  // Units of this currency per 1 unit of the default currency. Always 1 for
+  // the default currency itself. Manually editable by staff, or refreshed in
+  // bulk from a live FX rate feed (see CurrencyService.refreshLiveRates).
+  fx_rate            Decimal   @db.Decimal(14, 6) @default(1)
+  fx_rate_source     String    @default("manual") // "manual" | "live"
+  fx_rate_updated_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("currencies")
   @@schema("lms")
 }
 
@@ -3123,6 +3158,8 @@ model Program {
   status            ProgramStatus @default(draft)
   price             Decimal       @db.Decimal(10, 2) @default(0)
   currency          String        @default("USD")
+  // Per-currency price overrides, same shape/convention as Course.regional_prices.
+  regional_prices   Json          @default("{}")
   is_featured       Boolean       @default(false)
   faqs_json         Json          @default("[]")   // [{question, answer}]
   testimonials      Json          @default("[]")   // [{quote, name, role, company, avatar_initials}]

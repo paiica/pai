@@ -8,6 +8,7 @@ import { Clock, Search, X, ArrowRight } from "lucide-react";
 type CourseListItem = {
   id: string; slug: string; title: string; subtitle?: string | null;
   price: string | number; compare_at_price?: string | number | null;
+  resolved_price?: { currency_code: string; symbol: string; price: number; compare_at_price: number | null; is_converted: boolean };
   level?: string | null; cert_acronym?: string | null;
   module_count?: number; duration_hours?: number; thumbnail_url?: string | null;
   institution_name?: string | null; institution_slug?: string | null;
@@ -98,9 +99,12 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((course) => {
-            const coursePrice = Number(course.price);
-            const compareAtPrice = course.compare_at_price != null ? Number(course.compare_at_price) : null;
+            const resolved = course.resolved_price;
+            const coursePrice = resolved ? resolved.price : Number(course.price);
+            const compareAtPrice = resolved ? resolved.compare_at_price : (course.compare_at_price != null ? Number(course.compare_at_price) : null);
             const isLaunchPricing = compareAtPrice != null && compareAtPrice > coursePrice;
+            const currencySymbol = resolved?.symbol ?? "$";
+            const currencyCode = resolved?.currency_code ?? "USD";
             const modules = Math.max(0, Math.round(Number(course.module_count) || 0));
             const railSegments = Math.min(Math.max(modules, 1), 8);
             return (
@@ -180,15 +184,16 @@ export default function CoursesGrid({ courses }: { courses: CourseListItem[] }) 
                       </div>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="flex items-baseline gap-2">
+                      <span className="flex items-baseline gap-1.5">
                         {isLaunchPricing && (
                           <span className="text-sm font-mono text-sand-400 line-through">
-                            ${compareAtPrice!.toLocaleString()}
+                            {currencySymbol}{compareAtPrice!.toLocaleString()}
                           </span>
                         )}
                         <span className="text-xl font-mono font-bold text-ink-900">
-                          {coursePrice === 0 ? t("free") : `$${coursePrice.toLocaleString()}`}
+                          {coursePrice === 0 ? t("free") : `${currencySymbol}${coursePrice.toLocaleString()}`}
                         </span>
+                        {coursePrice > 0 && <span className="text-[10px] font-semibold text-sand-400">{currencyCode}</span>}
                       </span>
                       <Link
                         href={`/courses/${course.slug}`}

@@ -19,29 +19,29 @@ export class CoursesController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all active certifications (public)" })
-  findAll(@Query("lang") lang?: string) {
-    return this.coursesService.findAll(undefined, lang);
+  findAll(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.coursesService.findAll(undefined, lang, currency);
   }
 
   @Public()
   @Get("featured")
   @ApiOperation({ summary: "List featured certifications for homepage" })
-  findFeatured(@Query("lang") lang?: string) {
-    return this.coursesService.findFeaturedCertifications(lang);
+  findFeatured(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.coursesService.findFeaturedCertifications(lang, currency);
   }
 
   @Public()
   @Get("catalog")
   @ApiOperation({ summary: "Lightweight certification list for browse/catalog UIs (no modules/lessons)" })
-  findCatalogList(@Query("lang") lang?: string) {
-    return this.coursesService.findCatalogList(undefined, lang);
+  findCatalogList(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.coursesService.findCatalogList(undefined, lang, currency);
   }
 
   @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get certification details by slug (public)" })
-  findOne(@Param("slug") slug: string, @Query("lang") lang?: string) {
-    return this.coursesService.findBySlug(slug, lang);
+  findOne(@Param("slug") slug: string, @Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.coursesService.findBySlug(slug, lang, currency);
   }
 
   @UseGuards(JwtAuthGuard)

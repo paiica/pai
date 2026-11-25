@@ -16,8 +16,8 @@ export class ProgramsController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List all published programs" })
-  findAll(@Query("lang") lang?: string) {
-    return this.service.findAll(lang);
+  findAll(@Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findAll(lang, currency);
   }
 
   @ApiBearerAuth()
@@ -63,7 +63,7 @@ export class ProgramsController {
   @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get a published program's landing-page data by slug" })
-  findBySlug(@Param("slug") slug: string, @Query("lang") lang?: string) {
-    return this.service.findBySlug(slug, lang);
+  findBySlug(@Param("slug") slug: string, @Query("lang") lang?: string, @Query("currency") currency?: string) {
+    return this.service.findBySlug(slug, lang, currency);
   }
 }

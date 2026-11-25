@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   ShoppingCart, Tag, CheckCircle, ArrowRight, X, Loader2,
-  Shield, Lock, Zap, GraduationCap,
+  Shield, Lock, Zap, GraduationCap, DollarSign, ChevronDown,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore, CartItem } from "@/store/cart.store";
@@ -57,10 +57,53 @@ function AcronymBadge({ acronym }: { acronym: string }) {
   );
 }
 
+interface Currency { code: string; symbol: string; name: string; is_default: boolean; fx_rate: string | number; }
+
 export default function CartPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { items, removeItem, clearCart, updateItemPrice, fetchCart } = useCartStore();
   const t = useTranslations("Cart");
+
+  // Independent of whatever currency the marketing site showed (a different
+  // domain, so its cookie isn't visible here anyway) — this is the one place
+  // money actually changes hands, so it gets its own selector rather than
+  // relying on a cross-domain handoff. The converted numbers shown here are
+  // an honest estimate for the student's benefit; the actual charge is
+  // always computed authoritatively server-side at checkout (CurrencyService
+  // .resolveForCheckout), which also applies any admin-set regional price
+  // override this quick client-side FX math can't know about.
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currency, setCurrency]     = useState<string>(() => (typeof window !== "undefined" && localStorage.getItem("paii_currency")) || "USD");
+  const [currOpen, setCurrOpen]     = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/currencies`)
+      .then((r) => r.json())
+      .then((d) => {
+        const list: Currency[] = d?.data ?? d ?? [];
+        setCurrencies(list);
+        const stored = localStorage.getItem("paii_currency");
+        if (!stored || !list.some((c) => c.code === stored)) {
+          setCurrency(list.find((c) => c.is_default)?.code ?? "USD");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeCurrency = currencies.find((c) => c.code === currency);
+  const isDefaultCurrency = !activeCurrency || activeCurrency.is_default;
+
+  function selectCurrency(code: string) {
+    setCurrency(code);
+    localStorage.setItem("paii_currency", code);
+    setCurrOpen(false);
+  }
+
+  function convert(usdAmount: number): string {
+    if (isDefaultCurrency || !activeCurrency) return "";
+    const amount = Math.round(usdAmount * Number(activeCurrency.fx_rate) * 100) / 100;
+    return `≈ ${activeCurrency.symbol}${amount.toFixed(2)} ${activeCurrency.code}`;
+  }
 
   // Sync prices from API on mount so stale localStorage prices are corrected
   useEffect(() => {
@@ -131,9 +174,10 @@ export default function CartPage() {
 
   async function doCheckoutItem(item: CartItem) {
     const endpoint = item.type === "course" ? "/payments/course-checkout" : "/payments/certification-checkout";
+    const checkoutCurrency = isDefaultCurrency ? undefined : currency;
     const body = item.type === "course"
-      ? { course_id: item.course_id, promo_code: promoCode.trim() || undefined }
-      : { certification_slug: item.slug, promo_code: promoCode.trim() || undefined };
+      ? { course_id: item.course_id, promo_code: promoCode.trim() || undefined, currency: checkoutCurrency }
+      : { certification_slug: item.slug, promo_code: promoCode.trim() || undefined, currency: checkoutCurrency };
     const res  = await api.post<any>(endpoint, body, token) as any;
     const data = res?.data ?? res;
     if (data.checkout_url) {
@@ -220,9 +264,35 @@ export default function CartPage() {
               <p className="text-xs text-slate-400 mt-0.5">{items.length} {items.length !== 1 ? t("itemPlural") : t("itemSingular")}</p>
             </div>
           </div>
-          <Link href="/certificates" className="text-xs text-slate-400 hover:text-navy-700 transition-colors flex items-center gap-1">
-            {t("continueShopping")}
-          </Link>
+          <div className="flex items-center gap-4">
+            {currencies.length > 1 && (
+              <div className="relative">
+                <button
+                  onClick={() => setCurrOpen((v) => !v)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-navy-700 transition-colors"
+                >
+                  <DollarSign size={13} /> {currency}
+                  <ChevronDown size={11} className={cn("transition-transform", currOpen && "rotate-180")} />
+                </button>
+                {currOpen && (
+                  <div className="absolute end-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50">
+                    {currencies.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => selectCurrency(c.code)}
+                        className={cn("w-full text-start px-3.5 py-2 text-sm transition-colors", currency === c.code ? "text-navy-900 font-semibold bg-slate-50" : "text-navy-800 hover:bg-slate-50")}
+                      >
+                        {c.code} <span className="text-slate-400">— {c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <Link href="/certificates" className="text-xs text-slate-400 hover:text-navy-700 transition-colors flex items-center gap-1">
+              {t("continueShopping")}
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -289,14 +359,19 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                    <span className="font-black text-navy-900 text-base flex items-center gap-2">
-                      {!!item.member_discount_percentage && (
-                        <span className="text-slate-400 font-semibold text-xs line-through">${item.price.toFixed(2)}</span>
+                    <div>
+                      <span className="font-black text-navy-900 text-base flex items-center gap-2">
+                        {!!item.member_discount_percentage && (
+                          <span className="text-slate-400 font-semibold text-xs line-through">${item.price.toFixed(2)}</span>
+                        )}
+                        {effectivePrice(item) === 0
+                          ? <span className="text-emerald-600 font-bold text-sm">{t("free")}</span>
+                          : `$${effectivePrice(item).toFixed(2)} USD`}
+                      </span>
+                      {effectivePrice(item) > 0 && !isDefaultCurrency && (
+                        <span className="text-[11px] text-slate-400 block">{convert(effectivePrice(item))}</span>
                       )}
-                      {effectivePrice(item) === 0
-                        ? <span className="text-emerald-600 font-bold text-sm">{t("free")}</span>
-                        : `$${effectivePrice(item).toFixed(2)}`}
-                    </span>
+                    </div>
                     <button
                       onClick={() => handleCheckoutSingle(item)}
                       disabled={checkingOut || !!checkingOutId}
@@ -398,7 +473,7 @@ export default function CartPage() {
                 <div className="border-t border-slate-100 pt-3 space-y-2">
                   <div className="flex justify-between text-sm text-slate-500">
                     <span>{t("subtotal")}</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>${subtotal.toFixed(2)} USD</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-emerald-600 font-semibold">
@@ -406,9 +481,14 @@ export default function CartPage() {
                       <span>−${discount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-black text-navy-900 text-xl pt-2 border-t border-slate-100">
+                  <div className="flex justify-between items-baseline font-black text-navy-900 text-xl pt-2 border-t border-slate-100">
                     <span>{t("total")}</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span className="text-end">
+                      ${total.toFixed(2)} <span className="text-xs">USD</span>
+                      {!isDefaultCurrency && total > 0 && (
+                        <span className="block text-[11px] font-semibold text-slate-400">{convert(total)}</span>
+                      )}
+                    </span>
                   </div>
                 </div>
 
@@ -428,6 +508,12 @@ export default function CartPage() {
                 {paidItems.length > 1 && (
                   <p className="text-[11px] text-slate-400 text-center mt-3 leading-relaxed">
                     {t("multipleItemsNote")}
+                  </p>
+                )}
+
+                {!isDefaultCurrency && total > 0 && (
+                  <p className="text-[11px] text-slate-400 text-center mt-3 leading-relaxed">
+                    {t("currencyNote", { currency })}
                   </p>
                 )}
               </div>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import CertCTAButton from "@/components/CertCTAButton";
 import InstructorCard from "@/components/InstructorCard";
+import { getCurrencyCookie, type ResolvedPrice } from "@/lib/currency";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -41,6 +42,7 @@ type Cert = {
   passing_score: number; exam_duration_minutes: number;
   exam_questions_count: number; validity_years: number;
   max_retakes_included: number; retake_fee: number;
+  resolved_price?: ResolvedPrice;
   min_years_experience?: number | null;
   min_training_hours?: number | null;
   industry_focus?: string[];
@@ -71,9 +73,9 @@ const LEVEL_SPHERE_GRADIENT: Record<string, string> = {
   other:      "radial-gradient(circle at 32% 28%, #e2e8f0 0%, #64748b 42%, #1e293b 100%)",
 };
 
-async function getCert(slug: string, locale: string): Promise<Cert | null> {
+async function getCert(slug: string, locale: string, currency?: string): Promise<Cert | null> {
   try {
-    const res = await fetch(`${API}/courses/${slug}?lang=${locale}`, { cache: "no-store" });
+    const res = await fetch(`${API}/courses/${slug}?lang=${locale}${currency ? `&currency=${currency}` : ""}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.data ?? json ?? null;
@@ -116,11 +118,17 @@ function safeArray<T>(val: unknown, fallback: T[] = []): T[] {
 export default async function CertificationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const locale = await getLocale();
   const { slug } = await params;
-  const cert = await getCert(slug, locale);
+  const currency = await getCurrencyCookie();
+  const cert = await getCert(slug, locale, currency);
   if (!cert || cert.status === "archived") notFound();
 
   const t  = await getTranslations("CertificationDetail");
   const tc = await getTranslations("Common");
+
+  const resolved = cert.resolved_price;
+  const certPrice = resolved ? resolved.price : Number(cert.price);
+  const currencySymbol = resolved?.symbol ?? "$";
+  const currencyCode = resolved?.currency_code ?? "USD";
 
   const lmsUrl = process.env.NEXT_PUBLIC_LMS_URL || "https://learn.paii.ca";
   const applyUrl = `${lmsUrl}/apply/${cert.slug}`;
@@ -157,7 +165,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
   return (
     <>
       <Navbar />
-      {!isComingSoon && <StickyEnrollBar title={cert.title} acronym={cert.acronym} price={Number(cert.price)} applyUrl={applyUrl} />}
+      {!isComingSoon && <StickyEnrollBar title={cert.title} acronym={cert.acronym} price={certPrice} applyUrl={applyUrl} />}
 
       <main>
         {/* ── HERO ── */}
@@ -242,7 +250,10 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl p-7 shadow-xl border border-sand-200">
-                  <div className="text-4xl font-display font-black text-ink-900 mb-0.5">${Number(cert.price).toLocaleString()}</div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-display font-black text-ink-900 mb-0.5">{currencySymbol}{certPrice.toLocaleString()}</span>
+                    <span className="text-xs font-semibold text-ink-900/50">{currencyCode}{resolved?.is_converted ? " · approx." : ""}</span>
+                  </div>
                   <div className="text-ink-900 text-sm mb-5">{t("oneTimeFeeLifetime")}</div>
                   <div className="space-y-2.5 mb-6">
                     {[
@@ -262,7 +273,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                     certId={cert.id}
                     certSlug={cert.slug}
                     title={cert.title}
-                    price={Number(cert.price)}
+                    price={certPrice}
                   />
                   <Link href="/corporate" className="w-full flex items-center justify-center gap-2 border-2 border-ink-800 text-ink-900 font-semibold py-3 rounded-xl text-sm transition-all hover:bg-ink-800 hover:text-white">
                     {t("corporateGroupPricing")} →
@@ -304,11 +315,16 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                 { label: t("examDeliveryLabel"), value: t("examDeliveryValue") },
                 { label: t("passingScoreLabel"), value: `${cert.passing_score}%` },
                 { label: t("validityLabel"), value: cert.validity_years > 0 ? t("yearsValue", { count: cert.validity_years }) : t("yearsValue", { count: 2 }) },
-                { label: t("retakesLabel"), value: cert.max_retakes_included > 0 ? t("retakesIncluded", { count: cert.max_retakes_included }) : t("contactUs") },
+                {
+                  label: t("retakesLabel"),
+                  value: cert.max_retakes_included > 0 ? t("retakesIncluded", { count: cert.max_retakes_included }) : t("contactUs"),
+                  note: Number(cert.retake_fee) > 0 ? t("retakeFeeNote", { price: `${currencySymbol}${Number(cert.retake_fee).toLocaleString()}` }) : null,
+                },
               ].map((item) => (
                 <div key={item.label}>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{item.label}</div>
                   <div className="font-display font-bold text-ink-900 text-sm">{item.value}</div>
+                  {"note" in item && item.note && <div className="text-[11px] text-slate-400 mt-0.5">{item.note}</div>}
                 </div>
               ))}
             </div>
@@ -437,7 +453,7 @@ export default async function CertificationDetailPage({ params }: { params: Prom
                   </span>
                 ) : (
                   <a href={applyUrl} className="btn-primary !py-4 !px-8 !text-base justify-center">
-                    <Award size={18} /> {t("applyNowPrice", { price: Number(cert.price).toLocaleString() })}
+                    <Award size={18} /> {t("applyNowPrice", { price: `${currencySymbol}${certPrice.toLocaleString()} ${currencyCode}` })}
                   </a>
                 )}
                 <Link href="/certifications" className="btn-outline-white !py-4 !px-8 !text-base justify-center">

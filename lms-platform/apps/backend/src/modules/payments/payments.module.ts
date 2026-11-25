@@ -10,9 +10,10 @@ import { RevenueModule } from "../revenue/revenue.module";
 import { AuditLogModule } from "../audit-log/audit-log.module";
 import { InstitutionsModule } from "../institutions/institutions.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { CurrencyModule } from "../currency/currency.module";
 
 @Module({
-  imports: [PromoCodesModule, MailModule, SiteSettingsModule, CertificatesModule, PrepCoursesModule, RevenueModule, AuditLogModule, InstitutionsModule, NotificationsModule],
+  imports: [PromoCodesModule, MailModule, SiteSettingsModule, CertificatesModule, PrepCoursesModule, RevenueModule, AuditLogModule, InstitutionsModule, NotificationsModule, CurrencyModule],
   providers: [PaymentsService],
   controllers: [PaymentsController],
   exports: [PaymentsService],

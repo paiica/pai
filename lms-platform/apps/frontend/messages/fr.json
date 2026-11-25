@@ -564,6 +564,7 @@
     "completeEnrollment": "Finaliser l'inscription",
     "proceedToCheckout": "Procéder au paiement",
     "multipleItemsNote": "Les articles payants multiples sont traités un à la fois. Vous effectuerez un paiement pour chacun.",
+    "currencyNote": "Les prix ci-dessus sont affichés en USD à titre indicatif — vous serez facturé en {currency} au moment du paiement, le montant indiqué à côté de chaque prix.",
     "trustSsl": "Paiement sécurisé SSL",
     "trustVerified": "Identifiants PAII vérifiés",
     "trustInstant": "Accès instantané à l'inscription",

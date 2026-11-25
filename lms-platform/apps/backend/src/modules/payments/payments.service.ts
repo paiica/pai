@@ -14,6 +14,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { InstitutionsService } from "../institutions/institutions.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { EventCheckoutDto } from "./dto/checkout.dto";
+import { CurrencyService } from "../currency/currency.service";
 
 @Injectable()
 export class PaymentsService {
@@ -34,6 +35,7 @@ export class PaymentsService {
     private auditLog: AuditLogService,
     private institutions: InstitutionsService,
     private notifications: NotificationsService,
+    private currencyService: CurrencyService,
   ) {
     const stripeKey = config.get<string>("stripe.secretKey");
     this.envStripe = stripeKey && stripeKey.length > 10
@@ -91,7 +93,7 @@ export class PaymentsService {
 
   // ─── Existing certification checkout (via application) ──────────────────────
 
-  async createCheckoutSession(userId: string, certificationSlug: string, applicationId?: string) {
+  async createCheckoutSession(userId: string, certificationSlug: string, applicationId?: string, currency?: string) {
     const stripeClient = await this.resolveStripe();
     if (!stripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
     const { stripe } = stripeClient;
@@ -104,6 +106,12 @@ export class PaymentsService {
     const successUrl = `${this.config.get("frontendUrl")}/apply/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${this.config.get("frontendUrl")}/certifications/${certificationSlug}`;
 
+    // Resolved in whatever currency the student picked on the storefront —
+    // falls back to the platform default (USD) if none was requested, and
+    // throws (rather than silently charging the wrong amount) if an
+    // inactive/unknown currency code somehow reaches this far.
+    const resolved = await this.currencyService.resolveForCheckout(Number(cert.price), cert.regional_prices, currency);
+
     try {
       const session = await this.startCheckout(stripe, {
         mode: "payment",
@@ -111,8 +119,8 @@ export class PaymentsService {
         metadata: { user_id: userId, certification_id: cert.id, application_id: applicationId || "" },
         line_items: [{
           price_data: {
-            currency: "usd",
-            unit_amount: Math.round(Number(cert.price) * 100),
+            currency: resolved.currency_code.toLowerCase(),
+            unit_amount: Math.round(resolved.amount * 100),
             // Omit entirely rather than pass "" — Stripe rejects an
             // explicit empty string for product_data.description.
             product_data: { name: `${cert.title} (${cert.acronym}) — PAII Certification`, ...(cert.description ? { description: cert.description } : {}) },
@@ -128,7 +136,7 @@ export class PaymentsService {
 
   // ─── Course checkout (direct enrollment) ────────────────────────────────────
 
-  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string, extraMetadata?: Record<string, string>, role?: Role) {
+  async createCourseCheckoutSession(userId: string, courseId: string, promoCode?: string, extraMetadata?: Record<string, string>, role?: Role, currency?: string) {
     const courses = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM lms.courses WHERE id = $1 AND status = 'active'`, courseId
     );
@@ -209,6 +217,18 @@ export class PaymentsService {
 
     const courseStripeClient = await this.resolveStripe();
     if (!courseStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    // Promo/member discounts above are computed as a ratio of the USD base
+    // price — currency-agnostic by construction — so converting currency
+    // happens last: resolve what the UNDISCOUNTED price would be in the
+    // requested currency (an explicit regional override if the admin set
+    // one, else a live FX conversion), then apply that same discount ratio
+    // to it. This is what keeps "10% off" actually meaning 10% off whatever
+    // the student was shown, in whichever currency they're paying in.
+    const discountRatio = price / basePrice;
+    const resolvedBase = await this.currencyService.resolveForCheckout(basePrice, course.regional_prices, currency);
+    const finalAmount = Math.round(resolvedBase.amount * discountRatio * 100) / 100;
+
     try {
       const session = await this.startCheckout(courseStripeClient.stripe, {
         mode: "payment",
@@ -224,8 +244,8 @@ export class PaymentsService {
         },
         line_items: [{
           price_data: {
-            currency: "usd",
-            unit_amount: Math.round(price * 100),
+            currency: resolvedBase.currency_code.toLowerCase(),
+            unit_amount: Math.round(finalAmount * 100),
             product_data: {
               name: course.title,
               // Omit entirely rather than pass "" — Stripe rejects an
@@ -246,7 +266,7 @@ export class PaymentsService {
   // courses' individual prices), so this mirrors createCourseCheckoutSession's
   // single-line-item shape exactly — fulfillment (granting each course) is
   // deferred to the webhook, same as every other checkout method here.
-  async createProgramCheckoutSession(userId: string, programId: string, promoCode?: string) {
+  async createProgramCheckoutSession(userId: string, programId: string, promoCode?: string, currency?: string) {
     const program = await this.prisma.program.findUnique({
       where: { id: programId },
       include: { courses: { select: { course_id: true } }, _count: { select: { enrollments: true } } },
@@ -315,6 +335,11 @@ export class PaymentsService {
 
     const programStripeClient = await this.resolveStripe();
     if (!programStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    const discountRatio = price / basePrice;
+    const resolvedBase = await this.currencyService.resolveForCheckout(basePrice, program.regional_prices, currency);
+    const finalAmount = Math.round(resolvedBase.amount * discountRatio * 100) / 100;
+
     try {
       const session = await this.startCheckout(programStripeClient.stripe, {
         mode: "payment",
@@ -327,8 +352,8 @@ export class PaymentsService {
         },
         line_items: [{
           price_data: {
-            currency: "usd",
-            unit_amount: Math.round(price * 100),
+            currency: resolvedBase.currency_code.toLowerCase(),
+            unit_amount: Math.round(finalAmount * 100),
             product_data: {
               name: program.title,
               // Omit entirely rather than pass "" — Stripe rejects an
@@ -350,7 +375,7 @@ export class PaymentsService {
 
   // ─── Certification direct-enrollment checkout ────────────────────────────────
 
-  async createCertificationCheckoutSession(userId: string, certSlug: string, promoCode?: string) {
+  async createCertificationCheckoutSession(userId: string, certSlug: string, promoCode?: string, currency?: string) {
     const cert = await this.prisma.certification.findUnique({ where: { slug: certSlug } });
     if (!cert || cert.status !== "active") throw new NotFoundException("Certification not found");
 
@@ -376,7 +401,8 @@ export class PaymentsService {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
     if (!user) throw new NotFoundException("User not found");
 
-    let price = Number(cert.price);
+    const basePrice = Number(cert.price);
+    let price = basePrice;
     let promoId: string | undefined;
     let promoDiscount = 0;
 
@@ -456,6 +482,11 @@ export class PaymentsService {
 
     const certStripeClient = await this.resolveStripe();
     if (!certStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    const certDiscountRatio = price / basePrice;
+    const resolvedCertBase = await this.currencyService.resolveForCheckout(basePrice, cert.regional_prices, currency);
+    const certFinalAmount = Math.round(resolvedCertBase.amount * certDiscountRatio * 100) / 100;
+
     try {
       const session = await this.startCheckout(certStripeClient.stripe, {
         mode: "payment",
@@ -470,8 +501,8 @@ export class PaymentsService {
         },
         line_items: [{
           price_data: {
-            currency: "usd",
-            unit_amount: Math.round(price * 100),
+            currency: resolvedCertBase.currency_code.toLowerCase(),
+            unit_amount: Math.round(certFinalAmount * 100),
             product_data: {
               name: `${cert.title} (${cert.acronym}) — PAII Certification`,
               // Omit entirely rather than pass "" — Stripe rejects an
@@ -639,7 +670,7 @@ export class PaymentsService {
     } catch (err) { this.stripeError(err); }
   }
 
-  async createRetakeCheckoutSession(userId: string, enrollmentId: string) {
+  async createRetakeCheckoutSession(userId: string, enrollmentId: string, currency?: string) {
     const enrollment = await this.prisma.enrollment.findFirst({
       where: { id: enrollmentId, user_id: userId },
       include: { certification: true },
@@ -665,6 +696,13 @@ export class PaymentsService {
 
     const retakeStripeClient = await this.resolveStripe();
     if (!retakeStripeClient) throw new BadRequestException("Payment processing is not configured. Please add your Stripe key in Settings → APIs.");
+
+    // Retake fee has no per-currency override field of its own (unlike
+    // Course/Certification/Program base price) — it's always a straight FX
+    // conversion from the USD fee, which is a reasonable scope limit for a
+    // fee this small rather than building out regional overrides for it too.
+    const resolvedRetake = await this.currencyService.resolveForCheckout(price, {}, currency);
+
     try {
       const session = await this.startCheckout(retakeStripeClient.stripe, {
         mode: "payment",
@@ -677,8 +715,8 @@ export class PaymentsService {
         },
         line_items: [{
           price_data: {
-            currency: "usd",
-            unit_amount: Math.round(price * 100),
+            currency: resolvedRetake.currency_code.toLowerCase(),
+            unit_amount: Math.round(resolvedRetake.amount * 100),
             product_data: {
               name: `${enrollment.certification.acronym} — Exam Retake`,
               description: `Retake fee for ${enrollment.certification.title}`,

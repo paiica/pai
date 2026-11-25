@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import { BookOpen, ChevronRight } from "lucide-react";
 import CoursesGrid from "./CoursesGrid";
 import PageHero, { type PageHeroProps } from "@/components/sections/PageHero";
+import { getCurrencyCookie } from "@/lib/currency";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
@@ -31,9 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-async function getCourses(locale: string): Promise<any[]> {
+async function getCourses(locale: string, currency?: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API}/prep-courses?lang=${locale}`, { cache: "no-store" });
+    const res = await fetch(`${API}/prep-courses?lang=${locale}${currency ? `&currency=${currency}` : ""}`, { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
@@ -44,7 +45,8 @@ export default async function CoursesListPage() {
   const locale = await getLocale();
   const t = await getTranslations("Courses");
   const tc = await getTranslations("Common");
-  const courses = await getCourses(locale);
+  const currency = await getCurrencyCookie();
+  const courses = await getCourses(locale, currency);
   const cms = await getCmsPage(locale);
 
   return (
