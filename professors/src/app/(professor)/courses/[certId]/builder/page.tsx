@@ -671,14 +671,14 @@ function CourseSidebar({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Search */}
-      <div className="p-3 border-b border-slate-100">
+      <div className="p-4 border-b border-slate-100">
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search titles"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-navy-400"
+            className="w-full pl-9 pr-3 py-2.5 text-[15px] border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-navy-400"
           />
         </div>
       </div>
@@ -688,17 +688,17 @@ function CourseSidebar({
         {filtered.map(mod => (
           <div key={mod.id}>
             {/* Module row */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2 group hover:bg-slate-50">
+            <div className="flex items-center gap-2 px-3 py-2.5 group hover:bg-slate-50">
               <button onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))} className="p-0.5 text-slate-500">
-                {expanded[mod.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                {expanded[mod.id] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
               </button>
-              <span className="flex-1 text-sm font-semibold text-navy-800 truncate cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}>
+              <span className="flex-1 text-[15px] font-semibold text-navy-800 truncate cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [mod.id]: !p[mod.id] }))}>
                 {mod.title}
               </span>
               {!studentView && (
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-                  <button onClick={() => onAddLesson(mod)} className="p-1.5 rounded hover:bg-navy-100 text-slate-400 hover:text-navy-700" title="Add lesson"><Plus size={13} /></button>
-                  <button onClick={() => onDeleteModule(mod)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete module"><Trash2 size={13} /></button>
+                  <button onClick={() => onAddLesson(mod)} className="p-1.5 rounded hover:bg-navy-100 text-slate-400 hover:text-navy-700" title="Add lesson"><Plus size={14} /></button>
+                  <button onClick={() => onDeleteModule(mod)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete module"><Trash2 size={14} /></button>
                 </div>
               )}
             </div>
@@ -712,11 +712,11 @@ function CourseSidebar({
                   key={lesson.id}
                   onClick={() => onSelectLesson(lesson, mod)}
                   className={cn(
-                    "flex items-center gap-2.5 pl-8 pr-2.5 py-2.5 cursor-pointer group transition-colors",
+                    "flex items-center gap-2.5 pl-7 pr-3 py-3 cursor-pointer group transition-colors",
                     isSelected ? "bg-navy-700 text-white" : "hover:bg-slate-50 text-slate-700"
                   )}
                 >
-                  <Icon size={16} className={isSelected ? "text-white" : "text-slate-400"} />
+                  <Icon size={17} className={isSelected ? "text-white" : "text-slate-400"} />
                   <span className={cn("flex-1 text-sm truncate", isSelected ? "text-white font-medium" : "text-slate-700")}>
                     {lesson.title}
                   </span>
@@ -737,7 +737,7 @@ function CourseSidebar({
             {!studentView && expanded[mod.id] && (
               <button
                 onClick={() => onAddLesson(mod)}
-                className="flex items-center gap-2 pl-9 pr-3 py-2 w-full text-sm text-slate-400 hover:text-navy-600 hover:bg-navy-50 transition-colors"
+                className="flex items-center gap-2 pl-8 pr-3 py-2.5 w-full text-sm text-slate-400 hover:text-navy-600 hover:bg-navy-50 transition-colors"
               >
                 <Plus size={14} /> Add lesson
               </button>
@@ -748,11 +748,11 @@ function CourseSidebar({
 
       {/* Add module */}
       {!studentView && (
-        <div className="p-3 border-t border-slate-100 space-y-2">
-          <button onClick={onGenerateAi} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-navy-900 hover:bg-navy-800 text-sm text-white transition-all">
+        <div className="p-4 border-t border-slate-100 space-y-2">
+          <button onClick={onGenerateAi} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-navy-900 hover:bg-navy-800 text-sm text-white transition-all">
             <Sparkles size={14} /> Generate with AI
           </button>
-          <button onClick={onAddModule} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-sm text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
+          <button onClick={onAddModule} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border border-dashed border-slate-200 hover:border-navy-300 text-sm text-slate-500 hover:text-navy-700 hover:bg-navy-50 transition-all">
             <Plus size={14} /> New Module
           </button>
           <ImportContentButton
@@ -3012,12 +3012,65 @@ function AiModuleAssistantModal({
 
 // ─── Curriculum tab ─────────────────────────────────────────────────────────
 
+const SIDEBAR_WIDTH_KEY = "builder_sidebar_width";
+const SIDEBAR_OPEN_KEY = "builder_sidebar_open";
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MAX_WIDTH = 520;
+
 function CurriculumTab({ courseId, token }: { courseId: string; token: string }) {
   const [showStudentView, setShowStudentView] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<{ lesson: Lesson; module: Module } | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "settings">("content");
   const [publishing, setPublishing] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const resizingRef = useRef(false);
+
+  // On a smaller laptop screen, cap the sidebar at a fraction of the viewport
+  // instead of the fixed SIDEBAR_MAX_WIDTH, so dragging (or a width saved on a
+  // wider monitor) can't crush the editor pane down to nothing.
+  function maxSidebarWidth() {
+    return Math.min(SIDEBAR_MAX_WIDTH, Math.round(window.innerWidth * 0.4));
+  }
+
+  useEffect(() => {
+    const savedWidth = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    if (savedWidth >= SIDEBAR_MIN_WIDTH) setSidebarWidth(Math.min(savedWidth, maxSidebarWidth()));
+    const savedOpen = localStorage.getItem(SIDEBAR_OPEN_KEY);
+    if (savedOpen != null) setSidebarOpen(savedOpen !== "false");
+
+    function onResize() {
+      setSidebarWidth(w => Math.min(w, maxSidebarWidth()));
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  function handleSidebarResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    resizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const maxWidth = maxSidebarWidth();
+    function onMove(ev: MouseEvent) {
+      if (!resizingRef.current) return;
+      const next = Math.min(maxWidth, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (ev.clientX - startX)));
+      setSidebarWidth(next);
+    }
+    function onUp() {
+      resizingRef.current = false;
+      setSidebarWidth(w => { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w)); return w; });
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  function toggleSidebarOpen() {
+    setSidebarOpen(v => { localStorage.setItem(SIDEBAR_OPEN_KEY, String(!v)); return !v; });
+  }
 
   const { data: courseRaw } = useSWR(
     token && courseId ? [`/prof/courses/${courseId}`, token] as const : null,
@@ -3121,7 +3174,18 @@ function CurriculumTab({ courseId, token }: { courseId: string; token: string })
     <div className="flex flex-col" style={{ height: "calc(100vh - 184px)" }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between px-6 py-3 bg-navy-900 border-y border-navy-800 flex-shrink-0">
-        <span className="text-xs text-navy-300">{modules.length} module{modules.length !== 1 ? "s" : ""} · {modules.reduce((s, m) => s + m.lessons.length, 0)} lesson{modules.reduce((s, m) => s + m.lessons.length, 0) !== 1 ? "s" : ""}</span>
+        <div className="flex items-center gap-3">
+          {!showStudentView && (
+            <button
+              onClick={toggleSidebarOpen}
+              className="p-1 text-navy-300 hover:text-white transition-colors"
+              title={sidebarOpen ? "Hide modules panel" : "Show modules panel"}
+            >
+              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+            </button>
+          )}
+          <span className="text-xs text-navy-300">{modules.length} module{modules.length !== 1 ? "s" : ""} · {modules.reduce((s, m) => s + m.lessons.length, 0)} lesson{modules.reduce((s, m) => s + m.lessons.length, 0) !== 1 ? "s" : ""}</span>
+        </div>
         <div className="flex items-center gap-2">
           {!showStudentView && modules.length > 0 && (
             <button
@@ -3148,29 +3212,38 @@ function CurriculumTab({ courseId, token }: { courseId: string; token: string })
           <StudentCourseView modules={modules} course={course} token={token} />
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
           {/* Sidebar */}
-          <div className="w-72 flex-shrink-0 border-r border-slate-200 overflow-y-auto">
-            <CourseSidebar
-              modules={modules}
-              selectedLessonId={selectedLesson?.lesson.id ?? null}
-              onSelectLesson={(l, m) => { setSelectedLesson({ lesson: l, module: m }); setActiveTab("content"); }}
-              onAddModule={() => setAddingModule(true)}
-              onDeleteModule={handleDeleteModule}
-              onAddLesson={handleAddLesson}
-              onDeleteLesson={handleDeleteLesson}
-              studentView={false}
-              onGenerateAi={() => setShowAiModal(true)}
-              courseId={courseId}
-              token={token}
-              onRefresh={mutate}
-            />
-          </div>
+          {sidebarOpen && (
+            <>
+              <div style={{ width: sidebarWidth }} className="flex-shrink-0 border-r border-slate-200 overflow-y-auto">
+                <CourseSidebar
+                  modules={modules}
+                  selectedLessonId={selectedLesson?.lesson.id ?? null}
+                  onSelectLesson={(l, m) => { setSelectedLesson({ lesson: l, module: m }); setActiveTab("content"); }}
+                  onAddModule={() => setAddingModule(true)}
+                  onDeleteModule={handleDeleteModule}
+                  onAddLesson={handleAddLesson}
+                  onDeleteLesson={handleDeleteLesson}
+                  studentView={false}
+                  onGenerateAi={() => setShowAiModal(true)}
+                  courseId={courseId}
+                  token={token}
+                  onRefresh={mutate}
+                />
+              </div>
+              <div
+                onMouseDown={handleSidebarResizeStart}
+                className="w-1.5 flex-shrink-0 cursor-col-resize bg-transparent hover:bg-navy-200 active:bg-navy-300 transition-colors"
+                title="Drag to resize"
+              />
+            </>
+          )}
 
           {/* Content area */}
           <div className="flex-1 bg-white overflow-y-auto">
             {selectedLesson ? (
-              <div className="max-w-3xl mx-auto px-8 py-8">
+              <div className="max-w-5xl mx-auto px-10 py-8">
                 <div className="flex items-center gap-2 mb-1">
                   {(() => { const Icon = LESSON_ICONS[selectedLesson.lesson.type] ?? FileText; const col = LESSON_COLORS[selectedLesson.lesson.type] ?? "text-slate-600 bg-slate-100"; return <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", col)}><Icon size={14} /></div>; })()}
                   <p className="text-xs text-slate-400">{LESSON_TYPE_LABEL[selectedLesson.lesson.type] ?? selectedLesson.lesson.type} · {selectedLesson.module.title}</p>
@@ -3294,8 +3367,8 @@ export default function CourseBuilderPage() {
 
   return (
     <div>
-      <div className="px-8 pt-8 max-w-4xl mx-auto">
-        <div className="flex items-start justify-between mb-6">
+      <div className="px-6 pt-8">
+        <div className="max-w-4xl flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl font-display font-black text-navy-900">{course.title}</h1>
             <p className="text-slate-500 text-sm mt-0.5">
@@ -3308,7 +3381,7 @@ export default function CourseBuilderPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
+        <div className="flex items-center gap-1 mb-6 border-b border-slate-200 w-full">
           <button
             onClick={() => setTab("overview")}
             className={cn(
@@ -3347,9 +3420,9 @@ export default function CourseBuilderPage() {
           </button>
         </div>
 
-        {tab === "overview" && <div className="pb-8"><OverviewTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
-        {tab === "content" && <div className="pb-8"><ContentTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
-        {tab === "documents" && <div className="pb-8"><DocumentsTab courseId={courseId} token={token} /></div>}
+        {tab === "overview" && <div className="max-w-4xl pb-8"><OverviewTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
+        {tab === "content" && <div className="max-w-4xl pb-8"><ContentTab course={course} courseId={courseId} token={token} onSaved={() => mutate()} /></div>}
+        {tab === "documents" && <div className="max-w-4xl pb-8"><DocumentsTab courseId={courseId} token={token} /></div>}
       </div>
 
       {tab === "curriculum" && <CurriculumTab courseId={courseId} token={token} />}
