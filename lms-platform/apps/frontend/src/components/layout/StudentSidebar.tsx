@@ -65,7 +65,7 @@ function ProgramsNavItem({ collapsed, token }: { collapsed: boolean; token: stri
       )}
       title={collapsed ? t("programs") : undefined}
     >
-      <GraduationCap size={18} className="flex-shrink-0" />
+      <GraduationCap size={16} className="flex-shrink-0" />
       {!collapsed && <span>{t("programs")}</span>}
     </Link>
   );
@@ -96,7 +96,7 @@ function UniversityNavItem({ collapsed, token }: { collapsed: boolean; token: st
       )}
       title={collapsed ? t("university") : undefined}
     >
-      <GraduationCap size={18} className="flex-shrink-0" />
+      <GraduationCap size={16} className="flex-shrink-0" />
       {!collapsed && <span>{t("university")}</span>}
     </Link>
   );
@@ -157,7 +157,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
         className={cn("sidebar-link justify-center !px-2", onCertPage ? "sidebar-link-active" : "")}
         title={t("certifications")}
       >
-        <Award size={18} className="flex-shrink-0" />
+        <Award size={16} className="flex-shrink-0" />
       </Link>
     );
   }
@@ -187,7 +187,7 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
             href="/certificates"
             className={cn("sidebar-link ps-5", onCertPage ? "sidebar-link-active" : "")}
           >
-            <Award size={18} className="flex-shrink-0" />
+            <Award size={16} className="flex-shrink-0" />
             <span>{t("allCertifications")}</span>
           </Link>
 
@@ -253,7 +253,7 @@ function AccountSection({ collapsed }: { collapsed: boolean }) {
         className={cn("sidebar-link justify-center !px-2", onProfilePage ? "sidebar-link-active" : "")}
         title={t("account")}
       >
-        <User size={18} className="flex-shrink-0" />
+        <User size={16} className="flex-shrink-0" />
       </Link>
     );
   }
@@ -265,7 +265,7 @@ function AccountSection({ collapsed }: { collapsed: boolean }) {
           href="/profile"
           className={cn("sidebar-link flex-1", onProfilePage && activeTab === "basic" ? "sidebar-link-active" : "")}
         >
-          <User size={18} className="flex-shrink-0" />
+          <User size={16} className="flex-shrink-0" />
           <span>{t("account")}</span>
         </Link>
         <button
@@ -286,7 +286,7 @@ function AccountSection({ collapsed }: { collapsed: boolean }) {
             href={`/profile?tab=${tab}`}
             className={cn("sidebar-link ps-5", active ? "sidebar-link-active" : "")}
           >
-            <Icon size={18} className="flex-shrink-0" />
+            <Icon size={16} className="flex-shrink-0" />
             <span>{t(labelKey)}</span>
           </Link>
         );
@@ -380,18 +380,18 @@ export default function StudentSidebar() {
             )}
             title={collapsed ? t(labelKey) : undefined}
           >
-            <Icon size={18} className="flex-shrink-0" />
+            <Icon size={16} className="flex-shrink-0" />
             {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
 
-        {/* Certifications (dynamic, from enrollments) */}
-        {!collapsed && <div className="h-px bg-slate-100 my-1" />}
+        {/* Certifications (dynamic, from enrollments) — its own label below
+            already separates it from Dashboard, so no divider needed here
+            too */}
         <CertificationsSection collapsed={collapsed} token={token} />
 
         {/* Learning group — a fixed set of primary destinations, so just a
             label, not another collapsible accordion */}
-        {!collapsed && <div className="h-px bg-slate-100 my-1" />}
         {!collapsed && (
           <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             {t("learning")}
@@ -402,7 +402,7 @@ export default function StudentSidebar() {
           className={cn("sidebar-link", onLearn ? "sidebar-link-active" : "", collapsed && "justify-center !px-2")}
           title={collapsed ? t("myLearning") : undefined}
         >
-          <BookOpen size={18} className="flex-shrink-0" />
+          <BookOpen size={16} className="flex-shrink-0" />
           {!collapsed && <span>{t("myLearning")}</span>}
         </Link>
         <Link
@@ -410,7 +410,7 @@ export default function StudentSidebar() {
           className={cn("sidebar-link", onMyCourses ? "sidebar-link-active" : "", collapsed && "justify-center !px-2")}
           title={collapsed ? t("myCourses") : undefined}
         >
-          <BookOpen size={18} className="flex-shrink-0" />
+          <BookOpen size={16} className="flex-shrink-0" />
           {!collapsed && <span>{t("myCourses")}</span>}
         </Link>
         {LEARNING_ITEMS.map(({ href, labelKey, icon: Icon }) => (
@@ -424,7 +424,7 @@ export default function StudentSidebar() {
             )}
             title={collapsed ? t(labelKey) : undefined}
           >
-            <Icon size={18} className="flex-shrink-0" />
+            <Icon size={16} className="flex-shrink-0" />
             {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
@@ -444,7 +444,7 @@ export default function StudentSidebar() {
             )}
             title={collapsed ? t(labelKey) : undefined}
           >
-            <Icon size={18} className="flex-shrink-0" />
+            <Icon size={16} className="flex-shrink-0" />
             {!collapsed && <span>{t(labelKey)}</span>}
           </Link>
         ))}
@@ -476,15 +476,6 @@ export default function StudentSidebar() {
           <ExternalLink size={16} className="flex-shrink-0" />
           {!collapsed && <span>{t("mainWebsite")}</span>}
         </Link>
-
-        {!collapsed && user && (
-          <div className="px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="text-xs font-semibold text-navy-900 truncate">
-              {user.profile?.first_name} {user.profile?.last_name}
-            </div>
-            <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
-          </div>
-        )}
 
         <button
           onClick={handleLogout}

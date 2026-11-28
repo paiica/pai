@@ -999,6 +999,7 @@
   },
   "Profile": {
     "saveChanges": "حفظ التغييرات",
+    "saveAndContinue": "حفظ ومتابعة",
     "emailUpdatedSuccessfully": "تم تحديث البريد الإلكتروني بنجاح",
     "profileSubsectionsLabel": "أقسام ملفي الشخصي",
     "personal": "شخصي",

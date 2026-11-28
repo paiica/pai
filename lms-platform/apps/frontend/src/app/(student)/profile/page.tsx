@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import {
   User, Lock, Bell, CreditCard, FileText, Briefcase,
   GraduationCap, MapPin, Plus, Trash2, ExternalLink,
-  Save, Loader2, Eye, EyeOff, Building, Calendar, ChevronDown, ChevronUp,
+  Save, Loader2, Eye, EyeOff, Building, Calendar, ChevronDown, ChevronUp, ChevronRight,
   Award, Mail, CheckCircle2, XCircle, ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
@@ -81,17 +81,29 @@ function Field({ label, required, hint, children }: {
   );
 }
 
-function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+// onNext, when passed, turns this into a "save, then advance to the next
+// subsection" action instead of a plain save — used to chain
+// Personal -> Professional -> Education without making the user go find
+// and click the next subsection tab themselves.
+function SaveBar({ saving, onSave, onNext, nextLabel }: {
+  saving: boolean; onSave: () => void | Promise<void>; onNext?: () => void; nextLabel?: string;
+}) {
   const t = useTranslations("Profile");
+
+  async function handleClick() {
+    await onSave();
+    onNext?.();
+  }
+
   return (
     <div className="flex justify-end pt-4 mt-2 border-t border-slate-100">
       <button
-        onClick={onSave}
+        onClick={handleClick}
         disabled={saving}
         className="btn-primary !py-2 !px-5 !text-sm disabled:opacity-60"
       >
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {t("saveChanges")}
+        {saving ? <Loader2 size={14} className="animate-spin" /> : onNext ? <ChevronRight size={14} /> : <Save size={14} />}
+        {onNext ? nextLabel : t("saveChanges")}
       </button>
     </div>
   );
@@ -214,8 +226,8 @@ function BasicSection({ token, profile, email, mutate, fetchMe, activeSubsection
         })}
       </div>
 
-      <div id="panel-personal" role="tabpanel" aria-labelledby="tab-personal" className={activeSubsection !== "personal" ? "hidden" : ""}><PersonalSubsection token={token} profile={profile} email={email} mutate={mutate} fetchMe={fetchMe} /></div>
-      <div id="panel-professional" role="tabpanel" aria-labelledby="tab-professional" className={activeSubsection !== "professional" ? "hidden" : ""}><ProfessionalSubsection token={token} profile={profile} mutate={mutate} /></div>
+      <div id="panel-personal" role="tabpanel" aria-labelledby="tab-personal" className={activeSubsection !== "personal" ? "hidden" : ""}><PersonalSubsection token={token} profile={profile} email={email} mutate={mutate} fetchMe={fetchMe} onNext={() => setActiveSubsection("professional")} /></div>
+      <div id="panel-professional" role="tabpanel" aria-labelledby="tab-professional" className={activeSubsection !== "professional" ? "hidden" : ""}><ProfessionalSubsection token={token} profile={profile} mutate={mutate} onNext={() => setActiveSubsection("education")} /></div>
       <div id="panel-education" role="tabpanel" aria-labelledby="tab-education" className={activeSubsection !== "education" ? "hidden" : ""}><EducationSubsection token={token} profile={profile} mutate={mutate} /></div>
     </div>
   );
@@ -223,7 +235,7 @@ function BasicSection({ token, profile, email, mutate, fetchMe, activeSubsection
 
 // ── Personal ──────────────────────────────────────────────────────────────────
 
-function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
+function PersonalSubsection({ token, profile, email, mutate, fetchMe, onNext }: any) {
   const t = useTranslations("Profile");
   const [firstName,   setFirstName]   = useState("");
   const [lastName,    setLastName]    = useState("");
@@ -389,14 +401,14 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
         </div>
       </div>
 
-      <SaveBar saving={saving} onSave={save} />
+      <SaveBar saving={saving} onSave={save} onNext={onNext} nextLabel={t("saveAndContinue")} />
     </div>
   );
 }
 
 // ── Professional ──────────────────────────────────────────────────────────────
 
-function ProfessionalSubsection({ token, profile, mutate }: any) {
+function ProfessionalSubsection({ token, profile, mutate, onNext }: any) {
   const t = useTranslations("Profile");
   const [careerStatus, setCareerStatus] = useState("");
   const [jobTitle,     setJobTitle]     = useState("");
@@ -522,7 +534,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
         </button>
       </div>
 
-      <SaveBar saving={saving} onSave={save} />
+      <SaveBar saving={saving} onSave={save} onNext={onNext} nextLabel={t("saveAndContinue")} />
     </div>
   );
 }

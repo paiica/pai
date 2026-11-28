@@ -999,6 +999,7 @@
   },
   "Profile": {
     "saveChanges": "Enregistrer les modifications",
+    "saveAndContinue": "Enregistrer et continuer",
     "emailUpdatedSuccessfully": "E-mail mis à jour avec succès",
     "profileSubsectionsLabel": "Sous-sections de Mon profil",
     "personal": "Personnel",

@@ -999,6 +999,7 @@
   },
   "Profile": {
     "saveChanges": "Save changes",
+    "saveAndContinue": "Save & Continue",
     "emailUpdatedSuccessfully": "Email updated successfully",
     "profileSubsectionsLabel": "My Profile subsections",
     "personal": "Personal",
