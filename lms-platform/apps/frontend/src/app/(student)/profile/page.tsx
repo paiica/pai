@@ -102,16 +102,6 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
 const BASIC_SUBSECTION_IDS = ["personal", "professional", "education"] as const;
 const BASIC_SUBSECTION_ICONS = { personal: User, professional: Briefcase, education: GraduationCap };
 
-// "My Profile" (personal/professional/education) is its own top-level tab —
-// it's identity/background info, a different kind of thing from the four
-// account-management controls below, which are grouped together instead of
-// sitting as undifferentiated peers.
-const ACCOUNT_SECTION_IDS = ["security", "comms", "payment", "orders"] as const;
-const SECTION_ICONS = { basic: User, security: Lock, comms: Bell, payment: CreditCard, orders: FileText };
-const SECTION_LABEL_KEYS: Record<string, string> = {
-  basic: "basicTab", security: "securityTab", comms: "notificationsTab", payment: "paymentTab", orders: "ordersTab",
-};
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ProfilePageContent() {
@@ -119,16 +109,9 @@ function ProfilePageContent() {
   const token      = useAuthStore((s) => s.accessToken)!;
   const fetchMe    = useAuthStore((s) => s.fetchMe);
   const authUser   = useAuthStore((s) => s.user);
-  const router            = useRouter();
   const searchParams      = useSearchParams();
   const activeSection     = searchParams.get("tab") || "basic";
   const [activeSubsection, setActiveSubsection] = useState("personal");
-  const isAccountSection = (ACCOUNT_SECTION_IDS as readonly string[]).includes(activeSection);
-  // Collapsed by default — Security/Notifications/Payment/Orders are
-  // occasional visits, not every-time ones, so they don't deserve permanent
-  // space in the tab row. Auto-expanded when a direct link (bookmark,
-  // notification) lands on one of them, so the active tab is never hidden.
-  const [accountOpen, setAccountOpen] = useState(() => isAccountSection);
 
   // Handle redirect back from email-change verification link — run once on mount only
   useEffect(() => {
@@ -178,65 +161,10 @@ function ProfilePageContent() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 lg:px-8 py-8">
-        <div role="tablist" aria-label={t("profileSectionsLabel")} className={`flex flex-wrap items-center gap-1 border-b border-slate-200 ${accountOpen ? "mb-2" : "mb-6"}`}>
-          <button
-            role="tab"
-            id="tab-basic"
-            aria-selected={activeSection === "basic"}
-            aria-controls="panel-basic"
-            onClick={() => router.push("/profile?tab=basic", { scroll: false })}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg -mb-px border-b-2 transition-colors ${
-              activeSection === "basic"
-                ? "border-navy-700 text-navy-900 bg-white"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <User size={12} />
-            {t("basicTab")}
-          </button>
-
-          <button
-            aria-expanded={accountOpen}
-            aria-controls="account-settings-tablist"
-            onClick={() => setAccountOpen((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg -mb-px border-b-2 transition-colors ${
-              isAccountSection
-                ? "border-navy-700 text-navy-900 bg-white"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {t("accountSettingsTab")}
-            <ChevronDown size={12} className={`transition-transform ${accountOpen ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-
-        {accountOpen && (
-          <div id="account-settings-tablist" role="tablist" aria-label={t("accountSettingsLabel")} className="flex flex-wrap gap-1 mb-6 ps-4 border-b border-slate-200">
-            {ACCOUNT_SECTION_IDS.map((id) => {
-              const Icon = SECTION_ICONS[id];
-              return (
-                <button
-                  key={id}
-                  role="tab"
-                  id={`tab-${id}`}
-                  aria-selected={activeSection === id}
-                  aria-controls={`panel-${id}`}
-                  onClick={() => router.push(`/profile?tab=${id}`, { scroll: false })}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg -mb-px border-b-2 transition-colors ${
-                    activeSection === id
-                      ? "border-navy-700 text-navy-900 bg-white"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <Icon size={12} />
-                  {t(SECTION_LABEL_KEYS[id])}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div id="panel-basic" role="tabpanel" aria-labelledby="tab-basic" className={activeSection !== "basic" ? "hidden" : ""}>
+        {/* Section navigation lives in the sidebar's Account accordion now —
+            no in-page tab bar here to avoid showing the same five
+            destinations in two places at once. */}
+        <div className={activeSection !== "basic" ? "hidden" : ""}>
           <BasicSection
             token={token} profile={profile} email={email}
             mutate={mutate} fetchMe={fetchMe}
@@ -244,10 +172,10 @@ function ProfilePageContent() {
             setActiveSubsection={setActiveSubsection}
           />
         </div>
-        <div id="panel-security" role="tabpanel" aria-labelledby="tab-security" className={activeSection !== "security" ? "hidden" : ""}><SecuritySection token={token} /></div>
-        <div id="panel-comms" role="tabpanel" aria-labelledby="tab-comms" className={activeSection !== "comms" ? "hidden" : ""}><CommsSection token={token} profile={profile} mutate={mutate} /></div>
-        <div id="panel-payment" role="tabpanel" aria-labelledby="tab-payment" className={activeSection !== "payment" ? "hidden" : ""}><PaymentSection /></div>
-        <div id="panel-orders" role="tabpanel" aria-labelledby="tab-orders" className={activeSection !== "orders" ? "hidden" : ""}><OrdersSection /></div>
+        <div className={activeSection !== "security" ? "hidden" : ""}><SecuritySection token={token} /></div>
+        <div className={activeSection !== "comms"    ? "hidden" : ""}><CommsSection token={token} profile={profile} mutate={mutate} /></div>
+        <div className={activeSection !== "payment"  ? "hidden" : ""}><PaymentSection /></div>
+        <div className={activeSection !== "orders"   ? "hidden" : ""}><OrdersSection /></div>
       </div>
     </div>
   );

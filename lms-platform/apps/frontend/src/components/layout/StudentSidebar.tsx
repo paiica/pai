@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
   LayoutDashboard, BookOpen, Award, GraduationCap,
   User, LogOut, BarChart2, ChevronLeft, ChevronRight, ExternalLink, Shield,
-  Wrench, ChevronDown, Menu, X, FlaskConical,
+  Wrench, ChevronDown, Menu, X, FlaskConical, Lock, Bell, CreditCard, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -26,6 +26,13 @@ const LEARNING_ITEMS = [
 
 const BOTTOM_ITEMS = [
   { href: "/student/grades", labelKey: "grades", icon: BarChart2 },
+] as const;
+
+const ACCOUNT_SUB_ITEMS = [
+  { tab: "security", labelKey: "password",      icon: Lock },
+  { tab: "comms",     labelKey: "notifications", icon: Bell },
+  { tab: "payment",   labelKey: "payment",       icon: CreditCard },
+  { tab: "orders",    labelKey: "orders",        icon: FileText },
 ] as const;
 
 function fetcher(url: string, token: string) {
@@ -224,6 +231,70 @@ function CertificationsSection({ collapsed, token }: { collapsed: boolean; token
   );
 }
 
+// "Account" is both a direct destination (your profile) and a group of four
+// account-management pages — collapsed by default since those four are
+// occasional visits, not every-time ones, same reasoning as Certifications'
+// conditional toggle above. Auto-expands if a bookmark or notification link
+// lands directly on one of them.
+function AccountSection({ collapsed }: { collapsed: boolean }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const t = useTranslations("Sidebar");
+
+  const onProfilePage = pathname === "/profile";
+  const activeTab = onProfilePage ? (searchParams.get("tab") || "basic") : null;
+
+  const [open, setOpen] = useState(() => ACCOUNT_SUB_ITEMS.some((i) => i.tab === activeTab));
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/profile"
+        className={cn("sidebar-link justify-center !px-2", onProfilePage ? "sidebar-link-active" : "")}
+        title={t("account")}
+      >
+        <User size={18} className="flex-shrink-0" />
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        <Link
+          href="/profile"
+          className={cn("sidebar-link flex-1", onProfilePage && activeTab === "basic" ? "sidebar-link-active" : "")}
+        >
+          <User size={18} className="flex-shrink-0" />
+          <span>{t("account")}</span>
+        </Link>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={t("account")}
+          className="p-2 rounded-lg text-slate-400 hover:text-navy-700 hover:bg-slate-50 transition-colors flex-shrink-0"
+        >
+          <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
+
+      {open && ACCOUNT_SUB_ITEMS.map(({ tab, labelKey, icon: Icon }) => {
+        const active = onProfilePage && activeTab === tab;
+        return (
+          <Link
+            key={tab}
+            href={`/profile?tab=${tab}`}
+            className={cn("sidebar-link ps-5", active ? "sidebar-link-active" : "")}
+          >
+            <Icon size={18} className="flex-shrink-0" />
+            <span>{t(labelKey)}</span>
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
 export default function StudentSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -381,17 +452,8 @@ export default function StudentSidebar() {
         {/* Divider */}
         {!collapsed && <div className="h-px bg-slate-100 my-1" />}
 
-        {/* Account — a single link; the profile page's own tabs handle
-            security/notifications/payment/orders, so the sidebar doesn't
-            need to duplicate that navigation. */}
-        <Link
-          href="/profile"
-          className={cn("sidebar-link", pathname === "/profile" ? "sidebar-link-active" : "", collapsed && "justify-center !px-2")}
-          title={collapsed ? t("account") : undefined}
-        >
-          <User size={18} className="flex-shrink-0" />
-          {!collapsed && <span>{t("account")}</span>}
-        </Link>
+        {/* Account */}
+        <AccountSection collapsed={collapsed} />
       </nav>
 
       {/* Bottom: user + logout */}
