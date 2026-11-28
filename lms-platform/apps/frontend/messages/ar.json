@@ -1000,7 +1000,11 @@
   "Profile": {
     "saveChanges": "حفظ التغييرات",
     "emailUpdatedSuccessfully": "تم تحديث البريد الإلكتروني بنجاح",
-    "basicTab": "الأساسي",
+    "basicTab": "ملفي الشخصي",
+    "accountSettingsTab": "إعدادات الحساب",
+    "profileSectionsLabel": "أقسام الملف الشخصي",
+    "profileSubsectionsLabel": "أقسام ملفي الشخصي",
+    "accountSettingsLabel": "أقسام إعدادات الحساب",
     "securityTab": "الأمان",
     "notificationsTab": "الإشعارات",
     "paymentTab": "الدفع",

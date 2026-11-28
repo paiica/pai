@@ -1000,7 +1000,11 @@
   "Profile": {
     "saveChanges": "Enregistrer les modifications",
     "emailUpdatedSuccessfully": "E-mail mis à jour avec succès",
-    "basicTab": "Base",
+    "basicTab": "Mon profil",
+    "accountSettingsTab": "Paramètres du compte",
+    "profileSectionsLabel": "Sections du profil",
+    "profileSubsectionsLabel": "Sous-sections de Mon profil",
+    "accountSettingsLabel": "Sections des paramètres du compte",
     "securityTab": "Sécurité",
     "notificationsTab": "Notifications",
     "paymentTab": "Paiement",
