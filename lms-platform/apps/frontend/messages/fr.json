@@ -40,6 +40,7 @@
     "english": "Anglais",
     "arabic": "Arabe",
     "french": "Français",
+    "currency": "Devise",
     "remove": "Retirer"
   },
   "Dashboard": {
@@ -342,6 +343,7 @@
     "genericError": "Échec de la vérification. Le lien a peut-être expiré."
   },
   "Apply": {
+    "draftRestored": "Nous avons restauré votre candidature en cours — reprenez là où vous vous étiez arrêté.",
     "stepPersonal": "Personnel",
     "stepProfessional": "Professionnel",
     "stepEducation": "Éducation",
@@ -998,6 +1000,11 @@
   "Profile": {
     "saveChanges": "Enregistrer les modifications",
     "emailUpdatedSuccessfully": "E-mail mis à jour avec succès",
+    "basicTab": "Base",
+    "securityTab": "Sécurité",
+    "notificationsTab": "Notifications",
+    "paymentTab": "Paiement",
+    "ordersTab": "Commandes",
     "personal": "Personnel",
     "professional": "Professionnel",
     "education": "Éducation",

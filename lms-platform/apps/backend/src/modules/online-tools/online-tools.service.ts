@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CurrencyService } from "../currency/currency.service";
 
 const WITH_LINKS = `
   SELECT t.*,
@@ -12,15 +13,27 @@ const WITH_LINKS = `
 
 @Injectable()
 export class OnlineToolsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private currencyService: CurrencyService) {}
 
-  async findAll() {
-    return this.prisma.$queryRawUnsafe<any[]>(
-      `${WITH_LINKS} WHERE t.status = 'active' ORDER BY t.sort_order ASC, t.created_at DESC`
-    );
+  // No regional_prices column on this table — a tool's price is always its
+  // own flat USD figure, so resolution is just the live FX-rate conversion
+  // branch of resolvePrice (passing no overrides is already handled there).
+  private async attachResolvedPrice(tool: any, currency?: string) {
+    tool.resolved_price = await this.currencyService.resolvePrice(Number(tool.price), null, undefined, currency);
+    return tool;
+  }
+  private attachResolvedPriceMany(tools: any[], currency?: string) {
+    return Promise.all(tools.map((t) => this.attachResolvedPrice(t, currency)));
   }
 
-  async findBySlug(slug: string) {
+  async findAll(currency?: string) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(
+      `${WITH_LINKS} WHERE t.status = 'active' ORDER BY t.sort_order ASC, t.created_at DESC`
+    );
+    return this.attachResolvedPriceMany(rows, currency);
+  }
+
+  async findBySlug(slug: string, currency?: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       `${WITH_LINKS} WHERE t.slug = $1`, slug
     );
@@ -33,11 +46,11 @@ export class OnlineToolsService {
         `${WITH_LINKS} WHERE t.id = ANY($1::uuid[]) AND t.status = 'active'`,
         ids
       );
-      tool.related_tools = related;
+      tool.related_tools = await this.attachResolvedPriceMany(related, currency);
     } else {
       tool.related_tools = [];
     }
-    return tool;
+    return this.attachResolvedPrice(tool, currency);
   }
 
   async adminGetAll() {

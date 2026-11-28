@@ -40,6 +40,7 @@
     "english": "الإنجليزية",
     "arabic": "العربية",
     "french": "الفرنسية",
+    "currency": "العملة",
     "remove": "إزالة"
   },
   "Dashboard": {
@@ -342,6 +343,7 @@
     "genericError": "فشل التحقق. قد يكون الرابط منتهي الصلاحية."
   },
   "Apply": {
+    "draftRestored": "لقد استعدنا طلبك قيد التقديم — تابع من حيث توقفت.",
     "stepPersonal": "البيانات الشخصية",
     "stepProfessional": "الخبرة المهنية",
     "stepEducation": "التعليم",
@@ -998,6 +1000,11 @@
   "Profile": {
     "saveChanges": "حفظ التغييرات",
     "emailUpdatedSuccessfully": "تم تحديث البريد الإلكتروني بنجاح",
+    "basicTab": "الأساسي",
+    "securityTab": "الأمان",
+    "notificationsTab": "الإشعارات",
+    "paymentTab": "الدفع",
+    "ordersTab": "الطلبات",
     "personal": "شخصي",
     "professional": "مهني",
     "education": "التعليم",

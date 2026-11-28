@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { ShoppingCart, X, Award, BookOpen, LogOut, User, ChevronDown, Globe } from "lucide-react";
+import { ShoppingCart, X, Award, BookOpen, LogOut, User, ChevronDown, Globe, DollarSign } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
+import { useCurrencyStore } from "@/store/currency.store";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import NotificationBell from "./NotificationBell";
@@ -24,6 +25,7 @@ export default function StudentTopBar() {
   const [cartOpen,  setCartOpen]  = useState(false);
   const [userOpen,  setUserOpen]  = useState(false);
   const [langOpen,  setLangOpen]  = useState(false);
+  const [currOpen,  setCurrOpen]  = useState(false);
   // Only English assumed enabled until the real list loads, so the switcher
   // stays hidden rather than flashing a language that turns out unavailable.
   const [enabledLocales, setEnabledLocales] = useState<string[]>(["en"]);
@@ -32,14 +34,20 @@ export default function StudentTopBar() {
   const logout     = useAuthStore(s => s.logout);
   const items      = useCartStore(s => s.items);
   const removeItem = useCartStore(s => s.removeItem);
+  const currencies     = useCurrencyStore(s => s.currencies);
+  const currency       = useCurrencyStore(s => s.currency);
+  const setCurrency    = useCurrencyStore(s => s.setCurrency);
+  const initCurrencies  = useCurrencyStore(s => s.init);
   const router     = useRouter();
   const cartRef    = useRef<HTMLDivElement>(null);
   const userRef    = useRef<HTMLDivElement>(null);
   const langRef    = useRef<HTMLDivElement>(null);
+  const currRef    = useRef<HTMLDivElement>(null);
   const t          = useTranslations("TopBar");
   const locale     = useLocale();
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { initCurrencies(); }, [initCurrencies]);
 
   useEffect(() => {
     fetch(`${API_BASE}/languages`)
@@ -52,12 +60,14 @@ export default function StudentTopBar() {
   }, []);
 
   const showLanguageSwitcher = enabledLocales.length > 1;
+  const showCurrencySwitcher = currencies.length > 1;
 
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (cartRef.current && !cartRef.current.contains(e.target as Node)) setCartOpen(false);
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
       if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
+      if (currRef.current && !currRef.current.contains(e.target as Node)) setCurrOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -71,6 +81,11 @@ export default function StudentTopBar() {
     // the cookie above already drives this session's UI immediately.
     if (token) api.patch("/users/me/profile", { language: next }, token).catch(() => {});
     router.refresh();
+  }
+
+  function switchCurrency(code: string) {
+    setCurrency(code);
+    setCurrOpen(false);
   }
 
   if (!mounted || !token || !user) return null;
@@ -89,7 +104,7 @@ export default function StudentTopBar() {
       {/* Cart dropdown */}
       <div className="relative flex-shrink-0" ref={cartRef}>
         <button
-          onClick={() => { setCartOpen(v => !v); setUserOpen(false); setLangOpen(false); }}
+          onClick={() => { setCartOpen(v => !v); setUserOpen(false); setLangOpen(false); setCurrOpen(false); }}
           aria-label={t("cart")}
           className="flex items-center gap-1.5 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
         >
@@ -183,7 +198,7 @@ export default function StudentTopBar() {
       {showLanguageSwitcher && (
         <div className="relative flex-shrink-0" ref={langRef}>
           <button
-            onClick={() => { setLangOpen(v => !v); setCartOpen(false); setUserOpen(false); }}
+            onClick={() => { setLangOpen(v => !v); setCartOpen(false); setUserOpen(false); setCurrOpen(false); }}
             aria-label={t("language")}
             className="flex items-center gap-1 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
           >
@@ -212,13 +227,44 @@ export default function StudentTopBar() {
         </div>
       )}
 
+      {/* Currency switcher — hidden when there's only the default currency
+          configured, since there'd be nothing to switch to */}
+      {showCurrencySwitcher && (
+        <div className="relative flex-shrink-0" ref={currRef}>
+          <button
+            onClick={() => { setCurrOpen(v => !v); setCartOpen(false); setUserOpen(false); setLangOpen(false); }}
+            aria-label={t("currency")}
+            className="flex items-center gap-1 text-slate-500 hover:text-navy-700 transition-colors text-xs font-medium"
+          >
+            <DollarSign size={15} />
+          </button>
+
+          {currOpen && (
+            <div className="absolute end-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
+              {currencies.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => switchCurrency(c.code)}
+                  className={cn(
+                    "w-full text-start flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors",
+                    currency === c.code ? "text-navy-900 font-bold" : "text-slate-700"
+                  )}
+                >
+                  {c.code} <span className="text-slate-400 font-normal">— {c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Divider */}
       <span className="hidden sm:inline-block h-4 w-px bg-slate-200 flex-shrink-0" />
 
       {/* User dropdown */}
       <div className="relative flex-shrink-0" ref={userRef}>
         <button
-          onClick={() => { setUserOpen(v => !v); setCartOpen(false); setLangOpen(false); }}
+          onClick={() => { setUserOpen(v => !v); setCartOpen(false); setLangOpen(false); setCurrOpen(false); }}
           className="flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900 font-medium transition-colors max-w-[70px] sm:max-w-[130px]"
         >
           <span className="truncate">{name}</span>

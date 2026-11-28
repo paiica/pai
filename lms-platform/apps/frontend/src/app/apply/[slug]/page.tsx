@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -50,6 +50,24 @@ type ExperienceEntry = {
 function uid() {
   return Math.random().toString(36).slice(2);
 }
+
+function draftKey(slug: string) {
+  return `apply_draft_${slug}`;
+}
+
+// Everything the multi-step form holds, minus the password — a draft never
+// writes a plaintext password to localStorage, so that field alone still
+// has to be re-typed if an anonymous applicant leaves and comes back.
+type ApplyDraft = {
+  step: number;
+  firstName: string; lastName: string; email: string;
+  phone: string; dob: string; gender: string; country: string;
+  careerStatus: string; jobTitle: string; company: string;
+  yearsExp: string; trainingHours: string; linkedin: string;
+  motivation: string; howHeard: string;
+  educationEntries: EducationEntry[];
+  experienceEntries: ExperienceEntry[];
+};
 
 const STEPS: { id: number }[] = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
 
@@ -164,10 +182,68 @@ export default function ApplyPage() {
   const [educationEntries,  setEducationEntries]  = useState<EducationEntry[]>([]);
   const [experienceEntries, setExperienceEntries] = useState<ExperienceEntry[]>([]);
 
+  // True once a draft has been checked for and (if present) applied — the
+  // save effect below waits for this so it doesn't fire on the initial
+  // render with blank state and clobber a draft before it's been restored.
+  const [draftChecked, setDraftChecked] = useState(false);
+  const hadDraftRef = useRef(false);
+
   useEffect(() => {
     if (!_hasHydrated) return;
     if (accessToken) fetchMe();
   }, [_hasHydrated, accessToken]);
+
+  // Restore an in-progress attempt for this exact certification, saved
+  // locally as the applicant filled in fields — see the save effect further
+  // down. Runs once per slug, before the profile-prefill effect below (which
+  // skips entirely when a draft was found, since the draft already reflects
+  // whatever profile data was relevant at save time, plus any later edits).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey(slug));
+      if (raw) {
+        const d: Partial<ApplyDraft> = JSON.parse(raw);
+        hadDraftRef.current = true;
+        if (d.step != null) setStep(d.step);
+        setFirstName(d.firstName ?? "");
+        setLastName(d.lastName ?? "");
+        setEmail(d.email ?? "");
+        setPhone(d.phone ?? "");
+        setDob(d.dob ?? "");
+        setGender(d.gender ?? "");
+        setCountry(d.country ?? "");
+        setCareerStatus(d.careerStatus ?? "");
+        setJobTitle(d.jobTitle ?? "");
+        setCompany(d.company ?? "");
+        setYearsExp(d.yearsExp ?? "");
+        setTrainingHours(d.trainingHours ?? "");
+        setLinkedin(d.linkedin ?? "");
+        setMotivation(d.motivation ?? "");
+        setHowHeard(d.howHeard ?? "");
+        if (Array.isArray(d.educationEntries))  setEducationEntries(d.educationEntries);
+        if (Array.isArray(d.experienceEntries)) setExperienceEntries(d.experienceEntries);
+        toast.success(t("draftRestored"));
+      }
+    } catch { /* corrupt/old draft — ignore, start fresh */ }
+    setDraftChecked(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // Autosave the whole form (minus password) on every change, once the
+  // draft-restore pass above has had a chance to run first.
+  useEffect(() => {
+    if (!draftChecked) return;
+    const draft: ApplyDraft = {
+      step, firstName, lastName, email, phone, dob, gender, country,
+      careerStatus, jobTitle, company, yearsExp, trainingHours, linkedin,
+      motivation, howHeard, educationEntries, experienceEntries,
+    };
+    try { localStorage.setItem(draftKey(slug), JSON.stringify(draft)); } catch { /* storage full/unavailable — non-critical */ }
+  }, [
+    draftChecked, slug, step, firstName, lastName, email, phone, dob, gender, country,
+    careerStatus, jobTitle, company, yearsExp, trainingHours, linkedin,
+    motivation, howHeard, educationEntries, experienceEntries,
+  ]);
 
   const { data: certData, isLoading: certLoading } = useSWR(
     slug ? `/courses/${slug}` : null,
@@ -229,8 +305,12 @@ export default function ApplyPage() {
 
   const isReturningStudent = false;
 
-  // Pre-populate from stored profile when data arrives
+  // Pre-populate from stored profile when data arrives — skipped entirely
+  // once a local draft was restored above, since that draft already
+  // reflects whatever profile data was relevant last time plus any edits
+  // made since, and this would otherwise clobber those edits.
   useEffect(() => {
+    if (hadDraftRef.current) return;
     const p = profileData?.data?.profile ?? profileData?.profile;
     if (!p) return;
     if (p.phone)           setPhone(p.phone);
@@ -352,6 +432,7 @@ export default function ApplyPage() {
         how_heard:          howHeard     || undefined,
       }, token!);
 
+      try { localStorage.removeItem(draftKey(slug)); } catch { /* non-critical */ }
       setSubmitted(true);
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {

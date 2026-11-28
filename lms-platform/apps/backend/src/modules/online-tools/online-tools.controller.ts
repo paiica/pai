@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { Role } from "@prisma/client";
 import { OnlineToolsService } from "./online-tools.service";
@@ -15,12 +15,12 @@ export class OnlineToolsController {
   @Public()
   @Get()
   @ApiOperation({ summary: "List active online tools (public)" })
-  findAll() { return this.service.findAll(); }
+  findAll(@Query("currency") currency?: string) { return this.service.findAll(currency); }
 
   @Public()
   @Get(":slug")
   @ApiOperation({ summary: "Get tool by slug (public)" })
-  findBySlug(@Param("slug") slug: string) { return this.service.findBySlug(slug); }
+  findBySlug(@Param("slug") slug: string, @Query("currency") currency?: string) { return this.service.findBySlug(slug, currency); }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

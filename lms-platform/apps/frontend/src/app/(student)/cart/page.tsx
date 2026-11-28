@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   ShoppingCart, Tag, CheckCircle, ArrowRight, X, Loader2,
-  Shield, Lock, Zap, GraduationCap, DollarSign, ChevronDown,
+  Shield, Lock, Zap, GraduationCap,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore, CartItem } from "@/store/cart.store";
+import { useCurrencyStore } from "@/store/currency.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -57,47 +58,25 @@ function AcronymBadge({ acronym }: { acronym: string }) {
   );
 }
 
-interface Currency { code: string; symbol: string; name: string; is_default: boolean; fx_rate: string | number; }
-
 export default function CartPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { items, removeItem, clearCart, updateItemPrice, fetchCart } = useCartStore();
   const t = useTranslations("Cart");
 
-  // Independent of whatever currency the marketing site showed (a different
-  // domain, so its cookie isn't visible here anyway) — this is the one place
-  // money actually changes hands, so it gets its own selector rather than
-  // relying on a cross-domain handoff. The converted numbers shown here are
-  // an honest estimate for the student's benefit; the actual charge is
-  // always computed authoritatively server-side at checkout (CurrencyService
-  // .resolveForCheckout), which also applies any admin-set regional price
-  // override this quick client-side FX math can't know about.
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [currency, setCurrency]     = useState<string>(() => (typeof window !== "undefined" && localStorage.getItem("paii_currency")) || "USD");
-  const [currOpen, setCurrOpen]     = useState(false);
+  // Shared across the whole student portal (TopBar switcher, certificates,
+  // tools) rather than this page having its own — the converted numbers
+  // shown here are an honest estimate for the student's benefit; the actual
+  // charge is always computed authoritatively server-side at checkout
+  // (CurrencyService.resolveForCheckout), which also applies any admin-set
+  // regional price override this quick client-side FX math can't know about.
+  const currencies = useCurrencyStore((s) => s.currencies);
+  const currency   = useCurrencyStore((s) => s.currency);
+  const initCurrencies = useCurrencyStore((s) => s.init);
 
-  useEffect(() => {
-    fetch(`${API_BASE}/currencies`)
-      .then((r) => r.json())
-      .then((d) => {
-        const list: Currency[] = d?.data ?? d ?? [];
-        setCurrencies(list);
-        const stored = localStorage.getItem("paii_currency");
-        if (!stored || !list.some((c) => c.code === stored)) {
-          setCurrency(list.find((c) => c.is_default)?.code ?? "USD");
-        }
-      })
-      .catch(() => {});
-  }, []);
+  useEffect(() => { initCurrencies(); }, [initCurrencies]);
 
   const activeCurrency = currencies.find((c) => c.code === currency);
   const isDefaultCurrency = !activeCurrency || activeCurrency.is_default;
-
-  function selectCurrency(code: string) {
-    setCurrency(code);
-    localStorage.setItem("paii_currency", code);
-    setCurrOpen(false);
-  }
 
   function convert(usdAmount: number): string {
     if (isDefaultCurrency || !activeCurrency) return "";
@@ -265,30 +244,6 @@ export default function CartPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {currencies.length > 1 && (
-              <div className="relative">
-                <button
-                  onClick={() => setCurrOpen((v) => !v)}
-                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-navy-700 transition-colors"
-                >
-                  <DollarSign size={13} /> {currency}
-                  <ChevronDown size={11} className={cn("transition-transform", currOpen && "rotate-180")} />
-                </button>
-                {currOpen && (
-                  <div className="absolute end-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50">
-                    {currencies.map((c) => (
-                      <button
-                        key={c.code}
-                        onClick={() => selectCurrency(c.code)}
-                        className={cn("w-full text-start px-3.5 py-2 text-sm transition-colors", currency === c.code ? "text-navy-900 font-semibold bg-slate-50" : "text-navy-800 hover:bg-slate-50")}
-                      >
-                        {c.code} <span className="text-slate-400">— {c.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
             <Link href="/certificates" className="text-xs text-slate-400 hover:text-navy-700 transition-colors flex items-center gap-1">
               {t("continueShopping")}
             </Link>

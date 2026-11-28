@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { ShoppingCart, ChevronDown } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
+import { useCurrencyStore } from "@/store/currency.store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { formatResolvedPrice } from "@/lib/currency";
 import toast from "react-hot-toast";
 
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL      || "http://localhost:4000/api/v1";
@@ -149,7 +151,7 @@ function CertCatalogCard({ cert, enrolled }: { cert: any; enrolled: boolean }) {
         <p className="text-xs text-slate-500 leading-relaxed flex-1 line-clamp-2 mb-3">{cert.description}</p>
 
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-          <span className="font-black text-navy-900 text-sm">{price === 0 ? t("free") : `$${price.toFixed(2)}`}</span>
+          <span className="font-black text-navy-900 text-sm">{price === 0 ? t("free") : formatResolvedPrice(cert.resolved_price, price)}</span>
           {enrolled ? (
             <Link href="/learn" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
               {t("continueArrow")}
@@ -252,9 +254,13 @@ export default function CertificatesPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const { items } = useCartStore();
   const t = useTranslations("Certificates");
+  const currency = useCurrencyStore((s) => s.currency);
+  const initCurrencies = useCurrencyStore((s) => s.init);
+
+  useEffect(() => { initCurrencies(); }, [initCurrencies]);
 
   const { data: certsRaw }       = useSWR(token ? ["/certificates/my", token] : null, ([u, t]) => fetcher(u, t));
-  const { data: catalogRaw }     = useSWR("/courses", publicFetcher);
+  const { data: catalogRaw }     = useSWR(`/courses?currency=${currency}`, publicFetcher);
   const { data: enrollmentsRaw } = useSWR(token ? ["/enrollments/my", token] : null, ([u, t]) => fetcher(u, t));
 
   const certificates: any[] = Array.isArray(certsRaw)       ? certsRaw       : (certsRaw?.data       ?? []);

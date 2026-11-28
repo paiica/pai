@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CertIcon } from "@/lib/cert-icons";
+import { ResolvedPrice } from "@/lib/currency";
 import { useAuthStore } from "@/store/auth.store";
 import { useCartStore } from "@/store/cart.store";
+import { useCurrencyStore } from "@/store/currency.store";
 
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL      || "http://localhost:4000/api/v1";
 const MARKETING = process.env.NEXT_PUBLIC_MARKETING_URL || "https://paii.ca";
@@ -60,6 +62,7 @@ type CatalogItem = {
   subtitle?: string;
   price: number;
   finalPrice?: number;
+  resolvedPrice?: ResolvedPrice;
   memberDiscountPercentage?: number;
   slug: string;
   href: string;
@@ -101,9 +104,18 @@ function getCertLevelLabels(t: ReturnType<typeof useTranslations>): Record<strin
 
 function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
   const grad = GRADIENTS[index % GRADIENTS.length];
-  const price = item.price;
+  const price = item.price;                    // raw USD — what actually gets added to cart
   const pct = item.memberDiscountPercentage ?? 0;
-  const finalPrice = item.finalPrice ?? price;
+  const finalPrice = item.finalPrice ?? price;  // raw USD, member discount applied
+
+  // Display-only: resolvedPrice.price is the converted base price, so the
+  // member discount (a flat percentage) is reapplied on top of it for
+  // display rather than converting the already-discounted USD figure —
+  // same percentage either way, just applied in the currency being shown.
+  const symbol = item.resolvedPrice?.symbol ?? "$";
+  const currencySuffix = item.resolvedPrice?.is_converted ? ` ${item.resolvedPrice.currency_code}` : "";
+  const displayPrice = item.resolvedPrice?.price ?? price;
+  const displayFinalPrice = pct > 0 ? Math.max(0, Math.round(displayPrice * (1 - pct / 100) * 100) / 100) : displayPrice;
   const token = useAuthStore((s) => s.accessToken);
   const { addItem, hasItem } = useCartStore();
   const inCart = item.cartId ? hasItem(item.cartId) : false;
@@ -205,9 +217,9 @@ function CatalogCard({ item, index }: { item: CatalogItem; index: number }) {
             </span>
           )}
           <span className="ml-auto flex items-center gap-1.5">
-            {pct > 0 && <span className="text-xs text-slate-400 font-semibold line-through">${price.toFixed(0)}</span>}
+            {pct > 0 && <span className="text-xs text-slate-400 font-semibold line-through">{symbol}{displayPrice.toFixed(0)}</span>}
             <span className="text-lg font-black text-navy-900">
-              {finalPrice === 0 ? t("free") : `$${finalPrice.toFixed(0)}`}
+              {displayFinalPrice === 0 ? t("free") : `${symbol}${displayFinalPrice.toFixed(0)}${currencySuffix}`}
             </span>
           </span>
         </div>
@@ -306,6 +318,8 @@ function ActiveFilterPill({ label, onRemove, variant = "navy" }: { label: string
 export default function OnlineToolsPage() {
   const token = useAuthStore((s) => s.accessToken);
   const t = useTranslations("Tools");
+  const currency = useCurrencyStore((s) => s.currency);
+  const initCurrencies = useCurrencyStore((s) => s.init);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<Set<CatalogType>>(new Set());
   const [priceFilter, setPriceFilter] = useState<Set<"free" | "paid">>(new Set());
@@ -320,6 +334,8 @@ export default function OnlineToolsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => { initCurrencies(); }, [initCurrencies]);
 
   function toggleType(t: CatalogType) {
     setTypeFilter((prev) => {
@@ -336,10 +352,10 @@ export default function OnlineToolsPage() {
     });
   }
 
-  const { data: toolsRaw,   isLoading: loadingTools }   = useSWR("/online-tools", fetcher);
-  const { data: coursesRaw, isLoading: loadingCourses } = useSWR("/prep-courses", fetcher);
-  const { data: certsRaw,   isLoading: loadingCerts }   = useSWR("/courses/catalog", fetcher);
-  const { data: programsRaw, isLoading: loadingPrograms } = useSWR("/programs", fetcher);
+  const { data: toolsRaw,   isLoading: loadingTools }   = useSWR(`/online-tools?currency=${currency}`, fetcher);
+  const { data: coursesRaw, isLoading: loadingCourses } = useSWR(`/prep-courses?currency=${currency}`, fetcher);
+  const { data: certsRaw,   isLoading: loadingCerts }   = useSWR(`/courses/catalog?currency=${currency}`, fetcher);
+  const { data: programsRaw, isLoading: loadingPrograms } = useSWR(`/programs?currency=${currency}`, fetcher);
   const { data: myProgramEnrollmentsRaw } = useSWR(
     token ? ["/programs/my", token] : null,
     ([url, t]) => authFetcher(url, t)
@@ -386,7 +402,8 @@ export default function OnlineToolsPage() {
       const purchasable = !!(t.course_id || t.certification_id) && t.billing_type !== "external";
       return {
         id: t.id, type: "tool", title: t.title, subtitle: t.short_description,
-        price: Number(t.price) || 0, slug: t.slug, href: `/tools/${t.slug}`, external: true,
+        price: Number(t.price) || 0, resolvedPrice: t.resolved_price,
+        slug: t.slug, href: `/tools/${t.slug}`, external: true,
         badgeText: t.badge_text,
         purchasable,
         cartType: t.course_id ? "course" : t.certification_id ? "certification" : undefined,
@@ -400,7 +417,7 @@ export default function OnlineToolsPage() {
       const enrollment = myPrepEnrollments.find((e: any) => e.course_id === c.id);
       return {
         id: c.id, type: "course" as const, title: c.title, subtitle: c.subtitle,
-        price, finalPrice, memberDiscountPercentage: memberDiscountPct > 0 ? memberDiscountPct : undefined,
+        price, finalPrice, resolvedPrice: c.resolved_price, memberDiscountPercentage: memberDiscountPct > 0 ? memberDiscountPct : undefined,
         slug: c.slug,
         href: enrollment ? `/learn/course/${enrollment.id}` : `${MARKETING}/courses/${c.slug}`,
         external: !enrollment,
@@ -427,7 +444,8 @@ export default function OnlineToolsPage() {
     const certItems: CatalogItem[] = certs.map((c) => ({
       id: c.id, type: "certification", title: c.title, subtitle: c.description,
       recommended: recommendedCertIds.has(c.id),
-      price: Number(c.price) || 0, slug: c.slug, href: `${MARKETING}/certifications/${c.slug}`, external: true,
+      price: Number(c.price) || 0, resolvedPrice: c.resolved_price,
+      slug: c.slug, href: `${MARKETING}/certifications/${c.slug}`, external: true,
       certAcronym: c.acronym, level: c.level, badgeIcon: c.badge_icon,
       purchasable: true, cartType: "certification", cartId: c.id,
     }));
@@ -438,7 +456,8 @@ export default function OnlineToolsPage() {
       const enrollment = myProgramEnrollments.find((e: any) => e.program.id === p.id);
       return {
         id: p.id, type: "program" as const, title: p.title, subtitle: p.short_description,
-        price: Number(p.price) || 0, slug: p.slug,
+        price: Number(p.price) || 0, resolvedPrice: p.resolved_price,
+        slug: p.slug,
         href: enrollment ? `/programs/${p.id}` : `${MARKETING}/programs/${p.slug}`,
         external: !enrollment,
         level: p.level, thumbnailUrl: p.thumbnail_url,

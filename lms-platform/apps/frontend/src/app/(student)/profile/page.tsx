@@ -102,6 +102,12 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
 const BASIC_SUBSECTION_IDS = ["personal", "professional", "education"] as const;
 const BASIC_SUBSECTION_ICONS = { personal: User, professional: Briefcase, education: GraduationCap };
 
+const SECTION_IDS = ["basic", "security", "comms", "payment", "orders"] as const;
+const SECTION_ICONS = { basic: User, security: Lock, comms: Bell, payment: CreditCard, orders: FileText };
+const SECTION_LABEL_KEYS: Record<string, string> = {
+  basic: "basicTab", security: "securityTab", comms: "notificationsTab", payment: "paymentTab", orders: "ordersTab",
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ProfilePageContent() {
@@ -109,8 +115,9 @@ function ProfilePageContent() {
   const token      = useAuthStore((s) => s.accessToken)!;
   const fetchMe    = useAuthStore((s) => s.fetchMe);
   const authUser   = useAuthStore((s) => s.user);
-  const searchParams     = useSearchParams();
-  const activeSection    = searchParams.get("tab") || "basic";
+  const router            = useRouter();
+  const searchParams      = useSearchParams();
+  const activeSection     = searchParams.get("tab") || "basic";
   const [activeSubsection, setActiveSubsection] = useState("personal");
 
   // Handle redirect back from email-change verification link — run once on mount only
@@ -161,6 +168,26 @@ function ProfilePageContent() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 lg:px-8 py-8">
+        <div className="flex flex-wrap gap-1 mb-6 border-b border-slate-200">
+          {SECTION_IDS.map((id) => {
+            const Icon = SECTION_ICONS[id];
+            return (
+              <button
+                key={id}
+                onClick={() => router.push(`/profile?tab=${id}`, { scroll: false })}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg -mb-px border-b-2 transition-colors ${
+                  activeSection === id
+                    ? "border-navy-700 text-navy-900 bg-white"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Icon size={12} />
+                {t(SECTION_LABEL_KEYS[id])}
+              </button>
+            );
+          })}
+        </div>
+
         <div className={activeSection !== "basic"    ? "hidden" : ""}>
           <BasicSection
             token={token} profile={profile} email={email}
@@ -284,7 +311,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
     <div className="space-y-5">
       <SectionTitle>{t("personalInformation")}</SectionTitle>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("firstName")} required>
           <input className="input-base" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         </Field>
@@ -333,7 +360,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
         )}
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("phoneNumber")}>
           <input className="input-base" type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </Field>
@@ -342,7 +369,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("gender")}>
           <select className="input-base" value={gender} onChange={(e) => setGender(e.target.value)}>
             <option value="">{t("preferNotToSay")}</option>
@@ -374,7 +401,7 @@ function PersonalSubsection({ token, profile, email, mutate, fetchMe }: any) {
           </select>
           <input className="input-base" placeholder={t("streetAddress")} value={address.line1} onChange={(e) => setAddress(a => ({ ...a, line1: e.target.value }))} />
           <input className="input-base" placeholder={t("aptSuite")} value={address.line2} onChange={(e) => setAddress(a => ({ ...a, line2: e.target.value }))} />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input className="input-base" placeholder={t("city")} value={address.city} onChange={(e) => setAddress(a => ({ ...a, city: e.target.value }))} />
             <input className="input-base" placeholder={t("stateProvince")} value={address.state} onChange={(e) => setAddress(a => ({ ...a, state: e.target.value }))} />
             <input className="input-base" placeholder={t("postalCode")} value={address.zip} onChange={(e) => setAddress(a => ({ ...a, zip: e.target.value }))} />
@@ -398,6 +425,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
   const [yearsExp,     setYearsExp]     = useState("");
   const [linkedin,     setLinkedin]     = useState("");
   const [entries,      setEntries]      = useState<ExperienceEntry[]>([]);
+  const [newIds,       setNewIds]       = useState<Set<string>>(new Set());
   const [saving,       setSaving]       = useState(false);
 
   useEffect(() => {
@@ -416,7 +444,9 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
   }, [profile]);
 
   function addEntry() {
-    setEntries(prev => [...prev, { id: uid(), title: "", company: "", location: "", start_date: "", end_date: "", is_current: false, description: "" }]);
+    const id = uid();
+    setEntries(prev => [...prev, { id, title: "", company: "", location: "", start_date: "", end_date: "", is_current: false, description: "" }]);
+    setNewIds(prev => new Set(prev).add(id));
   }
   function removeEntry(id: string) { setEntries(prev => prev.filter(e => e.id !== id)); }
   function updateEntry(id: string, field: keyof ExperienceEntry, value: any) {
@@ -455,7 +485,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
         </select>
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("jobTitle")}>
           <input className="input-base" placeholder={t("jobTitlePlaceholder")} value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
         </Field>
@@ -464,7 +494,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("industry")}>
           <select className="input-base" value={industry} onChange={(e) => setIndustry(e.target.value)}>
             <option value="">{t("select")}</option>
@@ -497,6 +527,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
             <ExperienceCard
               key={entry.id}
               entry={entry}
+              defaultOpen={newIds.has(entry.id)}
               onChange={(f, v) => updateEntry(entry.id, f, v)}
               onRemove={() => removeEntry(entry.id)}
             />
@@ -521,6 +552,7 @@ function ProfessionalSubsection({ token, profile, mutate }: any) {
 function EducationSubsection({ token, profile, mutate }: any) {
   const t = useTranslations("Profile");
   const [entries, setEntries] = useState<EducationEntry[]>([]);
+  const [newIds,  setNewIds]  = useState<Set<string>>(new Set());
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
@@ -542,10 +574,12 @@ function EducationSubsection({ token, profile, mutate }: any) {
   }, [profile]);
 
   function addEntry() {
+    const id = uid();
     setEntries(prev => [...prev, {
-      id: uid(), institution: "", degree: "", field_of_study: "",
+      id, institution: "", degree: "", field_of_study: "",
       start_year: "", end_year: "", is_current: false,
     }]);
+    setNewIds(prev => new Set(prev).add(id));
   }
 
   function removeEntry(id: string) {
@@ -582,6 +616,7 @@ function EducationSubsection({ token, profile, mutate }: any) {
           <EducationCard
             key={entry.id}
             entry={entry}
+            defaultOpen={newIds.has(entry.id)}
             onChange={(f, v) => updateEntry(entry.id, f, v)}
             onRemove={() => removeEntry(entry.id)}
           />
@@ -600,13 +635,14 @@ function EducationSubsection({ token, profile, mutate }: any) {
   );
 }
 
-function EducationCard({ entry, onChange, onRemove }: {
+function EducationCard({ entry, defaultOpen, onChange, onRemove }: {
   entry: EducationEntry;
+  defaultOpen?: boolean;
   onChange: (f: keyof EducationEntry, v: any) => void;
   onRemove: () => void;
 }) {
   const t = useTranslations("Profile");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!!defaultOpen);
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -626,7 +662,7 @@ function EducationCard({ entry, onChange, onRemove }: {
           <Field label={t("institutionUniversity")} required>
             <input className="input-base" placeholder={t("institutionPlaceholder")} value={entry.institution} onChange={(e) => onChange("institution", e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label={t("degree")}>
               <select className="input-base" value={entry.degree} onChange={(e) => onChange("degree", e.target.value)}>
                 <option value="">{t("select")}</option>
@@ -639,7 +675,7 @@ function EducationCard({ entry, onChange, onRemove }: {
               <input className="input-base" placeholder={t("fieldOfStudyPlaceholder")} value={entry.field_of_study} onChange={(e) => onChange("field_of_study", e.target.value)} />
             </Field>
           </div>
-          <div className="grid grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <Field label={t("startYear")}>
               <input className="input-base" type="number" min="1950" max="2030" placeholder="2018" value={entry.start_year} onChange={(e) => onChange("start_year", e.target.value)} />
             </Field>
@@ -657,13 +693,14 @@ function EducationCard({ entry, onChange, onRemove }: {
   );
 }
 
-function ExperienceCard({ entry, onChange, onRemove }: {
+function ExperienceCard({ entry, defaultOpen, onChange, onRemove }: {
   entry: ExperienceEntry;
+  defaultOpen?: boolean;
   onChange: (f: keyof ExperienceEntry, v: any) => void;
   onRemove: () => void;
 }) {
   const t = useTranslations("Profile");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!!defaultOpen);
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -680,7 +717,7 @@ function ExperienceCard({ entry, onChange, onRemove }: {
 
       {open && (
         <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label={t("jobTitle")} required>
               <input className="input-base" placeholder={t("jobTitlePlaceholder")} value={entry.title} onChange={(e) => onChange("title", e.target.value)} />
             </Field>
@@ -691,7 +728,7 @@ function ExperienceCard({ entry, onChange, onRemove }: {
           <Field label={t("location")}>
             <input className="input-base" placeholder={t("locationPlaceholder")} value={entry.location} onChange={(e) => onChange("location", e.target.value)} />
           </Field>
-          <div className="grid grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <Field label={t("startDate")}>
               <input className="input-base" type="month" value={entry.start_date} onChange={(e) => onChange("start_date", e.target.value)} />
             </Field>
